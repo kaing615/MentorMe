@@ -1,12 +1,23 @@
 version: '3.8'
 
 services:
+  mongo:
+    image: mongo:6
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+
   backend:
     build: ./backend
     ports:
       - "4000:4000"
     env_file:
       - ./backend/.env
+    environment:
+      - MONGO_URL=mongodb://mongo:27017/mentorme-local
+    depends_on:
+      - mongo
     volumes:
       - ./backend:/app
     restart: always
@@ -14,7 +25,8 @@ services:
   frontend:
     build: ./frontend
     ports:
-      - "5173:5173"
-    volumes:
-      - ./frontend:/app
+      - "3000:3000"
     restart: always
+
+volumes:
+  mongo_data:
