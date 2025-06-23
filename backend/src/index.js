@@ -15,10 +15,7 @@ app.get('/', (req, res) => {
     res.send('Welcome to the MentorMe backend!');
 });
 
-mongoose.connect(process.env.MONGODB_URL, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true
-})
+mongoose.connect(process.env.MONGO_URL)
     .then(() => {
         console.log("MongoDB connected");
         app.listen(PORT, () => {
