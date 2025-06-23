@@ -66,15 +66,18 @@ docker-compose up --build
 ```bash
 MentorMe/
 ├── backend/
+│   ├── public/
 │   ├── src/
 │   ├── .env
 │   └── Dockerfile
 ├── frontend/
+│   ├── public/
 │   ├── src/
 │   └── Dockerfile
 ├── docker-compose.yml
 ├── README.md
 └── .gitignore
+└── README.md
 ```
 ---
 ## Chú ý workflow
