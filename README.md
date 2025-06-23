@@ -59,7 +59,7 @@ npm run dev
 
 ### 4. Chạy bằng Docker Compose (tùy chọn)
 ```bash
-docker-compose up --build
+docker compose up --build
 ```
 
 ### Cấu trúc thư mục
