@@ -52,8 +52,7 @@ npm install
 ### 3. Cài đặt frontend
 
 ```bash
-cd backend
-cp .env.example .env        # Tạo file .env và điền biến môi trường (MongoDB, JWT, PORT)
+cd frontend
 npm install
 ```
 
