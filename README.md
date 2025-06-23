@@ -52,14 +52,15 @@ npm install
 ### 3. Cài đặt frontend
 
 ```bash
-cd frontend
+cd backend
+cp .env.example .env        # Tạo file .env và điền biến môi trường (MongoDB, JWT, PORT)
 npm install
 ```
 
 ### 4. Chạy bằng Docker Compose
 
 ```bash
-docker compose up --build
+docker-compose up --build
 ```
 
 ### Cấu trúc thư mục
@@ -89,7 +90,7 @@ MentorMe/
 
 Ví dụ:
 
-#### Tạo nhánh:
+#### Tạo nhánh
 
 ```bash
 git checkout main
@@ -97,7 +98,7 @@ git pull origin main
 git checkout -b feature/tam-auth
 ```
 
-#### Commit:
+#### Commit
 
 ```bash
 git add .
@@ -118,6 +119,7 @@ Nếu nhiều bạn cùng sửa chung 1 file, sẽ dễ bị merge conflict. Nê
 feature/tennguoi-chucnang hoặc tennguoi-chucnang (dễ nhớ, đồng bộ là được).
 
 ## Tóm lại
+
 - **KHÔNG push thẳng lên main.**
 
 - **NÊN mỗi bạn 1 nhánh riêng, hoặc mỗi tính năng 1 nhánh.**
