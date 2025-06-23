@@ -60,7 +60,7 @@ npm install
 ### 4. Chạy bằng Docker Compose
 
 ```bash
-docker-compose up --build
+docker compose up --build
 ```
 
 ### Cấu trúc thư mục
@@ -119,7 +119,6 @@ Nếu nhiều bạn cùng sửa chung 1 file, sẽ dễ bị merge conflict. Nê
 feature/tennguoi-chucnang hoặc tennguoi-chucnang (dễ nhớ, đồng bộ là được).
 
 ## Tóm lại
-
 - **KHÔNG push thẳng lên main.**
 
 - **NÊN mỗi bạn 1 nhánh riêng, hoặc mỗi tính năng 1 nhánh.**
