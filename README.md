@@ -71,7 +71,6 @@ MentorMe/
 │   └── Dockerfile
 ├── frontend/
 │   ├── src/
-│   ├── .env
 │   └── Dockerfile
 ├── docker-compose.yml
 ├── README.md
