@@ -90,7 +90,7 @@ MentorMe/
 
 Ví dụ:
 
-#### Tạo nhánh:
+#### Tạo nhánh
 
 ```bash
 git checkout main
@@ -98,7 +98,7 @@ git pull origin main
 git checkout -b feature/tam-auth
 ```
 
-#### Commit:
+#### Commit
 
 ```bash
 git add .
