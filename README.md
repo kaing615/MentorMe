@@ -108,11 +108,11 @@ Nếu nhiều bạn cùng sửa chung 1 file, sẽ dễ bị merge conflict. Nê
 feature/tennguoi-chucnang hoặc tennguoi-chucnang (dễ nhớ, đồng bộ là được).
 
 ## Tóm lại
-### KHÔNG push thẳng lên main.
+- **KHÔNG push thẳng lên main.**
 
-### NÊN mỗi bạn 1 nhánh riêng, hoặc mỗi tính năng 1 nhánh.
+- **NÊN mỗi bạn 1 nhánh riêng, hoặc mỗi tính năng 1 nhánh.**
 
-### Tạo PR, review rồi merge vào main.
+- **Tạo PR, review rồi merge vào main.**
 
 
 
