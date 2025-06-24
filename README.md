@@ -82,7 +82,6 @@ MentorMe/
 ├── docker-compose.yml
 ├── README.md
 └── .gitignore
-└── README.md
 ```
 
 ---
