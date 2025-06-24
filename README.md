@@ -55,7 +55,7 @@ Nên chạy bằng Docker để đồng bộ
 cd backend
 cp .env.example .env        # Tạo file .env và điền biến môi trường (MongoDB, JWT, PORT)
 npm install
-npm run de
+npm run dev
 ```
 
 #### Cài đặt frontend
