@@ -48,7 +48,7 @@ docker compose up --build
 ```
 
 ### Chạy Local
-# Nên chạy bằng Docker để đồng bộ
+Nên chạy bằng Docker để đồng bộ
 #### Cài đặt backend
 
 ```bash
