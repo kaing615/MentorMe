@@ -35,31 +35,35 @@
 
 ## ⚡️ Khởi động nhanh dự án
 
-### 1. Clone code về máy
+### Clone code về máy
 
 ```bash
 git clone https://github.com/kaing615/MentorMe/
 ```
 
-### 2. Cài đặt backend
+### Chạy bằng Docker Compose
+
+```bash
+docker compose up --build
+```
+
+### Chạy Local
+# Nên chạy bằng Docker để đồng bộ
+#### Cài đặt backend
 
 ```bash
 cd backend
 cp .env.example .env        # Tạo file .env và điền biến môi trường (MongoDB, JWT, PORT)
 npm install
+npm run de
 ```
 
-### 3. Cài đặt frontend
+#### Cài đặt frontend
 
 ```bash
 cd frontend 
 npm install
-```
-
-### 4. Chạy bằng Docker Compose
-
-```bash
-docker-compose up --build
+npm run dev            
 ```
 
 ### Cấu trúc thư mục
