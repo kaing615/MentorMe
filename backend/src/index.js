@@ -5,6 +5,7 @@ import cors from "cors";
 import path from 'path';
 import helmet from 'helmet';
 import bodyParser from 'body-parser';
+import multer from 'multer';
 import morgan from 'morgan';
 import { fileURLToPath } from 'url';
 
