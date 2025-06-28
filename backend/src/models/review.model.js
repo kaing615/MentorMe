@@ -1,12 +1,18 @@
 import mongoose from "mongoose";
 
-const ReviewSchema = new mongoose.Schema({
-  mentor: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
-  mentee: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
-  course: { type: mongoose.Schema.Types.ObjectId, ref: "Course" },
-  content: String,
-  rate: Number,
-  sentAt: { type: Date, default: Date.now }
-});
+const ReviewSchema = new mongoose.Schema(
+  {
+    author: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    targetType: {
+      type: String,
+      enum: ["Course", "Mentor", "Booking"],
+      required: true,
+    },
+    target: { type: mongoose.Schema.Types.ObjectId, required: true },
+    content: String,
+    rate: { type: Number, required: true },
+  },
+  { timestamps: true }
+);
 
-export default mongoose.model("review", ReviewSchema);
+export default mongoose.model("Review", ReviewSchema);
