@@ -2,14 +2,16 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import responseHandler from "../handlers/response.handler";
 import User from "../models/user.model";
-import mailgun from "mailgun-js";
+import formData from "form-data";
+import Mailgun from "mailgun.js";
 import dotenv from "dotenv";
 
 dotenv.config();
 
-const mg = mailgun({
-  apiKey: process.env.MAILGUN_API_KEY,
-  domain: process.env.MAILGUN_DOMAIN,
+const mailgun = new Mailgun(formData);
+const mg = mailgun.client({
+  username: "api",
+  key: process.env.MAILGUN_API_KEY,
 });
 
 export const sendVerificationEmail = async (email, verifyKey, userName) => {
@@ -30,7 +32,7 @@ export const sendVerificationEmail = async (email, verifyKey, userName) => {
     `,
   };
 
-  return mg.messages().send(data);
+  return mg.messages.create(process.env.MAILGUN_DOMAIN, data);
 };
 
 export const verifyEmail = async (req, res) => {
