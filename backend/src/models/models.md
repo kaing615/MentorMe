@@ -7,6 +7,6 @@
 
 **Ví dụ:**
 
-- `User.js`
-- `Booking.js`
-- `Review.js`
+- `user.model.js`
+- `booking.model.js`
+- `review.model.js`
