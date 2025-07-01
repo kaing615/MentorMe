@@ -234,7 +234,14 @@ export const signIn = async (req, res) => {
       return responseHandler.unauthorized(res, "Invalid email or password.");
 
     const token = jwt.sign(
-      { id: user._id, role: user.role },
+      {
+        id: user._id,
+        role: user.role,
+        avatar: user.avatar,
+        userName: user.userName,
+        firstName: user.firstName,
+        lastName: user.lastName,
+      },
       process.env.JWT_SECRET,
       { expiresIn: "7d" }
     );
