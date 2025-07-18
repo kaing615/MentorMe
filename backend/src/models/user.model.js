@@ -34,6 +34,8 @@ const UserSchema = new mongoose.Schema(
     role: [{ type: String, enum: ["mentor", "mentee"] }],
     isVerified: { type: Boolean, default: false },
     verifyKey: String,
+    resetToken: { type: String },
+    resetTokenExpires: { type: Date },
   },
   { timestamps: true }
 );
