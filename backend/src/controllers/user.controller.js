@@ -26,7 +26,7 @@ export const sendVerificationEmail = async (email, verifyKey, userName) => {
 		email
 	)}&verifyKey=${verifyKey}`;
 	const data = {
-		from: "MentorMe <no-reply@cinemagate.com>",
+		from: "MentorMe <no-reply@mentorme.com>",
 		to: email,
 		subject: "Xác thực tài khoản MentorMe",
 		html: `
@@ -301,7 +301,7 @@ export const forgotPassword = async (req, res) => {
 		)}`;
 
 		await transport.sendMail({
-			from: "MentorMe <no-reply@cinemagate.com>",
+			from: "MentorMe <no-reply@mentorme.com>",
 			to: email,
 			subject: "Đặt lại mật khẩu MentorMe",
 			html: `
@@ -354,141 +354,4 @@ export default {
 	resendVerificationEmail,
 	forgotPassword,
 	resetPassword,
-};
-
-export const signIn = async (req, res) => {
-  try {
-    const { email, password } = req.body;
-
-    if (!email || !password)
-      return responseHandler.badRequest(
-        res,
-        "Email and password are required."
-      );
-
-    const user = await User.findOne({ email });
-    if (!user) return responseHandler.notFound(res, "User not found.");
-
-    if (!user.isVerified)
-      return responseHandler.forbidden(
-        res,
-        "Please verify your email before logging in."
-      );
-
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch)
-      return responseHandler.unauthorized(res, "Invalid email or password.");
-
-    const token = jwt.sign(
-      {
-        id: user._id,
-        role: user.role,
-        avatar: user.avatar,
-        userName: user.userName,
-        firstName: user.firstName,
-        lastName: user.lastName,
-      },
-      process.env.JWT_SECRET,
-      { expiresIn: "7d" }
-    );
-
-    const userData = user.toObject();
-    delete userData.password;
-    delete userData.salt;
-    delete userData.verifyKey;
-
-    return responseHandler.ok(res, {
-      token,
-      ...userData,
-      id: user._id,
-    });
-  } catch (err) {
-    console.error("Login error:", err);
-    responseHandler.error(res);
-  }
-};
-
-export const forgotPassword = async (req, res) => {
-  try {
-    const { email } = req.body;
-    const user = await User.findOne({ email });
-    if (!user)
-      return responseHandler.ok(res, {
-        message: "If this email exists, sent a reset link.",
-      });
-
-    const resetToken = Math.random().toString(36).substring(2, 15);
-    user.resetToken = resetToken;
-    user.resetTokenExpires = Date.now() + 15 * 60 * 1000;
-
-    await user.save();
-
-    const resetLink = `https://mentorme.com/reset-password?token=${resetToken}&email=${encodeURIComponent(
-      email
-    )}`;
-    await mg.messages.create(process.env.MAILGUN_DOMAIN, {
-      from: "MentorMe <no-reply@yourdomain.com>",
-      to: email,
-      subject: "Reset your MentorMe password",
-      html: `
-        <p>Click the link below to reset your password. The link will expire in 15 minutes:</p>
-        <a href="${resetLink}">${resetLink}</a>
-      `,
-    });
-
-    return responseHandler.ok(res, {
-      message: "If this email exists, sent a reset link.",
-    });
-  } catch (err) {
-    responseHandler.error(res);
-  }
-};
-
-export const resetPassword = async (req, res) => {
-  try {
-    const { email, token, newPassword } = req.body;
-    const user = await User.findOne({
-      email,
-      resetToken: token,
-      resetTokenExpires: { $gt: Date.now() },
-    });
-    if (!user)
-      return responseHandler.badRequest(res, "Invalid or expired reset link.");
-
-    user.password = await bcrypt.hash(newPassword, 10);
-    user.resetToken = undefined;
-    user.resetTokenExpires = undefined;
-    await user.save();
-
-    return responseHandler.ok(res, { message: "Password reset successful." });
-  } catch (err) {
-    responseHandler.error(res);
-  }
-};
-
-export const changePassword = async (req, res) => {
-  try {
-    const { oldPassword, newPassword } = req.body;
-    const user = req.user;
-
-    if (!oldPassword || !newPassword)
-      return responseHandler.badRequest(
-        res,
-        "Old and new password are required."
-      );
-
-    const isMatch = await bcrypt.compare(oldPassword, user.password);
-    if (!isMatch)
-      return responseHandler.unauthorized(res, "Old password is incorrect.");
-
-    user.password = await bcrypt.hash(newPassword, 10);
-    await user.save();
-
-    return responseHandler.ok(res, {
-      message: "Password changed successfully.",
-    });
-  } catch (err) {
-    console.error("Change password error:", err);
-    responseHandler.error(res);
-  }
 };
