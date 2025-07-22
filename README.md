@@ -127,3 +127,25 @@ feature/tennguoi-chucnang hoặc tennguoi-chucnang (dễ nhớ, đồng bộ là
 - **NÊN mỗi bạn 1 nhánh riêng, hoặc mỗi tính năng 1 nhánh.**
 
 - **Tạo PR, review rồi merge vào main.**
+
+## Chú ý trước khi merge vào main
+### Bước 1: Làm tính năng trên nhánh riêng của mình
+Code, commit, test tính năng.
+
+Push nhánh đó lên GitHub.
+
+### Bước 2: Khi tính năng đã xong → Tạo pull request (PR) về main
+Không merge thẳng!
+
+Tạo PR để review:
+
+-  Code của bạn sẽ được các bạn khác hoặc Leader review, test thử.
+
+-  Có thể sẽ phải sửa lỗi hoặc resolve conflict.
+
+### Bước 3: Chỉ merge vào main khi:
+PR đã được duyệt (approve).
+
+Đã test ổn, không conflict với main.
+
+Thường sẽ có 1-2 người review/duyệt trước khi merge vào main.
