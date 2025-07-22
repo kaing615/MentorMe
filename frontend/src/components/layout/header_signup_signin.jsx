@@ -1,6 +1,29 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 
 const Header = () => {
+  const [showCategories, setShowCategories] = useState(false);
+
+  // Lắng nghe sự thay đổi từ localStorage khi có component khác click "Apply to be a Mentor"
+  useEffect(() => {
+    // Kiểm tra localStorage khi component mount
+    const mentorMode = localStorage.getItem('mentorMode') === 'true';
+    setShowCategories(mentorMode);
+
+    // Lắng nghe sự thay đổi localStorage từ các tab/component khác
+    const handleStorageChange = (e) => {
+      if (e.key === 'mentorMode') {
+        setShowCategories(e.newValue === 'true');
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    
+    // Cleanup
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, []);
+
   return (
     <header className="w-full h-16 relative bg-white">
       <div className="w-full h-full flex items-center px-14 relative">
@@ -9,15 +32,18 @@ const Header = () => {
           MentorMe
         </div>
 
-        {/* Mentors */}
-        <div className="text-slate-500 text-[16px] font-inter font-medium leading-5 mr-10 whitespace-nowrap cursor-pointer hover:text-slate-600 transition-colors duration-200 hidden md:block">
-          Mentors
-        </div>
-
-        {/* Categories */}
-        {/* <div className="text-slate-500 text-[16px] font-inter font-medium leading-5 mr-10 whitespace-nowrap cursor-pointer hover:text-slate-600 transition-colors duration-200 hidden md:block">
-          Categories
-        </div> */}
+        {/* Conditional rendering: Mentors hoặc Categories */}
+        {!showCategories ? (
+          /* Mentors */
+          <div className="text-slate-500 text-[16px] font-inter font-medium leading-5 mr-10 whitespace-nowrap cursor-pointer hover:text-slate-600 transition-colors duration-200 hidden md:block">
+            Mentors
+          </div>
+        ) : (
+          /* Categories */
+          <div className="text-slate-500 text-[16px] font-inter font-medium leading-5 mr-10 whitespace-nowrap cursor-pointer hover:text-slate-600 transition-colors duration-200 hidden md:block">
+            Categories
+          </div>
+        )}
 
 
         {/* Search Bar */}
