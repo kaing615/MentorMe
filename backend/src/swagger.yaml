@@ -1,0 +1,241 @@
+openapi: 3.0.0
+info:
+  title: MentorMe API Docs
+  version: 1.0.0
+  description: API documentation for MentorMe backend
+
+servers:
+  - url: http://localhost:4000
+
+paths:
+  /user/signup:
+    post:
+      tags:
+        - Auth
+      summary: Đăng ký tài khoản người dùng thường
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - firstName
+                - lastName
+                - userName
+                - email
+                - password
+                - confirmPassword
+              properties:
+                firstName:
+                  type: string
+                lastName:
+                  type: string
+                userName:
+                  type: string
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                confirmPassword:
+                  type: string
+      responses:
+        "201":
+          description: Đăng ký thành công (vui lòng kiểm tra email xác thực)
+        "400":
+          description: Lỗi validate hoặc đăng ký thất bại
+
+  /user/signupMentor:
+    post:
+      tags:
+        - Auth
+      summary: Đăng ký tài khoản mentor (có upload avatar)
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - firstName
+                - lastName
+                - userName
+                - email
+                - password
+                - confirmPassword
+                - jobTitle
+                - location
+                - category
+                - skills
+                - bio
+                - mentorReason
+                - greatestAchievement
+                - avatar
+              properties:
+                firstName:
+                  type: string
+                lastName:
+                  type: string
+                userName:
+                  type: string
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                confirmPassword:
+                  type: string
+                jobTitle:
+                  type: string
+                location:
+                  type: string
+                category:
+                  type: string
+                skills:
+                  type: array
+                  items:
+                    type: string
+                bio:
+                  type: string
+                linkedinUrl:
+                  type: string
+                  format: uri
+                mentorReason:
+                  type: string
+                greatestAchievement:
+                  type: string
+                introVideo:
+                  type: string
+                  format: uri
+                avatar:
+                  type: string
+                  format: binary
+      responses:
+        "201":
+          description: Đăng ký mentor thành công
+        "400":
+          description: Lỗi validate hoặc đăng ký thất bại
+
+  /user/signin:
+    post:
+      tags:
+        - Auth
+      summary: Đăng nhập (cho cả mentor/mentee)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+      responses:
+        "200":
+          description: Đăng nhập thành công
+        "400":
+          description: Email hoặc mật khẩu không đúng
+
+  /user/verify:
+    get:
+      tags:
+        - Auth
+      summary: Xác thực email từ link gửi về email
+      parameters:
+        - in: query
+          name: email
+          schema:
+            type: string
+          required: true
+        - in: query
+          name: verifyKey
+          schema:
+            type: string
+          required: true
+      responses:
+        "200":
+          description: Xác thực email thành công
+        "400":
+          description: Lỗi xác thực email
+
+  /user/resend-verification-email:
+    post:
+      tags:
+        - Auth
+      summary: Gửi lại email xác thực
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+              properties:
+                email:
+                  type: string
+                  format: email
+      responses:
+        "200":
+          description: Gửi lại email xác thực thành công
+        "400":
+          description: Không tìm thấy user hoặc đã xác thực
+
+  /user/forgot-password:
+    post:
+      tags:
+        - Auth
+      summary: Yêu cầu đặt lại mật khẩu
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+              properties:
+                email:
+                  type: string
+                  format: email
+      responses:
+        "200":
+          description: Đã gửi mail đặt lại mật khẩu (nếu user tồn tại)
+        "400":
+          description: Lỗi không tìm thấy user
+
+  /user/reset-password:
+    post:
+      tags:
+        - Auth
+      summary: Đặt lại mật khẩu bằng token từ email
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - token
+                - newPassword
+              properties:
+                email:
+                  type: string
+                  format: email
+                token:
+                  type: string
+                newPassword:
+                  type: string
+      responses:
+        "200":
+          description: Đặt lại mật khẩu thành công
+        "400":
+          description: Token không hợp lệ hoặc lỗi validate
