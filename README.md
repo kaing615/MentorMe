@@ -134,18 +134,30 @@ Code, commit, test tính năng.
 
 Push nhánh đó lên GitHub.
 
-### Bước 2: Khi tính năng đã xong → Tạo pull request (PR) về main
-Không merge thẳng!
+### Bước 2: Merge vào branch dev trước
+Tạo Pull Request (PR) từ nhánh feature vào dev.
 
-Tạo PR để review:
+Test tích hợp trên nhánh dev (có thể deploy lên dev server cho team review/test).
 
--  Code của bạn sẽ được các bạn khác hoặc Leader review, test thử.
+Fix bug, resolve conflict nếu có.
 
--  Có thể sẽ phải sửa lỗi hoặc resolve conflict.
+Không làm việc trực tiếp trên dev, chỉ merge từ feature branch vào.
 
-### Bước 3: Chỉ merge vào main khi:
-PR đã được duyệt (approve).
+### Bước 3: Khi đã test xong trên dev → Tạo Pull Request từ dev vào main
+Chỉ merge dev vào main khi đã test ổn định.
 
-Đã test ổn, không conflict với main.
+Không được merge thẳng, luôn tạo PR để review lại lần cuối.
 
-Thường sẽ có 1-2 người review/duyệt trước khi merge vào main.
+### Bước 4: Review kỹ trước khi merge vào main:
+Đảm bảo PR đã được duyệt (approve) đủ số người (leader hoặc reviewer).
+
+Check conflict, check CI/CD build pass.
+
+## 👥 Contributors :
+### Leader : Nguyễn Đình Tâm (DevOps, Backend)
+- Văn Công Khoa (Backend, Frontend)
+- Trần Minh Quang (Frontend)
+- Nguyễn Phước Quý Bảo (Backend, Frontend)
+- Đỗ Đăng Khoa (Backend, Frontend)
+- Phạm Đăng Khoa (Frontend)
+- Huỳnh Lê Đại Thắng (DevOps, Backend)
