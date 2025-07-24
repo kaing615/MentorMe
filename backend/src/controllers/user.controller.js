@@ -295,6 +295,7 @@ export const signUpMentor = async (req, res) => {
       avatarUrl,
       avatarPublicId,
       role: ["mentor"],
+      isVerified: false,
       // ... các trường còn lại
       ...rest,
     });
@@ -311,6 +312,20 @@ export const signUpMentor = async (req, res) => {
     responseHandler.error(res, err.message || "Lỗi đăng ký mentor!");
   }
 };
+
+export const getPendingMentor = async (req, res) => {
+  try {
+    const mentors = await User.find({
+      role: 'mentor',
+      isVerified: false,
+    });
+
+    return responseHandler.ok(res, mentors);
+  } catch (err) {
+    console.log("Lỗi lấy mentor chờ duyệt: ", err)
+    return responseHandler.error(res, err.message || "Lỗi lấy mentor chờ duyệt!");
+  }
+}
 
 export const signIn = async (req, res) => {
   try {
