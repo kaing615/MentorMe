@@ -40,6 +40,21 @@ export const getCourses = async(req, res) => {
     }
 }
 
+export const getCourseById = async (req, res) => {
+    try {
+        const course = await Course.findById(req.params.id);
+        if (!course) return responseHandler.notFound(res, "Khoá học không tồn tại!");
+        responseHandler.ok(res, {
+            message: "Lấy thông tin khoá học thành công!",
+            course,
+        })
+    } catch (err) {
+        console.error("Lỗi lấy khoá học: ", err);
+        responseHandler.error(res, err.message);
+    }
+}
+
 export default {
     getCourses,
+    getCourseById,
 }
