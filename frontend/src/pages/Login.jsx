@@ -3,6 +3,7 @@ import ImageForLogin from "../assets/ImageForLogin.jpg";
 import fb from "../assets/facebook.png";
 import gg from "../assets/google.png";
 import mcs from "../assets/microsoft.png";
+import { IoArrowForward } from 'react-icons/io5';
 
 const Login = () => {
     const [selected, setSelected] = useState("mentee");
@@ -64,9 +65,7 @@ const Login = () => {
                     <div alt = "Create Account Button - Apply to be a Mentor" className = "mb-1 items">
                         <button className="flex items-center bg-slate-950 text-left py-3 px-6 mb-3.5 gap-2 rounded-lg border-0 cursor-pointer hover:bg-slate-800 transition-colors duration-200">
                         <span className="text-white text-md font-bold">Sign In</span>
-                        <span className="material-symbols-outlined text-white text-lg">
-                            arrow_right_alt
-                        </span>
+                        <IoArrowForward className="text-white text-lg" />
                         </button>
                     </div>
 

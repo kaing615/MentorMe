@@ -3,8 +3,25 @@ import ImageForSignUp from "../assets/ImageForSignUp.jpg";
 import fb from "../assets/facebook.png";
 import gg from "../assets/google.png";
 import mcs from "../assets/microsoft.png";
+import { authApi } from "../api/modules/auth.api";
+import { useDispatch } from 'react-redux';
+import { useNavigate } from 'react-router-dom';
+import { IoArrowForward } from 'react-icons/io5';
 
 const SignUp = () => {
+    const dispatch = useDispatch();
+    const navigate = useNavigate();
+
+    const onFinish = async( values ) => {
+        try {
+            console.log(values);
+            const res = await authApi.signup(values);
+            message.success(res?.data?.message || "Sign up successful");
+            navigate(`/auth/verify-email?email=${encodeURIComponent(values.email)}`);
+        } catch (error) {
+            console.error("Error signing up:", error);
+        }
+    }
 
     return (
         <div className = "flex items-center">
@@ -42,19 +59,15 @@ const SignUp = () => {
                         <input type = "password" placeholder = "Confirm Password" className="p-2 border border-gray-300 rounded-[9px] h-[52px] w-[345px] focus:outline-none" />
                     </div>
 
-                    <div alt = "Create Account Button - Apply to be a Mentor" className = "flex flex-row mb-4 gap-65">
+                    <div alt = "Create Account Button - Apply to be a Mentor" className = "flex flex-row mb-4 gap-75">
                         <button className="flex items-center bg-slate-950 text-left py-3 px-6 mb-3.5 gap-2 rounded-lg border-0 cursor-pointer hover:bg-slate-800 transition-colors duration-200">
                         <span className="text-white text-md font-bold">Create Account</span>
-                        <span className="material-symbols-outlined text-white text-lg">
-                            arrow_right_alt
-                        </span>
+                        <IoArrowForward className="text-white text-lg" />
                         </button>
 
                         <button className="flex items-center text-left py-3 px-6 mb-3.5 gap-1 rounded-lg border-0 cursor-pointer">
                         <span className="text-black text-md font-bold">Apply to be a Mentor</span>
-                        <span className="material-symbols-outlined text-black text-lg">
-                            arrow_right_alt
-                        </span>
+                        <IoArrowForward className="text-black text-lg" />
                         </button>
                     </div> 
 
