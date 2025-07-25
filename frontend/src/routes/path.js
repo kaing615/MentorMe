@@ -4,7 +4,6 @@ export const PATH = {
 	ADMIN: "/admin",
 	MENTEE: "/",
     MENTOR: "/mentor",
-	PLATFORM: "/platform",
 };
 
 export const AUTH_PATH = {
@@ -14,7 +13,7 @@ export const AUTH_PATH = {
 };
 
 export const MENTEE_PATH = {
-    HOME: "",
+    HOME: "home",
 };
 
 export const ADMIN_PATH = {

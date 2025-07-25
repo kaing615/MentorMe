@@ -3,7 +3,7 @@ import Header from "../common/header";
 import Footer from "../common/footer";
 import { Outlet } from "react-router-dom";
 
-const AllPagesLayout = ({ children }) => {
+const AllPagesLayout = () => {
     return (
         <div className="w-full">
             <Header />

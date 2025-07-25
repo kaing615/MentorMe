@@ -3,20 +3,24 @@ import { useRoutes, Navigate } from "react-router-dom";
 import HeaderAuth from "../components/common/header";
 // import SignUp from "../pages/SignUp";
 // import Login from "../pages/Login";
+import WelcomePage from "../pages/WelcomePage";
+import HomeScreen from "../pages/HomeScreen"
 import PlatformInterface from "../components/layout/PlatformInterface";
-import HomeScreen from "../pages/homeScreen";
-// import HomeScreen from "../pages/homeScreen";
 
 const useRouterElements = () => {
     const elements = useRoutes([
-            {
-            path: PATH.PLATFORM,
+        {
+            path: "/",
+            element: <WelcomePage /> 
+        },
+        {
+            path: PATH.MENTEE,
             element: <PlatformInterface />,
             children: [
                 {
-                    path: PLATFORM_PATH.HOMESCREEN,
-                    element: <HomeScreen />,
-                },
+                    path: MENTEE_PATH.HOME,
+                    element: <HomeScreen />
+                }
             ]
         }
     ]);
