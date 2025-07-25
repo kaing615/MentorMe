@@ -3,6 +3,7 @@ import { useRoutes, Navigate } from "react-router-dom";
 import HeaderAuth from "../components/common/header_signup_signin";
 import SignUp from "../pages/SignUp";
 import Login from "../pages/Login";
+import PlatformInterface from "../components/layout/PlatformInterface";
 
 const useRouterElements = () => {
     const elements = useRoutes([
@@ -18,6 +19,13 @@ const useRouterElements = () => {
                     path: AUTH_PATH.SIGNIN,
                     element: <Login />,
                 }
+            ],
+        },
+        {
+            path: PATH.PLATFORM,
+            element: <PlatformInterface />,
+            children: [
+                // bỏ vô đây
             ]
         }
     ]);
