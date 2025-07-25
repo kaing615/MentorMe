@@ -15,7 +15,7 @@ const Header = () => {
   useEffect(() => {
     // Kiểm tra route hiện tại để quyết định hiển thị Categories hay Mentors
     const currentPath = location.pathname;
-    const shouldShowCategories = currentPath.includes('/auth/signin') || currentPath.includes('/about-you');
+    const shouldShowCategories = currentPath.includes('/auth/signin') || currentPath.includes('/auth/apply-as-men');
     
     setShowCategories(shouldShowCategories);
     localStorage.setItem('mentorMode', shouldShowCategories.toString());

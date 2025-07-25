@@ -65,7 +65,11 @@ const SignUp = () => {
                         <IoArrowForward className="text-white text-lg" />
                         </button>
 
-                        <button className="flex items-center text-left py-3 px-6 mb-3.5 gap-1 rounded-lg border-0 cursor-pointer">
+                        <button onClick={() => {
+                          localStorage.setItem('mentorMode', 'true');
+                          navigate("/auth/apply-as-men");
+                        }}
+                         className="flex items-center text-left py-3 px-6 mb-3.5 gap-1 rounded-lg border-0 cursor-pointer">
                         <span className="text-black text-md font-bold">Apply to be a Mentor</span>
                         <IoArrowForward className="text-black text-lg" />
                         </button>
