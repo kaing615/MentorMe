@@ -162,14 +162,30 @@ export const googleAuth = async (req, res) => {
 
 export const signUp = async (req, res) => {
   try {
-    const { userName, email, password } = req.body;
+    const { userName, email, password, confirmPassword, firstName, lastName } = req.body;
+
+    if (!email) {
+      return responseHandler.badRequest(res, "Email không được bỏ trống.");
+    }
 
     const checkUser = await User.findOne({ email });
     if (checkUser)
       return responseHandler.badRequest(res, "Email đã được sử dụng.");
 
-    if (!password) {
+    if (!firstName) {
+      return responseHandler.badRequest(res, "Tên không được để trống.");
+    }
+
+    if (!lastName) {
+      return responseHandler.badRequest(res, "Họ không được để trống.");
+    }
+
+    if (!password || !confirmPassword) {
       return responseHandler.badRequest(res, "Mật khẩu không được để trống.");
+    }
+
+    if (password != confirmPassword) {
+      return responseHandler.badRequest(res, "Mật khẩu và xác nhận mật khẩu không khớp.");
     }
 
     const salt = await bcrypt.genSalt(10);
