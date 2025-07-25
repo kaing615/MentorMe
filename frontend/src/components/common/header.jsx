@@ -1,108 +1,190 @@
-import React, { useState, useEffect } from "react";
-import { FaRegHeart, FaRegBell, FaUserCircle } from "react-icons/fa";
-import { MdOutlineShoppingCart } from "react-icons/md";
+import React, { useState, useEffect } from 'react';
+import { useNavigate, Outlet } from 'react-router-dom';
+import { IoSearch, IoCartOutline } from 'react-icons/io5';
+import { FaRegHeart, FaRegBell } from 'react-icons/fa';
+import { MdOutlineShoppingCart } from 'react-icons/md';
 
 const Header = () => {
   const [showCategories, setShowCategories] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const navigate = useNavigate();
+  
 
-  const handleAPICall = async (mentorId, action) => {
-    try {
-      const res = await getMentorInfo(mentorId);
-      console.log(`${action} API result:`, res?.data);
-    } catch (err) {
-      console.error(`${action} API error:`, err);
-    }
-  };
-
+  // Lắng nghe sự thay đổi từ localStorage khi có component khác click "Apply to be a Mentor" hoặc click nút Login
   useEffect(() => {
-    const mentorMode = localStorage.getItem("mentorMode") === "true";
-    // You can use mentorMode if needed
+    // Mặc định luôn hiển thị "Mentors" khi khởi động ứng dụng
+    setShowCategories(false);
+    localStorage.setItem('mentorMode', 'false');
+
+    // Kiểm tra trạng thái đăng nhập từ localStorage
+    const loginStatus = localStorage.getItem('isLoggedIn');
+    setIsLoggedIn(loginStatus === 'true');
+
+    // Lắng nghe sự thay đổi localStorage từ các tab/component khác
+    const handleStorageChange = (e) => {
+      if (e.key === 'mentorMode') {
+        setShowCategories(e.newValue === 'true');
+      }
+      if (e.key === 'isLoggedIn') {
+        setIsLoggedIn(e.newValue === 'true');
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    
+    // Cleanup
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+    };
   }, []);
 
+  // Xử lý các API calls cho các biểu tượng hành động
+  const handleAPICall = (id, action) => {
+    console.log(`API Call - ID: ${id}, Action: ${action}`);
+    // Thêm logic API call ở đây
+  };
+
+  // Function để test login (có thể gọi từ console hoặc button test)
+  const toggleLoginStatus = () => {
+    const newStatus = !isLoggedIn;
+    setIsLoggedIn(newStatus);
+    localStorage.setItem('isLoggedIn', newStatus.toString());
+  };
+
+  // hiển thị biểu tượng hành động khi đã đăng nhập nếu chưa thì hiển thị biểu tượng đăng nhập
+  
+
   return (
-    <header className="w-full h-16 relative bg-white border-b border-slate-200">
-      <div className="w-full h-full flex items-center px-8 md:px-16 justify-between gap-2">
-        {/* Left: Logo & Nav */}
-        <div className="flex items-center gap-6 min-w-0 flex-shrink-0 pr-4">
-          <div className="text-slate-500 text-2xl font-bold min-w-[130px] select-none">
-            MentorMe 
-          </div>
-          <div className="text-slate-500 text-lg font-semibold cursor-pointer hover:text-slate-600 transition-colors duration-200 hidden md:block select-none">
-            {showCategories ? "Categories" : "Mentors"}
-          </div>
+    <>
+    <header className="relative w-full h-16 bg-white ">
+      <div className="relative flex items-center w-full h-full px-14">
+        {/* logo */}
+        <div 
+          className="text-slate-500 text-2xl font-inter font-bold mr-9 min-w-[120px] cursor-pointer hover:text-slate-600 transition-colors duration-200"
+          onClick={() => {
+            localStorage.setItem('mentorMode', 'false');
+            setShowCategories(false);
+            navigate("/");
+          }}
+        >
+          MentorMe
         </div>
 
-        {/* Center: Search Bar */}
-        <div className="flex-1 flex justify-center min-w-0">
-          <div className="w-full max-w-[700px] p-2 rounded-lg border border-slate-400 flex items-center gap-2 bg-white">
-            <span className="text-lg text-slate-500">
-              <svg
-                width="18"
-                height="18"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                viewBox="0 0 24 24"
-              >
-                <circle cx="11" cy="11" r="8" />
-                <line x1="21" y1="21" x2="16.65" y2="16.65" />
-              </svg>
-            </span>
-            <input
-              type="text"
-              placeholder="Search courses"
-              className="flex-1 border-none outline-none text-slate-500 text-sm font-medium bg-transparent placeholder:text-slate-500"
-            />
+        {/* Conditional rendering: Mentors hoặc Categories */}
+        {!showCategories ? (
+          /* Mentors */
+          <div className="text-slate-500 text-[16px] font-inter font-medium leading-5 mr-10 whitespace-nowrap cursor-pointer hover:text-slate-600 transition-colors duration-200 hidden md:block">
+            Mentors
           </div>
+        ) : (
+          /* Categories */
+          <div className="text-slate-500 text-[16px] font-inter font-medium leading-5 mr-10 whitespace-nowrap cursor-pointer hover:text-slate-600 transition-colors duration-200 hidden md:block">
+            Categories
+          </div>
+        )}
+
+
+        {/* Search Bar */}
+        <div className="w-full max-w-[680px] xl:w-[700px] lg:w-[400px] md:w-[250px] sm:w-[150px] p-2.5 rounded-lg border border-slate-500 flex items-center gap-2.5 mr-6">
+          <div className="flex items-center justify-center flex-shrink-0 w-5 h-5">
+            <IoSearch className="text-xl text-slate-500" />
+          </div>
+          <input
+            type="text"
+            placeholder="Search courses"
+            className="flex-1 text-sm font-medium leading-5 bg-transparent border-none outline-none text-slate-500 font-inter placeholder:text-slate-500"
+          />
         </div>
 
-        {/* Right: Actions */}
-        <div className="flex items-center gap-6 min-w-0 flex-shrink-0 pl-4">
-          <div className="text-slate-500 text-lg font-semibold cursor-pointer hover:text-slate-600 transition-colors duration-200 hidden lg:block select-none">
+        {/* Right Section */}
+        <div className="flex items-center ml-5 gap-7">
+          <div className="text-slate-500 text-base text-[16px] font-inter font-medium leading-5 whitespace-nowrap cursor-pointer hover:text-slate-600 transition-colors duration-200 hidden lg:block">
             Mentor with MentorMe
           </div>
-          <div className="flex items-center gap-4">
-            {/* Action Icons */}
-            <div
-              className="w-8 h-8 flex items-center justify-center cursor-pointer"
-              onClick={() => handleAPICall("demo-mentor-id", "Favorite")}
-            >
-              <FaRegHeart
-                size={20}
-                className="text-slate-500 hover:text-slate-600 transition-colors duration-200"
-              />
+
+          <div className="flex items-center gap-6">
+            {/* Notification/Cart Icon */}
+            <div className="flex items-center justify-center w-6 h-6 cursor-pointer">
+              <IoCartOutline className="text-2xl transition-colors duration-200 text-slate-500 hover:text-slate-600" />
             </div>
-            <div
-              className="w-8 h-8 flex items-center justify-center cursor-pointer"
-              onClick={() => handleAPICall("cart-mentor-id", "Cart")}
-            >
-              <MdOutlineShoppingCart
-                size={20}
-                className="text-slate-500 hover:text-slate-600 transition-colors duration-200"
-              />
-            </div>
-            <div
-              className="w-8 h-8 flex items-center justify-center cursor-pointer"
-              onClick={() => handleAPICall("bell-mentor-id", "Bell")}
-            >
-              <FaRegBell
-                size={20}
-                className="text-slate-500 hover:text-slate-600 transition-colors duration-200"
-              />
-            </div>
-            <div
-              className="w-8 h-8 flex items-center justify-center rounded-full bg-slate-700 text-white text-base font-bold cursor-pointer select-none"
-              onClick={() => handleAPICall("avatar-mentor-id", "Avatar")}
-            >
-              V
-            </div>
+
+            {/* Conditional rendering based on login status */}
+            {!isLoggedIn ? (
+              // Show login/signup buttons when not logged in
+              <>
+                {/* Log In Button */}
+                <button onClick={() => {
+                  localStorage.setItem('mentorMode', 'true');
+                  setShowCategories(true);
+                  navigate("/auth/signin");
+                }} className="px-2.5 py-2.5 border border-slate-500 bg-transparent text-slate-500 text-sm font-inter font-medium leading-5 cursor-pointer rounded transition-all duration-200 hover:bg-slate-500 hover:text-white sm:px-2 sm:py-2 sm:text-[15px]">
+                  Log In
+                </button>
+
+                {/* Sign Up Button */}
+                <button onClick={() => {
+                  localStorage.setItem('mentorMode', 'false');
+                  setShowCategories(false);
+                  navigate("/auth/signup");
+                }} className="px-2.5 py-2.5 bg-slate-700 border border-slate-500 text-white text-sm font-inter font-medium leading-5 cursor-pointer rounded transition-all duration-200 hover:bg-slate-600 hover:border-slate-600 sm:px-2 sm:py-2 sm:text-[16px]">
+                  Sign Up
+                </button>
+              </>
+            ) : (
+              // Show action icons when logged in
+              <div className="flex items-center gap-4">
+                {/* Favorite Icon */}
+                <div
+                  className="w-8 h-8 flex items-center justify-center cursor-pointer"
+                  onClick={() => handleAPICall("demo-mentor-id", "Favorite")}
+                >
+                  <FaRegHeart
+                    size={20}
+                    className="text-slate-500 hover:text-red-500 transition-colors duration-200"
+                  />
+                </div>
+                
+                {/* Shopping Cart Icon */}
+                <div
+                  className="w-8 h-8 flex items-center justify-center cursor-pointer"
+                  onClick={() => handleAPICall("cart-mentor-id", "Cart")}
+                >
+                  <MdOutlineShoppingCart
+                    size={20}
+                    className="text-slate-500 hover:text-slate-600 transition-colors duration-200"
+                  />
+                </div>
+                
+                {/* Notification Bell Icon */}
+                <div
+                  className="w-8 h-8 flex items-center justify-center cursor-pointer"
+                  onClick={() => handleAPICall("bell-mentor-id", "Bell")}
+                >
+                  <FaRegBell
+                    size={20}
+                    className="text-slate-500 hover:text-blue-500 transition-colors duration-200"
+                  />
+                </div>
+                
+                {/* User Avatar */}
+                <div
+                  className="w-8 h-8 flex items-center justify-center rounded-full bg-slate-700 text-white text-base font-bold cursor-pointer select-none hover:bg-slate-600 transition-colors duration-200"
+                  onClick={() => handleAPICall("avatar-mentor-id", "Avatar")}
+                  title="User Profile"
+                >
+                  V
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
-      {/* Bottom Border (now replaced by purple border above) */}
+
+      {/* Bottom Border */}
+      <div className="absolute bottom-0 left-0 w-full h-px bg-slate-300" />
     </header>
+    <Outlet />
+    </>
   );
 };
 
