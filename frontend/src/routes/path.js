@@ -24,3 +24,9 @@ export const ADMIN_PATH = {
 export const MENTOR_PATH = {
     HOME: "home",
 };
+
+export const PLATFORM_PATH = {
+	HOMESCREEN: "homescreen",
+}
+
+
