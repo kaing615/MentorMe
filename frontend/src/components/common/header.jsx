@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, Outlet } from 'react-router-dom';
+import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 import { IoSearch, IoCartOutline } from 'react-icons/io5';
 import { FaRegHeart, FaRegBell } from 'react-icons/fa';
 import { MdOutlineShoppingCart } from 'react-icons/md';
@@ -8,13 +8,17 @@ const Header = () => {
   const [showCategories, setShowCategories] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
   
 
   // Lắng nghe sự thay đổi từ localStorage khi có component khác click "Apply to be a Mentor" hoặc click nút Login
   useEffect(() => {
-    // Mặc định luôn hiển thị "Mentors" khi khởi động ứng dụng
-    setShowCategories(false);
-    localStorage.setItem('mentorMode', 'false');
+    // Kiểm tra route hiện tại để quyết định hiển thị Categories hay Mentors
+    const currentPath = location.pathname;
+    const shouldShowCategories = currentPath.includes('/auth/signin') || currentPath.includes('/about-you');
+    
+    setShowCategories(shouldShowCategories);
+    localStorage.setItem('mentorMode', shouldShowCategories.toString());
 
     // Kiểm tra trạng thái đăng nhập từ localStorage
     const loginStatus = localStorage.getItem('isLoggedIn');
@@ -36,7 +40,7 @@ const Header = () => {
     return () => {
       window.removeEventListener('storage', handleStorageChange);
     };
-  }, []);
+  }, [location.pathname]); // Thêm location.pathname vào dependency array
 
   // Xử lý các API calls cho các biểu tượng hành động
   const handleAPICall = (id, action) => {
@@ -70,16 +74,16 @@ const Header = () => {
           MentorMe
         </div>
 
-        {/* Conditional rendering: Mentors hoặc Categories */}
-        {!showCategories ? (
-          /* Mentors */
-          <div className="text-slate-500 text-[16px] font-inter font-medium leading-5 mr-10 whitespace-nowrap cursor-pointer hover:text-slate-600 transition-colors duration-200 hidden md:block">
-            Mentors
-          </div>
-        ) : (
-          /* Categories */
+        {/* Conditional rendering: Mentors hoặc Categories dựa trên route */}
+        {showCategories ? (
+          /* Categories - hiển thị khi ở trang signin hoặc about-you */
           <div className="text-slate-500 text-[16px] font-inter font-medium leading-5 mr-10 whitespace-nowrap cursor-pointer hover:text-slate-600 transition-colors duration-200 hidden md:block">
             Categories
+          </div>
+        ) : (
+          /* Mentors - hiển thị cho các trang khác */
+          <div className="text-slate-500 text-[16px] font-inter font-medium leading-5 mr-10 whitespace-nowrap cursor-pointer hover:text-slate-600 transition-colors duration-200 hidden md:block">
+            Mentors
           </div>
         )}
 

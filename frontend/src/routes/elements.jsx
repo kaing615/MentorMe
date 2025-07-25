@@ -4,8 +4,8 @@ import HeaderAuth from "../components/common/header";
 // import SignUp from "../pages/SignUp";
 // import Login from "../pages/Login";
 import WelcomePage from "../pages/WelcomePage";
-import HomeScreen from "../pages/HomeScreen"
-import PlatformInterface from "../components/layout/PlatformInterface";
+import HomeScreen from "../pages/homeScreen"
+import AllPagesLayout from "../components/layout/AllPagesLayout";
 
 const useRouterElements = () => {
     const elements = useRoutes([
@@ -15,7 +15,7 @@ const useRouterElements = () => {
         },
         {
             path: PATH.MENTEE,
-            element: <PlatformInterface />,
+            element: <AllPagesLayout />,
             children: [
                 {
                     path: MENTEE_PATH.HOME,

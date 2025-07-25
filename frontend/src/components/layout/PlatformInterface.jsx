@@ -7,6 +7,7 @@ const PlatformInterface = () => {
     return (
         <div className="w-full">
             <Header />
+            <Outlet />
             <Footer />
         </div>
     );
