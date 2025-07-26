@@ -8,6 +8,7 @@ import bodyParser from "body-parser";
 import multer from "multer";
 import morgan from "morgan";
 import { fileURLToPath } from "url";
+import routes from "./routes/index.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -35,6 +36,9 @@ const storage = multer.diskStorage({
 });
 
 const upload = multer({ storage: storage });
+
+// API routes
+app.use("/api", routes);
 
 app.get("/", (req, res) => {
   res.send("Welcome to the MentorMe backend!");
