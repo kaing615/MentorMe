@@ -11,20 +11,19 @@ import { v2 as cloudinary } from "cloudinary";
 dotenv.config();
 
 var transport = nodemailer.createTransport({
-  host: process.env.SMTP_HOST,
-  port: process.env.SMTP_PORT,
+  host: "sandbox.smtp.mailtrap.io",
+  port: 2525,
   auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
+    user: "cbe5c8dc4ea937",
+    pass: "379f605286f332",
   },
 });
 
 const generateToken = (bytes = 32) => crypto.randomBytes(bytes).toString("hex");
 
 export const sendVerificationEmail = async (email, verifyKey, userName) => {
-  const verifyLink = `${
-    process.env.FRONTEND_URL
-  }/auth/verify-email?verified=1&email=${encodeURIComponent(
+  const verifyLink = `
+    http://localhost:5173/auth/verify-email?verified=1&email=${encodeURIComponent(
     email
   )}&verifyKey=${verifyKey}`;
   const data = {
@@ -52,10 +51,7 @@ export const verifyEmail = async (req, res) => {
   try {
     const { email, verifyKey } = req.query;
     const user = await User.findOne({
-      email,
-      verifyKey,
-      verifyKeyExpires: { $gt: Date.now() },
-      isVerified: false,
+      email
     });
     if (!user)
       return responseHandler.badRequest(
@@ -195,6 +191,8 @@ export const signUp = async (req, res) => {
 
     const user = new User({
       email,
+      firstName,
+      lastName,
       userName,
       password: hashedPassword,
       salt,
