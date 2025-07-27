@@ -7,7 +7,6 @@ const AllPagesLayout = () => {
     return (
         <div className="w-full">
             <Header />
-            <Outlet />
             <Footer />
         </div>
     )
