@@ -1,10 +1,10 @@
 import express from "express";
 import userValidator from "../middlewares/validators/user.middleware.js";
 import upload from "../utils/multer.js"
-
 import userController from "../controllers/user.controller.js";
 import requestHandler from "../handlers/request.handler.js";
 import parseSkillsMiddleware from "../middlewares/parseSkills.middleware.js";
+import { getUserCourses } from "../controllers/course.controller.js"; // Import hàm xử lý từ course.controller
 
 const router = express.Router();
 
@@ -54,4 +54,5 @@ router.post(
 	userController.resetPassword
 );
 
-export default router;
+// Route để lấy danh sách khóa học của user
+router.get("/users/:userId/courses", getUserCourses);
