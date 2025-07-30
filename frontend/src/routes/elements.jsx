@@ -3,6 +3,7 @@ import { useRoutes, Navigate } from "react-router-dom";
 import WelcomePage from "../pages/WelcomePage";
 import HomeScreen from "../pages/homeScreen"
 import AllPagesLayout from "../components/layout/AllPagesLayout";
+import MenteeProfile from "../pages/mentee-profile";
 
 const useRouterElements = () => {
     const elements = useRoutes([
@@ -11,14 +12,24 @@ const useRouterElements = () => {
             element: <WelcomePage /> 
         },
         {
-            path: PATH.MENTEE,
+            path: PATH.HOME,
             element: <AllPagesLayout />,
             children: [
                 {
-                    path: MENTEE_PATH.HOME,
+                    path: PLATFORM_PATH.HOMESCREEN,
                     element: <HomeScreen />
                 }
             ]
+        },
+        {
+          path: PATH.MENTEE,
+          element: <AllPagesLayout />,
+          children: [
+            {
+              path: MENTEE_PATH.PROFILE,
+              element: <MenteeProfile />,
+            },
+          ]
         }
     ]);
 

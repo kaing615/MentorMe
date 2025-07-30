@@ -2,8 +2,9 @@ export const PATH = {
 	NOT_FOUND: "*",
 	AUTH: "/auth",
 	ADMIN: "/admin",
-	MENTEE: "/",
-    MENTOR: "/mentor",
+	MENTEE: "/mentee",
+	MENTOR: "/mentor",
+	HOME: "/",
 };
 
 export const AUTH_PATH = {
@@ -14,6 +15,7 @@ export const AUTH_PATH = {
 
 export const MENTEE_PATH = {
     HOME: "home",
+    PROFILE: "profile",
 };
 
 export const ADMIN_PATH = {
@@ -25,7 +27,7 @@ export const MENTOR_PATH = {
 };
 
 export const PLATFORM_PATH = {
-	HOMESCREEN: "homescreen",
+	HOMESCREEN: "home",
 }
 
 
