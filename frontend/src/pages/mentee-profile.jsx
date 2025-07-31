@@ -52,6 +52,11 @@ const MenteeProfile = () => {
   const [chatMessages, setChatMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
 
+  // Reviews management state
+  const [reviewFilter, setReviewFilter] = useState("all");
+  const [allReviews] = useState(generateMenteeReviews(12));
+  const [reviewsToShow, setReviewsToShow] = useState(6);
+
   // Filter and search logic for mentors
   const getFilteredMentors = () => {
     let filtered = allMentors.filter(
@@ -151,6 +156,31 @@ const MenteeProfile = () => {
   const handleBackToMessages = () => {
     setSelectedChatMentor(null);
     setChatMessages([]);
+  };
+
+  // Filter reviews by type
+  const getFilteredReviews = () => {
+    switch (reviewFilter) {
+      case "course":
+        return allReviews.filter((review) => review.type === "course");
+      case "mentor":
+        return allReviews.filter((review) => review.type === "mentor");
+      default:
+        return allReviews;
+    }
+  };
+
+  const filteredReviews = getFilteredReviews();
+
+  // Handle load more reviews
+  const handleLoadMoreReviews = () => {
+    setReviewsToShow((prev) => prev + 6);
+  };
+
+  // Reset reviews to show when filter changes
+  const handleReviewFilterChange = (newFilter) => {
+    setReviewFilter(newFilter);
+    setReviewsToShow(6);
   };
 
   // Filter and search logic for courses
@@ -1346,147 +1376,198 @@ const MenteeProfile = () => {
                     <h3 className="text-lg font-semibold text-gray-900">
                       My Reviews
                     </h3>
-                    <div className="flex gap-4 text-sm">
-                      <span className="text-blue-600 font-medium">
-                        📝 {generateMenteeReviews(10).length} Total Reviews
-                      </span>
-                      <span className="text-yellow-600 font-medium">
-                        ⭐{" "}
-                        {(
-                          generateMenteeReviews(10).reduce(
-                            (sum, review) => sum + review.rating,
-                            0
-                          ) / generateMenteeReviews(10).length
-                        ).toFixed(1)}{" "}
-                        Avg Rating
-                      </span>
-                    </div>
+                    <div className="flex gap-4 text-sm"></div>
                   </div>
-                  <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition text-sm font-medium">
-                    Write Review
-                  </button>
                 </div>
-
                 {/* Filter tabs */}
                 <div className="flex gap-1 mb-6 bg-gray-100 p-1 rounded-lg w-fit">
-                  <button className="px-4 py-2 rounded-md bg-white shadow-sm text-gray-900 font-medium text-sm">
-                    All Reviews
+                  <button
+                    onClick={() => handleReviewFilterChange("all")}
+                    className={`px-4 py-2 rounded-md transition text-sm font-medium ${
+                      reviewFilter === "all"
+                        ? "bg-white shadow-sm text-gray-900"
+                        : "text-gray-600 hover:text-gray-900"
+                    }`}
+                  >
+                    All Reviews ({allReviews.length})
                   </button>
-                  <button className="px-4 py-2 rounded-md text-gray-600 hover:text-gray-900 transition text-sm">
-                    Course Reviews
+                  <button
+                    onClick={() => handleReviewFilterChange("course")}
+                    className={`px-4 py-2 rounded-md transition text-sm font-medium ${
+                      reviewFilter === "course"
+                        ? "bg-white shadow-sm text-gray-900"
+                        : "text-gray-600 hover:text-gray-900"
+                    }`}
+                  >
+                    Course Reviews (
+                    {allReviews.filter((r) => r.type === "course").length})
                   </button>
-                  <button className="px-4 py-2 rounded-md text-gray-600 hover:text-gray-900 transition text-sm">
-                    Mentor Reviews
+                  <button
+                    onClick={() => handleReviewFilterChange("mentor")}
+                    className={`px-4 py-2 rounded-md transition text-sm font-medium ${
+                      reviewFilter === "mentor"
+                        ? "bg-white shadow-sm text-gray-900"
+                        : "text-gray-600 hover:text-gray-900"
+                    }`}
+                  >
+                    Mentor Reviews (
+                    {allReviews.filter((r) => r.type === "mentor").length})
                   </button>
                 </div>
-
                 {/* Reviews List */}
                 <div className="space-y-6">
-                  {generateMenteeReviews(6).map((review) => (
-                    <div
-                      key={review.id}
-                      className="border border-gray-200 rounded-lg p-6"
-                    >
-                      <div className="flex items-start gap-4">
-                        <img
-                          src={review.targetImage}
-                          alt={review.targetTitle}
-                          className="w-16 h-16 rounded-lg object-cover"
-                        />
-                        <div className="flex-1">
-                          <div className="flex items-start justify-between mb-3">
-                            <div>
-                              <h4 className="font-semibold text-gray-900 mb-1">
-                                {review.targetTitle}
-                              </h4>
-                              <p className="text-sm text-gray-600">
-                                {review.type === "course"
-                                  ? `By ${review.instructor}`
-                                  : review.mentorSpecialty}
-                              </p>
-                              <div className="flex items-center gap-2 mt-1">
-                                <div className="flex text-yellow-400 text-sm">
-                                  {"★".repeat(review.rating)}
-                                  {"☆".repeat(5 - review.rating)}
+                  {filteredReviews.length > 0 ? (
+                    filteredReviews.slice(0, reviewsToShow).map((review) => (
+                      <div
+                        key={review.id}
+                        className="border border-gray-200 rounded-lg p-6"
+                      >
+                        <div className="flex items-start gap-4">
+                          <img
+                            src={review.targetImage}
+                            alt={review.targetTitle}
+                            className="w-16 h-16 rounded-lg object-cover"
+                          />
+                          <div className="flex-1">
+                            <div className="flex items-start justify-between mb-3">
+                              <div>
+                                <h4 className="font-semibold text-gray-900 mb-1">
+                                  {review.targetTitle}
+                                </h4>
+                                <p className="text-sm text-gray-600">
+                                  {review.type === "course"
+                                    ? `By ${review.instructor}`
+                                    : review.mentorSpecialty}
+                                </p>
+                                <div className="flex items-center gap-2 mt-1">
+                                  <div className="flex text-yellow-400 text-sm">
+                                    {"★".repeat(review.rating)}
+                                    {"☆".repeat(5 - review.rating)}
+                                  </div>
+                                  <span className="text-xs text-gray-500">
+                                    {review.date}
+                                  </span>
                                 </div>
-                                <span className="text-xs text-gray-500">
-                                  {review.date}
-                                </span>
                               </div>
-                            </div>
-                            <span
-                              className={`px-2 py-1 rounded-full text-xs font-medium ${
-                                review.type === "course"
-                                  ? "bg-blue-100 text-blue-800"
-                                  : "bg-green-100 text-green-800"
-                              }`}
-                            >
-                              {review.type === "course" ? "Course" : "Mentor"}
-                            </span>
-                          </div>
-
-                          <p className="text-gray-700 mb-4 leading-relaxed">
-                            {review.comment}
-                          </p>
-
-                          {/* Review stats */}
-                          <div className="flex items-center gap-4 text-sm text-gray-500">
-                            <span className="flex items-center gap-1">
-                              <svg
-                                className="w-4 h-4"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
+                              <span
+                                className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                  review.type === "course"
+                                    ? "bg-blue-100 text-blue-800"
+                                    : "bg-green-100 text-green-800"
+                                }`}
                               >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5"
-                                />
-                              </svg>
-                              {review.helpfulCount} helpful
-                            </span>
-                            {review.mentorReply && (
-                              <span className="text-blue-600">
-                                ↳ Mentor replied
+                                {review.type === "course" ? "Course" : "Mentor"}
                               </span>
-                            )}
-                            <button className="text-blue-600 hover:text-blue-700 transition">
-                              Edit
-                            </button>
-                          </div>
-
-                          {/* Mentor reply if exists */}
-                          {review.mentorReply && (
-                            <div className="mt-4 pl-4 border-l-2 border-blue-200 bg-blue-50 p-3 rounded-r-lg">
-                              <div className="flex items-center gap-2 mb-2">
-                                <img
-                                  src={review.mentorAvatar}
-                                  alt="Mentor"
-                                  className="w-6 h-6 rounded-full"
-                                />
-                                <span className="font-medium text-sm text-gray-900">
-                                  {review.mentorName} replied:
-                                </span>
-                              </div>
-                              <p className="text-sm text-gray-700">
-                                {review.mentorReply}
-                              </p>
                             </div>
-                          )}
+
+                            <p className="text-gray-700 mb-4 leading-relaxed">
+                              {review.comment}
+                            </p>
+
+                            {/* Review stats */}
+                            <div className="flex items-center gap-4 text-sm text-gray-500">
+                              <span className="flex items-center gap-1">
+                                <svg
+                                  className="w-4 h-4"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  viewBox="0 0 24 24"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5"
+                                  />
+                                </svg>
+                                {review.helpfulCount} helpful
+                              </span>
+                              {review.mentorReply && (
+                                <span className="text-blue-600">
+                                  ↳ Mentor replied
+                                </span>
+                              )}
+                              <button className="text-blue-600 hover:text-blue-700 transition">
+                                Edit
+                              </button>
+                            </div>
+
+                            {/* Mentor reply if exists */}
+                            {review.mentorReply && (
+                              <div className="mt-4 pl-4 border-l-2 border-blue-200 bg-blue-50 p-3 rounded-r-lg">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <img
+                                    src={review.mentorAvatar}
+                                    alt="Mentor"
+                                    className="w-6 h-6 rounded-full"
+                                  />
+                                  <span className="font-medium text-sm text-gray-900">
+                                    {review.mentorName} replied:
+                                  </span>
+                                </div>
+                                <p className="text-sm text-gray-700">
+                                  {review.mentorReply}
+                                </p>
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </div>
+                    ))
+                  ) : (
+                    <div className="text-center py-12">
+                      <div className="w-16 h-16 mx-auto bg-gray-100 rounded-full flex items-center justify-center mb-4">
+                        <svg
+                          className="w-8 h-8 text-gray-400"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                          />
+                        </svg>
+                      </div>
+                      <h3 className="text-lg font-medium text-gray-900 mb-2">
+                        No {reviewFilter === "all" ? "" : reviewFilter} reviews
+                        yet
+                      </h3>
+                      <p className="text-gray-600">
+                        {reviewFilter === "all"
+                          ? "Start learning and leave your first review!"
+                          : `You haven't written any ${reviewFilter} reviews yet.`}
+                      </p>
                     </div>
-                  ))}
+                  )}
                 </div>
 
                 {/* Load more button */}
-                <div className="text-center mt-8">
-                  <button className="bg-gray-100 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-200 transition">
-                    Load More Reviews
-                  </button>
-                </div>
+                {filteredReviews.length > reviewsToShow && (
+                  <div className="text-center mt-8">
+                    <button
+                      onClick={handleLoadMoreReviews}
+                      className="bg-gray-100 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-200 transition flex items-center gap-2 mx-auto"
+                    >
+                      <svg
+                        className="w-4 h-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M19 14l-7 7m0 0l-7-7m7 7V3"
+                        />
+                      </svg>
+                      More Reviews
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           )}
