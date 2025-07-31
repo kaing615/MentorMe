@@ -56,6 +56,8 @@ const MenteeProfile = () => {
   const [reviewFilter, setReviewFilter] = useState("all");
   const [allReviews] = useState(generateMenteeReviews(12));
   const [reviewsToShow, setReviewsToShow] = useState(6);
+  const [reviewCurrentPage, setReviewCurrentPage] = useState(1);
+  const reviewsPerPage = 4;
 
   // Filter and search logic for mentors
   const getFilteredMentors = () => {
@@ -172,6 +174,20 @@ const MenteeProfile = () => {
 
   const filteredReviews = getFilteredReviews();
 
+  // Calculate pagination for reviews
+  const totalReviewPages = Math.ceil(filteredReviews.length / reviewsPerPage);
+  const reviewStartIndex = (reviewCurrentPage - 1) * reviewsPerPage;
+  const reviewEndIndex = reviewStartIndex + reviewsPerPage;
+  const currentPageReviews = filteredReviews.slice(
+    reviewStartIndex,
+    reviewEndIndex
+  );
+
+  // Handle review page change
+  const handleReviewPageChange = (page) => {
+    setReviewCurrentPage(page);
+  };
+
   // Handle load more reviews
   const handleLoadMoreReviews = () => {
     setReviewsToShow((prev) => prev + 6);
@@ -181,6 +197,7 @@ const MenteeProfile = () => {
   const handleReviewFilterChange = (newFilter) => {
     setReviewFilter(newFilter);
     setReviewsToShow(6);
+    setReviewCurrentPage(1); // Reset to first page when filter changes
   };
 
   // Filter and search logic for courses
@@ -1369,16 +1386,27 @@ const MenteeProfile = () => {
               {/* My Reviews Section */}
               <div className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100">
                 {/* Header with search and sort */}
-                <div className="flex justify-between items-center mb-6">
-                  <h3 className="text-lg font-semibold text-gray-900">
-                    My Reviews ({allReviews.length})
-                  </h3>
-                  <div className="flex gap-4 items-center">
-                    <div className="relative">
+                <div className="mb-6">
+                  {/* Title and Rating Row */}
+                  <div className="flex items-center gap-4 mb-4">
+                    <h3 className="text-lg font-semibold text-gray-900">
+                      My Reviews ({allReviews.length})
+                    </h3>
+                    <div className="flex items-center gap-2">
+                      <div className="flex text-yellow-400 text-sm">★★★★★</div>
+                      <span className="text-sm text-gray-600">
+                        4.7 average rating
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Search and Controls Row */}
+                  <div className="flex gap-3 items-center">
+                    <div className="relative flex-1">
                       <input
                         type="text"
-                        placeholder="Search reviews..."
-                        className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="Search Reviews"
+                        className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 w-full"
                       />
                       <svg
                         className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400"
@@ -1394,18 +1422,28 @@ const MenteeProfile = () => {
                         />
                       </svg>
                     </div>
-
-                    <div className="flex gap-2">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm text-gray-600">Sort By</span>
-                        <select className="px-3 py-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
-                          <option>Most Recent</option>
-                          <option>Oldest First</option>
-                          <option>Highest Rating</option>
-                          <option>Lowest Rating</option>
-                        </select>
-                      </div>
-                    </div>
+                    <select className="px-3 py-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                      <option>Latest</option>
+                      <option>Oldest First</option>
+                      <option>Highest Rating</option>
+                      <option>Lowest Rating</option>
+                    </select>
+                    <button className="flex items-center gap-2 px-3 py-2 border border-gray-300 rounded-lg bg-white hover:bg-gray-50 transition">
+                      <svg
+                        className="w-4 h-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"
+                        />
+                      </svg>
+                      Clear
+                    </button>
                   </div>
                 </div>
                 {/* Filter tabs */}
@@ -1444,12 +1482,9 @@ const MenteeProfile = () => {
                   </button>
                 </div>
                 {/* Reviews List */}
-                <div 
-                  className="space-y-6 overflow-y-auto pr-2"
-                  style={{ maxHeight: "500px" }}
-                >
-                  {filteredReviews.length > 0 ? (
-                    filteredReviews.slice(0, reviewsToShow).map((review) => (
+                <div className="space-y-6">
+                  {currentPageReviews.length > 0 ? (
+                    currentPageReviews.map((review) => (
                       <div
                         key={review.id}
                         className="border border-gray-200 rounded-lg p-6"
@@ -1575,6 +1610,72 @@ const MenteeProfile = () => {
                     </div>
                   )}
                 </div>
+
+                {/* Pagination */}
+                {totalReviewPages > 1 && (
+                  <div className="flex justify-center items-center gap-2 mt-8 pt-6 border-t border-gray-100">
+                    <button
+                      onClick={() =>
+                        handleReviewPageChange(reviewCurrentPage - 1)
+                      }
+                      disabled={reviewCurrentPage === 1}
+                      className="p-2 hover:bg-gray-100 rounded transition disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <svg
+                        className="w-4 h-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M15 19l-7-7 7-7"
+                        />
+                      </svg>
+                    </button>
+
+                    {[...Array(totalReviewPages)].map((_, index) => {
+                      const page = index + 1;
+                      return (
+                        <button
+                          key={page}
+                          onClick={() => handleReviewPageChange(page)}
+                          className={`px-3 py-2 rounded-lg text-sm font-medium transition ${
+                            reviewCurrentPage === page
+                              ? "bg-blue-600 text-white"
+                              : "hover:bg-gray-100 text-gray-700"
+                          }`}
+                        >
+                          {page}
+                        </button>
+                      );
+                    })}
+
+                    <button
+                      onClick={() =>
+                        handleReviewPageChange(reviewCurrentPage + 1)
+                      }
+                      disabled={reviewCurrentPage === totalReviewPages}
+                      className="p-2 hover:bg-gray-100 rounded transition disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <svg
+                        className="w-4 h-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M9 5l7 7-7 7"
+                        />
+                      </svg>
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           )}
