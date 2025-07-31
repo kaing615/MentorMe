@@ -1,14 +1,20 @@
 import { PATH, AUTH_PATH, ADMIN_PATH, MENTEE_PATH, MENTOR_PATH } from "./path";
 import { useRoutes, Navigate } from "react-router-dom";
-import Header from "../components/layout/header_signup_signin";
-// import Home from "../pages/Signup.jsx";
+import HeaderFooter from "../components/layout/AllPagesLayout";
+import CourseDetail from "../pages/CourseDetail.jsx";
 
 const useRouterElements = () => {
     const elements = useRoutes([
         {
-            path: "/",
-            element: <Header />
-        },
+            path:PATH.MENTEE,
+            element: <HeaderFooter />,
+            children: [
+                {
+                    path: MENTEE_PATH.COURSE_DETAILS,
+                    element: <CourseDetail />
+                }
+            ]
+        }
     ]);
 
     return elements;

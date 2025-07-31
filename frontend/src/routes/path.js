@@ -14,6 +14,7 @@ export const AUTH_PATH = {
 
 export const MENTEE_PATH = {
     HOME: "",
+	COURSE_DETAILS: "course-details",
 };
 
 export const ADMIN_PATH = {
