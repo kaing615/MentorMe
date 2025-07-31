@@ -1,7 +1,10 @@
 import React, { useEffect, useState, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 // import axios from "../api/clients/public.client"; // Uncomment and adjust path if you have a custom axios client
 import minatoPic from "../assets/minato.jpg";
 const MentorPage = () => {
+  const navigate = useNavigate();
+
   const defaultMentor = {
     name: "Cong Khoa Van",
     title: "Fullstack Developer, Teacher",
@@ -415,6 +418,20 @@ const MentorPage = () => {
                     </div>
                   ))}
                 </div>
+              </div>
+
+              {/* See All Button */}
+              <div className="flex justify-start mt-6 px-2">
+                <button
+                  type="button"
+                  className="px-6 py-3 text-sm font-medium text-[#2563eb] border border-[#2563eb] rounded-lg hover:bg-[#2563eb] hover:text-white transition"
+                  onClick={() => {
+                    // Navigate to all courses page
+                    navigate("/mentor/courses"); // Use mentor ID, here using 1 as default
+                  }}
+                >
+                  See All Courses
+                </button>
               </div>
             </div>
           </section>
