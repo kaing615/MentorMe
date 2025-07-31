@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState } from "react";
 // Inject CSS to hide scrollbars for .no-scrollbar class
-import minatoImg from "../assets/minato.webp";
+import minatoImg from "../assets/minato.jpg";
 import oipImg from "../assets/OIP.webp";
 import reactSvg from "../assets/react.svg";
 import GradImg from "../assets/grad.png";
