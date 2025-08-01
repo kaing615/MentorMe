@@ -10,6 +10,8 @@ import AvatarsImg from "../assets/avatars.png";
 import { useNavigate } from "react-router-dom";
 import { MENTEE_PATH } from "../routes/path";
 import BoImg from "../assets/Bơ.jpg";
+import { useDispatch } from "react-redux";
+import { showLoading, hideLoading } from "../redux/features/loading.slice";
 
 const categories = [
   { icon: "📚", name: "Astrology", count: 17 },
@@ -166,6 +168,15 @@ const useHorizontalScrollBlockSwipe = () => {
 
 
 const HomeScreen = () => {
+  const dispatch = useDispatch();
+
+  useEffect(() => {
+    dispatch(showLoading());
+    const timeout = setTimeout(() => {
+      dispatch(hideLoading());
+    }, 1200);
+    return () => clearTimeout(timeout);
+  }, [dispatch]);
   const dragCourses = useHorizontalScrollBlockSwipe();
   const dragMentors = useHorizontalScrollBlockSwipe();
 
@@ -236,6 +247,7 @@ const HomeScreen = () => {
   };
 
   return (
+    <>
     <div className="bg-gray-50 min-h-screen flex flex-col">
       {/* Hero Section - WelcomePage style, no header */}
       <section className="bg-white h-[600px] py-16 px-6 md:px-16 flex flex-col md:flex-row gap-10 items-center justify-center">
@@ -831,6 +843,7 @@ const HomeScreen = () => {
         </div>
       </section>
     </div>
+    </>
   );
 };
 

@@ -1,7 +1,7 @@
 import { PATH, AUTH_PATH, ADMIN_PATH, MENTEE_PATH, MENTOR_PATH, PLATFORM_PATH } from "./path";
 import { useRoutes, Navigate } from "react-router-dom";
 import WelcomePage from "../pages/WelcomePage";
-import HomeScreen from "../pages/homeScreen"
+import HomeScreen from "../pages/homeScreen";
 import AllPagesLayout from "../components/layout/AllPagesLayout";
 
 const useRouterElements = () => {
