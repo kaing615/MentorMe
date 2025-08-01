@@ -1,10 +1,4 @@
-import {
-  PATH,
-  AUTH_PATH,
-  ADMIN_PATH,
-  MENTEE_PATH,
-  MENTOR_PATH,
-} from "./path";
+import { PATH, AUTH_PATH, ADMIN_PATH, MENTEE_PATH, MENTOR_PATH } from "./path";
 import { useRoutes, Navigate } from "react-router-dom";
 import WelcomePage from "../pages/WelcomePage";
 import HomeScreen from "../pages/homeScreen";
@@ -15,6 +9,7 @@ import Login from "../pages/Login";
 import ApplyAsMentor from "../pages/ApplyAsMentor";
 import VerifyEmailPage from "../pages/VerifyEmailPage";
 import CourseDetail from "../pages/CourseDetail.jsx";
+import AllCoursesPage from "../pages/AllCoursesPage.jsx";
 
 const useRouterElements = () => {
   const elements = useRoutes([
@@ -27,13 +22,17 @@ const useRouterElements = () => {
       element: <AllPagesLayout />,
       children: [
         {
-          path: MENTEE_PATH.HOME,
+          path: MENTEE_PATH.HOME, // /home
           element: <HomeScreen />,
         },
         {
-          path: MENTEE_PATH.COURSE_DETAILS,
-          element: <CourseDetail />
-        }
+          path: MENTEE_PATH.COURSE,
+          element: <AllCoursesPage />,
+        },
+        {
+          path: `${MENTEE_PATH.COURSE}/:id`, // /courses/:id
+          element: <CourseDetail />,
+        },
       ],
     },
     {
