@@ -4,9 +4,113 @@ import fb from "../assets/facebook.png";
 import gg from "../assets/google.png";
 import mcs from "../assets/microsoft.png";
 import { IoArrowForward } from 'react-icons/io5';
+import { authApi } from "../api/modules/auth.api";
+import { toast } from "react-toastify";
+import { useNavigate } from "react-router-dom";
 
 const Login = () => {
     const [selected, setSelected] = useState("mentee");
+    const [formData, setFormData] = useState({
+        email: "",
+        password: ""
+    });
+    const [errors, setErrors] = useState({});
+    const [touched, setTouched] = useState({});
+    const [isLoading, setIsLoading] = useState(false);
+    const navigate = useNavigate();
+
+    // Validation functions
+    const validateEmail = (email) => {
+        if (!email.trim()) return "Email is required";
+        if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return "Invalid email format";
+        return null;
+    };
+
+    const validatePassword = (password) => {
+        if (!password) return "Password is required";
+        return null;
+    };
+
+    const validateForm = () => {
+        const newErrors = {};
+        const emailError = validateEmail(formData.email);
+        const passwordError = validatePassword(formData.password);
+        
+        if (emailError) newErrors.email = emailError;
+        if (passwordError) newErrors.password = passwordError;
+        
+        return newErrors;
+    };
+
+    // Handle input changes
+    const handleChange = (e) => {
+        const { name, value } = e.target;
+        setFormData(prev => ({ ...prev, [name]: value }));
+        
+        // Clear error if field was touched
+        if (touched[name]) {
+            let fieldError = null;
+            if (name === 'email') fieldError = validateEmail(value);
+            if (name === 'password') fieldError = validatePassword(value);
+            
+            setErrors(prev => ({ ...prev, [name]: fieldError }));
+        }
+    };
+
+    const handleBlur = (e) => {
+        const { name, value } = e.target;
+        setTouched(prev => ({ ...prev, [name]: true }));
+        
+        let fieldError = null;
+        if (name === 'email') fieldError = validateEmail(value);
+        if (name === 'password') fieldError = validatePassword(value);
+        
+        setErrors(prev => ({ ...prev, [name]: fieldError }));
+    };
+
+    // Handle form submission
+    const handleSubmit = async () => {
+        const formErrors = validateForm();
+        
+        if (Object.keys(formErrors).length > 0) {
+            setErrors(formErrors);
+            const touchedFields = {};
+            Object.keys(formErrors).forEach(key => touchedFields[key] = true);
+            setTouched(prev => ({ ...prev, ...touchedFields }));
+            toast.error("Vui lòng điền đầy đủ thông tin!");
+            return;
+        }
+
+        setIsLoading(true);
+        try {
+            const response = await authApi.signin(formData);
+            
+            toast.success("Đăng nhập thành công!");
+            
+            // Store user data if needed
+            if (response.data?.user) {
+                localStorage.setItem('user', JSON.stringify(response.data.user));
+            }
+            if (response.data?.token) {
+                localStorage.setItem('token', response.data.token);
+            }
+            
+            // Navigate based on user role or selected type
+            navigate('/dashboard'); // Adjust this route as needed
+            
+        } catch (error) {
+            console.error("Login error:", error);
+            if (error.response?.data?.message) {
+                toast.error(error.response.data.message);
+            } else if (error.message) {
+                toast.error(error.message);
+            } else {
+                toast.error("Có lỗi xảy ra khi đăng nhập. Vui lòng thử lại!");
+            }
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
 
     return (
@@ -49,23 +153,59 @@ const Login = () => {
                     </div>
 
                     <div className = "flex flex-col items-start w-[700px]">
-                        <label className = "block mb-1 text-lg font-medium text-left">Email</label>
-                        <div alt = "Username" className = "mb-4 ">
-                            <input type = "text" placeholder = "Username or Email ID" className="p-2 border border-gray-300 rounded-[9px] h-[52px] w-[700px] focus:outline-none" />
+                        <label className = "block mb-1 text-lg font-medium text-left">
+                            Email <span className="text-red-500">*</span>
+                        </label>
+                        <div alt = "Email" className = "mb-4 flex flex-col">
+                            <input 
+                                type = "email" 
+                                name = "email"
+                                value = {formData.email}
+                                placeholder = "Email ID" 
+                                className={`p-2 border rounded-[9px] h-[52px] w-[700px] focus:outline-none ${errors.email && touched.email ? 'border-red-500' : 'border-gray-300'}`}
+                                onChange={handleChange}
+                                onBlur={handleBlur}
+                            />
+                            {errors.email && touched.email && (
+                                <span className="text-red-500 text-sm mt-1">{errors.email}</span>
+                            )}
                         </div>
                     </div>
 
                     <div className = "flex flex-col items-start w-[700px]">
-                        <label className = "block mb-1 text-lg font-medium text-left">Password</label>
-                        <div alt = "Password" className = "mb-4 ">
-                            <input type = "password" placeholder = "Enter password" className="p-2 border border-gray-300 rounded-[9px] h-[52px] w-[700px] focus:outline-none" />
+                        <label className = "block mb-1 text-lg font-medium text-left">
+                            Password <span className="text-red-500">*</span>
+                        </label>
+                        <div alt = "Password" className = "mb-4 flex flex-col">
+                            <input 
+                                type = "password" 
+                                name = "password"
+                                value = {formData.password}
+                                placeholder = "Enter password" 
+                                className={`p-2 border rounded-[9px] h-[52px] w-[700px] focus:outline-none ${errors.password && touched.password ? 'border-red-500' : 'border-gray-300'}`}
+                                onChange={handleChange}
+                                onBlur={handleBlur}
+                            />
+                            {errors.password && touched.password && (
+                                <span className="text-red-500 text-sm mt-1">{errors.password}</span>
+                            )}
                         </div>
                     </div>
 
-                    <div alt = "Create Account Button - Apply to be a Mentor" className = "mb-1 items">
-                        <button className="flex items-center bg-slate-950 text-left py-3 px-6 mb-3.5 gap-2 rounded-lg border-0 cursor-pointer hover:bg-slate-800 transition-colors duration-200">
-                        <span className="text-white text-md font-bold">Sign In</span>
-                        <IoArrowForward className="text-white text-lg" />
+                    <div alt = "Sign In Button" className = "mb-1 items">
+                        <button 
+                            onClick={handleSubmit}
+                            disabled={isLoading}
+                            className={`flex items-center text-left py-3 px-6 mb-3.5 gap-2 rounded-lg border-0 cursor-pointer transition-colors duration-200 ${
+                                isLoading 
+                                    ? 'bg-gray-400 text-gray-600 cursor-not-allowed' 
+                                    : 'bg-slate-950 text-white hover:bg-slate-800'
+                            }`}
+                        >
+                            <span className="font-bold">
+                                {isLoading ? "Đang đăng nhập..." : "Sign In"}
+                            </span>
+                            {!isLoading && <IoArrowForward className="text-lg" />}
                         </button>
                     </div>
 
