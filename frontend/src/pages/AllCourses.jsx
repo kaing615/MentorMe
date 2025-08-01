@@ -185,8 +185,8 @@ const AllCourses = () => {
       </div>
 
       {/* Filters Section */}
-      <div className="max-w-7xl mx-auto px-6 md:px-8 py-6">
-        <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
+      <div className="bg-gray-50 border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-6 md:px-8 py-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {/* Search */}
             <div className="relative">
@@ -270,11 +270,20 @@ const AllCourses = () => {
             </button>
           </div>
         </div>
+      </div>
 
-        {/* Courses Grid */}
+      {/* Courses Grid Section */}
+      <div
+        className="max-w-7xl mx-auto px-6 md:px-8 py-8"
+        style={{ height: "1500px" }}
+      >
+        {/* Courses Grid - Fixed height for 3 rows */}
         <div
-          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 items-start content-start"
-          style={{ height: "1800px" }}
+          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
+          style={{
+            minHeight: "900px",
+            alignContent: "start",
+          }}
         >
           {currentCourses.map((course) => (
             <div
