@@ -1,4 +1,5 @@
 import React, { useRef, useEffect, useState } from "react";
+import { useDispatch } from "react-redux";
 // Inject CSS to hide scrollbars for .no-scrollbar class
 import minatoImg from "../assets/minato.webp";
 import oipImg from "../assets/OIP.webp";
@@ -165,8 +166,8 @@ const useHorizontalScrollBlockSwipe = () => {
   return ref;
 };
 
-
 const HomeScreen = () => {
+  const dispatch = useDispatch();
   const dragCourses = useHorizontalScrollBlockSwipe();
   const dragMentors = useHorizontalScrollBlockSwipe();
 
@@ -237,12 +238,12 @@ const HomeScreen = () => {
   };
 
   useEffect(() => {
-      dispatch(showLoading());
-      const timeout = setTimeout(() => {
-        dispatch(hideLoading());
-      }, 1200);
-      return () => clearTimeout(timeout);
-    }, [dispatch]);
+    dispatch(showLoading());
+    const timeout = setTimeout(() => {
+      dispatch(hideLoading());
+    }, 1200);
+    return () => clearTimeout(timeout);
+  }, [dispatch]);
 
   return (
     <div className="bg-gray-50 min-h-screen flex flex-col">
