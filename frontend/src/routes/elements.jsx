@@ -9,6 +9,7 @@ import Login from "../pages/Login";
 import ApplyAsMentor from "../pages/ApplyAsMentor";
 import VerifyEmailPage from "../pages/VerifyEmailPage";
 import CourseDetail from "../pages/CourseDetail.jsx";
+import AllCoursesPage from "../pages/AllCoursesPage.jsx";
 
 const useRouterElements = () => {
   const elements = useRoutes([
@@ -25,7 +26,11 @@ const useRouterElements = () => {
           element: <HomeScreen />,
         },
         {
+<<<<<<< HEAD
           path: `${MENTEE_PATH.COURSE}`, // /courses
+=======
+          path: MENTEE_PATH.COURSE,
+>>>>>>> 53fe7e795d1a1fe35ca4966792237119dff00434
           element: <AllCoursesPage />,
         },
         {
