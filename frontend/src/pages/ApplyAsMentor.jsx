@@ -254,24 +254,24 @@ const ApplyAsMentor = () => {
   // Lấy class CSS cho vòng tròn step
   const getStepCircleClass = (stepId) => {
     if (completedSteps.includes(stepId)) {
-      return "flex items-center justify-center w-20 h-20 rounded-full bg-green-600 text-white font-bold text-2xl mb-4 transition-all duration-500 ease-in-out";
-    }
-    
-    if (stepId === currentStep) {
       return "flex items-center justify-center w-20 h-20 rounded-full bg-blue-600 text-white font-bold text-2xl mb-4 transition-all duration-500 ease-in-out";
     }
     
-    return "flex items-center justify-center w-20 h-20 rounded-full border-2 border-gray-300 text-gray-400 font-bold text-2xl mb-4 transition-all duration-500 ease-in-out";
+    if (stepId === currentStep) {
+      return "relative flex items-center justify-center w-20 h-20 rounded-full border-2 border-gray-200 bg-white text-black font-bold text-2xl mb-4 transition-all duration-500 ease-in-out";
+    }
+    
+    return "flex items-center justify-center w-20 h-20 rounded-full border-2 border-gray-200 bg-white text-gray-400 font-bold text-2xl mb-4 transition-all duration-500 ease-in-out";
   };
 
   // Lấy class CSS cho text step
   const getStepTextClass = (stepId) => {
     if (completedSteps.includes(stepId)) {
-      return "text-green-600 font-semibold text-lg transition-colors duration-500";
+      return "text-blue-600 font-semibold text-lg transition-colors duration-500";
     }
     
     if (stepId === currentStep) {
-      return "text-blue-600 font-semibold text-lg transition-colors duration-500";
+      return "text-black font-semibold text-lg transition-colors duration-500";
     }
     
     return "text-gray-400 font-medium text-lg transition-colors duration-500";
@@ -280,7 +280,7 @@ const ApplyAsMentor = () => {
   // Lấy class CSS cho đường nối
   const getConnectionLineClass = (fromStep) => {
     if (completedSteps.includes(fromStep)) {
-      return "w-55 h-1 bg-green-500 mx-6 mt-[-32px] transition-all duration-700 ease-in-out";
+      return "w-55 h-1 bg-blue-500 mx-6 mt-[-32px] transition-all duration-700 ease-in-out";
     }
     
     return "w-55 h-1 bg-gray-300 mx-6 mt-[-32px] transition-all duration-700 ease-in-out";
@@ -289,10 +289,18 @@ const ApplyAsMentor = () => {
   // Lấy nội dung hiển thị trong vòng tròn
   const getStepContent = (stepId) => {
     if (completedSteps.includes(stepId)) {
-      return <IoCheckmark size={50} />;
+      return null; // Không hiển thị gì cho step đã hoàn thành
     }
     
-    return stepId;
+    if (stepId === currentStep) {
+      return (
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div className="w-10 h-10 bg-blue-600 rounded-full animate-pulse transition-all duration-500 ease-in-out"></div>
+        </div>
+      );
+    }
+    
+    return null; // Không hiển thị gì cho step chưa đến
   };
 
   return (
