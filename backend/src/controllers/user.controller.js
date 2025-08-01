@@ -1,12 +1,12 @@
 import bcrypt from "bcryptjs";
+import { v2 as cloudinary } from "cloudinary";
+import crypto from "crypto";
+import dotenv from "dotenv";
 import jwt from "jsonwebtoken";
+import nodemailer from "nodemailer";
 import responseHandler from "../handlers/response.handler.js";
 import User from "../models/user.model.js";
-import dotenv from "dotenv";
-import crypto from "crypto";
-import nodemailer from "nodemailer";
 import { uploadImage } from "../utils/cloudinary.js";
-import { v2 as cloudinary } from "cloudinary";
 
 dotenv.config();
 
