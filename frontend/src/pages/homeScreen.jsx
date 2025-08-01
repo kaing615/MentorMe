@@ -10,6 +10,8 @@ import AvatarsImg from "../assets/avatars.png";
 import { useNavigate } from "react-router-dom";
 import { MENTEE_PATH } from "../routes/path";
 import BoImg from "../assets/Bơ.jpg";
+import { useDispatch } from "react-redux";
+import { showLoading, hideLoading } from "../redux/features/loading.slice";
 
 const categories = [
   { icon: "📚", name: "Astrology", count: 17 },
@@ -164,10 +166,10 @@ const useHorizontalScrollBlockSwipe = () => {
   return ref;
 };
 
-
 const HomeScreen = () => {
   const dragCourses = useHorizontalScrollBlockSwipe();
   const dragMentors = useHorizontalScrollBlockSwipe();
+  const dispatch = useDispatch();
 
   // Only block horizontal scroll in testimonial, allow vertical scroll
   useEffect(() => {
@@ -234,6 +236,14 @@ const HomeScreen = () => {
     const scrollAmount = (cardWidth + gap) * 3;
     container.scrollBy({ left: direction * scrollAmount, behavior: "smooth" });
   };
+
+  useEffect(() => {
+    dispatch(showLoading());
+    const timeout = setTimeout(() => {
+      dispatch(hideLoading());
+    }, 1200);
+    return () => clearTimeout(timeout);
+  }, [dispatch]);
 
   return (
     <div className="bg-gray-50 min-h-screen flex flex-col">
