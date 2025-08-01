@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import ImageForSignUp from "../assets/ImageForSignUp.jpg";
 import fb from "../assets/facebook.png";
 import gg from "../assets/google.png";
@@ -8,6 +8,7 @@ import { useDispatch } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import { IoArrowForward } from "react-icons/io5";
 import { toast } from "react-toastify";
+import { showLoading, hideLoading } from "../redux/features/loading.slice";
 
 const SignUp = () => {
   const dispatch = useDispatch();
@@ -29,21 +30,22 @@ const SignUp = () => {
   // Validation functions
   const validateField = (name, value) => {
     switch (name) {
-      case 'firstName':
+      case "firstName":
         return !value.trim() ? "First name is required" : null;
-      case 'lastName':
+      case "lastName":
         return !value.trim() ? "Last name is required" : null;
-      case 'userName':
+      case "userName":
         return !value.trim() ? "Username is required" : null;
-      case 'email':
+      case "email":
         if (!value.trim()) return "Email is required";
-        if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(value)) return "Invalid email format";
+        if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(value))
+          return "Invalid email format";
         return null;
-      case 'password':
+      case "password":
         if (!value) return "Password is required";
         if (value.length < 6) return "Password must be at least 6 characters";
         return null;
-      case 'confirmPassword':
+      case "confirmPassword":
         if (!value) return "Confirm password is required";
         if (value !== formData.password) return "Passwords do not match";
         return null;
@@ -54,7 +56,7 @@ const SignUp = () => {
 
   const validateForm = () => {
     const newErrors = {};
-    Object.keys(formData).forEach(key => {
+    Object.keys(formData).forEach((key) => {
       const error = validateField(key, formData[key]);
       if (error) newErrors[key] = error;
     });
@@ -63,39 +65,41 @@ const SignUp = () => {
 
   // Handle input changes
   const handleChange = (name, value) => {
-    setFormData(prev => ({ ...prev, [name]: value }));
-    
+    setFormData((prev) => ({ ...prev, [name]: value }));
+
     // Clear error if field was touched
     if (touched[name]) {
       const fieldError = validateField(name, value);
-      setErrors(prev => ({ ...prev, [name]: fieldError }));
+      setErrors((prev) => ({ ...prev, [name]: fieldError }));
     }
   };
 
   const handleBlur = (name, value) => {
-    setTouched(prev => ({ ...prev, [name]: true }));
+    setTouched((prev) => ({ ...prev, [name]: true }));
     const fieldError = validateField(name, value);
-    setErrors(prev => ({ ...prev, [name]: fieldError }));
+    setErrors((prev) => ({ ...prev, [name]: fieldError }));
   };
 
   const onFinish = async () => {
     const formErrors = validateForm();
-    
+
     if (Object.keys(formErrors).length > 0) {
       setErrors(formErrors);
       const touchedFields = {};
-      Object.keys(formErrors).forEach(key => touchedFields[key] = true);
-      setTouched(prev => ({ ...prev, ...touchedFields }));
+      Object.keys(formErrors).forEach((key) => (touchedFields[key] = true));
+      setTouched((prev) => ({ ...prev, ...touchedFields }));
       toast.error("Vui lòng điền đầy đủ thông tin!");
       return;
     }
 
     setIsLoading(true);
     try {
-      console.log('Sending signup data:', formData);
+      console.log("Sending signup data:", formData);
       const response = await authApi.signup(formData);
       toast.success(response?.data?.message || "Đăng ký thành công!");
-      navigate(`/auth/verify-email?email=${encodeURIComponent(formData.email)}`);
+      navigate(
+        `/auth/verify-email?email=${encodeURIComponent(formData.email)}`
+      );
     } catch (error) {
       console.error("Error signing up:", error);
       console.error("Error response:", error.response);
@@ -112,6 +116,14 @@ const SignUp = () => {
       setIsLoading(false);
     }
   };
+
+  useEffect(() => {
+    dispatch(showLoading());
+    const timeout = setTimeout(() => {
+      dispatch(hideLoading());
+    }, 1200);
+    return () => clearTimeout(timeout);
+  }, [dispatch]);
 
   return (
     <div className="flex items-center">
@@ -138,12 +150,18 @@ const SignUp = () => {
                 type="text"
                 value={formData.firstName}
                 placeholder="First Name"
-                onChange={(e) => handleChange('firstName', e.target.value)}
-                onBlur={(e) => handleBlur('firstName', e.target.value)}
-                className={`p-2 border rounded-[9px] h-[52px] w-[330px] focus:outline-none ${errors.firstName && touched.firstName ? 'border-red-500' : 'border-gray-300'}`}
+                onChange={(e) => handleChange("firstName", e.target.value)}
+                onBlur={(e) => handleBlur("firstName", e.target.value)}
+                className={`p-2 border rounded-[9px] h-[52px] w-[330px] focus:outline-none ${
+                  errors.firstName && touched.firstName
+                    ? "border-red-500"
+                    : "border-gray-300"
+                }`}
               />
               {errors.firstName && touched.firstName && (
-                <span className="text-red-500 text-sm mt-1">{errors.firstName}</span>
+                <span className="text-red-500 text-sm mt-1">
+                  {errors.firstName}
+                </span>
               )}
             </div>
             <div className="flex flex-col">
@@ -152,12 +170,18 @@ const SignUp = () => {
                 type="text"
                 value={formData.lastName}
                 placeholder="Last Name"
-                onChange={(e) => handleChange('lastName', e.target.value)}
-                onBlur={(e) => handleBlur('lastName', e.target.value)}
-                className={`p-2 border rounded-[9px] h-[52px] w-[345px] focus:outline-none ${errors.lastName && touched.lastName ? 'border-red-500' : 'border-gray-300'}`}
+                onChange={(e) => handleChange("lastName", e.target.value)}
+                onBlur={(e) => handleBlur("lastName", e.target.value)}
+                className={`p-2 border rounded-[9px] h-[52px] w-[345px] focus:outline-none ${
+                  errors.lastName && touched.lastName
+                    ? "border-red-500"
+                    : "border-gray-300"
+                }`}
               />
               {errors.lastName && touched.lastName && (
-                <span className="text-red-500 text-sm mt-1">{errors.lastName}</span>
+                <span className="text-red-500 text-sm mt-1">
+                  {errors.lastName}
+                </span>
               )}
             </div>
           </div>
@@ -171,12 +195,18 @@ const SignUp = () => {
               type="text"
               value={formData.userName}
               placeholder="Username"
-              onChange={(e) => handleChange('userName', e.target.value)}
-              onBlur={(e) => handleBlur('userName', e.target.value)}
-              className={`p-2 border rounded-[9px] h-[52px] w-[699px] focus:outline-none ${errors.userName && touched.userName ? 'border-red-500' : 'border-gray-300'}`}
+              onChange={(e) => handleChange("userName", e.target.value)}
+              onBlur={(e) => handleBlur("userName", e.target.value)}
+              className={`p-2 border rounded-[9px] h-[52px] w-[699px] focus:outline-none ${
+                errors.userName && touched.userName
+                  ? "border-red-500"
+                  : "border-gray-300"
+              }`}
             />
             {errors.userName && touched.userName && (
-              <span className="text-red-500 text-sm mt-1">{errors.userName}</span>
+              <span className="text-red-500 text-sm mt-1">
+                {errors.userName}
+              </span>
             )}
           </div>
 
@@ -189,9 +219,13 @@ const SignUp = () => {
               type="email"
               value={formData.email}
               placeholder="Email ID"
-              onChange={(e) => handleChange('email', e.target.value)}
-              onBlur={(e) => handleBlur('email', e.target.value)}
-              className={`p-2 border rounded-[9px] h-[52px] w-[699px] focus:outline-none ${errors.email && touched.email ? 'border-red-500' : 'border-gray-300'}`}
+              onChange={(e) => handleChange("email", e.target.value)}
+              onBlur={(e) => handleBlur("email", e.target.value)}
+              className={`p-2 border rounded-[9px] h-[52px] w-[699px] focus:outline-none ${
+                errors.email && touched.email
+                  ? "border-red-500"
+                  : "border-gray-300"
+              }`}
             />
             {errors.email && touched.email && (
               <span className="text-red-500 text-sm mt-1">{errors.email}</span>
@@ -213,12 +247,18 @@ const SignUp = () => {
                 type="password"
                 value={formData.password}
                 placeholder="Password"
-                onChange={(e) => handleChange('password', e.target.value)}
-                onBlur={(e) => handleBlur('password', e.target.value)}
-                className={`p-2 border rounded-[9px] h-[52px] w-[330px] focus:outline-none ${errors.password && touched.password ? 'border-red-500' : 'border-gray-300'}`}
+                onChange={(e) => handleChange("password", e.target.value)}
+                onBlur={(e) => handleBlur("password", e.target.value)}
+                className={`p-2 border rounded-[9px] h-[52px] w-[330px] focus:outline-none ${
+                  errors.password && touched.password
+                    ? "border-red-500"
+                    : "border-gray-300"
+                }`}
               />
               {errors.password && touched.password && (
-                <span className="text-red-500 text-sm mt-1">{errors.password}</span>
+                <span className="text-red-500 text-sm mt-1">
+                  {errors.password}
+                </span>
               )}
             </div>
             <div className="flex flex-col">
@@ -227,12 +267,20 @@ const SignUp = () => {
                 type="password"
                 value={formData.confirmPassword}
                 placeholder="Confirm Password"
-                onChange={(e) => handleChange('confirmPassword', e.target.value)}
-                onBlur={(e) => handleBlur('confirmPassword', e.target.value)}
-                className={`p-2 border rounded-[9px] h-[52px] w-[345px] focus:outline-none ${errors.confirmPassword && touched.confirmPassword ? 'border-red-500' : 'border-gray-300'}`}
+                onChange={(e) =>
+                  handleChange("confirmPassword", e.target.value)
+                }
+                onBlur={(e) => handleBlur("confirmPassword", e.target.value)}
+                className={`p-2 border rounded-[9px] h-[52px] w-[345px] focus:outline-none ${
+                  errors.confirmPassword && touched.confirmPassword
+                    ? "border-red-500"
+                    : "border-gray-300"
+                }`}
               />
               {errors.confirmPassword && touched.confirmPassword && (
-                <span className="text-red-500 text-sm mt-1">{errors.confirmPassword}</span>
+                <span className="text-red-500 text-sm mt-1">
+                  {errors.confirmPassword}
+                </span>
               )}
             </div>
           </div>
@@ -245,9 +293,9 @@ const SignUp = () => {
               onClick={onFinish}
               disabled={isLoading}
               className={`flex items-center text-left py-3 px-6 mb-3.5 gap-2 rounded-lg border-0 cursor-pointer transition-colors duration-200 ${
-                isLoading 
-                  ? 'bg-gray-400 text-gray-600 cursor-not-allowed' 
-                  : 'bg-slate-950 text-white hover:bg-slate-800'
+                isLoading
+                  ? "bg-gray-400 text-gray-600 cursor-not-allowed"
+                  : "bg-slate-950 text-white hover:bg-slate-800"
               }`}
             >
               <span className="font-bold">
