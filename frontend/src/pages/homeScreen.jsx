@@ -8,7 +8,7 @@ import NiggaImg from "../assets/nigga.png";
 import WhiteImg from "../assets/white.png";
 import AvatarsImg from "../assets/avatars.png";
 import { useNavigate } from "react-router-dom";
-import { MENTEE_PATH, AUTH_PATH, PATH } from "../routes/path";
+import { MENTEE_PATH } from "../routes/path";
 import BoImg from "../assets/Bơ.jpg";
 
 const categories = [
@@ -164,13 +164,10 @@ const useHorizontalScrollBlockSwipe = () => {
   return ref;
 };
 
+
 const HomeScreen = () => {
-  const navigate = useNavigate();
   const dragCourses = useHorizontalScrollBlockSwipe();
   const dragMentors = useHorizontalScrollBlockSwipe();
-  const handleButton = () => {
-    navigate(`${PATH.AUTH}/${AUTH_PATH.SIGNIN}`);
-  };
 
   // Only block horizontal scroll in testimonial, allow vertical scroll
   useEffect(() => {
@@ -263,10 +260,7 @@ const HomeScreen = () => {
             Don't just dream it—make it happen. Your journey starts here!
           </p>
 
-          <button
-            onClick={handleButton}
-            className="cursor-pointer bg-blue-600 text-white px-6 py-3 rounded-md hover:bg-blue-700 font-semibold transition"
-          >
+          <button className="bg-blue-600 text-white px-6 py-3 rounded-md hover:bg-blue-700 font-semibold transition">
             Get Started
           </button>
         </div>
