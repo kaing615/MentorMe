@@ -29,7 +29,7 @@ const UserSchema = new mongoose.Schema(
     googleId: {
       type: String,
     },
-    avatarUrl: { type: String, default: "" }, 
+    avatarUrl: { type: String, default: "" },
     avatarPublicId: { type: String, default: "" },
     jobTitle: { type: String },
     location: { type: String },

@@ -33,6 +33,12 @@ const notFound = (res, message) =>
     message: "Resource not found",
   });
 
+const forbidden = (res, message) =>
+  responseWithData(res, 403, {
+    status: 403,
+    message: message || "Forbidden",
+  });
+
 export default {
   error,
   badRequest,
@@ -40,4 +46,5 @@ export default {
   created,
   unauthorized,
   notFound,
+  forbidden,
 };
