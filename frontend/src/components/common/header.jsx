@@ -54,7 +54,7 @@ const Header = () => {
             onClick={() => {
               localStorage.setItem('mentorMode', 'false');
               setShowCategories(false);
-              navigate('/');
+              navigate('/home');
             }}
           >
             MentorMe
