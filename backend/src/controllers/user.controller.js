@@ -197,6 +197,7 @@ export const signUp = async (req, res) => {
       userName,
       password: hashedPassword,
       salt,
+      role: "mentee",
       isVerified: false,
       isDeleted: false,
       verifyKey,
