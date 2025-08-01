@@ -1,14 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation, Outlet } from 'react-router-dom';
+import { useSelector, useDispatch } from 'react-redux';
+import { clearUser } from '../../redux/features/user.slice';
 import { IoSearch, IoCartOutline } from 'react-icons/io5';
 import { FaRegHeart, FaRegBell } from 'react-icons/fa';
 import { MdOutlineShoppingCart } from 'react-icons/md';
 
 const Header = () => {
   const [showCategories, setShowCategories] = useState(false);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
+  const dispatch = useDispatch();
+  
+  // Get user data from Redux store
+  const user = useSelector((state) => state.user);
+  const isLoggedIn = user?.isLoggedIn || false;
 
   useEffect(() => {
     const currentPath = location.pathname;
@@ -18,15 +24,9 @@ const Header = () => {
     setShowCategories(shouldShowCategories);
     localStorage.setItem('mentorMode', shouldShowCategories.toString());
 
-    const loginStatus = localStorage.getItem('isLoggedIn');
-    setIsLoggedIn(loginStatus === 'true');
-
     const handleStorageChange = (e) => {
       if (e.key === 'mentorMode') {
         setShowCategories(e.newValue === 'true');
-      }
-      if (e.key === 'isLoggedIn') {
-        setIsLoggedIn(e.newValue === 'true');
       }
     };
 
@@ -38,10 +38,13 @@ const Header = () => {
     console.log(`API Call - ID: ${id}, Action: ${action}`);
   };
 
-  const toggleLoginStatus = () => {
-    const newStatus = !isLoggedIn;
-    setIsLoggedIn(newStatus);
-    localStorage.setItem('isLoggedIn', newStatus.toString());
+  const handleLogout = () => {
+    // Clear user data from localStorage and Redux store
+    localStorage.removeItem('user');
+    localStorage.removeItem('token');
+    localStorage.removeItem('isLoggedIn');
+    dispatch(clearUser());
+    navigate('/');
   };
 
   return (
@@ -128,10 +131,10 @@ const Header = () => {
                 </div>
                 <div
                   className="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center rounded-full bg-slate-700 text-white text-sm font-bold cursor-pointer select-none hover:bg-slate-600 transition-colors duration-200"
-                  onClick={() => handleAPICall('avatar-mentor-id', 'Avatar')}
-                  title="User Profile"
+                  // onClick={handleLogout}
+                  title="Logout"
                 >
-                  V
+                  {user?.firstName?.charAt(0).toUpperCase() || 'U'}
                 </div>
               </div>
             )}

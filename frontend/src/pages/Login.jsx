@@ -8,6 +8,7 @@ import { authApi } from "../api/modules/auth.api";
 import { toast } from "react-toastify";
 import { useNavigate } from "react-router-dom";
 import { showLoading, hideLoading } from "../redux/features/loading.slice";
+import { setUser } from "../redux/features/user.slice";
 import { useDispatch } from "react-redux";
 import { useEffect } from "react";
 
@@ -100,16 +101,31 @@ const Login = () => {
 
       toast.success("Đăng nhập thành công!");
 
-      // Store user data if needed
+      // Store user data in localStorage and Redux store
       if (response.data?.user) {
-        localStorage.setItem("user", JSON.stringify(response.data.user));
+        const userData = response.data.user;
+        localStorage.setItem("user", JSON.stringify(userData));
+        localStorage.setItem("isLoggedIn", "true"); // Set login status in localStorage for header
+        
+        // Dispatch user data to Redux store with isLoggedIn flag
+        dispatch(setUser({
+          ...userData,
+          isLoggedIn: true,
+          userType: selected // Store whether user logged in as mentee or mentor
+        }));
       }
       if (response.data?.token) {
         localStorage.setItem("token", response.data.token);
       }
 
       // Navigate based on user role or selected type
-      navigate("/dashboard"); // Adjust this route as needed
+      if (selected === "mentee") {
+        navigate("/home"); // Navigate to homeScreen for mentee
+      } else if (selected === "mentor") {
+        navigate("/mentor-dashboard"); // Navigate to mentor page (will be updated later)
+      } else {
+        navigate("/"); // Default fallback
+      }
     } catch (error) {
       console.error("Login error:", error);
       console.error("Error response:", error.response);
