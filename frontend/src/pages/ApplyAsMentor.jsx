@@ -1,5 +1,7 @@
 import React, { useState } from "react";
 import { IoArrowForward, IoCloudUpload, IoCheckmark } from "react-icons/io5";
+import { authApi } from "../api/modules/auth.api";
+import { toast } from "react-toastify";
 
 const ApplyAsMentor = () => {
   const [formData, setFormData] = useState({
@@ -53,6 +55,16 @@ const ApplyAsMentor = () => {
     return newErrors;
   };
 
+  // Validate step 3 fields
+  const validateStep3 = () => {
+    const newErrors = {};
+    // reason và achievement không bắt buộc
+    if (formData.reason.trim() && formData.reason.trim().length < 50) {
+      newErrors.reason = "Reason must be at least 50 characters if provided";
+    }
+    return newErrors;
+  };
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
@@ -63,6 +75,8 @@ const ApplyAsMentor = () => {
         fieldError = validateStep1(false);
       } else if (currentStep === 2) {
         fieldError = validateStep2();
+      } else if (currentStep === 3) {
+        fieldError = validateStep3();
       }
       setErrors((prev) => ({ ...prev, [name]: fieldError[name] }));
     }
@@ -76,6 +90,8 @@ const ApplyAsMentor = () => {
       fieldError = validateStep1(false);
     } else if (currentStep === 2) {
       fieldError = validateStep2();
+    } else if (currentStep === 3) {
+      fieldError = validateStep3();
     }
     setErrors((prev) => ({ ...prev, [name]: fieldError[name] }));
   };
@@ -99,6 +115,8 @@ const ApplyAsMentor = () => {
       stepErrors = validateStep1(true);
     } else if (currentStep === 2) {
       stepErrors = validateStep2();
+    } else if (currentStep === 3) {
+      stepErrors = validateStep3();
     }
     
     if (Object.keys(stepErrors).length > 0) {
@@ -127,6 +145,109 @@ const ApplyAsMentor = () => {
       
       // Move to previous step
       setCurrentStep(prev => prev - 1);
+    }
+  };
+
+  // Xử lý submit form
+  const handleSubmit = async () => {
+    // Validate all steps
+    const step1Errors = validateStep1(true);
+    const step2Errors = validateStep2();
+    const step3Errors = validateStep3();
+    
+    const allErrors = { ...step1Errors, ...step2Errors, ...step3Errors };
+    
+    if (Object.keys(allErrors).length > 0) {
+      setErrors(allErrors);
+      const touchedFields = {};
+      Object.keys(allErrors).forEach((key) => { touchedFields[key] = true; });
+      setTouched((prev) => ({ ...prev, ...touchedFields }));
+      toast.error("Vui lòng điền đầy đủ thông tin bắt buộc!");
+      return;
+    }
+
+    try {
+      // Prepare form data for submission
+      const formDataToSend = new FormData();
+      
+      // Basic info
+      formDataToSend.append('firstName', formData.firstName);
+      formDataToSend.append('lastName', formData.lastName);
+      formDataToSend.append('userName', formData.username);
+      formDataToSend.append('email', formData.email);
+      formDataToSend.append('password', formData.password);
+      formDataToSend.append('confirmPassword', formData.confirmPassword);
+      formDataToSend.append('jobTitle', formData.jobTitle);
+      formDataToSend.append('location', formData.location);
+      
+      // Profile info
+      formDataToSend.append('category', formData.category);
+      formDataToSend.append('skills', formData.skills); // Backend sẽ parse string thành array
+      formDataToSend.append('bio', formData.bio);
+      formDataToSend.append('linkedinUrl', formData.linkedin);
+      
+      // Experience info
+      if (formData.introVideo.trim()) {
+        formDataToSend.append('introVideo', formData.introVideo);
+      }
+      // Gửi reason và achievement, nếu trống thì gửi dữ liệu mặc định để tránh lỗi validation backend
+      formDataToSend.append('mentorReason', formData.reason.trim() || 'I want to share my knowledge and help others grow in their career');
+      formDataToSend.append('greatestAchievement', formData.achievement.trim() || 'Continuous learning and professional development');
+      
+      // Profile image
+      if (profileImage) {
+        // Convert base64 to blob
+        const response = await fetch(profileImage);
+        const blob = await response.blob();
+        formDataToSend.append('avatar', blob, 'profile-image.jpg');
+      }
+
+      // Debug log
+      console.log('Sending FormData:');
+      for (let [key, value] of formDataToSend.entries()) {
+        console.log(key, value);
+      }
+
+      const response = await authApi.signupMentor(formDataToSend);
+      
+      toast.success("Đăng ký mentor thành công! Vui lòng chờ admin duyệt.");
+      
+      // Reset form or redirect
+      setFormData({
+        firstName: "",
+        lastName: "",
+        username: "",
+        email: "",
+        password: "",
+        confirmPassword: "",
+        jobTitle: "",
+        location: "",
+        category: "",
+        skills: "",
+        bio: "",
+        linkedin: "",
+        introVideo: "",
+        reason: "",
+        achievement: "",
+      });
+      setProfileImage(null);
+      setCurrentStep(1);
+      setCompletedSteps([]);
+      setErrors({});
+      setTouched({});
+      
+    } catch (error) {
+      console.error("Submit error:", error);
+      console.error("Error details:", error.response);
+      if (error.response?.data?.data?.message) {
+        toast.error(error.response.data.data.message);
+      } else if (error.response?.data?.message) {
+        toast.error(error.response.data.message);
+      } else if (error.message) {
+        toast.error(error.message);
+      } else {
+        toast.error("Có lỗi xảy ra khi đăng ký. Vui lòng thử lại!");
+      }
     }
   };
 
@@ -173,6 +294,7 @@ const ApplyAsMentor = () => {
     
     return stepId;
   };
+
   return (
     <div className="flex flex-col">
       <div title="Apply as a Mentor" className="pt-20 pl-92">
@@ -557,29 +679,56 @@ const ApplyAsMentor = () => {
           <div>
 
             <label className="block mt-2 text-lg font-medium text-left">Intro video <label className="text-slate-400 text-[15px]">(Optional)</label></label>
-            <div>
+            <div className="flex flex-col mb-0">
               <input 
                 type="text" 
+                name="introVideo"
+                value={formData.introVideo}
                 placeholder="https://your-intro-video-URL"
                 className="p-2 border border-gray-300 rounded-[9px] h-[52px] w-[699px] focus:outline-none"
+                onChange={handleChange}
+                onBlur={handleBlur}
               />
             </div>
-            <span className="text-sm text-gray-500">
-              Add a YouTube video or record a Loom for your future mentees
+            <span className="text-sm text-gray-500 mb-4">
+              Add a YouTube video or record a Loom for your future mentees
             </span>
 
-            <label className="block mt-2 text-lg font-medium text-left">Why do you want to become a mentor? (Not publicly visible)</label>
-            <div className="mb-0">
+            <label className="block mt-2 text-lg font-medium text-left">
+              Why do you want to become a mentor? (Not publicly visible)
+            </label>
+            <div className="mb-0 flex flex-col">
               <textarea
-                className="p-2 border border-gray-300 rounded-[9px] h-[120px] w-[699px] focus:outline-none resize-none"
+                name="reason"
+                value={formData.reason}
+                placeholder="Tell us why you want to become a mentor... (minimum 50 characters)"
+                className={`p-2 border rounded-[9px] h-[120px] w-[699px] focus:outline-none resize-none ${errors.reason && touched.reason ? 'border-red-500' : 'border-gray-300'}`}
+                onChange={handleChange}
+                onBlur={handleBlur}
               />
+              {errors.reason && touched.reason && (
+                <span className="text-red-500 text-sm mt-1">{errors.reason}</span>
+              )}
             </div>
+            <span className="text-sm text-gray-500 mb-4">
+              This field is optional. If provided, please write at least 50 characters.
+            </span>
 
-            <label className="block mt-2 text-lg font-medium text-left">What, in your opinion, has been your greatest achievement so far? <br/>(Not publicly visible)</label>
-            <div className="mb-2">
+            <label className="block mt-2 text-lg font-medium text-left">
+              What, in your opinion, has been your greatest achievement so far? <br/>(Not publicly visible)
+            </label>
+            <div className="mb-2 flex flex-col">
               <textarea
-                className="p-2 border border-gray-300 rounded-[9px] h-[120px] w-[699px] focus:outline-none resize-none"
+                name="achievement"
+                value={formData.achievement}
+                placeholder="Describe your greatest achievement..."
+                className={`p-2 border rounded-[9px] h-[120px] w-[699px] focus:outline-none resize-none ${errors.achievement && touched.achievement ? 'border-red-500' : 'border-gray-300'}`}
+                onChange={handleChange}
+                onBlur={handleBlur}
               />
+              {errors.achievement && touched.achievement && (
+                <span className="text-red-500 text-sm mt-1">{errors.achievement}</span>
+              )}
             </div>
 
             <div className="flex gap-4">
@@ -597,6 +746,7 @@ const ApplyAsMentor = () => {
               </button>
 
               <button 
+                onClick={handleSubmit}
                 className="flex items-center ml-72 bg-green-600 text-white text-left py-3 px-6 mb-3.5 gap-2 rounded-lg border-0 cursor-pointer hover:bg-green-700 transition-colors duration-200"
               >
                 <span className="font-bold">Submit Application</span>
