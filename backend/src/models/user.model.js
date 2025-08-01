@@ -29,7 +29,7 @@ const UserSchema = new mongoose.Schema(
     googleId: {
       type: String,
     },
-    avatarUrl: { type: String, default: "" }, 
+    avatarUrl: { type: String, default: "" },
     avatarPublicId: { type: String, default: "" },
     jobTitle: { type: String },
     location: { type: String },
@@ -40,11 +40,12 @@ const UserSchema = new mongoose.Schema(
     introVideo: { type: String },
     mentorReason: { type: String },
     greatestAchievement: { type: String },
-    role: [{ type: String, enum: ["mentor", "mentee"] }],
+    role: { type: String, enum: ["mentor", "mentee", "admin"] },
     isVerified: { type: Boolean, default: false },
     verifyKey: String,
     resetToken: { type: String },
     resetTokenExpires: { type: Date },
+    wishlist: [{ type: mongoose.Schema.ObjectId, ref: "Course" }]
   },
   { timestamps: true }
 );
