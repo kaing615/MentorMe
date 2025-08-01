@@ -17,6 +17,57 @@ const ShoppingCart = () => {
     removeCourse,
   } = useCart();
 
+  // Check user authentication and role
+  useEffect(() => {
+    const checkUserAccess = () => {
+      // Check if user is logged in
+      const isLoggedIn = localStorage.getItem("isLoggedIn");
+      const userData = localStorage.getItem("userData");
+
+      if (!isLoggedIn || isLoggedIn !== "true") {
+        // User is not logged in, redirect to login
+        alert("Please login to access shopping cart");
+        navigate("/auth/signin");
+        return;
+      }
+
+      if (userData) {
+        try {
+          const user = JSON.parse(userData);
+          // Check if user role is mentor
+          if (user.role === "mentor") {
+            // Mentors cannot purchase courses
+            alert(
+              "Mentors cannot access shopping cart. Only mentees can purchase courses."
+            );
+            navigate("/");
+            return;
+          } else if (user.role !== "mentee") {
+            // Invalid role
+            alert("Invalid user role. Please contact support.");
+            navigate("/");
+            return;
+          }
+        } catch (error) {
+          console.error("Error parsing user data:", error);
+          alert("Invalid user data. Please login again.");
+          localStorage.removeItem("userData");
+          localStorage.setItem("isLoggedIn", "false");
+          navigate("/auth/signin");
+          return;
+        }
+      } else {
+        // No user data found
+        alert("User data not found. Please login again.");
+        localStorage.setItem("isLoggedIn", "false");
+        navigate("/auth/signin");
+        return;
+      }
+    };
+
+    checkUserAccess();
+  }, [navigate]);
+
   const [currentTab, setCurrentTab] = useState("Shopping Cart");
   const [selectAll, setSelectAll] = useState(false);
 

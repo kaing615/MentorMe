@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { formatCurrency } from "../data/mockCartData";
 import { useCart } from "../contexts/CartContext";
@@ -15,6 +15,58 @@ const Checkout = () => {
     applyCoupon,
     removeCoupon,
   } = useCart();
+
+  // Check user authentication and role
+  useEffect(() => {
+    const checkUserAccess = () => {
+      // Check if user is logged in
+      const isLoggedIn = localStorage.getItem("isLoggedIn");
+      const userData = localStorage.getItem("userData");
+
+      if (!isLoggedIn || isLoggedIn !== "true") {
+        // User is not logged in, redirect to login
+        alert("Please login to access checkout page");
+        navigate("/auth/signin");
+        return;
+      }
+
+      if (userData) {
+        try {
+          const user = JSON.parse(userData);
+          // Check if user role is mentor
+          if (user.role === "mentor") {
+            // Mentors cannot purchase courses
+            alert(
+              "Mentors cannot purchase courses. Only mentees can checkout courses."
+            );
+            navigate("/");
+            return;
+          } else if (user.role !== "mentee") {
+            // Invalid role
+            alert("Invalid user role. Please contact support.");
+            navigate("/");
+            return;
+          }
+        } catch (error) {
+          console.error("Error parsing user data:", error);
+          alert("Invalid user data. Please login again.");
+          localStorage.removeItem("userData");
+          localStorage.setItem("isLoggedIn", "false");
+          navigate("/auth/signin");
+          return;
+        }
+      } else {
+        // No user data found
+        alert("User data not found. Please login again.");
+        localStorage.setItem("isLoggedIn", "false");
+        navigate("/auth/signin");
+        return;
+      }
+    };
+
+    checkUserAccess();
+  }, [navigate]);
+
   const [paymentMethod, setPaymentMethod] = useState("Credit/Debit Card");
   const [couponCode, setCouponCode] = useState("");
   const [showCouponInput, setShowCouponInput] = useState(false);

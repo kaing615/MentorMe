@@ -16,6 +16,57 @@ const OrderComplete = () => {
   // Get order ID from URL params
   const orderId = searchParams.get("orderId");
 
+  // Check user authentication and role
+  useEffect(() => {
+    const checkUserAccess = () => {
+      // Check if user is logged in
+      const isLoggedIn = localStorage.getItem("isLoggedIn");
+      const userData = localStorage.getItem("userData");
+
+      if (!isLoggedIn || isLoggedIn !== "true") {
+        // User is not logged in, redirect to login
+        alert("Please login to access this page");
+        navigate("/auth/signin");
+        return;
+      }
+
+      if (userData) {
+        try {
+          const user = JSON.parse(userData);
+          // Check if user role is mentor
+          if (user.role === "mentor") {
+            // Mentors cannot purchase courses
+            alert(
+              "Mentors cannot access order pages. Only mentees can view order details."
+            );
+            navigate("/");
+            return;
+          } else if (user.role !== "mentee") {
+            // Invalid role
+            alert("Invalid user role. Please contact support.");
+            navigate("/");
+            return;
+          }
+        } catch (error) {
+          console.error("Error parsing user data:", error);
+          alert("Invalid user data. Please login again.");
+          localStorage.removeItem("userData");
+          localStorage.setItem("isLoggedIn", "false");
+          navigate("/auth/signin");
+          return;
+        }
+      } else {
+        // No user data found
+        alert("User data not found. Please login again.");
+        localStorage.setItem("isLoggedIn", "false");
+        navigate("/auth/signin");
+        return;
+      }
+    };
+
+    checkUserAccess();
+  }, [navigate]);
+
   useEffect(() => {
     const loadOrderData = async () => {
       if (orderId) {
