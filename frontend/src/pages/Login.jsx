@@ -11,6 +11,7 @@ import { showLoading, hideLoading } from "../redux/features/loading.slice";
 import { setUser } from "../redux/features/user.slice";
 import { useDispatch } from "react-redux";
 import { useEffect } from "react";
+import { MENTEE_PATH, MENTOR_PATH, PATH } from "../routes/path";
 
 const Login = () => {
   const [selected, setSelected] = useState("mentee");
@@ -120,9 +121,9 @@ const Login = () => {
 
       // Navigate based on user role or selected type
       if (selected === "mentee") {
-        navigate("/home"); // Navigate to homeScreen for mentee
+        navigate(`${PATH.MENTEE}/${MENTEE_PATH.HOME}`); // Navigate to homeScreen for mentee
       } else if (selected === "mentor") {
-        navigate("/mentor-dashboard"); // Navigate to mentor page (will be updated later)
+        navigate(`${PATH.MENTOR}/${MENTOR_PATH.HOME}`); // Navigate to mentor page (will be updated later)
       } else {
         navigate("/"); // Default fallback
       }
