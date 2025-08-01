@@ -1,11 +1,7 @@
 import express from "express";
-import token from "../middlewares/token.middleware.js";
-import authorizeRoles from "../middlewares/role.middleware.js";
-
-import userRoute from "./user.route.js"
 
 const router = express.Router();
 
-router.use("/user", userRoute);
+// Import all route files here
 
 export default router;
