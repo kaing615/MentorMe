@@ -4,7 +4,7 @@ import WelcomePage from "../pages/WelcomePage";
 import HomeScreen from "../pages/homeScreen"
 import AllPagesLayout from "../components/layout/AllPagesLayout";
 import MenteeProfile from "../pages/mentee-profile";
-
+import MentorProfile from "../pages/mentor-profile";
 const useRouterElements = () => {
     const elements = useRoutes([
         {
@@ -28,6 +28,16 @@ const useRouterElements = () => {
             {
               path: MENTEE_PATH.PROFILE,
               element: <MenteeProfile />,
+            },
+          ]
+        },
+        {
+          path: PATH.MENTOR,
+          element: <AllPagesLayout />,
+          children: [
+            { 
+              path: MENTOR_PATH.PROFILE,
+              element: <MentorProfile />, // Assuming Mentor Profile is similar to Mentee Profile
             },
           ]
         }
