@@ -100,12 +100,24 @@ const Login = () => {
             
         } catch (error) {
             console.error("Login error:", error);
-            if (error.response?.data?.message) {
-                toast.error(error.response.data.message);
+            console.error("Error response:", error.response);
+            
+            let errorMessage = "Có lỗi xảy ra khi đăng nhập. Vui lòng thử lại!";
+            
+            if (error.response?.data?.data?.message) {
+                errorMessage = error.response.data.data.message;
+            } else if (error.response?.data?.message) {
+                errorMessage = error.response.data.message;
             } else if (error.message) {
-                toast.error(error.message);
+                errorMessage = error.message;
+            }
+            
+            // Check if error is about unverified email
+            if (errorMessage.includes("Email hoặc mật khẩu không đúng") || 
+                error.response?.status === 401) {
+                toast.error("Email hoặc mật khẩu không đúng. Nếu bạn chưa xác thực email, vui lòng kiểm tra hộp thư!");
             } else {
-                toast.error("Có lỗi xảy ra khi đăng nhập. Vui lòng thử lại!");
+                toast.error(errorMessage);
             }
         } finally {
             setIsLoading(false);

@@ -98,7 +98,10 @@ const SignUp = () => {
       navigate(`/auth/verify-email?email=${encodeURIComponent(formData.email)}`);
     } catch (error) {
       console.error("Error signing up:", error);
-      if (error.response?.data?.message) {
+      console.error("Error response:", error.response);
+      if (error.response?.data?.data?.message) {
+        toast.error(error.response.data.data.message);
+      } else if (error.response?.data?.message) {
         toast.error(error.response.data.message);
       } else if (error.message) {
         toast.error(error.message);

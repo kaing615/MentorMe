@@ -239,7 +239,9 @@ const ApplyAsMentor = () => {
     } catch (error) {
       console.error("Submit error:", error);
       console.error("Error details:", error.response);
-      if (error.response?.data?.message) {
+      if (error.response?.data?.data?.message) {
+        toast.error(error.response.data.data.message);
+      } else if (error.response?.data?.message) {
         toast.error(error.response.data.message);
       } else if (error.message) {
         toast.error(error.message);
