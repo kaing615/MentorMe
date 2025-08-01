@@ -1,12 +1,9 @@
 import useRouterElements from "./routes/elements";
+import { CartProvider } from "./contexts/CartContext";
 
 function App() {
   const elements = useRouterElements();
-  return (
-    <>
-      {elements}
-    </>
-  )
+  return <CartProvider>{elements}</CartProvider>;
 }
 
 export default App;
