@@ -10,12 +10,13 @@ import { v2 as cloudinary } from "cloudinary";
 
 dotenv.config();
 
-var transport = nodemailer.createTransport({
-  host: "sandbox.smtp.mailtrap.io",
-  port: 2525,
+const transport = nodemailer.createTransport({
+  host: process.env.MAIL_HOST,
+  port: process.env.MAIL_PORT,
+  secure: process.env.MAIL_SECURE === "true",
   auth: {
-    user: "cbe5c8dc4ea937",
-    pass: "379f605286f332",
+    user: process.env.MAIL_USER,
+    pass: process.env.MAIL_PASS,
   },
 });
 

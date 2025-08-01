@@ -3,10 +3,10 @@ import publicClient from "../clients/public.client";
 const userEndpoints = {
 	signin: "user/signin",
 	signup: "user/signup",
-	verifyEmail: "auth/verify",
-	resendVerificationEmail: "auth/resend-verification-email",
-	forgotPassword: "auth/forgot-password",
-	resetPassword: "auth/reset-password",
+	verifyEmail: "user/verify",
+	resendVerificationEmail: "user/resend-verification-email",
+	forgotPassword: "user/forgot-password",
+	resetPassword: "user/reset-password",
 };
 
 export const authApi = {
