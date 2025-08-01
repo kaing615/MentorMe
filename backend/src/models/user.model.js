@@ -40,7 +40,7 @@ const UserSchema = new mongoose.Schema(
     introVideo: { type: String },
     mentorReason: { type: String },
     greatestAchievement: { type: String },
-    role: [{ type: String, enum: ["mentor", "mentee"] }],
+    role: [{ type: String, enum: ["mentor", "mentee", "admin"] }],
     isVerified: { type: Boolean, default: false },
     verifyKey: String,
     resetToken: { type: String },
