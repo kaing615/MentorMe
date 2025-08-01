@@ -310,7 +310,7 @@ export const signUpMentor = async (req, res) => {
       salt,
       avatarUrl,
       avatarPublicId,
-      role: ["mentor"],
+      role: "mentor",
       isVerified: false,
       // ... các trường còn lại
       ...rest,
