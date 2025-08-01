@@ -43,7 +43,7 @@ const WelcomePage = () => {
 
       <div className="relative w-full flex justify-center items-center mt-10 md:mt-0">
         <div className="relative w-[400px] h-[480px]">
-          <div className="absolute top-0 left-60 transform -translate-x-1/2 top-0 w-56 h-56 rounded-full overflow-hidden shadow-xl bg-yellow-300">
+          <div className="absolute left-60 transform -translate-x-1/2 top-0 w-56 h-56 rounded-full overflow-hidden shadow-xl bg-yellow-300">
             <img
               src={NiggaImg}
               alt="Student"
