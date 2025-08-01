@@ -12,11 +12,11 @@ export const useCart = () => {
 };
 
 export const CartProvider = ({ children }) => {
-  // Initialize with mock data - auto select first 3 courses for demo
+  // Initialize with mock data - auto select all courses for demo
   const [courses, setCourses] = useState(
-    mockCartCourses.slice(0, 6).map((course, index) => ({
+    mockCartCourses.slice(0, 6).map((course) => ({
       ...course,
-      selected: index < 3, // Auto select first 3 courses for demo
+      selected: true, // Auto select all courses for demo
     }))
   );
 

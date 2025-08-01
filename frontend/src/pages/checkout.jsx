@@ -41,27 +41,7 @@ const Checkout = () => {
   };
 
   const handleProceedToCheckout = () => {
-    // TODO: Replace with actual API call when backend is ready
-    // const orderData = {
-    //   courses: selectedCourses,
-    //   billing: formData,
-    //   payment: { method: paymentMethod },
-    //   pricing: { subtotal, discount, tax, total },
-    //   coupon: appliedCoupon
-    // };
-    //
-    // const response = await fetch('/api/orders', {
-    //   method: 'POST',
-    //   headers: { 'Content-Type': 'application/json' },
-    //   body: JSON.stringify(orderData)
-    // });
-    //
-    // if (response.ok) {
-    //   const order = await response.json();
-    //   navigate(`/mentee/order_complete?orderId=${order.id}`);
-    // }
-
-    // For now, generate a mock order ID and navigate
+    // TODO: Replace with actual API call
     const mockOrderId = Date.now().toString();
     console.log("Processing checkout...", {
       formData,

@@ -61,18 +61,10 @@ const OrderComplete = () => {
     navigate("/courses"); // Navigate to courses page
   };
 
-  const handleViewOrder = () => {
-    if (orderData?.id) {
-      navigate(`/orders/${orderData.id}`); // Navigate to specific order page
-    } else {
-      navigate("/orders"); // Navigate to orders list page
-    }
-  };
-
   // Loading state
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-white-50 flex items-center justify-center">
         <div className="text-center">
           <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
           <p className="text-gray-600">Loading order details...</p>
@@ -211,13 +203,13 @@ const OrderComplete = () => {
             </div>
 
             {/* Total Amount */}
-            <div className="text-center mt-4">
-              <div className="text-lg font-semibold text-gray-700 mb-1">
+            <div className="flex justify-between mt-6 mb-4">
+              <span className="text-xl font-semibold text-gray-700">
                 Total Amount:
-              </div>
-              <div className="text-2xl font-bold text-green-600">
+              </span>
+              <span className="text-xl font-bold text-green-600">
                 {formatCurrency(orderData?.pricing?.total || total)}
-              </div>
+              </span>
             </div>
           </div>
 
@@ -229,14 +221,6 @@ const OrderComplete = () => {
             >
               Continue Shopping
             </button>
-            {orderData?.id && (
-              <button
-                onClick={handleViewOrder}
-                className="w-full bg-blue-600 text-white py-3 px-6 rounded-lg font-medium hover:bg-blue-700 transition-colors"
-              >
-                View Order Details
-              </button>
-            )}
           </div>
 
           {/* Additional Information */}
