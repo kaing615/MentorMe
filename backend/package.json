@@ -28,5 +28,11 @@
     "path": "^0.12.7",
     "socket.io": "^4.8.1",
     "url": "^0.11.4"
+  },
+  "devDependencies": {
+    "chai": "^5.2.1",
+    "chai-http": "^5.1.2",
+    "mocha": "^11.7.1",
+    "supertest": "^7.1.4"
   }
 }
