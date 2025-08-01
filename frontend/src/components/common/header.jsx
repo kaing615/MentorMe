@@ -1,10 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation, Outlet } from 'react-router-dom';
-<<<<<<< HEAD
 import { useSelector, useDispatch } from 'react-redux';
 import { clearUser } from '../../redux/features/user.slice';
-=======
->>>>>>> 61b2c0519a5df6266f1a0ba94c10b6e043a27101
 import { IoSearch, IoCartOutline } from 'react-icons/io5';
 import { FaRegHeart, FaRegBell } from 'react-icons/fa';
 import { MdOutlineShoppingCart } from 'react-icons/md';
@@ -27,22 +24,10 @@ const Header = () => {
     setShowCategories(shouldShowCategories);
     localStorage.setItem('mentorMode', shouldShowCategories.toString());
 
-<<<<<<< HEAD
-=======
-    const loginStatus = localStorage.getItem('isLoggedIn');
-    setIsLoggedIn(loginStatus === 'true');
-
->>>>>>> 61b2c0519a5df6266f1a0ba94c10b6e043a27101
     const handleStorageChange = (e) => {
       if (e.key === 'mentorMode') {
         setShowCategories(e.newValue === 'true');
       }
-<<<<<<< HEAD
-=======
-      if (e.key === 'isLoggedIn') {
-        setIsLoggedIn(e.newValue === 'true');
-      }
->>>>>>> 61b2c0519a5df6266f1a0ba94c10b6e043a27101
     };
 
     window.addEventListener('storage', handleStorageChange);
@@ -53,7 +38,6 @@ const Header = () => {
     console.log(`API Call - ID: ${id}, Action: ${action}`);
   };
 
-<<<<<<< HEAD
   const handleLogout = () => {
     // Clear user data from localStorage and Redux store
     localStorage.removeItem('user');
@@ -61,12 +45,6 @@ const Header = () => {
     localStorage.removeItem('isLoggedIn');
     dispatch(clearUser());
     navigate('/');
-=======
-  const toggleLoginStatus = () => {
-    const newStatus = !isLoggedIn;
-    setIsLoggedIn(newStatus);
-    localStorage.setItem('isLoggedIn', newStatus.toString());
->>>>>>> 61b2c0519a5df6266f1a0ba94c10b6e043a27101
   };
 
   return (
@@ -153,17 +131,10 @@ const Header = () => {
                 </div>
                 <div
                   className="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center rounded-full bg-slate-700 text-white text-sm font-bold cursor-pointer select-none hover:bg-slate-600 transition-colors duration-200"
-<<<<<<< HEAD
                   // onClick={handleLogout}
                   title="Logout"
                 >
                   {user?.firstName?.charAt(0).toUpperCase() || 'U'}
-=======
-                  onClick={() => handleAPICall('avatar-mentor-id', 'Avatar')}
-                  title="User Profile"
-                >
-                  V
->>>>>>> 61b2c0519a5df6266f1a0ba94c10b6e043a27101
                 </div>
               </div>
             )}
@@ -176,8 +147,4 @@ const Header = () => {
   );
 };
 
-<<<<<<< HEAD
 export default Header;
-=======
-export default Header;
->>>>>>> 61b2c0519a5df6266f1a0ba94c10b6e043a27101
