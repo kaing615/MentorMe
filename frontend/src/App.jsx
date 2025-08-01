@@ -1,4 +1,5 @@
 import useRouterElements from "./routes/elements";
+import { CartProvider } from "./contexts/CartContext";
 import LoadingPage from "./components/common/loadingPage";
 import { useSelector, useDispatch } from "react-redux";
 import { useEffect } from "react";
@@ -11,7 +12,6 @@ function App() {
   const isLoading = useSelector(state => state.loading.isLoading);
   const dispatch = useDispatch();
 
-  // Restore user state from localStorage on app load
   useEffect(() => {
     const storedUser = localStorage.getItem('user');
     const isLoggedIn = localStorage.getItem('isLoggedIn') === 'true';
@@ -32,7 +32,7 @@ function App() {
   }, [dispatch]);
 
   return (
-    <>
+    <CartProvider>
       <LoadingPage loading={isLoading} />
       {elements}
       <ToastContainer
@@ -46,7 +46,7 @@ function App() {
         draggable
         pauseOnHover
       />
-    </>
+    </CartProvider>
   );
 }
 
