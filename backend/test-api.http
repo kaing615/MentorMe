@@ -1,0 +1,162 @@
+### Test API MentorMe - Purchased Courses Feature
+### Server: http://localhost:4000
+
+### 1. Đăng ký tài khoản test
+POST http://localhost:4000/api/v1/user/signup
+Content-Type: application/json
+
+{
+  "firstName": "Test",
+  "lastName": "User",
+  "email": "testuser@example.com",
+  "password": "123456",
+  "confirmPassword": "123456",
+  "userName": "testuser"
+}
+
+###
+
+### 2. Xác thực email (nếu cần)
+POST http://localhost:4000/api/v1/user/verify-email
+Content-Type: application/json
+
+{
+  "token": "YOUR_VERIFICATION_TOKEN_HERE"
+}
+
+###
+
+### 3. Đăng nhập để lấy token
+POST http://localhost:4000/api/v1/user/signin
+Content-Type: application/json
+
+{
+  "email": "testuser@example.com",
+  "password": "123456"
+}
+
+###
+
+### 4. Lấy danh sách khóa học đã mua (cần token)
+GET http://localhost:4000/api/v1/purchased-courses
+Authorization: Bearer YOUR_TOKEN_HERE
+
+###
+
+### 5. Thêm khóa học đã mua (test)
+POST http://localhost:4000/api/v1/purchased-courses
+Authorization: Bearer YOUR_TOKEN_HERE
+Content-Type: application/json
+
+{
+  "courseId": "COURSE_ID_HERE",
+  "orderId": "ORDER_ID_HERE"
+}
+
+###
+
+### 6. Kiểm tra xem đã mua khóa học chưa
+GET http://localhost:4000/api/v1/purchased-courses/check/COURSE_ID_HERE
+Authorization: Bearer YOUR_TOKEN_HERE
+
+###
+
+### 7. Cập nhật tiến độ học
+PUT http://localhost:4000/api/v1/purchased-courses/COURSE_ID_HERE/progress
+Authorization: Bearer YOUR_TOKEN_HERE
+Content-Type: application/json
+
+{
+  "progress": 75
+}
+
+###
+
+### 8. Xử lý thành công thanh toán
+POST http://localhost:4000/api/v1/purchased-courses/purchase-success
+Authorization: Bearer YOUR_TOKEN_HERE
+Content-Type: application/json
+
+{
+  "orderId": "ORDER_ID_HERE"
+}
+
+###
+
+### 9. Lấy thống kê học tập
+GET http://localhost:4000/api/v1/purchased-courses/stats
+Authorization: Bearer YOUR_TOKEN_HERE
+
+###
+
+### 10. Lấy tất cả khóa học (public)
+GET http://localhost:4000/api/v1/course?page=1&limit=5
+
+###
+
+### 11. Lấy chi tiết khóa học (public)
+GET http://localhost:4000/api/v1/course/COURSE_ID_HERE
+
+###
+
+### 12. Tạo khóa học mới (cần token mentor)
+POST http://localhost:4000/api/v1/course
+Authorization: Bearer YOUR_MENTOR_TOKEN_HERE
+Content-Type: application/json
+
+{
+  "title": "Test Course",
+  "description": "This is a test course",
+  "price": 100000,
+  "category": "Technology",
+  "tags": ["programming", "web", "javascript"],
+  "duration": 120,
+  "link": "https://example.com/course",
+  "lectures": 10
+}
+
+###
+
+### Test với dữ liệu mẫu
+### Sau khi có token thật, thay thế các giá trị sau:
+
+@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.YOUR_ACTUAL_TOKEN
+@courseId = 64a1b2c3d4e5f6789012345
+@orderId = 64a1b2c3d4e5f6789012346
+
+### Test với token thật
+GET http://localhost:4000/api/v1/purchased-courses
+Authorization: Bearer {{token}}
+
+###
+
+POST http://localhost:4000/api/v1/purchased-courses
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "courseId": "{{courseId}}",
+  "orderId": "{{orderId}}"
+}
+
+###
+
+GET http://localhost:4000/api/v1/purchased-courses/check/{{courseId}}
+Authorization: Bearer {{token}}
+
+###
+
+PUT http://localhost:4000/api/v1/purchased-courses/{{courseId}}/progress
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "progress": 50
+}
+
+###
+
+GET http://localhost:4000/api/v1/purchased-courses/stats
+Authorization: Bearer {{token}}
+
+###
