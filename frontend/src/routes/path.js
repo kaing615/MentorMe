@@ -15,8 +15,13 @@ export const AUTH_PATH = {
 };
 
 export const MENTEE_PATH = {
+<<<<<<< HEAD
+  COURSE: "courses",
+  HOME: "home",
+=======
   HOME: "home",
   COURSE: "course",
+>>>>>>> 53fe7e795d1a1fe35ca4966792237119dff00434
 };
 
 export const ADMIN_PATH = {
