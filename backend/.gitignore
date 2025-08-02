@@ -1,6 +1,9 @@
 # Node modules
 node_modules/
 
+#scripts
+scripts
+
 # Environment files
 .env
 .env.local
