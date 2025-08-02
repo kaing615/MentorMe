@@ -45,7 +45,21 @@ const UserSchema = new mongoose.Schema(
     verifyKey: String,
     resetToken: { type: String },
     resetTokenExpires: { type: Date },
-    wishlist: [{ type: mongoose.Schema.ObjectId, ref: "Course" }]
+    wishlist: [{ type: mongoose.Schema.ObjectId, ref: "Course" }],
+    purchasedCourses: [
+      {
+        course: {
+          type: mongoose.Schema.ObjectId,
+          ref: "Course",
+          required: true,
+        },
+        purchaseDate: { type: Date, default: Date.now },
+        orderId: { type: mongoose.Schema.ObjectId, ref: "Order" },
+        progress: { type: Number, default: 0, min: 0, max: 100 }, // Tiến độ học (%)
+        lastAccessDate: { type: Date, default: Date.now },
+        isCompleted: { type: Boolean, default: false },
+      },
+    ],
   },
   { timestamps: true }
 );

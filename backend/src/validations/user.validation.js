@@ -150,3 +150,42 @@ export const resendEmailSchema = Joi.object({
     "any.required": "Email là bắt buộc",
   }),
 });
+
+// Course progress validation
+export const courseProgressSchema = Joi.object({
+  progress: Joi.number().min(0).max(100).required().messages({
+    "number.base": "Tiến độ phải là số",
+    "number.min": "Tiến độ phải từ 0-100%",
+    "number.max": "Tiến độ phải từ 0-100%",
+    "any.required": "Tiến độ là bắt buộc",
+  }),
+});
+
+// Add purchased course validation
+export const addPurchasedCourseSchema = Joi.object({
+  courseId: Joi.string()
+    .pattern(/^[0-9a-fA-F]{24}$/)
+    .required()
+    .messages({
+      "string.pattern.base": "Course ID không hợp lệ",
+      "any.required": "Course ID là bắt buộc",
+    }),
+  orderId: Joi.string()
+    .pattern(/^[0-9a-fA-F]{24}$/)
+    .required()
+    .messages({
+      "string.pattern.base": "Order ID không hợp lệ",
+      "any.required": "Order ID là bắt buộc",
+    }),
+});
+
+// Purchase success validation
+export const purchaseSuccessSchema = Joi.object({
+  orderId: Joi.string()
+    .pattern(/^[0-9a-fA-F]{24}$/)
+    .required()
+    .messages({
+      "string.pattern.base": "Order ID không hợp lệ",
+      "any.required": "Order ID là bắt buộc",
+    }),
+});

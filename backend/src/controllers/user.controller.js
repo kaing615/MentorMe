@@ -25,8 +25,8 @@ const generateToken = (bytes = 32) => crypto.randomBytes(bytes).toString("hex");
 export const sendVerificationEmail = async (email, verifyKey, userName) => {
   const verifyLink = `
     http://localhost:5173/auth/verify-email?verified=1&email=${encodeURIComponent(
-    email
-  )}&verifyKey=${verifyKey}`;
+      email
+    )}&verifyKey=${verifyKey}`;
   const data = {
     from: "MentorMe <no-reply@mentorme.com>",
     to: email,
@@ -52,7 +52,7 @@ export const verifyEmail = async (req, res) => {
   try {
     const { email, verifyKey } = req.query;
     const user = await User.findOne({
-      email
+      email,
     });
     if (!user)
       return responseHandler.badRequest(
@@ -159,7 +159,8 @@ export const googleAuth = async (req, res) => {
 
 export const signUp = async (req, res) => {
   try {
-    const { userName, email, password, confirmPassword, firstName, lastName } = req.body;
+    const { userName, email, password, confirmPassword, firstName, lastName } =
+      req.body;
 
     if (!email) {
       return responseHandler.badRequest(res, "Email không được bỏ trống.");
@@ -182,7 +183,10 @@ export const signUp = async (req, res) => {
     }
 
     if (password != confirmPassword) {
-      return responseHandler.badRequest(res, "Mật khẩu và xác nhận mật khẩu không khớp.");
+      return responseHandler.badRequest(
+        res,
+        "Mật khẩu và xác nhận mật khẩu không khớp."
+      );
     }
 
     const salt = await bcrypt.genSalt(10);
@@ -332,16 +336,19 @@ export const signUpMentor = async (req, res) => {
 export const getPendingMentor = async (req, res) => {
   try {
     const mentors = await User.find({
-      role: 'mentor',
+      role: "mentor",
       isVerified: false,
     });
 
     return responseHandler.ok(res, mentors);
   } catch (err) {
-    console.log("Lỗi lấy mentor chờ duyệt: ", err)
-    return responseHandler.error(res, err.message || "Lỗi lấy mentor chờ duyệt!");
+    console.log("Lỗi lấy mentor chờ duyệt: ", err);
+    return responseHandler.error(
+      res,
+      err.message || "Lỗi lấy mentor chờ duyệt!"
+    );
   }
-}
+};
 
 export const signIn = async (req, res) => {
   try {

@@ -7,7 +7,9 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node src/index.js",
     "dev": "node --watch src/index.js",
-    "seed": "node scripts/seedData.js"
+    "seed": "node scripts/seedData.js",
+    "seed-test": "node scripts/seedTestData_new.js",
+    "clear-test": "node scripts/clearTestData.js"
   },
   "keywords": [],
   "author": "",
