@@ -2,7 +2,7 @@
 node_modules/
 
 #scripts
-scripts
+scripts/
 
 # Environment files
 .env
