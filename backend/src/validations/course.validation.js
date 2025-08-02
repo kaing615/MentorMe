@@ -40,14 +40,3 @@ export const createCourseSchema = Joi.object({
     "any.required": "Số bài giảng là bắt buộc",
   }),
 });
-
-// Purchase success validation
-export const purchaseSuccessSchema = Joi.object({
-  orderId: Joi.string()
-    .pattern(/^[0-9a-fA-F]{24}$/)
-    .required()
-    .messages({
-      "string.pattern.base": "Order ID không hợp lệ",
-      "any.required": "Order ID là bắt buộc",
-    }),
-});
