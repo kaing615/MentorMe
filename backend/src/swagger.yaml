@@ -239,3 +239,486 @@ paths:
           description: Đặt lại mật khẩu thành công
         "400":
           description: Token không hợp lệ hoặc lỗi validate
+
+  # COURSE MANAGEMENT APIs
+  /courses/{courseId}:
+    get:
+      tags:
+        - Courses
+      summary: Get course details by ID
+      parameters:
+        - in: path
+          name: courseId
+          schema:
+            type: string
+          required: true
+          description: The ID of the course to get
+      responses:
+        "200":
+          description: Course details retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  course:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      title:
+                        type: string
+                      description:
+                        type: string
+                      category:
+                        type: string
+                      level:
+                        type: string
+                        enum: [Beginner, Intermediate, Advanced]
+                      price:
+                        type: number
+                      duration:
+                        type: number
+                      prerequisites:
+                        type: array
+                        items:
+                          type: string
+                      objectives:
+                        type: array
+                        items:
+                          type: string
+                      createdAt:
+                        type: string
+                        format: date-time
+        "404":
+          description: Course not found
+
+  /courses:
+    post:
+      tags:
+        - Courses
+      summary: Create a new course
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - title
+                - description
+                - category
+                - level
+                - price
+                - duration
+              properties:
+                title:
+                  type: string
+                  minLength: 3
+                  description: Course title
+                description:
+                  type: string
+                  minLength: 10
+                  description: Course description
+                category:
+                  type: string
+                  description: Course category
+                level:
+                  type: string
+                  enum: [Beginner, Intermediate, Advanced]
+                  description: Course difficulty level
+                price:
+                  type: number
+                  minimum: 0
+                  description: Course price in VND
+                duration:
+                  type: number
+                  minimum: 1
+                  description: Course duration in hours
+                prerequisites:
+                  type: array
+                  items:
+                    type: string
+                  description: Course prerequisites
+                objectives:
+                  type: array
+                  items:
+                    type: string
+                  description: Course learning objectives
+      responses:
+        "201":
+          description: Course created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Course created successfully"
+                  course:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      title:
+                        type: string
+                      description:
+                        type: string
+                      category:
+                        type: string
+                      level:
+                        type: string
+                      price:
+                        type: number
+                      duration:
+                        type: number
+        "400":
+          description: Invalid input or validation error
+        "401":
+          description: Unauthorized - Token required
+
+  /courses/{courseId}/reviews:
+    post:
+      tags:
+        - Courses
+      summary: Add a review to a course
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: courseId
+          schema:
+            type: string
+          required: true
+          description: The ID of the course to add review to
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - rating
+                - comment
+              properties:
+                rating:
+                  type: number
+                  minimum: 1
+                  maximum: 5
+                  description: Rating from 1 to 5 stars
+                comment:
+                  type: string
+                  minLength: 5
+                  description: Review comment
+      responses:
+        "201":
+          description: Review added successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Review added successfully"
+                  review:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      userId:
+                        type: string
+                      userName:
+                        type: string
+                      courseId:
+                        type: string
+                      rating:
+                        type: number
+                      comment:
+                        type: string
+                      createdAt:
+                        type: string
+                        format: date-time
+        "400":
+          description: Invalid input or validation error
+        "401":
+          description: Unauthorized - Token required
+        "404":
+          description: Course not found
+
+    get:
+      tags:
+        - Courses
+      summary: Get all reviews for a course
+      parameters:
+        - in: path
+          name: courseId
+          schema:
+            type: string
+          required: true
+          description: The ID of the course to get reviews for
+      responses:
+        "200":
+          description: Reviews retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  reviews:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        userId:
+                          type: string
+                        userName:
+                          type: string
+                        courseId:
+                          type: string
+                        rating:
+                          type: number
+                        comment:
+                          type: string
+                        createdAt:
+                          type: string
+                          format: date-time
+        "404":
+          description: Course not found
+
+  /courses/{courseId}/mentors:
+    post:
+      tags:
+        - Courses
+      summary: Add a mentor to a course
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: courseId
+          schema:
+            type: string
+          required: true
+          description: The ID of the course
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - mentorId
+              properties:
+                mentorId:
+                  type: string
+                  description: The ID of the mentor to add to course
+      responses:
+        "200":
+          description: Mentor added to course successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Mentor added to course successfully"
+        "400":
+          description: Invalid input or mentor already in course
+        "401":
+          description: Unauthorized - Token required
+        "404":
+          description: Course or mentor not found
+
+  /courses/{courseId}/mentors/{mentorId}:
+    delete:
+      tags:
+        - Courses
+      summary: Remove a mentor from a course
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: courseId
+          schema:
+            type: string
+          required: true
+          description: The ID of the course
+        - in: path
+          name: mentorId
+          schema:
+            type: string
+          required: true
+          description: The ID of the mentor to remove
+      responses:
+        "200":
+          description: Mentor removed from course successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Mentor removed from course successfully"
+        "400":
+          description: Invalid input or mentor not in course
+        "401":
+          description: Unauthorized - Token required
+        "404":
+          description: Course or mentor not found
+
+  /courses/{courseId}/content:
+    post:
+      tags:
+        - Courses
+      summary: Add content (lesson) to a course
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: courseId
+          schema:
+            type: string
+          required: true
+          description: The ID of the course
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - title
+                - content
+                - type
+              properties:
+                title:
+                  type: string
+                  description: Content/lesson title
+                content:
+                  type: string
+                  description: Content/lesson body
+                type:
+                  type: string
+                  enum: [video, text, quiz, assignment]
+                  description: Type of content
+                duration:
+                  type: number
+                  description: Content duration in minutes
+                order:
+                  type: number
+                  description: Content order in course
+      responses:
+        "201":
+          description: Content added to course successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Content added to course successfully"
+                  content:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      title:
+                        type: string
+                      content:
+                        type: string
+                      type:
+                        type: string
+                      duration:
+                        type: number
+                      order:
+                        type: number
+                      createdAt:
+                        type: string
+                        format: date-time
+        "400":
+          description: Invalid input or validation error
+        "401":
+          description: Unauthorized - Token required
+        "404":
+          description: Course not found
+
+  /courses/{courseId}/content/{contentId}:
+    delete:
+      tags:
+        - Courses
+      summary: Remove content (lesson) from a course
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: courseId
+          schema:
+            type: string
+          required: true
+          description: The ID of the course
+        - in: path
+          name: contentId
+          schema:
+            type: string
+          required: true
+          description: The ID of the content to remove
+      responses:
+        "200":
+          description: Content removed from course successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Content removed from course successfully"
+        "401":
+          description: Unauthorized - Token required
+        "404":
+          description: Course or content not found
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+tags:
+  - name: Auth
+    description: User authentication and management APIs
+  - name: Courses
+    description: Course management APIs

@@ -56,3 +56,5 @@ router.post(
 
 // Route để lấy danh sách khóa học của user
 router.get("/users/:userId/courses", getUserCourses);
+
+export default router;

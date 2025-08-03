@@ -11,14 +11,17 @@ import multer from "multer";
 import morgan from "morgan";
 import { fileURLToPath } from "url";
 import routes from "./routes/index.js";
-import YAML from "yamljs";
 import swaggerUi from "swagger-ui-express";
+import fs from "fs";
+import yaml from "js-yaml";
 
-const swaggerDocument = YAML.load("./src/swagger.yaml");
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 dotenv.config();
+
+// Load YAML file
+const swaggerDocument = yaml.load(fs.readFileSync('./src/swagger.yaml', 'utf8'));
 
 const app = express();
 const PORT = process.env.PORT || 4000;

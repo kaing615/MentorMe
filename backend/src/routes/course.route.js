@@ -4,8 +4,6 @@ import {
   addCourseReview,
   getCourseReviews,
   createCourse,
-  updateCourse,
-  deleteCourse,
   addMentorToCourse,
   removeMentorFromCourse,
   addContentToCourse,
@@ -24,7 +22,7 @@ const router = express.Router();
 
 /**
  * @swagger
- * /api/courses/{courseId}:
+ * /api/v1/courses/{courseId}:
  *   get:
  *     summary: Get course details by ID
  *     tags: [Courses]
@@ -49,7 +47,7 @@ router.get("/courses/:courseId", getCourseDetails);
 
 /**
  * @swagger
- * /api/courses/{courseId}/reviews:
+ * /api/v1/courses/{courseId}/reviews:
  *   post:
  *     summary: Add a review to a course
  *     tags: [Courses]
@@ -67,20 +65,18 @@ router.get("/courses/:courseId", getCourseDetails);
  *       content:
  *         application/json:
  *           schema:
- *             $ref: '#/components/schemas/ReviewInput' 
+ *             $ref: '#/components/schemas/ReviewInput'
  *     responses:
  *       201:
  *         description: Review added successfully
  *         content:
  *           application/json:
  *             schema:
- *               $ref: '#/components/schemas/Review' 
+ *               $ref: '#/components/schemas/Review'
  *       400:
  *         description: Invalid input
  *       401:
  *         description: Unauthorized
- *       403:
- *         description: Forbidden (e.g., user not enrolled)
  *       404:
  *         description: Course not found
  *   get:
@@ -110,7 +106,7 @@ router.get("/courses/:courseId/reviews", getCourseReviews);
 
 /**
  * @swagger
- * /api/courses:
+ * /api/v1/courses:
  *   post:
  *     summary: Create a new course
  *     tags: [Courses]
@@ -121,7 +117,7 @@ router.get("/courses/:courseId/reviews", getCourseReviews);
  *       content:
  *         application/json:
  *           schema:
- *             $ref: '#/components/schemas/CourseInput' 
+ *             $ref: '#/components/schemas/CourseInput'
  *     responses:
  *       201:
  *         description: Course created successfully
@@ -133,82 +129,12 @@ router.get("/courses/:courseId/reviews", getCourseReviews);
  *         description: Invalid input
  *       401:
  *         description: Unauthorized
- *       403:
- *         description: Forbidden (user does not have required role)
  */
-router.post("/courses", verifyToken, authorizeRoles('admin', 'mentor'), createCourse);
+router.post("/courses", verifyToken, createCourse);
 
 /**
  * @swagger
- * /api/courses/{courseId}:
- *   put:
- *     summary: Update course details by ID
- *     tags: [Courses]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: courseId
- *         schema:
- *           type: string
- *         required: true
- *         description: The ID of the course to update
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             $ref: '#/components/schemas/CourseUpdateInput' 
- *     responses:
- *       200:
- *         description: Course updated successfully
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Course'
- *       400:
- *         description: Invalid input
- *       401:
-         description: Unauthorized
- *       403:
- *         description: Forbidden (user does not have permission)
- *       404:
- *         description: Course not found
- *   delete:
- *     summary: Delete a course by ID
- *     tags: [Courses]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: courseId
- *         schema:
- *           type: string
- *         required: true
- *         description: The ID of the course to delete
- *     responses:
- *       200:
- *         description: Course deleted successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *       401:
- *         description: Unauthorized
- *       403:
- *         description: Forbidden (user does not have permission)
- *       404:
- *         description: Course not found
- */
-router.put("/courses/:courseId", verifyToken, authorizeRoles('admin', 'mentor'), updateCourse);
-router.delete("/courses/:courseId", verifyToken, authorizeRoles('admin', 'mentor'), deleteCourse);
-
-/**
- * @swagger
- * /api/courses/{courseId}/mentors:
+ * /api/v1/courses/{courseId}/mentors:
  *   post:
  *     summary: Add a mentor to a course
  *     tags: [Courses]
@@ -220,7 +146,7 @@ router.delete("/courses/:courseId", verifyToken, authorizeRoles('admin', 'mentor
  *         schema:
  *           type: string
  *         required: true
- *         description: The ID of the course to add a mentor to
+ *         description: The ID of the course
  *     requestBody:
  *       required: true
  *       content:
@@ -236,24 +162,18 @@ router.delete("/courses/:courseId", verifyToken, authorizeRoles('admin', 'mentor
  *     responses:
  *       200:
  *         description: Mentor added successfully
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Course' # Trả về thông tin khóa học đã cập nhật
  *       400:
- *         description: Invalid input or mentor already assigned
+ *         description: Invalid input
  *       401:
  *         description: Unauthorized
- *       403:
- *         description: Forbidden (user does not have permission)
  *       404:
- *         description: Course or Mentor not found
+ *         description: Course not found
  */
-router.post("/courses/:courseId/mentors", verifyToken, authorizeRoles('admin', 'mentor'), addMentorToCourse);
+router.post("/courses/:courseId/mentors", verifyToken, addMentorToCourse);
 
 /**
  * @swagger
- * /api/courses/{courseId}/mentors/{mentorId}:
+ * /api/v1/courses/{courseId}/mentors/{mentorId}:
  *   delete:
  *     summary: Remove a mentor from a course
  *     tags: [Courses]
@@ -275,26 +195,20 @@ router.post("/courses/:courseId/mentors", verifyToken, authorizeRoles('admin', '
  *     responses:
  *       200:
  *         description: Mentor removed successfully
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Course' # Trả về thông tin khóa học đã cập nhật
  *       400:
- *         description: Mentor not assigned to this course
+ *         description: Invalid input
  *       401:
  *         description: Unauthorized
- *       403:
- *         description: Forbidden (user does not have permission)
  *       404:
  *         description: Course not found
  */
-router.delete("/courses/:courseId/mentors/:mentorId", verifyToken, authorizeRoles('admin', 'mentor'), removeMentorFromCourse);
+router.delete("/courses/:courseId/mentors/:mentorId", verifyToken, removeMentorFromCourse);
 
 /**
  * @swagger
- * /api/courses/{courseId}/content:
+ * /api/v1/courses/{courseId}/content:
  *   post:
- *     summary: Add content (lesson) to a course
+ *     summary: Add content to a course
  *     tags: [Courses]
  *     security:
  *       - bearerAuth: []
@@ -304,36 +218,30 @@ router.delete("/courses/:courseId/mentors/:mentorId", verifyToken, authorizeRole
  *         schema:
  *           type: string
  *         required: true
- *         description: The ID of the course to add content to
+ *         description: The ID of the course
  *     requestBody:
  *       required: true
  *       content:
  *         application/json:
  *           schema:
- *             $ref: '#/components/schemas/LessonInput' # Cần định nghĩa schema LessonInput
+ *             $ref: '#/components/schemas/ContentInput'
  *     responses:
  *       201:
  *         description: Content added successfully
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Course' # Trả về thông tin khóa học đã cập nhật
  *       400:
  *         description: Invalid input
  *       401:
  *         description: Unauthorized
- *       403:
- *         description: Forbidden (user does not have permission)
  *       404:
  *         description: Course not found
  */
-router.post("/courses/:courseId/content", verifyToken, authorizeRoles('admin', 'mentor'), addContentToCourse);
+router.post("/courses/:courseId/content", verifyToken, addContentToCourse);
 
 /**
  * @swagger
- * /api/courses/{courseId}/content/{contentId}:
+ * /api/v1/courses/{courseId}/content/{contentId}:
  *   delete:
- *     summary: Remove content (lesson) from a course
+ *     summary: Remove content from a course
  *     tags: [Courses]
  *     security:
  *       - bearerAuth: []
@@ -349,21 +257,15 @@ router.post("/courses/:courseId/content", verifyToken, authorizeRoles('admin', '
  *         schema:
  *           type: string
  *         required: true
- *         description: The ID of the content (lesson) to remove
+ *         description: The ID of the content to remove
  *     responses:
  *       200:
  *         description: Content removed successfully
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Course' # Trả về thông tin khóa học đã cập nhật
  *       401:
  *         description: Unauthorized
- *       403:
- *         description: Forbidden (user does not have permission)
  *       404:
- *         description: Course or Content not found
+ *         description: Course not found
  */
-router.delete("/courses/:courseId/content/:contentId", verifyToken, authorizeRoles('admin', 'mentor'), removeContentFromCourse);
+router.delete("/courses/:courseId/content/:contentId", verifyToken, removeContentFromCourse);
 
 export default router;
