@@ -12,6 +12,8 @@ import {
   generateConversations,
   generateReviews,
 } from "../utils/mockData";
+/////////
+import courseApi from "../api/modules/course.api.js";
 
 const MentorProfile = () => {
   const [activeTab, setActiveTab] = useState("profile");
@@ -29,7 +31,172 @@ const MentorProfile = () => {
     youtube: mentorData.youtube,
     facebook: mentorData.facebook,
   });
+//////////////////////////////////////////////////////////
+  // Mock API handler function
+  const handleCreateCourse = async () => {
+    console.log("New Course button clicked!");
+    
+    const testCourse = {
+      title: "Test Course from Mentor Profile",
+      description: "Testing course creation from mentor profile UI",
+      category: "Programming",
+      level: "Beginner",
+      price: 100000,
+      duration: 20,
+      prerequisites: ["Basic knowledge"],
+      objectives: ["Learn API integration"]
+    };
+    
+    try {
+      console.log("Creating course (Mock API):", testCourse);
+      
+      // Simulate API delay
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Mock successful response
+      const mockResponse = {
+        success: true,
+        message: "Course created successfully",
+        data: {
+          id: Date.now(), // Generate fake ID
+          ...testCourse,
+          instructor: "Minato Namikaze",
+          students: 0,
+          rating: 0,
+          ratingsCount: 0,
+          lectures: 0,
+          totalHours: testCourse.duration,
+          image: "https://picsum.photos/400/250?random=" + Date.now(),
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        }
+      };
+      
+      console.log("✅ Mock Course created successfully:", mockResponse);
+      alert(`🎉 Course "${testCourse.title}" created successfully!\n\n📊 Mock API Response:\n- Course ID: ${mockResponse.data.id}\n- Students: ${mockResponse.data.students}\n- Status: Published\n\n✅ Ready for backend integration!`);
+      
+      // TODO: Add to local state or refresh course list when real API is ready
+      
+    } catch (error) {
+      console.error("❌ Error creating course:", error);
+      alert("Error creating course!");
+    }
+  };
 
+  // Handler for Edit Course button
+  const handleEditCourse = async (course) => {
+    console.log("📝 Edit Course button clicked for:", course.title);
+    
+    try {
+      // Mock edit course data
+      const updatedCourse = {
+        ...course,
+        title: course.title + " (Edited)",
+        description: course.description + " - Updated via Mock API",
+        price: course.price + 50000,
+        updatedAt: new Date().toISOString()
+      };
+      
+      // Simulate API delay
+      await new Promise(resolve => setTimeout(resolve, 800));
+      
+      const mockResponse = {
+        success: true,
+        message: "Course updated successfully",
+        data: updatedCourse
+      };
+      
+      console.log("✅ Mock Course updated:", mockResponse);
+      alert(`📝 Course "${course.title}" updated successfully!\n\n📊 Changes:\n- New Title: ${updatedCourse.title}\n- New Price: $${updatedCourse.price}\n- Updated: ${new Date().toLocaleString()}\n\n✅ Mock API worked!`);
+      
+      // TODO: Update local state when real API is ready
+      
+    } catch (error) {
+      console.error("❌ Error updating course:", error);
+      alert("Error updating course!");
+    }
+  };
+
+  // Handler for Delete Course button  
+  const handleDeleteCourse = async (course) => {
+    const confirmDelete = window.confirm(`🗑️ Are you sure you want to delete "${course.title}"?\n\nThis action cannot be undone.`);
+    
+    if (!confirmDelete) return;
+    
+    console.log("🗑️ Delete Course button clicked for:", course.title);
+    
+    try {
+      // Simulate API delay
+      await new Promise(resolve => setTimeout(resolve, 600));
+      
+      const mockResponse = {
+        success: true,
+        message: "Course deleted successfully",
+        deletedCourse: {
+          id: course.id,
+          title: course.title,
+          deletedAt: new Date().toISOString()
+        }
+      };
+      
+      console.log("✅ Mock Course deleted:", mockResponse);
+      alert(`🗑️ Course "${course.title}" deleted successfully!\n\n📊 Mock API Response:\n- Course ID: ${course.id}\n- Deleted at: ${new Date().toLocaleString()}\n\n✅ Ready for backend integration!`);
+      
+      // TODO: Remove from local state when real API is ready
+      
+    } catch (error) {
+      console.error("❌ Error deleting course:", error);
+      alert("Error deleting course!");
+    }
+  };
+
+  // Mock API handler for viewing course details
+  const handleViewCourseDetails = async (course) => {
+    console.log("👁️ View Course Details clicked for:", course.title);
+    
+    try {
+      // Simulate API delay
+      await new Promise(resolve => setTimeout(resolve, 700));
+      
+      // Mock getCourseDetails response
+      const mockResponse = {
+        success: true,
+        course: {
+          id: course.id,
+          title: course.title,
+          description: "Detailed description of " + course.title,
+          instructor: course.instructor,
+          price: course.price,
+          rating: course.rating,
+          ratingsCount: course.ratingsCount,
+          totalHours: course.totalHours,
+          lectures: course.lectures,
+          level: course.level,
+          createdAt: "2025-01-15T10:30:00Z",
+          updatedAt: "2025-01-20T14:45:00Z",
+          enrollmentCount: Math.floor(Math.random() * 1000) + 100,
+          category: "Programming",
+          tags: ["React", "JavaScript", "Frontend"],
+          curriculum: [
+            { section: 1, title: "Introduction", duration: 2 },
+            { section: 2, title: "Core Concepts", duration: 5 },
+            { section: 3, title: "Advanced Topics", duration: 8 }
+          ]
+        }
+      };
+      
+      console.log("✅ Mock Course Details fetched:", mockResponse);
+      alert(`👁️ Course Details Retrieved!\n\n ${course.title}\n💰 Price: $${course.price}\n⭐ Rating: ${course.rating}/5 (${course.ratingsCount} reviews)\n🎯 Level: ${course.level}\n⏱️ Duration: ${course.totalHours} hours\n📚 Lectures: ${course.lectures}\n👥 Students: ${mockResponse.course.enrollmentCount}\n\n✅ Ready for backend integration with getCourseDetails API!`);
+      
+      // TODO: Navigate to course detail page or open modal when real API is ready
+      
+    } catch (error) {
+      console.error("❌ Error fetching course details:", error);
+      alert("Error loading course details!");
+    }
+  };
+
+//////////////////////////////////////////////////////////
   const [profileImage, setProfileImage] = useState(mentorData.profileImage);
 
   // Course management state
@@ -612,8 +779,11 @@ const MentorProfile = () => {
                     <h3 className="text-lg font-semibold text-gray-900">
                       Courses ({filteredCourses.length})
                     </h3>
-                    <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition font-medium text-sm">
-                      New Course
+                    <button 
+                      onClick={handleCreateCourse}
+                      className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition font-medium text-sm"
+                    >
+                      New Course {/*fđfs8*/}
                     </button>
                   </div>
                 </div>
@@ -713,7 +883,13 @@ const MentorProfile = () => {
                         />
                         <div className="p-4">
                           <h4 className="font-semibold text-gray-900 mb-2 line-clamp-2">
-                            {course.title}
+                            <button
+                              onClick={() => handleViewCourseDetails(course)}
+                              className="text-left hover:text-blue-600 transition-colors cursor-pointer w-full"
+                              title="Click to view course details"
+                            >
+                              {course.title}
+                            </button>
                           </h4>
                           <p className="text-sm text-gray-600 mb-2">
                             By {course.instructor}
@@ -734,12 +910,18 @@ const MentorProfile = () => {
                           <p className="font-bold text-lg text-gray-900 mb-3">
                             ${course.price}
                           </p>
-                          {/* TODO: Add edit/delete functionality with API calls */}
+                          {/* Edit/Delete functionality with Mock API calls */}
                           <div className="flex gap-2">
-                            <button className="flex-1 bg-blue-600 text-white py-2 px-3 rounded-lg hover:bg-blue-700 transition text-sm font-medium">
+                            <button 
+                              onClick={() => handleEditCourse(course)}
+                              className="flex-1 bg-blue-600 text-white py-2 px-3 rounded-lg hover:bg-blue-700 transition text-sm font-medium"
+                            >
                               Edit Course
                             </button>
-                            <button className="px-3 py-2 border border-red-300 text-red-600 rounded-lg hover:bg-red-50 transition text-sm">
+                            <button 
+                              onClick={() => handleDeleteCourse(course)}
+                              className="px-3 py-2 border border-red-300 text-red-600 rounded-lg hover:bg-red-50 transition text-sm"
+                            >
                               Delete
                             </button>
                           </div>
