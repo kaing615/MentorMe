@@ -164,10 +164,19 @@ const useHorizontalScrollBlockSwipe = () => {
   return ref;
 };
 
-
 const HomeScreen = () => {
+  const navigate = useNavigate();
   const dragCourses = useHorizontalScrollBlockSwipe();
   const dragMentors = useHorizontalScrollBlockSwipe();
+
+  // Navigation handlers
+  const handleSeeAllCourses = () => {
+    navigate(`/${MENTEE_PATH.ALL_COURSES}`);
+  };
+
+  const handleSeeAllMentors = () => {
+    navigate(`/${MENTEE_PATH.ALL_MENTORS}`);
+  };
 
   // Only block horizontal scroll in testimonial, allow vertical scroll
   useEffect(() => {
@@ -362,7 +371,10 @@ const HomeScreen = () => {
         <div className="max-w-7xl mx-auto w-full">
           <div className="flex justify-between items-center mb-6 px-2">
             <h2 className="text-2xl font-bold text-[#1A2233]">Top Courses</h2>
-            <button className="text-[#2563eb] text-base font-semibold hover:underline focus:outline-none">
+            <button
+              onClick={handleSeeAllCourses}
+              className="text-[#2563eb] text-base font-semibold hover:underline focus:outline-none"
+            >
               See All
             </button>
           </div>
@@ -493,7 +505,10 @@ const HomeScreen = () => {
         <div className="max-w-7xl mx-auto w-full">
           <div className="flex justify-between items-center mb-6 px-2">
             <h2 className="text-2xl font-bold text-[#1A2233]">Top Mentors</h2>
-            <button className="text-[#2563eb] text-base font-semibold hover:underline focus:outline-none">
+            <button
+              onClick={handleSeeAllMentors}
+              className="text-[#2563eb] text-base font-semibold hover:underline focus:outline-none"
+            >
               See All
             </button>
           </div>

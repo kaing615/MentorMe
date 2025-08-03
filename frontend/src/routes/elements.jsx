@@ -11,8 +11,9 @@ import WelcomePage from "../pages/WelcomePage";
 import HomeScreen from "../pages/homeScreen";
 import AllPagesLayout from "../components/layout/AllPagesLayout";
 import MenteeProfile from "../pages/mentee-profile";
+import AllCoursePage from "../pages/AllCoursepage";
+import AllMentors from "../pages/AllMentors";
 import OrderCompleteCourse from "../pages/order-complete-course";
-import Footer from "../components/common/footer";
 
 const useRouterElements = () => {
   const elements = useRoutes([
@@ -21,33 +22,30 @@ const useRouterElements = () => {
       element: <WelcomePage />,
     },
     {
-      path: PATH.HOME,
-      element: <AllPagesLayout />,
-      children: [
-        {
-          path: PLATFORM_PATH.HOMESCREEN,
-          element: <HomeScreen />,
-        },
-      ],
-    },
-    {
       path: PATH.MENTEE,
       element: <AllPagesLayout />,
       children: [
         {
+          path: MENTEE_PATH.HOME,
+          element: <HomeScreen />,
+        },
+        {
           path: MENTEE_PATH.PROFILE,
           element: <MenteeProfile />,
         },
+        {
+          path: MENTEE_PATH.ORDER_COMPLETE,
+          element: <OrderCompleteCourse />,
+        },
+        {
+          path: MENTEE_PATH.ALL_MENTORS,
+          element: <AllMentors />,
+        },
+        {
+          path: MENTEE_PATH.ALL_COURSES,
+          element: <AllCoursePage />,
+        },
       ],
-    },
-    {
-      path: MENTEE_PATH.ORDER_COMPLETE,
-      element: (
-        <>
-          <OrderCompleteCourse />
-          <Footer />
-        </>
-      ),
     },
   ]);
 
