@@ -24,6 +24,8 @@ export const ADMIN_PATH = {
 
 export const MENTOR_PATH = {
     HOME: "home",
+	CREATE_COURSE: "create-course",
+
 };
 
 export const PLATFORM_PATH = {
