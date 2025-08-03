@@ -8,6 +8,8 @@ import bodyParser from "body-parser";
 import multer from "multer";
 import morgan from "morgan";
 import { fileURLToPath } from "url";
+import swaggerUI from "swagger-ui-express";
+import swaggerSpec from "./swagger.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -36,6 +38,17 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage: storage });
 
+// Swagger UI setup
+app.use("/api-docs", swaggerUI.serve, swaggerUI.setup(swaggerSpec, {
+  explorer: true,
+  swaggerOptions: {
+    docExpansion: "list",
+    filter: true,
+    showRequestDuration: true,
+    tryItOutEnabled: true
+  }
+}));
+
 app.get("/", (req, res) => {
   res.send("Welcome to the MentorMe backend!");
 });
@@ -46,6 +59,7 @@ mongoose
     console.log("MongoDB connected");
     app.listen(PORT, () => {
       console.log(`Server is running on http://localhost:${PORT}`);
+      console.log(`Swagger docs available at http://localhost:${PORT}/api-docs`);
     });
   })
   .catch((err) => {

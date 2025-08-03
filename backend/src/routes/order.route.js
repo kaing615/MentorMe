@@ -263,11 +263,11 @@ const router = Router();
  *             properties:
  *               reason:
  *                 type: string
- *                 description: Lý do hủy đơn hàng
- *                 example: "Không muốn mua nữa"
+ *                 description: Reason for cancellation
+ *                 example: "No longer needed"
  *     responses:
  *       200:
- *         description: Hủy đơn hàng thành công
+ *         description: Successfully cancelled the order
  *         content:
  *           application/json:
  *             schema:
@@ -287,17 +287,17 @@ const router = Router();
  *                               type: string
  *                               example: "cancelled"
  *       400:
- *         description: Không thể hủy đơn hàng ở trạng thái này
+ *         description: Invalid order status or reason not provided
  *       404:
- *         description: Không tìm thấy đơn hàng
+ *         description: Order not found
  */
 
 /**
  * @swagger
  * /api/orders/admin/all:
  *   get:
- *     summary: Lấy tất cả đơn hàng (Admin)
- *     description: API dành cho admin để lấy danh sách tất cả đơn hàng
+ *     summary: Get all orders (Admin)
+ *     description: API for admin to retrieve all orders
  *     tags: [Orders]
  *     security:
  *       - bearerAuth: []
@@ -306,12 +306,12 @@ const router = Router();
  *         name: status
  *         schema:
  *           type: string
- *         description: Lọc theo trạng thái
+ *         description: Filter by status
  *       - in: query
  *         name: search
  *         schema:
  *           type: string
- *         description: Tìm kiếm theo mã đơn hàng, email, tên khách hàng
+ *         description: Search by order number, email, customer name
  *       - in: query
  *         name: page
  *         schema:
@@ -324,7 +324,7 @@ const router = Router();
  *           default: 20
  *     responses:
  *       200:
- *         description: Lấy danh sách đơn hàng thành công
+ *         description: Successfully retrieved the list of orders
  *         content:
  *           application/json:
  *             schema:
@@ -364,8 +364,8 @@ const router = Router();
  * @swagger
  * /api/orders/admin/{orderNumber}/status:
  *   put:
- *     summary: Cập nhật trạng thái đơn hàng (Admin)
- *     description: API dành cho admin để cập nhật trạng thái đơn hàng
+ *     summary: Update order status (Admin)
+ *     description: API for admin to update order status
  *     tags: [Orders]
  *     security:
  *       - bearerAuth: []
@@ -389,13 +389,13 @@ const router = Router();
  *                 enum: ["pending", "processing", "paid", "completed", "failed", "cancelled", "refunded"]
  *               notes:
  *                 type: string
- *                 description: Ghi chú
+ *                 description: Notes
  *               transactionId:
  *                 type: string
- *                 description: ID giao dịch (khi status = paid)
+ *                 description: Transaction ID (when status = paid)
  *     responses:
  *       200:
- *         description: Cập nhật trạng thái thành công
+ *         description: Successfully updated the order status
  */
 
 // User routes (require authentication)
