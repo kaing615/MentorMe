@@ -1,0 +1,863 @@
+openapi: 3.0.0
+info:
+  title: MentorMe API Documentation
+  version: 1.0.0
+  description: API documentation for MentorMe backend - Nền tảng kết nối Mentor và Mentee
+  contact:
+    name: MentorMe Team
+    email: support@mentorme.com
+
+servers:
+  - url: http://localhost:4000/api/v1
+    description: Development server
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+        userName:
+          type: string
+        firstName:
+          type: string
+        lastName:
+          type: string
+        email:
+          type: string
+        role:
+          type: string
+          enum: [mentor, mentee]
+        isVerified:
+          type: boolean
+
+    Profile:
+      type: object
+      properties:
+        id:
+          type: string
+        userId:
+          type: string
+        bio:
+          type: string
+        location:
+          type: string
+        avatarUrl:
+          type: string
+        links:
+          type: object
+        languages:
+          type: array
+          items:
+            type: string
+        timezone:
+          type: string
+
+    Error:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [error]
+        message:
+          type: string
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              field:
+                type: string
+              message:
+                type: string
+
+paths:
+  /user/signup:
+    post:
+      tags:
+        - Authentication
+      summary: Đăng ký tài khoản Mentee
+      description: Đăng ký tài khoản người dùng thông thường (mentee). Sau khi đăng ký thành công, hệ thống sẽ gửi email xác thực.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - firstName
+                - lastName
+                - userName
+                - email
+                - password
+                - confirmPassword
+              properties:
+                firstName:
+                  type: string
+                  description: Họ của người dùng
+                  example: "Nguyen"
+                lastName:
+                  type: string
+                  description: Tên của người dùng
+                  example: "Van A"
+                userName:
+                  type: string
+                  description: Tên đăng nhập (unique)
+                  example: "testuser123"
+                email:
+                  type: string
+                  format: email
+                  description: Email đăng ký (unique)
+                  example: "test@example.com"
+                password:
+                  type: string
+                  minLength: 6
+                  description: Mật khẩu (tối thiểu 6 ký tự)
+                  example: "Password123!"
+                confirmPassword:
+                  type: string
+                  description: Xác nhận mật khẩu (phải giống password)
+                  example: "Password123!"
+      responses:
+        "201":
+          description: Đăng ký thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "success"
+                  message:
+                    type: string
+                    example: "Đăng ký thành công! Vui lòng kiểm tra email để xác thực tài khoản."
+        "400":
+          description: Lỗi validation hoặc email đã tồn tại
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: Lỗi server
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /user/signupMentor:
+    post:
+      tags:
+        - Authentication
+      summary: Đăng ký tài khoản Mentor
+      description: Đăng ký tài khoản mentor với thông tin đầy đủ và upload avatar. Tạo cả User và Profile trong một request.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - firstName
+                - lastName
+                - userName
+                - email
+                - password
+                - confirmPassword
+                - jobTitle
+                - category
+                - bio
+                - mentorReason
+                - greatestAchievement
+                - avatar
+              properties:
+                firstName:
+                  type: string
+                  description: Họ của mentor
+                  example: "Tran"
+                lastName:
+                  type: string
+                  description: Tên của mentor
+                  example: "Van B"
+                userName:
+                  type: string
+                  description: Tên đăng nhập (unique)
+                  example: "mentor123"
+                email:
+                  type: string
+                  format: email
+                  description: Email đăng ký (unique)
+                  example: "mentor@example.com"
+                password:
+                  type: string
+                  minLength: 6
+                  description: Mật khẩu (tối thiểu 6 ký tự)
+                  example: "Password123!"
+                confirmPassword:
+                  type: string
+                  description: Xác nhận mật khẩu
+                  example: "Password123!"
+                jobTitle:
+                  type: string
+                  description: Chức danh công việc
+                  example: "Senior Developer"
+                category:
+                  type: string
+                  description: Danh mục chuyên môn
+                  example: "Technology"
+                bio:
+                  type: string
+                  description: Tiểu sử cá nhân
+                  example: "Experienced developer with 5+ years"
+                mentorReason:
+                  type: string
+                  description: Lý do muốn làm mentor
+                  example: "Want to share knowledge"
+                greatestAchievement:
+                  type: string
+                  description: Thành tựu lớn nhất
+                  example: "Led a successful startup"
+                location:
+                  type: string
+                  description: Địa điểm (optional)
+                  example: "Ho Chi Minh City"
+                skills:
+                  type: string
+                  description: Kỹ năng (comma-separated, sẽ được parse thành array)
+                  example: "JavaScript,Node.js,React"
+                links:
+                  type: string
+                  description: Social links (JSON string, optional)
+                  example: '{"linkedin":"https://linkedin.com/in/mentor"}'
+                avatar:
+                  type: string
+                  format: binary
+                  description: Ảnh đại diện (required)
+      responses:
+        "201":
+          description: Đăng ký mentor thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "success"
+                  message:
+                    type: string
+                    example: "Đăng ký mentor thành công!"
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      avatarUrl:
+                        type: string
+        "400":
+          description: Lỗi validation hoặc upload file
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: Lỗi server
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /user/signin:
+    post:
+      tags:
+        - Authentication
+      summary: Đăng nhập hệ thống
+      description: Đăng nhập cho cả mentor và mentee. Trả về JWT token để sử dụng cho các API khác.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+              properties:
+                email:
+                  type: string
+                  format: email
+                  description: Email đăng ký
+                  example: "test@example.com"
+                password:
+                  type: string
+                  description: Mật khẩu
+                  example: "Password123!"
+      responses:
+        "200":
+          description: Đăng nhập thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "success"
+                  message:
+                    type: string
+                    example: "Đăng nhập thành công!"
+                  data:
+                    type: object
+                    properties:
+                      token:
+                        type: string
+                        description: JWT token (expires in 7 days)
+                        example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                      user:
+                        $ref: "#/components/schemas/User"
+        "400":
+          description: Email hoặc mật khẩu không đúng
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Tài khoản chưa được xác thực
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /user/verify:
+    get:
+      tags:
+        - Authentication
+      summary: Xác thực email
+      description: Xác thực email thông qua link được gửi trong email đăng ký. Sau khi xác thực thành công, user sẽ được tự động đăng nhập.
+      parameters:
+        - in: query
+          name: email
+          required: true
+          schema:
+            type: string
+            format: email
+          description: Email cần xác thực
+          example: "test@example.com"
+        - in: query
+          name: verifyKey
+          required: true
+          schema:
+            type: string
+          description: Verification key từ email
+          example: "abc123def456"
+      responses:
+        "200":
+          description: Xác thực email thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "success"
+                  message:
+                    type: string
+                    example: "Xác thực email thành công!"
+                  data:
+                    type: object
+                    properties:
+                      token:
+                        type: string
+                        description: JWT token for auto login
+                      user:
+                        $ref: "#/components/schemas/User"
+        "400":
+          description: Lỗi xác thực email (link không hợp lệ hoặc đã hết hạn)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Không tìm thấy user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /user/resend-verification-email:
+    post:
+      tags:
+        - Authentication
+      summary: Gửi lại email xác thực
+      description: Gửi lại email xác thực cho user chưa được verify. Chỉ có thể gửi cho user đã đăng ký nhưng chưa xác thực.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+              properties:
+                email:
+                  type: string
+                  format: email
+                  description: Email cần gửi lại verification
+                  example: "test@example.com"
+      responses:
+        "200":
+          description: Gửi lại email xác thực thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "success"
+                  message:
+                    type: string
+                    example: "Email xác thực đã được gửi lại!"
+        "400":
+          description: User không tồn tại hoặc đã được xác thực
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: Lỗi gửi email
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /user/forgot-password:
+    post:
+      tags:
+        - Authentication
+      summary: Yêu cầu đặt lại mật khẩu
+      description: Gửi email chứa link reset password cho user. Vì lý do bảo mật, API luôn trả về thành công dù email có tồn tại hay không.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+              properties:
+                email:
+                  type: string
+                  format: email
+                  description: Email cần reset password
+                  example: "test@example.com"
+      responses:
+        "200":
+          description: Yêu cầu reset password thành công (luôn trả về thành công vì lý do bảo mật)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "success"
+                  message:
+                    type: string
+                    example: "Nếu email tồn tại, link reset password đã được gửi!"
+        "400":
+          description: Lỗi validation email
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: Lỗi server
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /user/reset-password:
+    post:
+      tags:
+        - Authentication
+      summary: Đặt lại mật khẩu
+      description: Đặt lại mật khẩu mới bằng cách sử dụng reset token từ email. Token có thời hạn giới hạn.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - token
+                - newPassword
+              properties:
+                email:
+                  type: string
+                  format: email
+                  description: Email cần reset password
+                  example: "test@example.com"
+                token:
+                  type: string
+                  description: Reset token từ email
+                  example: "abc123def456"
+                newPassword:
+                  type: string
+                  minLength: 6
+                  description: Mật khẩu mới (tối thiểu 6 ký tự)
+                  example: "NewPassword123!"
+      responses:
+        "200":
+          description: Đặt lại mật khẩu thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "success"
+                  message:
+                    type: string
+                    example: "Đặt lại mật khẩu thành công!"
+        "400":
+          description: Token không hợp lệ hoặc đã hết hạn
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Không tìm thấy user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: Lỗi server
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  # Profile Management APIs
+  /profile:
+    get:
+      tags:
+        - Profile Management
+      summary: Lấy thông tin profile của user hiện tại
+      description: Lấy thông tin profile chi tiết của user đang đăng nhập (cả user và profile data)
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Lấy thông tin profile thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "success"
+                  data:
+                    type: object
+                    properties:
+                      user:
+                        $ref: "#/components/schemas/User"
+                      profile:
+                        $ref: "#/components/schemas/Profile"
+        "401":
+          description: Unauthorized - Token không hợp lệ
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Không tìm thấy profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /profile/mentor:
+    put:
+      tags:
+        - Profile Management
+      summary: Cập nhật profile Mentor
+      description: Cập nhật thông tin profile cho mentor. Có thể upload avatar mới cùng lúc.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - userName
+                - firstName
+                - lastName
+                - jobTitle
+                - category
+                - bio
+                - mentorReason
+              properties:
+                userName:
+                  type: string
+                  example: "mentor_updated"
+                firstName:
+                  type: string
+                  example: "Tran"
+                lastName:
+                  type: string
+                  example: "Van B Updated"
+                jobTitle:
+                  type: string
+                  example: "Tech Lead"
+                category:
+                  type: string
+                  example: "Technology"
+                bio:
+                  type: string
+                  example: "Updated bio with more experience"
+                mentorReason:
+                  type: string
+                  example: "Passionate about mentoring"
+                location:
+                  type: string
+                  example: "Ho Chi Minh City"
+                skills:
+                  type: array
+                  items:
+                    type: string
+                  example: ["JavaScript", "Node.js", "React"]
+                greatestAchievement:
+                  type: string
+                  example: "Led a team of 10 developers"
+                headline:
+                  type: string
+                  example: "Experienced Tech Lead"
+                experience:
+                  type: string
+                  example: "7+ years in software development"
+                introVideo:
+                  type: string
+                  example: "https://youtube.com/watch?v=abc123"
+                languages:
+                  type: array
+                  items:
+                    type: string
+                  example: ["Vietnamese", "English"]
+                timezone:
+                  type: string
+                  example: "GMT+7"
+                links:
+                  type: object
+                  properties:
+                    linkedin:
+                      type: string
+                    github:
+                      type: string
+                    website:
+                      type: string
+                  example:
+                    linkedin: "https://linkedin.com/in/mentor"
+                    github: "https://github.com/mentor"
+      responses:
+        "200":
+          description: Cập nhật profile mentor thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "success"
+                  message:
+                    type: string
+                    example: "Cập nhật profile mentor thành công!"
+                  data:
+                    type: object
+                    properties:
+                      user:
+                        $ref: "#/components/schemas/User"
+                      profile:
+                        $ref: "#/components/schemas/Profile"
+        "400":
+          description: Lỗi validation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Forbidden - Chỉ mentor mới được cập nhật mentor profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /profile/mentee:
+    put:
+      tags:
+        - Profile Management
+      summary: Cập nhật profile Mentee
+      description: Cập nhật thông tin profile cho mentee
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - userName
+                - firstName
+                - lastName
+              properties:
+                userName:
+                  type: string
+                  example: "mentee_updated"
+                firstName:
+                  type: string
+                  example: "Nguyen"
+                lastName:
+                  type: string
+                  example: "Van A Updated"
+                bio:
+                  type: string
+                  example: "Aspiring developer"
+                location:
+                  type: string
+                  example: "Hanoi"
+                description:
+                  type: string
+                  example: "Looking to learn new technologies"
+                goal:
+                  type: string
+                  example: "Become a full-stack developer"
+                education:
+                  type: string
+                  example: "Computer Science Graduate"
+                languages:
+                  type: array
+                  items:
+                    type: string
+                  example: ["Vietnamese", "English"]
+                timezone:
+                  type: string
+                  example: "GMT+7"
+                links:
+                  type: object
+                  properties:
+                    linkedin:
+                      type: string
+                    github:
+                      type: string
+                  example:
+                    linkedin: "https://linkedin.com/in/mentee"
+      responses:
+        "200":
+          description: Cập nhật profile mentee thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "success"
+                  message:
+                    type: string
+                    example: "Cập nhật profile mentee thành công!"
+                  data:
+                    type: object
+                    properties:
+                      user:
+                        $ref: "#/components/schemas/User"
+                      profile:
+                        $ref: "#/components/schemas/Profile"
+        "400":
+          description: Lỗi validation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /profile/avatar:
+    put:
+      tags:
+        - Profile Management
+      summary: Cập nhật avatar
+      description: Upload và cập nhật avatar mới cho user (cả mentor và mentee)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - avatar
+              properties:
+                avatar:
+                  type: string
+                  format: binary
+                  description: File ảnh đại diện (jpg, png, jpeg)
+      responses:
+        "200":
+          description: Cập nhật avatar thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "success"
+                  message:
+                    type: string
+                    example: "Cập nhật avatar thành công!"
+                  data:
+                    type: object
+                    properties:
+                      avatarUrl:
+                        type: string
+                        example: "https://cloudinary.com/image/abc123.jpg"
+        "400":
+          description: Lỗi upload file (file không hợp lệ hoặc quá lớn)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
