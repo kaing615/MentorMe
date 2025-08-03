@@ -2,27 +2,27 @@ import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
-import { Upload, X, MessageCircle, Bell, Calendar, User } from 'lucide-react';
+import { MessageCircle, Bell, Calendar, User } from 'lucide-react';
 import { courseApi } from '../api/modules/course.api';
 import { toast } from 'react-toastify';
 
 const CreateCoursePage = () => {
   const [imagePreview, setImagePreview] = useState(null);
-  const [uploadedFiles, setUploadedFiles] = useState([]);
-  const [isDragOver, setIsDragOver] = useState(false);
   const [isImageDragOver, setIsImageDragOver] = useState(false);
-  const [fileError, setFileError] = useState('');
 
   // Validation schema
   const courseSchema = yup.object({
     title: yup.string().required('Title is required'),
     price: yup.number().typeError('Price must be a number').positive('Price must be positive').required('Price is required'),
-    description: yup.string().required('Description is required'),
-    lectures: yup.number().positive('Number of lectures must be positive').required('Lectures is required'),
-    link: yup.string().url('Must be a valid URL').required('Course link is required'),
-    files: yup.mixed().test('files-required', 'You need to upload file', () => {
-      return uploadedFiles.length > 0;
-    }),
+    courseOverview: yup.string().required('Course overview is required'),
+    keyLearningObjectives: yup.string().required('Key learning objectives are required'),
+    lectures: yup.number().typeError('Number of lectures must be a number').positive('Number of lectures must be positive').required('Number of lectures is required'),
+    driveLink: yup.string().url('Must be a valid Google Drive URL').required('Google Drive link is required'),
+    duration: yup.number().transform((value, originalValue) => {
+      return originalValue === '' ? undefined : value;
+    }).positive('Duration must be positive').optional().nullable(),
+    category: yup.string().required('Category is required'),
+    level: yup.string().required('Level is required'),
   });
 
   const {
@@ -30,7 +30,6 @@ const CreateCoursePage = () => {
     handleSubmit,
     formState: { errors, isSubmitting },
     reset,
-    trigger
   } = useForm({
     resolver: yupResolver(courseSchema)
   });
@@ -72,80 +71,31 @@ const CreateCoursePage = () => {
     }
   };
 
-  const handleDragOver = (e) => {
-    e.preventDefault();
-    setIsDragOver(true);
-  };
-
-  const handleDragLeave = (e) => {
-    e.preventDefault();
-    setIsDragOver(false);
-  };
-
-  const handleDrop = (e) => {
-    e.preventDefault();
-    setIsDragOver(false);
-    const files = Array.from(e.dataTransfer.files);
-    setUploadedFiles(prev => {
-      const newFiles = [...prev, ...files];
-      // Trigger validation after updating files
-      setTimeout(() => trigger('files'), 0);
-      return newFiles;
-    });
-  };
-
-  const removeFile = (index) => {
-    setUploadedFiles(prev => {
-      const newFiles = prev.filter((_, i) => i !== index);
-      // Trigger validation after removing file
-      setTimeout(() => trigger('files'), 0);
-      return newFiles;
-    });
-  };
-
   const onSubmit = async (data) => {
     try {
-      console.log('Form submitted with files:', uploadedFiles.length);
+      console.log('Form submitted with data:', data);
       
-      // Create FormData for file upload
-      const formData = new FormData();
-      
-      // Append course data
-      Object.keys(data).forEach(key => {
-        formData.append(key, data[key]);
-      });
-      
-      // Add default values for hidden fields
-      formData.append('category', 'development');
-      formData.append('lectures', '10');
-      formData.append('link', 'https://example.com');
-      formData.append('duration', '1'); // Default duration for backend requirement
-      
-      // Append course image if selected
-      const imageInput = document.getElementById('course-image');
-      if (imageInput.files[0]) {
-        formData.append('image', imageInput.files[0]);
-      }
-      
-      // Append additional files
-      uploadedFiles.forEach((file, index) => {
-        formData.append(`files`, file);
-      });
+      // Prepare course data (no file upload needed)
+      const courseData = {
+        title: data.title,
+        description: `${data.courseOverview}\n\nKey Learning Objectives:\n${data.keyLearningObjectives}`, // Combine both descriptions
+        price: parseFloat(data.price),
+        category: data.category,
+        level: data.level,
+        lectures: parseInt(data.lectures),
+        driveLink: data.driveLink,
+        duration: data.duration ? parseInt(data.duration) : undefined,
+      };
 
-      console.log('Creating course with data:', data);
-      console.log('FormData contents:');
-      for (let [key, value] of formData.entries()) {
-        console.log(key, value);
-      }
+      console.log('Creating course with data:', courseData);
       
       // Call API to create course
-      const response = await courseApi.createCourse(formData);
+      const response = await courseApi.createCourse(courseData);
       console.log('Course creation response:', response);
       
       toast.success('Course created successfully!');
       reset();
       setImagePreview(null);
-      setUploadedFiles([]);
     } catch (error) {
       console.error('Error creating course:', error);
       console.error('Error details:', error.response?.data || error.message);
@@ -160,7 +110,7 @@ const CreateCoursePage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-white-50">
       {/* Main Content */}
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <h2 className="text-2xl font-bold text-gray-900 mb-8">Create New Course</h2>
@@ -168,8 +118,9 @@ const CreateCoursePage = () => {
         <div className="bg-white rounded-lg shadow-sm">
           <form onSubmit={handleSubmit(onSubmit)} className="p-8">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
-              {/* Left Column - Course Image */}
-              <div className="space-y-4">
+              {/* Left Column - Course Image & Descriptions */}
+              <div className="space-y-6">
+                {/* Course Image */}
                 <div className="relative">
                   <div 
                     className={`w-full h-72 bg-gray-100 rounded-lg overflow-hidden border-2 border-dashed transition-colors cursor-pointer ${
@@ -216,6 +167,38 @@ const CreateCoursePage = () => {
                     />
                   </div>
                 </div>
+
+                {/* Course Overview */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Course Overview <span className="text-red-500">*</span>
+                  </label>
+                  <textarea
+                    {...register('courseOverview')}
+                    rows={4}
+                    placeholder="Provide a comprehensive overview of your course..."
+                    className="w-full px-0 py-3 text-gray-900 border-0 border-b border-gray-200 focus:border-blue-500 focus:ring-0 bg-transparent placeholder-gray-400 resize-none"
+                  />
+                  {errors.courseOverview && (
+                    <p className="mt-1 text-sm text-red-600">{errors.courseOverview.message}</p>
+                  )}
+                </div>
+
+                {/* Key Learning Objectives */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Key Learning Objectives <span className="text-red-500">*</span>
+                  </label>
+                  <textarea
+                    {...register('keyLearningObjectives')}
+                    rows={4}
+                    placeholder="List the main objectives students will achieve..."
+                    className="w-full px-0 py-3 text-gray-900 border-0 border-b border-gray-200 focus:border-blue-500 focus:ring-0 bg-transparent placeholder-gray-400 resize-none"
+                  />
+                  {errors.keyLearningObjectives && (
+                    <p className="mt-1 text-sm text-red-600">{errors.keyLearningObjectives.message}</p>
+                  )}
+                </div>
               </div>
 
               {/* Right Column - Course Details */}
@@ -257,102 +240,102 @@ const CreateCoursePage = () => {
                   )}
                 </div>
 
-                {/* Description */}
+                {/* Category */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Description
+                    Category
                   </label>
-                  <textarea
-                    {...register('description')}
-                    rows={4}
-                    placeholder="Enter course description"
-                    className="w-full px-0 py-3 text-gray-900 border-0 border-b border-gray-200 focus:border-blue-500 focus:ring-0 bg-transparent placeholder-gray-400 resize-none"
+                  <select
+                    {...register('category')}
+                    className="w-full px-0 py-3 text-gray-900 border-0 border-b border-gray-200 focus:border-blue-500 focus:ring-0 bg-transparent"
+                  >
+                    <option value="">Select category</option>
+                    <option value="programming">Programming</option>
+                    <option value="design">Design</option>
+                    <option value="business">Business</option>
+                    <option value="marketing">Marketing</option>
+                    <option value="language">Language</option>
+                    <option value="other">Other</option>
+                  </select>
+                  {errors.category && (
+                    <p className="mt-1 text-sm text-red-600">{errors.category.message}</p>
+                  )}
+                </div>
+
+                {/* Level */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Level
+                  </label>
+                  <select
+                    {...register('level')}
+                    className="w-full px-0 py-3 text-gray-900 border-0 border-b border-gray-200 focus:border-blue-500 focus:ring-0 bg-transparent"
+                  >
+                    <option value="">Select level</option>
+                    <option value="beginner">Beginner</option>
+                    <option value="intermediate">Intermediate</option>
+                    <option value="advanced">Advanced</option>
+                    <option value="expert">Expert</option>
+                  </select>
+                  {errors.level && (
+                    <p className="mt-1 text-sm text-red-600">{errors.level.message}</p>
+                  )}
+                </div>
+
+                {/* Number of Lectures */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Number of Lectures <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    {...register('lectures')}
+                    placeholder="Enter number of lectures"
+                    className="w-full px-0 py-3 text-gray-900 border-0 border-b border-gray-200 focus:border-blue-500 focus:ring-0 bg-transparent placeholder-gray-400"
                   />
-                  {errors.description && (
-                    <p className="mt-1 text-sm text-red-600">{errors.description.message}</p>
+                  {errors.lectures && (
+                    <p className="mt-1 text-sm text-red-600">{errors.lectures.message}</p>
+                  )}
+                </div>
+
+                {/* Duration (Optional) */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Duration (hours) <span className="text-gray-400">(optional)</span>
+                  </label>
+                  <input
+                    type="number"
+                    {...register('duration')}
+                    placeholder="Enter course duration in hours"
+                    className="w-full px-0 py-3 text-gray-900 border-0 border-b border-gray-200 focus:border-blue-500 focus:ring-0 bg-transparent placeholder-gray-400"
+                  />
+                  {errors.duration && (
+                    <p className="mt-1 text-sm text-red-600">{errors.duration.message}</p>
                   )}
                 </div>
               </div>
             </div>
 
-            {/* File Upload Section */}
+            {/* Course Links Section */}
             <div className="mt-8">
-              <label className="block text-sm font-medium text-gray-700 mb-4">
-                Upload files (Video/PDF/PNG/JPG)
-              </label>
-              <div
-                onDragOver={handleDragOver}
-                onDragLeave={handleDragLeave}
-                onDrop={handleDrop}
-                className={`border-2 border-dashed rounded-lg p-12 text-center transition-colors ${
-                  isDragOver
-                    ? 'border-blue-400 bg-blue-50'
-                    : 'border-gray-300 bg-gray-50'
-                }`}
-              >
-                <div className="w-16 h-16 mx-auto mb-4 text-gray-400">
-                  <Upload className="w-full h-full" />
-                </div>
-                <p className="text-gray-600 mb-2 text-lg">Drag file here</p>
-                <p className="text-sm text-gray-500 mb-4">or</p>
-                <label
-                  htmlFor="file-upload-button"
-                  className="inline-flex items-center px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 cursor-pointer transition-colors"
-                >
-                  Browse Files
+              {/* Google Drive Link */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Google Drive Materials Link <span className="text-red-500">*</span>
                 </label>
                 <input
-                  id="file-upload-button"
-                  type="file"
-                  multiple
-                  accept=".pdf,.png,.jpg,.jpeg,.mp4,.avi,.mov"
-                  onChange={(e) => {
-                    setUploadedFiles(prev => {
-                      const newFiles = [...prev, ...Array.from(e.target.files)];
-                      // Trigger validation after updating files
-                      setTimeout(() => trigger('files'), 0);
-                      return newFiles;
-                    });
-                  }}
-                  className="hidden"
+                  type="url"
+                  {...register('driveLink')}
+                  placeholder="https://drive.google.com/drive/folders/..."
+                  className="w-full px-0 py-3 text-gray-900 border-0 border-b border-gray-200 focus:border-blue-500 focus:ring-0 bg-transparent placeholder-gray-400"
                 />
+                {errors.driveLink && (
+                  <p className="mt-1 text-sm text-red-600">{errors.driveLink.message}</p>
+                )}
+                <p className="mt-1 text-xs text-gray-500">Link to Google Drive folder containing course materials</p>
               </div>
-
-              {/* Uploaded Files List */}
-              {uploadedFiles.length > 0 && (
-                <div className="mt-4 space-y-2">
-                  {uploadedFiles.map((file, index) => (
-                    <div
-                      key={index}
-                      className="flex items-center justify-between p-3 bg-gray-50 rounded-md"
-                    >
-                      <div className="flex items-center">
-                        <div className="w-8 h-8 bg-blue-100 rounded flex items-center justify-center mr-3">
-                          <div className="w-4 h-4 bg-blue-500 rounded"></div>
-                        </div>
-                        <span className="text-sm text-gray-700">{file.name}</span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => removeFile(index)}
-                        className="text-gray-400 hover:text-red-600"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-              
-              {/* File Error Message */}
-              {errors.files && (
-                <p className="mt-2 text-sm text-red-600">{errors.files.message}</p>
-              )}
             </div>
-
-            {/* Hidden fields for required backend fields */}
-            {/* Remove hidden fields since we're adding them directly in onSubmit */}
-
+                
             {/* Submit Button */}
             <div className="flex justify-end mt-8">
               <button
