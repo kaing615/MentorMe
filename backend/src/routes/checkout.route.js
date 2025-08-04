@@ -1,6 +1,6 @@
 import { Router } from "express";
 import checkoutController from "../controllers/checkout.controller.js";
-import authMiddleware from "../middlewares/auth.middleware.js";
+import tokenMiddleware from "../middlewares/token.middleware.js";
 
 const router = Router();
 
@@ -229,7 +229,7 @@ const router = Router();
  */
 
 // Tất cả routes đều cần authentication
-router.use(authMiddleware.verifyToken);
+router.use(tokenMiddleware.auth);
 
 // Checkout routes
 router.post("/session", checkoutController.createCheckoutSession);  // POST /api/checkout/session

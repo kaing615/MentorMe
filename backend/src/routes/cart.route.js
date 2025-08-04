@@ -1,6 +1,6 @@
 import { Router } from "express";
 import cartController from "../controllers/cart.controller.js";
-import authMiddleware from "../middlewares/auth.middleware.js";
+import tokenMiddleware from "../middlewares/token.middleware.js";
 
 const router = Router();
 
@@ -218,7 +218,7 @@ const router = Router();
  */
 
 // Tất cả routes đều cần authentication
-router.use(authMiddleware.verifyToken);
+router.use(tokenMiddleware.auth);
 
 // Cart routes
 router.post("/add", cartController.addToCart);              // POST /api/cart/add

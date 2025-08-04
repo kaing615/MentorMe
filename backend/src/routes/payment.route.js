@@ -1,6 +1,6 @@
 import { Router } from "express";
 import paymentController from "../controllers/payment.controller.js";
-import authMiddleware from "../middlewares/auth.middleware.js";
+import tokenMiddleware from "../middlewares/token.middleware.js";
 
 const router = Router();
 
@@ -298,7 +298,8 @@ router.get("/vnpay/return", paymentController.handleVNPayReturn);   // GET /api/
 router.post("/momo/ipn", paymentController.handleMoMoIPN);          // POST /api/payment/momo/ipn
 
 // User routes (require authentication)
-router.use(authMiddleware.verifyToken);
+// Protected routes (require authentication)
+router.use(tokenMiddleware.auth);
 
 // Payment creation routes
 router.post("/vnpay/create", paymentController.createVNPayPayment); // POST /api/payment/vnpay/create

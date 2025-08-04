@@ -1,6 +1,6 @@
 import { Router } from "express";
 import orderController from "../controllers/order.controller.js";
-import authMiddleware from "../middlewares/auth.middleware.js";
+import tokenMiddleware from "../middlewares/token.middleware.js";
 
 const router = Router();
 
@@ -399,7 +399,7 @@ const router = Router();
  */
 
 // User routes (require authentication)
-router.use(authMiddleware.verifyToken);
+router.use(tokenMiddleware.auth);
 
 router.post("/", orderController.createOrder);                    // POST /api/orders - Tạo order từ cart
 router.get("/", orderController.getUserOrders);                   // GET /api/orders - Lấy orders của user

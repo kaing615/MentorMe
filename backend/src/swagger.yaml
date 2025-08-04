@@ -861,3 +861,774 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+
+  # CHECKOUT & PAYMENT APIs
+  /checkout/create-order:
+    post:
+      tags:
+        - Checkout
+      summary: Tạo đơn hàng mới
+      description: Tạo đơn hàng mới cho việc đăng ký khóa học hoặc booking mentor
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - type
+                - itemId
+                - amount
+              properties:
+                type:
+                  type: string
+                  enum: [course, booking]
+                  description: Loại đơn hàng
+                  example: "course"
+                itemId:
+                  type: string
+                  description: ID của khóa học hoặc booking
+                  example: "64a5f8b9c1234567890abcde"
+                amount:
+                  type: number
+                  minimum: 0
+                  description: Số tiền thanh toán (VND)
+                  example: 500000
+                paymentMethod:
+                  type: string
+                  enum: [momo, vnpay, zalopay, banking]
+                  description: Phương thức thanh toán
+                  example: "momo"
+                discountCode:
+                  type: string
+                  description: Mã giảm giá (optional)
+                  example: "SAVE20"
+      responses:
+        "201":
+          description: Tạo đơn hàng thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "success"
+                  message:
+                    type: string
+                    example: "Tạo đơn hàng thành công!"
+                  data:
+                    type: object
+                    properties:
+                      orderId:
+                        type: string
+                        example: "ORDER_64a5f8b9c1234567890abcde"
+                      paymentUrl:
+                        type: string
+                        example: "https://momo.vn/payment/abc123"
+                      finalAmount:
+                        type: number
+                        example: 400000
+        "400":
+          description: Lỗi validation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /checkout/verify-payment:
+    post:
+      tags:
+        - Checkout
+      summary: Xác thực thanh toán
+      description: Xác thực trạng thái thanh toán từ gateway (callback từ MoMo, VNPay, etc.)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - orderId
+                - transactionId
+                - status
+              properties:
+                orderId:
+                  type: string
+                  description: ID đơn hàng
+                  example: "ORDER_64a5f8b9c1234567890abcde"
+                transactionId:
+                  type: string
+                  description: Mã giao dịch từ payment gateway
+                  example: "MOMO_TXN_123456789"
+                status:
+                  type: string
+                  enum: [success, failed, pending]
+                  description: Trạng thái thanh toán
+                  example: "success"
+      responses:
+        "200":
+          description: Xác thực thanh toán thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "success"
+                  message:
+                    type: string
+                    example: "Thanh toán thành công!"
+
+  /checkout/orders/{orderId}:
+    get:
+      tags:
+        - Checkout
+      summary: Lấy thông tin đơn hàng
+      description: Lấy chi tiết thông tin đơn hàng theo ID
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: orderId
+          required: true
+          schema:
+            type: string
+          description: ID của đơn hàng
+      responses:
+        "200":
+          description: Lấy thông tin đơn hàng thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "success"
+                  data:
+                    type: object
+                    properties:
+                      order:
+                        type: object
+                        properties:
+                          id:
+                            type: string
+                          amount:
+                            type: number
+                          status:
+                            type: string
+                          paymentMethod:
+                            type: string
+        "404":
+          description: Không tìm thấy đơn hàng
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /checkout/orders:
+    get:
+      tags:
+        - Checkout
+      summary: Lấy danh sách đơn hàng của user
+      description: Lấy danh sách đơn hàng của user hiện tại với phân trang
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+          description: Số trang
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 10
+          description: Số lượng đơn hàng mỗi trang
+      responses:
+        "200":
+          description: Lấy danh sách đơn hàng thành công
+
+  /checkout/discount/validate:
+    post:
+      tags:
+        - Checkout
+      summary: Kiểm tra mã giảm giá
+      description: Kiểm tra tính hợp lệ và tính toán giảm giá của mã discount
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - discountCode
+                - amount
+              properties:
+                discountCode:
+                  type: string
+                  description: Mã giảm giá cần kiểm tra
+                  example: "SAVE20"
+                amount:
+                  type: number
+                  description: Số tiền gốc
+                  example: 500000
+      responses:
+        "200":
+          description: Mã giảm giá hợp lệ
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "success"
+                  data:
+                    type: object
+                    properties:
+                      valid:
+                        type: boolean
+                        example: true
+                      discountAmount:
+                        type: number
+                        example: 100000
+                      finalAmount:
+                        type: number
+                        example: 400000
+        "400":
+          description: Mã giảm giá không hợp lệ
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  # CART MANAGEMENT APIs
+  /cart/add:
+    post:
+      tags:
+        - Cart
+      summary: Thêm sản phẩm vào giỏ hàng
+      description: Thêm một khóa học vào giỏ hàng của người dùng
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - courseId
+              properties:
+                courseId:
+                  type: string
+                  description: ID của khóa học
+                  example: "64a5f8b9c1234567890abcde"
+                quantity:
+                  type: integer
+                  minimum: 1
+                  default: 1
+                  description: Số lượng
+                  example: 1
+      responses:
+        "200":
+          description: Thêm vào giỏ hàng thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "success"
+                  message:
+                    type: string
+                    example: "Thêm vào giỏ hàng thành công!"
+        "400":
+          description: Sản phẩm đã có trong giỏ hàng hoặc không hợp lệ
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /cart:
+    get:
+      tags:
+        - Cart
+      summary: Lấy giỏ hàng hiện tại
+      description: Lấy danh sách sản phẩm trong giỏ hàng của user
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Lấy giỏ hàng thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "success"
+                  data:
+                    type: object
+                    properties:
+                      cart:
+                        type: object
+                        properties:
+                          items:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                courseId:
+                                  type: string
+                                title:
+                                  type: string
+                                price:
+                                  type: number
+                                quantity:
+                                  type: integer
+                          summary:
+                            type: object
+                            properties:
+                              subtotal:
+                                type: number
+                                example: 500000
+                              total:
+                                type: number
+                                example: 500000
+                              itemCount:
+                                type: integer
+                                example: 2
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /cart/remove:
+    delete:
+      tags:
+        - Cart
+      summary: Xóa sản phẩm khỏi giỏ hàng
+      description: Xóa một khóa học khỏi giỏ hàng
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - courseId
+              properties:
+                courseId:
+                  type: string
+                  description: ID của khóa học cần xóa
+                  example: "64a5f8b9c1234567890abcde"
+      responses:
+        "200":
+          description: Xóa khỏi giỏ hàng thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "success"
+                  message:
+                    type: string
+                    example: "Đã xóa khỏi giỏ hàng!"
+        "404":
+          description: Không tìm thấy sản phẩm trong giỏ hàng
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /cart/clear:
+    delete:
+      tags:
+        - Cart
+      summary: Xóa toàn bộ giỏ hàng
+      description: Xóa tất cả sản phẩm trong giỏ hàng
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Xóa giỏ hàng thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "success"
+                  message:
+                    type: string
+                    example: "Đã xóa toàn bộ giỏ hàng!"
+
+  # ORDER MANAGEMENT APIs  
+  /orders:
+    post:
+      tags:
+        - Orders
+      summary: Tạo đơn hàng từ giỏ hàng
+      description: Tạo đơn hàng mới từ cart hiện tại của user
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - billingInfo
+                - paymentMethod
+              properties:
+                billingInfo:
+                  type: object
+                  properties:
+                    fullName:
+                      type: string
+                      example: "Nguyen Van A"
+                    email:
+                      type: string
+                      example: "user@email.com"
+                    phone:
+                      type: string
+                      example: "0901234567"
+                    address:
+                      type: string
+                      example: "123 ABC Street"
+                paymentMethod:
+                  type: string
+                  enum: [credit_card, paypal, vnpay, momo, bank_transfer]
+                  example: "vnpay"
+                discountCode:
+                  type: string
+                  description: Mã giảm giá (optional)
+                  example: "SALE20"
+      responses:
+        "201":
+          description: Tạo đơn hàng thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "success"
+                  message:
+                    type: string
+                    example: "Tạo đơn hàng thành công!"
+                  data:
+                    type: object
+                    properties:
+                      order:
+                        type: object
+                        properties:
+                          id:
+                            type: string
+                            example: "ORDER_64a5f8b9c1234567890abcde"
+                          orderNumber:
+                            type: string
+                            example: "ORD-2025-001"
+                          status:
+                            type: string
+                            example: "pending"
+                          total:
+                            type: number
+                            example: 400000
+                          paymentUrl:
+                            type: string
+                            example: "https://vnpay.vn/payment/abc123"
+        "400":
+          description: Giỏ hàng trống hoặc thông tin không hợp lệ
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+    get:
+      tags:
+        - Orders
+      summary: Lấy danh sách đơn hàng
+      description: Lấy danh sách đơn hàng của user với phân trang
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+          description: Số trang
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 10
+          description: Số lượng đơn hàng mỗi trang
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [pending, completed, failed, cancelled]
+          description: Lọc theo trạng thái
+      responses:
+        "200":
+          description: Lấy danh sách đơn hàng thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "success"
+                  data:
+                    type: object
+                    properties:
+                      orders:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            id:
+                              type: string
+                            orderNumber:
+                              type: string
+                            status:
+                              type: string
+                            total:
+                              type: number
+                            createdAt:
+                              type: string
+                              format: date-time
+                      pagination:
+                        type: object
+                        properties:
+                          currentPage:
+                            type: integer
+                          totalPages:
+                            type: integer
+                          totalOrders:
+                            type: integer
+
+  /orders/{orderId}:
+    get:
+      tags:
+        - Orders
+      summary: Lấy chi tiết đơn hàng
+      description: Lấy thông tin chi tiết của một đơn hàng
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: orderId
+          required: true
+          schema:
+            type: string
+          description: ID của đơn hàng
+      responses:
+        "200":
+          description: Lấy chi tiết đơn hàng thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "success"
+                  data:
+                    type: object
+                    properties:
+                      order:
+                        type: object
+                        properties:
+                          id:
+                            type: string
+                          orderNumber:
+                            type: string
+                          status:
+                            type: string
+                          items:
+                            type: array
+                            items:
+                              type: object
+                          total:
+                            type: number
+                          paymentMethod:
+                            type: string
+                          createdAt:
+                            type: string
+                            format: date-time
+        "404":
+          description: Không tìm thấy đơn hàng
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  # PAYMENT APIs
+  /payment/vnpay/return:
+    get:
+      tags:
+        - Payment
+      summary: VNPay payment return URL
+      description: Endpoint xử lý return từ VNPay sau khi thanh toán
+      parameters:
+        - in: query
+          name: vnp_TxnRef
+          schema:
+            type: string
+          description: Mã đơn hàng
+        - in: query
+          name: vnp_TransactionStatus
+          schema:
+            type: string
+          description: Trạng thái giao dịch từ VNPay
+        - in: query
+          name: vnp_SecureHash
+          schema:
+            type: string
+          description: Secure hash từ VNPay
+      responses:
+        "200":
+          description: Xử lý return thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "success"
+                  data:
+                    type: object
+                    properties:
+                      order:
+                        type: object
+                        properties:
+                          orderNumber:
+                            type: string
+                          status:
+                            type: string
+                          transactionId:
+                            type: string
+
+  /payment/momo/return:
+    get:
+      tags:
+        - Payment
+      summary: MoMo payment return URL
+      description: Endpoint xử lý return từ MoMo sau khi thanh toán
+      parameters:
+        - in: query
+          name: orderId
+          schema:
+            type: string
+          description: Mã đơn hàng
+        - in: query
+          name: resultCode
+          schema:
+            type: string
+          description: Mã kết quả từ MoMo
+        - in: query
+          name: signature
+          schema:
+            type: string
+          description: Chữ ký từ MoMo
+      responses:
+        "200":
+          description: Xử lý return thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "success"
+                  message:
+                    type: string
+                    example: "Thanh toán thành công!"
+
+  /payment/webhook:
+    post:
+      tags:
+        - Payment
+      summary: Payment webhook
+      description: Webhook để nhận thông báo từ payment gateway
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                orderId:
+                  type: string
+                transactionId:
+                  type: string
+                status:
+                  type: string
+                amount:
+                  type: number
+                signature:
+                  type: string
+      responses:
+        "200":
+          description: Webhook xử lý thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "success"
+
+tags:
+  - name: Authentication
+    description: APIs xác thực người dùng - Đăng ký, đăng nhập, xác thực email
+  - name: Profile Management  
+    description: APIs quản lý thông tin cá nhân - Cập nhật profile, avatar
+  - name: Checkout
+    description: APIs thanh toán và quản lý đơn hàng - Tạo order, xác thực payment, quản lý discount
+  - name: Cart
+    description: APIs quản lý giỏ hàng - Thêm, xóa, xem giỏ hàng
+  - name: Orders
+    description: APIs quản lý đơn hàng - Tạo, theo dõi đơn hàng
+  - name: Payment
+    description: APIs xử lý thanh toán - VNPay, MoMo, webhook
