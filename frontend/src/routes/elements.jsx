@@ -14,7 +14,8 @@ const useRouterElements = () => {
     const elements = useRoutes([
         {
             path: "/",
-            element: <WelcomePage /> 
+            //element: <WelcomePage />
+            element: <Navigate to="/mentor/create-course" replace />
         },
         {
             path: PATH.MENTEE,

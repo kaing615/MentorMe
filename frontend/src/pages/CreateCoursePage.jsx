@@ -247,7 +247,7 @@ const CreateCoursePage = () => {
                   </label>
                   <select
                     {...register('category')}
-                    className="w-full px-0 py-3 text-gray-900 border-0 border-b border-gray-200 focus:border-blue-500 focus:ring-0 bg-transparent"
+                    className="w-full px-4 py-3 text-gray-400 border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 bg-white transition-all duration-200 focus:text-gray-700"
                   >
                     <option value="">Select category</option>
                     <option value="programming">Programming</option>
@@ -269,7 +269,7 @@ const CreateCoursePage = () => {
                   </label>
                   <select
                     {...register('level')}
-                    className="w-full px-0 py-3 text-gray-900 border-0 border-b border-gray-200 focus:border-blue-500 focus:ring-0 bg-transparent"
+                    className="w-full px-4 py-3 text-gray-400 border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 bg-white transition-all duration-200 focus:text-gray-700"
                   >
                     <option value="">Select level</option>
                     <option value="beginner">Beginner</option>
