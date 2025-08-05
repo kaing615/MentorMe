@@ -2,15 +2,6 @@ import express from "express";
 import dotenv from "dotenv";
 import mongoose from "mongoose";
 import cors from "cors";
-<<<<<<< HEAD
-import cookieParser from "cookie-parser";
-import http from "http";
-import routes from "./routes/index.js";
-import YAML from "yamljs";
-import swaggerUi from "swagger-ui-express";
-
-const swaggerDocument = YAML.load("./src/swagger.yaml");
-=======
 import path from "path";
 import helmet from "helmet";
 import bodyParser from "body-parser";
@@ -20,7 +11,6 @@ import { fileURLToPath } from "url";
 import swaggerUi from "swagger-ui-express";
 import YAML from "yamljs";
 import routes from "./routes/index.js";
->>>>>>> feature/courseCreate-BE
 
 dotenv.config();
 
@@ -52,9 +42,6 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument, {
 app.use("/api/v1", routes);
 
 app.get("/", (req, res) => {
-<<<<<<< HEAD
-  res.send("Welcome to the Movie-Ticket-Booking-App backend!");
-=======
   res.send(`
     <h1>Welcome to the MentorMe Backend!</h1>
     <p>Server is running successfully</p>
@@ -68,7 +55,6 @@ app.get("/", (req, res) => {
       p { color: #666; }
     </style>
   `);
->>>>>>> feature/courseCreate-BE
 });
 
 const server = http.createServer(app);
@@ -77,15 +63,9 @@ mongoose
   .connect(process.env.MONGO_URL)
   .then(() => {
     console.log("MongoDB connected");
-<<<<<<< HEAD
-    server.listen(PORT, () => {
-      console.log(`Server is running on http://localhost:${PORT}`);
-      console.log(`Swagger docs at http://localhost:${PORT}/api-docs`);
-=======
     app.listen(PORT, () => {
       console.log(`🚀 Server is running on http://localhost:${PORT}`);
       console.log(`📖 API Documentation available at http://localhost:${PORT}/api-docs`);
->>>>>>> feature/courseCreate-BE
     });
   })
   .catch((err) => {

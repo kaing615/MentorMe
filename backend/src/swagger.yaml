@@ -5,12 +5,8 @@ info:
   description: API documentation for MentorMe backend
 
 servers:
-<<<<<<< HEAD
-  - url: http://localhost:4000
-=======
   - url: http://localhost:4000/api/v1
     description: Development server
->>>>>>> feature/courseCreate-BE
 
 paths:
   /user/signup:
@@ -244,8 +240,6 @@ paths:
           description: Đặt lại mật khẩu thành công
         "400":
           description: Token không hợp lệ hoặc lỗi validate
-<<<<<<< HEAD
-=======
 
   # CREATE COURSE APIs
   /create-course:
@@ -1092,4 +1086,3 @@ tags:
     description: APIs for creating new courses with comprehensive validation
   - name: Courses
     description: Course management APIs
->>>>>>> feature/courseCreate-BE

@@ -11,10 +11,7 @@ import createCourseRoute from "./createcourse.route.js";
 const router = express.Router();
 
 router.use("/user", userRoute);
-<<<<<<< HEAD
-=======
 router.use("/courses", courseRoute);
 router.use("/create-course", createCourseRoute);
->>>>>>> feature/courseCreate-BE
 
 export default router;
