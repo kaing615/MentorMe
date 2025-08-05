@@ -56,7 +56,7 @@ const router = express.Router();
  *                 example: "Programming"
  *               level:
  *                 type: string
- *                 enum: [Beginner, Intermediate, Advanced]
+ *                 enum: [Beginner, Intermediate, Advanced, Expert]
  *                 description: Course difficulty level
  *                 example: "Intermediate"
  *               numberOfLectures:

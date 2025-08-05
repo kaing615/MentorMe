@@ -34,9 +34,9 @@ export const createNewCourse = async (req, res) => {
     }
 
     // Validate level is one of the allowed values
-    const allowedLevels = ['Beginner', 'Intermediate', 'Advanced'];
+    const allowedLevels = ['Beginner', 'Intermediate', 'Advanced', 'Expert'];
     if (!allowedLevels.includes(level)) {
-      return responseHandler.badRequest(res, "Level must be one of: Beginner, Intermediate, Advanced");
+      return responseHandler.badRequest(res, "Level must be one of: Beginner, Intermediate, Advanced, Expert");
     }
 
     // Validate Google Drive link format if provided

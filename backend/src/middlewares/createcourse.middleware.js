@@ -31,8 +31,8 @@ export const validateCreateCourse = [
   body('level')
     .notEmpty()
     .withMessage('Level is required')
-    .isIn(['Beginner', 'Intermediate', 'Advanced'])
-    .withMessage('Level must be one of: Beginner, Intermediate, Advanced'),
+    .isIn(['Beginner', 'Intermediate', 'Advanced', 'Expert'])
+    .withMessage('Level must be one of: Beginner, Intermediate, Advanced, Expert'),
 
   body('numberOfLectures')
     .notEmpty()
@@ -116,8 +116,8 @@ export const validateCourseData = [
 
   body('level')
     .optional()
-    .isIn(['Beginner', 'Intermediate', 'Advanced'])
-    .withMessage('Level must be one of: Beginner, Intermediate, Advanced'),
+    .isIn(['Beginner', 'Intermediate', 'Advanced', 'Expert'])
+    .withMessage('Level must be one of: Beginner, Intermediate, Advanced, Expert'),
 
   body('numberOfLectures')
     .optional()

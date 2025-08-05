@@ -282,7 +282,7 @@ paths:
                   example: "Programming"
                 level:
                   type: string
-                  enum: [Beginner, Intermediate, Advanced]
+                  enum: [Beginner, Intermediate, Advanced, Expert]
                   description: Course difficulty level
                   example: "Intermediate"
                 numberOfLectures:
@@ -421,7 +421,7 @@ paths:
                           type: string
                         label:
                           type: string
-                    example: [{"value": "Beginner", "label": "Beginner"}, {"value": "Intermediate", "label": "Intermediate"}, {"value": "Advanced", "label": "Advanced"}]
+                    example: [{"value": "Beginner", "label": "Beginner"}, {"value": "Intermediate", "label": "Intermediate"}, {"value": "Advanced", "label": "Advanced"}, {"value": "Expert", "label": "Expert"}]
                   validation:
                     type: object
                     description: Validation rules for form fields
@@ -639,7 +639,7 @@ paths:
                         type: string
                       level:
                         type: string
-                        enum: [Beginner, Intermediate, Advanced]
+                        enum: [Beginner, Intermediate, Advanced, Expert]
                       price:
                         type: number
                       duration:
@@ -692,7 +692,7 @@ paths:
                   description: Course category
                 level:
                   type: string
-                  enum: [Beginner, Intermediate, Advanced]
+                  enum: [Beginner, Intermediate, Advanced, Expert]
                   description: Course difficulty level
                 price:
                   type: number

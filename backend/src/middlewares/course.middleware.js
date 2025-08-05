@@ -6,11 +6,11 @@ const createCourseValidator = [
     .withMessage("Course title is required")
     .isLength({ min: 3, max: 100 })
     .withMessage("Title must be between 3 and 100 characters"),
-  body("description")
+  body("courseOverview")
     .notEmpty()
-    .withMessage("Course description is required")
+    .withMessage("Course overview is required")
     .isLength({ min: 10, max: 1000 })
-    .withMessage("Description must be between 10 and 1000 characters"),
+    .withMessage("Course overview must be between 10 and 1000 characters"),
   body("price")
     .isNumeric()
     .withMessage("Price must be a number")

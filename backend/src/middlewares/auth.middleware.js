@@ -20,13 +20,13 @@ export const verifyToken = async (req, res, next) => {
   const tokenDecoded = tokenDecode(req);
 
   if (!tokenDecoded) {
-    return responseHandler.unauthorize(res);
+    return responseHandler.unauthorized(res);
   }
 
   const user = await User.findById(tokenDecoded.data);
 
   if (!user) {
-    return responseHandler.unauthorize(res);
+    return responseHandler.unauthorized(res);
   }
 
   req.user = user;
