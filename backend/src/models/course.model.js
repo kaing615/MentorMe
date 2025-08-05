@@ -16,6 +16,7 @@ const CourseSchema = new mongoose.Schema(
     ],
     mentees: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
     category: { type: String, required: true },
+    level: { type: String, enum: ['Beginner', 'Intermediate', 'Advanced'], required: true }, // Thêm level field
     tags: [{ type: String }],
     duration: { type: Number }, // duration có thể không bắt buộc lúc tạo?
     rate: { type: Number, default: 0 }, // Sử dụng 'rate' cho averageRating

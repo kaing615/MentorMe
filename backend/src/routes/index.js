@@ -1,13 +1,13 @@
 import express from "express";
-import userRoutes from "./user.route.js";
-import courseRoutes from "./course.route.js"; // Import course routes
+
+import userRoute from "./user.route.js";
+import courseRoute from "./course.route.js";
+import createCourseRoute from "./createcourse.route.js";
 
 const router = express.Router();
 
-// Use user routes
-router.use(userRoutes);
-
-// Use course routes
-router.use(courseRoutes);
+router.use("/user", userRoute);
+router.use("/courses", courseRoute);
+router.use("/create-course", createCourseRoute);
 
 export default router;

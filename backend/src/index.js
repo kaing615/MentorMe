@@ -8,11 +8,16 @@ import bodyParser from "body-parser";
 import multer from "multer";
 import morgan from "morgan";
 import { fileURLToPath } from "url";
+import swaggerUi from "swagger-ui-express";
+import YAML from "yamljs";
 import routes from "./routes/index.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 dotenv.config();
+
+// Load Swagger YAML file
+const swaggerDocument = YAML.load(path.join(__dirname, 'swagger.yaml'));
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -37,11 +42,32 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage: storage });
 
+// Swagger UI setup
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument, {
+  customCss: '.swagger-ui .topbar { display: none }',
+  customSiteTitle: "MentorMe API Documentation",
+  swaggerOptions: {
+    persistAuthorization: true,
+  }
+}));
+
 // API routes
-app.use("/api", routes);
+app.use("/api/v1", routes);
 
 app.get("/", (req, res) => {
-  res.send("Welcome to the MentorMe backend!");
+  res.send(`
+    <h1>Welcome to the MentorMe Backend!</h1>
+    <p>Server is running successfully</p>
+    <h2>📖 <a href="/api-docs" target="_blank">API Documentation (Swagger)</a></h2>
+    <style>
+      body { font-family: Arial, sans-serif; margin: 40px; }
+      h1 { color: #333; }
+      h2 { color: #666; margin-top: 30px; }
+      a { color: #007bff; text-decoration: none; }
+      a:hover { text-decoration: underline; }
+      p { color: #666; }
+    </style>
+  `);
 });
 
 mongoose
@@ -49,7 +75,8 @@ mongoose
   .then(() => {
     console.log("MongoDB connected");
     app.listen(PORT, () => {
-      console.log(`Server is running on http://localhost:${PORT}`);
+      console.log(`🚀 Server is running on http://localhost:${PORT}`);
+      console.log(`📖 API Documentation available at http://localhost:${PORT}/api-docs`);
     });
   })
   .catch((err) => {
