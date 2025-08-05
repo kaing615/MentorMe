@@ -32,10 +32,6 @@
     "nodemailer": "^7.0.5",
     "path": "^0.12.7",
     "socket.io": "^4.8.1",
-<<<<<<< HEAD
-    "swagger-jsdoc": "^6.2.8",
-=======
->>>>>>> feature/courseCreate-BE
     "swagger-ui-express": "^5.0.1",
     "url": "^0.11.4",
     "yamljs": "^0.3.0"
