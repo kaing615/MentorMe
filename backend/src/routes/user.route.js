@@ -1,4 +1,5 @@
 import express from "express";
+<<<<<<< HEAD
 import userValidator from "../middlewares/validators/user.middleware.js";
 import upload from "../utils/multer.js"
 
@@ -55,3 +56,13 @@ router.post(
 );
 
 export default router;
+=======
+import { getUserCourses } from "../controllers/course.controller.js"; // Import hàm xử lý từ course.controller
+
+const router = express.Router();
+
+// Route để lấy danh sách khóa học của user
+router.get("/users/:userId/courses", getUserCourses);
+
+export default router;
+>>>>>>> feature/courseCreate-BE
