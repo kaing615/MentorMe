@@ -34,7 +34,7 @@ export const validateCreateCourse = [
     .isIn(['Beginner', 'Intermediate', 'Advanced', 'Expert'])
     .withMessage('Level must be one of: Beginner, Intermediate, Advanced, Expert'),
 
-  body('numberOfLectures')
+  body('lectures')
     .notEmpty()
     .withMessage('Number of lectures is required')
     .isInt({ min: 1 })
@@ -65,12 +65,13 @@ export const validateCreateCourse = [
     .withMessage('Key learning objectives must be less than 500 characters')
     .trim(),
 
-  body('googleDriveMaterialsLink')
-    .optional()
+  body('driveLink')
+    .notEmpty()
+    .withMessage('Drive link is required')
     .isURL()
-    .withMessage('Google Drive materials link must be a valid URL')
+    .withMessage('Drive link must be a valid URL')
     .custom((value) => {
-      if (value && !value.includes('drive.google.com')) {
+      if (!value.includes('drive.google.com')) {
         throw new Error('Must be a valid Google Drive link');
       }
       return true;
@@ -119,7 +120,7 @@ export const validateCourseData = [
     .isIn(['Beginner', 'Intermediate', 'Advanced', 'Expert'])
     .withMessage('Level must be one of: Beginner, Intermediate, Advanced, Expert'),
 
-  body('numberOfLectures')
+  body('lectures')
     .optional()
     .isInt({ min: 1 })
     .withMessage('Number of lectures must be a positive integer'),
@@ -147,10 +148,10 @@ export const validateCourseData = [
     .withMessage('Key learning objectives must be less than 500 characters')
     .trim(),
 
-  body('googleDriveMaterialsLink')
+  body('driveLink')
     .optional()
     .isURL()
-    .withMessage('Google Drive materials link must be a valid URL')
+    .withMessage('Drive link must be a valid URL')
     .custom((value) => {
       if (value && !value.includes('drive.google.com')) {
         throw new Error('Must be a valid Google Drive link');

@@ -7,15 +7,18 @@ import helmet from "helmet";
 import bodyParser from "body-parser";
 import multer from "multer";
 import morgan from "morgan";
+import cookieParser from "cookie-parser";
+import http from "http";
 import { fileURLToPath } from "url";
 import swaggerUi from "swagger-ui-express";
-import YAML from "yamljs";
+import specs from "./swagger.js";
 import routes from "./routes/index.js";
 
 dotenv.config();
 
-// Load Swagger YAML file
-const swaggerDocument = YAML.load(path.join(__dirname, 'swagger.yaml'));
+// Get directory path for ES modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -25,21 +28,20 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
-app.use("/api/v1", routes);
+// Serve static files from uploads directory
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
-app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
+// API routes
+app.use("/api", routes);
 
 // Swagger UI setup
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument, {
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs, {
   customCss: '.swagger-ui .topbar { display: none }',
   customSiteTitle: "MentorMe API Documentation",
   swaggerOptions: {
     persistAuthorization: true,
   }
 }));
-
-// API routes
-app.use("/api/v1", routes);
 
 app.get("/", (req, res) => {
   res.send(`
@@ -63,7 +65,7 @@ mongoose
   .connect(process.env.MONGO_URL)
   .then(() => {
     console.log("MongoDB connected");
-    app.listen(PORT, () => {
+    server.listen(PORT, () => {
       console.log(`🚀 Server is running on http://localhost:${PORT}`);
       console.log(`📖 API Documentation available at http://localhost:${PORT}/api-docs`);
     });

@@ -1,4 +1,4 @@
-import { configuredPrivateClient } from "../clients/private.client.js";
+import { configuredPrivateClient } from "../../main.jsx";
 
 const createCourseEndpoints = {
   create: "create-course",
@@ -8,7 +8,11 @@ const createCourseEndpoints = {
 };
 
 const createCourseApi = {
-  createCourse: (data) => configuredPrivateClient.post(createCourseEndpoints.create, data),
+  createCourse: (data) => configuredPrivateClient.post(createCourseEndpoints.create, data, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  }),
   getFormData: () => configuredPrivateClient.get(createCourseEndpoints.formData),
   validateCourse: (data) => configuredPrivateClient.post(createCourseEndpoints.validate, data),
   getMyCourses: (params) => configuredPrivateClient.get(createCourseEndpoints.myCourses, { params }),
