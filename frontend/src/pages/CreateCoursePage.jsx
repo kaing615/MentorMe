@@ -206,7 +206,7 @@ const CreateCoursePage = () => {
                 {/* Title */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Title
+                    Title <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
@@ -222,7 +222,7 @@ const CreateCoursePage = () => {
                 {/* Price */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Price
+                    Price <span className="text-red-500">*</span>
                   </label>
                   <div className="relative">
                     <input
@@ -243,7 +243,7 @@ const CreateCoursePage = () => {
                 {/* Category */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Category
+                    Category <span className="text-red-500">*</span>
                   </label>
                   <select
                     {...register('category')}
@@ -265,7 +265,7 @@ const CreateCoursePage = () => {
                 {/* Level */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Level
+                    Level <span className="text-red-500">*</span>
                   </label>
                   <select
                     {...register('level')}
