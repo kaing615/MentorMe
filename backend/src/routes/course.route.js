@@ -1,8 +1,10 @@
 import express from "express";
 import {
+  getAllCourses,
   getCourseDetails,
   addCourseReview,
   getCourseReviews,
+  getAllReviews,
   createCourse,
   addMentorToCourse,
   removeMentorFromCourse,
@@ -19,6 +21,62 @@ const router = express.Router();
  *   name: Courses
  *   description: Course management APIs
  */
+
+/**
+ * @swagger
+ * /api/v1/courses:
+ *   get:
+ *     summary: Get all courses
+ *     tags: [Courses]
+ *     parameters:
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *         description: Search courses by name
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [newest, oldest, rating, priceAsc, priceDesc]
+ *         description: Sort courses by criteria
+ *       - in: query
+ *         name: filterBy
+ *         schema:
+ *           type: string
+ *         description: JSON string for filtering (category, priceMin, priceMax)
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Number of courses per page
+ *     responses:
+ *       200:
+ *         description: List of courses with pagination
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 courses:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Course'
+ *                 totalCourses:
+ *                   type: integer
+ *                 totalPages:
+ *                   type: integer
+ *                 currentPage:
+ *                   type: integer
+ */
+router.get("/", getAllCourses);
 
 /**
  * @swagger
@@ -43,7 +101,7 @@ const router = express.Router();
  *       404:
  *         description: Course not found
  */
-router.get("/courses/:courseId", getCourseDetails);
+router.get("/:courseId", getCourseDetails);
 
 /**
  * @swagger
@@ -101,8 +159,8 @@ router.get("/courses/:courseId", getCourseDetails);
  *       404:
  *         description: Course not found
  */
-router.post("/courses/:courseId/reviews", verifyToken, addCourseReview);
-router.get("/courses/:courseId/reviews", getCourseReviews);
+router.post("/:courseId/reviews", verifyToken, addCourseReview);
+router.get("/:courseId/reviews", getCourseReviews);
 
 /**
  * @swagger
@@ -130,7 +188,7 @@ router.get("/courses/:courseId/reviews", getCourseReviews);
  *       401:
  *         description: Unauthorized
  */
-router.post("/courses", verifyToken, createCourse);
+router.post("/", verifyToken, createCourse);
 
 /**
  * @swagger
@@ -169,7 +227,7 @@ router.post("/courses", verifyToken, createCourse);
  *       404:
  *         description: Course not found
  */
-router.post("/courses/:courseId/mentors", verifyToken, addMentorToCourse);
+router.post("/:courseId/mentors", verifyToken, addMentorToCourse);
 
 /**
  * @swagger
@@ -202,7 +260,7 @@ router.post("/courses/:courseId/mentors", verifyToken, addMentorToCourse);
  *       404:
  *         description: Course not found
  */
-router.delete("/courses/:courseId/mentors/:mentorId", verifyToken, removeMentorFromCourse);
+router.delete("/:courseId/mentors/:mentorId", verifyToken, removeMentorFromCourse);
 
 /**
  * @swagger
@@ -235,7 +293,7 @@ router.delete("/courses/:courseId/mentors/:mentorId", verifyToken, removeMentorF
  *       404:
  *         description: Course not found
  */
-router.post("/courses/:courseId/content", verifyToken, addContentToCourse);
+router.post("/:courseId/content", verifyToken, addContentToCourse);
 
 /**
  * @swagger
@@ -266,6 +324,6 @@ router.post("/courses/:courseId/content", verifyToken, addContentToCourse);
  *       404:
  *         description: Course not found
  */
-router.delete("/courses/:courseId/content/:contentId", verifyToken, removeContentFromCourse);
+router.delete("/:courseId/content/:contentId", verifyToken, removeContentFromCourse);
 
 export default router;

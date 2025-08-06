@@ -5,7 +5,8 @@ info:
   description: API documentation for MentorMe backend
 
 servers:
-  - url: http://localhost:4000
+  - url: http://localhost:4000/api/v1
+    description: Development server
 
 paths:
   /user/signup:
@@ -239,6 +240,369 @@ paths:
           description: Đặt lại mật khẩu thành công
         "400":
           description: Token không hợp lệ hoặc lỗi validate
+<<<<<<< HEAD
+=======
+
+  # CREATE COURSE APIs
+  /create-course:
+    post:
+      tags:
+        - Create Course
+      summary: Create a new course
+      description: Create a new course with comprehensive details. Only mentors can create courses.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - title
+                - price
+                - category
+                - level
+                - numberOfLectures
+                - courseOverview
+                - keyLearningObjectives
+              properties:
+                title:
+                  type: string
+                  maxLength: 100
+                  description: Course title
+                  example: "Complete JavaScript Mastery Course"
+                price:
+                  type: number
+                  minimum: 0
+                  description: Course price in USD
+                  example: 99.99
+                category:
+                  type: string
+                  enum: [Programming, Design, Business, Marketing, Photography, Music, Health & Fitness, Language, Academic, Lifestyle]
+                  description: Course category
+                  example: "Programming"
+                level:
+                  type: string
+                  enum: [Beginner, Intermediate, Advanced]
+                  description: Course difficulty level
+                  example: "Intermediate"
+                numberOfLectures:
+                  type: integer
+                  minimum: 1
+                  description: Total number of lectures
+                  example: 25
+                duration:
+                  type: number
+                  minimum: 0
+                  description: Course duration in hours (optional)
+                  example: 10.5
+                courseOverview:
+                  type: string
+                  maxLength: 1000
+                  description: Comprehensive overview of the course content
+                  example: "This comprehensive JavaScript course will take you from beginner to advanced level. You'll learn modern ES6+ features, DOM manipulation, async programming, and build real-world projects."
+                keyLearningObjectives:
+                  type: string
+                  maxLength: 500
+                  description: Main learning objectives students will achieve
+                  example: "Master JavaScript fundamentals, Build interactive web applications, Understand async programming, Work with APIs and databases"
+                googleDriveMaterialsLink:
+                  type: string
+                  format: uri
+                  description: Google Drive link for course materials (optional)
+                  example: "https://drive.google.com/drive/folders/1234567890abcdef"
+      responses:
+        "201":
+          description: Course created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Course created successfully"
+                  course:
+                    type: object
+                    properties:
+                      _id:
+                        type: string
+                        example: "64a1b2c3d4e5f6789012345"
+                      name:
+                        type: string
+                        example: "Complete JavaScript Mastery Course"
+                      description:
+                        type: string
+                        example: "This comprehensive JavaScript course..."
+                      shortDescription:
+                        type: string
+                        example: "Master JavaScript fundamentals..."
+                      price:
+                        type: number
+                        example: 99.99
+                      category:
+                        type: string
+                        example: "Programming"
+                      level:
+                        type: string
+                        example: "Intermediate"
+                      lectures:
+                        type: number
+                        example: 25
+                      duration:
+                        type: number
+                        example: 10.5
+                      link:
+                        type: string
+                        example: "https://drive.google.com/drive/folders/..."
+                      mentors:
+                        type: array
+                        items:
+                          type: string
+                        example: ["64a1b2c3d4e5f6789012348"]
+                      createdAt:
+                        type: string
+                        format: date-time
+                        example: "2024-01-01T10:00:00.000Z"
+        "400":
+          description: Invalid input data or validation failed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Validation failed"
+                  errors:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        field:
+                          type: string
+                          example: "title"
+                        message:
+                          type: string
+                          example: "Title is required"
+        "401":
+          description: Unauthorized - Token missing or invalid
+        "403":
+          description: Forbidden - Only mentors can create courses
+        "500":
+          description: Internal server error
+
+  /create-course/form-data:
+    get:
+      tags:
+        - Create Course
+      summary: Get form configuration data
+      description: Retrieve form configuration data including available categories, levels, and validation rules for creating a course.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Form configuration data retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  categories:
+                    type: array
+                    items:
+                      type: string
+                    example: ["Programming", "Design", "Business", "Marketing", "Photography", "Music", "Health & Fitness", "Language", "Academic", "Lifestyle"]
+                  levels:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        value:
+                          type: string
+                        label:
+                          type: string
+                    example: [{"value": "Beginner", "label": "Beginner"}, {"value": "Intermediate", "label": "Intermediate"}, {"value": "Advanced", "label": "Advanced"}]
+                  validation:
+                    type: object
+                    description: Validation rules for form fields
+                    properties:
+                      title:
+                        type: object
+                        properties:
+                          maxLength:
+                            type: number
+                            example: 100
+                          required:
+                            type: boolean
+                            example: true
+                      price:
+                        type: object
+                        properties:
+                          min:
+                            type: number
+                            example: 0
+                          required:
+                            type: boolean
+                            example: true
+                          type:
+                            type: string
+                            example: "number"
+                      numberOfLectures:
+                        type: object
+                        properties:
+                          min:
+                            type: number
+                            example: 1
+                          required:
+                            type: boolean
+                            example: true
+                          type:
+                            type: string
+                            example: "integer"
+        "401":
+          description: Unauthorized
+
+  /create-course/my-courses:
+    get:
+      tags:
+        - Create Course
+      summary: Get my created courses
+      description: Retrieve courses created by the current authenticated user with pagination support.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+          description: Page number for pagination
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 10
+          description: Number of courses per page
+        - name: status
+          in: query
+          schema:
+            type: string
+          description: Filter courses by status
+      responses:
+        "200":
+          description: User's courses retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  courses:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        _id:
+                          type: string
+                        name:
+                          type: string
+                        price:
+                          type: number
+                        category:
+                          type: string
+                        level:
+                          type: string
+                        lectures:
+                          type: number
+                        createdAt:
+                          type: string
+                          format: date-time
+                  totalCourses:
+                    type: integer
+                    example: 25
+                  totalPages:
+                    type: integer
+                    example: 3
+                  currentPage:
+                    type: integer
+                    example: 1
+        "401":
+          description: Unauthorized
+
+  /create-course/validate:
+    post:
+      tags:
+        - Create Course
+      summary: Validate course data
+      description: Validate course data before actual submission to check for any validation errors.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                price:
+                  type: number
+                category:
+                  type: string
+                level:
+                  type: string
+                numberOfLectures:
+                  type: integer
+                duration:
+                  type: number
+                courseOverview:
+                  type: string
+                keyLearningObjectives:
+                  type: string
+                googleDriveMaterialsLink:
+                  type: string
+      responses:
+        "200":
+          description: Validation passed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Validation passed"
+                  isValid:
+                    type: boolean
+                    example: true
+        "400":
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Validation failed"
+                  errors:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        field:
+                          type: string
+                          example: "title"
+                        message:
+                          type: string
+                          example: "Title is required"
+        "401":
+          description: Unauthorized
 
   # COURSE MANAGEMENT APIs
   /courses/{courseId}:
@@ -720,5 +1084,8 @@ components:
 tags:
   - name: Auth
     description: User authentication and management APIs
+  - name: Create Course
+    description: APIs for creating new courses with comprehensive validation
   - name: Courses
     description: Course management APIs
+>>>>>>> feature/courseCreate-BE

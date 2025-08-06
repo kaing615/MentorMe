@@ -2,71 +2,70 @@ import express from "express";
 import dotenv from "dotenv";
 import mongoose from "mongoose";
 import cors from "cors";
-import cookieParser from "cookie-parser";
-import http from "http";
 import path from "path";
 import helmet from "helmet";
 import bodyParser from "body-parser";
 import multer from "multer";
 import morgan from "morgan";
+import http from "http";
+import cookieParser from "cookie-parser";
 import { fileURLToPath } from "url";
-import routes from "./routes/index.js";
 import swaggerUi from "swagger-ui-express";
-import fs from "fs";
-import yaml from "js-yaml";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+import YAML from "yamljs";
+import routes from "./routes/index.js";
 
 dotenv.config();
 
-// Load YAML file
-const swaggerDocument = yaml.load(fs.readFileSync('./src/swagger.yaml', 'utf8'));
+// ES module equivalent of __dirname
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Load Swagger YAML file
+const swaggerDocument = YAML.load(path.join(__dirname, 'swagger.yaml'));
 
 const app = express();
 const PORT = process.env.PORT || 4000;
 
 app.use(cors());
-app.use(helmet());
-app.use(helmet.crossOriginResourcePolicy({ policy: "cross-origin" }));
-app.use(morgan("common"));
-app.use(bodyParser.json({ limit: "30mb", extended: true }));
-app.use(bodyParser.urlencoded({ limit: "30mb", extended: true }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
-app.use("/assets", express.static(path.join(__dirname, "public/assets")));
-
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, "public/assets");
-  },
-  filename: function (req, file, cb) {
-    cb(null, file.originalname);
-  },
-});
-
-const upload = multer({ storage: storage });
-
-app.use("/api/v1", routes);
-app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
 // API routes
-app.use("/api", routes);
+app.use("/api/v1", routes);
+
+// Swagger UI setup  
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument, {
+  customCss: '.swagger-ui .topbar { display: none }',
+  customSiteTitle: "MentorMe API Documentation",
+  swaggerOptions: {
+    persistAuthorization: true,
+  }
+}));
 
 app.get("/", (req, res) => {
-  res.send("Welcome to the MentorMe backend!");
+  res.send(`
+    <h1>Welcome to the MentorMe Backend!</h1>
+    <p>Server is running successfully</p>
+    <h2>📖 <a href="/api-docs" target="_blank">API Documentation (Swagger)</a></h2>
+    <style>
+      body { font-family: Arial, sans-serif; margin: 40px; }
+      h1 { color: #333; }
+      h2 { color: #666; margin-top: 30px; }
+      a { color: #007bff; text-decoration: none; }
+      a:hover { text-decoration: underline; }
+      p { color: #666; }
+    </style>
+  `);
 });
 
-const server = http.createServer(app);
-
 mongoose
-  .connect(process.env.MONGO_URL)
+  .connect(process.env.MONGO_URL || 'mongodb://localhost:27017/mentorme')
   .then(() => {
     console.log("MongoDB connected");
-    server.listen(PORT, () => {
-      console.log(`Server is running on http://localhost:${PORT}`);
-      console.log(`Swagger docs at http://localhost:${PORT}/api-docs`);
+    app.listen(PORT, () => {
+      console.log(`🚀 Server is running on http://localhost:${PORT}`);
+      console.log(`📖 API Documentation available at http://localhost:${PORT}/api-docs`);
     });
   })
   .catch((err) => {

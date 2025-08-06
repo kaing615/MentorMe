@@ -16,6 +16,79 @@ const isMentorOfCourse = (course, userId) => {
   return course.mentors.some(mentorId => mentorId.toString() === userId.toString());
 };
 
+// [GET] /api/courses - Get all courses
+export const getAllCourses = async (req, res) => {
+  try {
+    const { search, sortBy, filterBy, page = 1, limit = 10 } = req.query;
+
+    let query = {};
+
+    if (search) {
+      query.name = { $regex: search, $options: 'i' };
+    }
+
+    let sortOptions = {};
+    if (sortBy === 'newest') {
+      sortOptions = { createdAt: -1 };
+    } else if (sortBy === 'oldest') {
+      sortOptions = { createdAt: 1 };
+    } else if (sortBy === 'rating') {
+      sortOptions = { averageRating: -1 }; 
+    } else if (sortBy === 'priceAsc') {
+      sortOptions = { price: 1 }; 
+    } else if (sortBy === 'priceDesc') {
+      sortOptions = { price: -1 }; 
+    } else {
+      // Default sort by newest
+      sortOptions = { createdAt: -1 };
+    }
+
+    // Add filter logic based on filterBy
+    if (filterBy) {
+      try {
+        const filters = JSON.parse(filterBy); 
+        if (filters.category) {
+          query.category = filters.category;
+        }
+        if (filters.priceMin || filters.priceMax) {
+          query.price = {};
+          if (filters.priceMin) {
+            query.price.$gte = filters.priceMin;
+          }
+          if (filters.priceMax) {
+            query.price.$lte = filters.priceMax;
+          }
+        }
+      } catch (parseError) {
+        console.error("Error parsing filterBy JSON:", parseError);
+        return responseHandler.badRequest(res, "Invalid filterBy format.");
+      }
+    }
+
+    const skip = (page - 1) * limit;
+
+    const courses = await Course.find(query)
+      .populate('mentors', 'userName avatar')
+      .skip(skip)
+      .limit(limit)
+      .sort(sortOptions);
+
+    const totalCourses = await Course.countDocuments(query);
+    const totalPages = Math.ceil(totalCourses / limit);
+
+    return responseHandler.ok(res, {
+      courses,
+      totalCourses,
+      totalPages,
+      currentPage: parseInt(page),
+    });
+
+  } catch (err) {
+    console.error("Error getting all courses:", err);
+    responseHandler.error(res);
+  }
+};
+
 // [GET] /api/users/:userId/courses
 export const getUserCourses = async (req, res) => {
   try {
@@ -505,11 +578,55 @@ export const removeContentFromCourse = async (req, res) => {
   }
 };
 
+// [GET] /api/reviews - Get all reviews
+export const getAllReviews = async (req, res) => {
+  try {
+    const { page = 1, limit = 10, sortBy = 'latest' } = req.query;
+    
+    let sortOptions = {};
+    if (sortBy === 'latest') {
+      sortOptions = { createdAt: -1 };
+    } else if (sortBy === 'oldest') {
+      sortOptions = { createdAt: 1 };
+    } else if (sortBy === 'highest-rating') {
+      sortOptions = { rate: -1 };
+    } else if (sortBy === 'lowest-rating') {
+      sortOptions = { rate: 1 };
+    } else {
+      sortOptions = { createdAt: -1 };
+    }
+
+    const skip = (page - 1) * limit;
+    
+    const reviews = await Review.find({})
+      .populate('author', 'userName firstName lastName avatarUrl')
+      .populate('target', 'name')
+      .sort(sortOptions)
+      .skip(skip)
+      .limit(parseInt(limit));
+
+    const totalReviews = await Review.countDocuments({});
+    const totalPages = Math.ceil(totalReviews / limit);
+
+    return responseHandler.ok(res, {
+      reviews,
+      totalReviews,
+      totalPages,
+      currentPage: parseInt(page)
+    });
+  } catch (error) {
+    console.error('getAllReviews error:', error);
+    return responseHandler.error(res);
+  }
+};
+
 export default {
+  getAllCourses,
   getUserCourses,
   getCourseDetails,
   addCourseReview,
   getCourseReviews,
+  getAllReviews,
   createCourse,
   updateCourse,
   deleteCourse,
