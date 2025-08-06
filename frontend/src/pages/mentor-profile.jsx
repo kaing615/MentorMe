@@ -1,203 +1,28 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import youtubeImg from "../assets/youtube.png";
 import facebookImg from "../assets/facebook.png";
 import linkedinImg from "../assets/linkedin.png";
 import twitterImg from "../assets/twitter.png";
 import googleImg from "../assets/google.png";
-import minatoImg from "../assets/minato.jpg";
-import {
-  generateMentorProfile,
-  generateCourses,
-  generateMentees,
-  generateConversations,
-  generateReviews,
-} from "../utils/mockData";
-/////////
-import courseApi from "../api/modules/course.api.js";
+import courseApi from "../api/modules/course.api";
 
 const MentorProfile = () => {
   const [activeTab, setActiveTab] = useState("profile");
-
-  // Generate mentor profile data using Faker
-  const mentorData = generateMentorProfile();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
   const [formData, setFormData] = useState({
-    firstName: mentorData.firstName,
-    lastName: mentorData.lastName,
-    headline: mentorData.headline,
-    bio: mentorData.bio,
-    website: mentorData.website,
-    twitter: mentorData.twitter,
-    linkedin: mentorData.linkedin,
-    youtube: mentorData.youtube,
-    facebook: mentorData.facebook,
+    firstName: "",
+    lastName: "",
+    headline: "",
+    bio: "",
+    website: "",
+    twitter: "",
+    linkedin: "",
+    youtube: "",
+    facebook: "",
   });
-//////////////////////////////////////////////////////////
-  // Mock API handler function
-  const handleCreateCourse = async () => {
-    console.log("New Course button clicked!");
-    
-    const testCourse = {
-      title: "Test Course from Mentor Profile",
-      description: "Testing course creation from mentor profile UI",
-      category: "Programming",
-      level: "Beginner",
-      price: 100000,
-      duration: 20,
-      prerequisites: ["Basic knowledge"],
-      objectives: ["Learn API integration"]
-    };
-    
-    try {
-      console.log("Creating course (Mock API):", testCourse);
-      
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Mock successful response
-      const mockResponse = {
-        success: true,
-        message: "Course created successfully",
-        data: {
-          id: Date.now(), // Generate fake ID
-          ...testCourse,
-          instructor: "Minato Namikaze",
-          students: 0,
-          rating: 0,
-          ratingsCount: 0,
-          lectures: 0,
-          totalHours: testCourse.duration,
-          image: "https://picsum.photos/400/250?random=" + Date.now(),
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        }
-      };
-      
-      console.log("✅ Mock Course created successfully:", mockResponse);
-      alert(`🎉 Course "${testCourse.title}" created successfully!\n\n📊 Mock API Response:\n- Course ID: ${mockResponse.data.id}\n- Students: ${mockResponse.data.students}\n- Status: Published\n\n✅ Ready for backend integration!`);
-      
-      // TODO: Add to local state or refresh course list when real API is ready
-      
-    } catch (error) {
-      console.error("❌ Error creating course:", error);
-      alert("Error creating course!");
-    }
-  };
 
-  // Handler for Edit Course button
-  const handleEditCourse = async (course) => {
-    console.log("📝 Edit Course button clicked for:", course.title);
-    
-    try {
-      // Mock edit course data
-      const updatedCourse = {
-        ...course,
-        title: course.title + " (Edited)",
-        description: course.description + " - Updated via Mock API",
-        price: course.price + 50000,
-        updatedAt: new Date().toISOString()
-      };
-      
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 800));
-      
-      const mockResponse = {
-        success: true,
-        message: "Course updated successfully",
-        data: updatedCourse
-      };
-      
-      console.log("✅ Mock Course updated:", mockResponse);
-      alert(`📝 Course "${course.title}" updated successfully!\n\n📊 Changes:\n- New Title: ${updatedCourse.title}\n- New Price: $${updatedCourse.price}\n- Updated: ${new Date().toLocaleString()}\n\n✅ Mock API worked!`);
-      
-      // TODO: Update local state when real API is ready
-      
-    } catch (error) {
-      console.error("❌ Error updating course:", error);
-      alert("Error updating course!");
-    }
-  };
-
-  // Handler for Delete Course button  
-  const handleDeleteCourse = async (course) => {
-    const confirmDelete = window.confirm(`🗑️ Are you sure you want to delete "${course.title}"?\n\nThis action cannot be undone.`);
-    
-    if (!confirmDelete) return;
-    
-    console.log("🗑️ Delete Course button clicked for:", course.title);
-    
-    try {
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 600));
-      
-      const mockResponse = {
-        success: true,
-        message: "Course deleted successfully",
-        deletedCourse: {
-          id: course.id,
-          title: course.title,
-          deletedAt: new Date().toISOString()
-        }
-      };
-      
-      console.log("✅ Mock Course deleted:", mockResponse);
-      alert(`🗑️ Course "${course.title}" deleted successfully!\n\n📊 Mock API Response:\n- Course ID: ${course.id}\n- Deleted at: ${new Date().toLocaleString()}\n\n✅ Ready for backend integration!`);
-      
-      // TODO: Remove from local state when real API is ready
-      
-    } catch (error) {
-      console.error("❌ Error deleting course:", error);
-      alert("Error deleting course!");
-    }
-  };
-
-  // Mock API handler for viewing course details
-  const handleViewCourseDetails = async (course) => {
-    console.log("👁️ View Course Details clicked for:", course.title);
-    
-    try {
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 700));
-      
-      // Mock getCourseDetails response
-      const mockResponse = {
-        success: true,
-        course: {
-          id: course.id,
-          title: course.title,
-          description: "Detailed description of " + course.title,
-          instructor: course.instructor,
-          price: course.price,
-          rating: course.rating,
-          ratingsCount: course.ratingsCount,
-          totalHours: course.totalHours,
-          lectures: course.lectures,
-          level: course.level,
-          createdAt: "2025-01-15T10:30:00Z",
-          updatedAt: "2025-01-20T14:45:00Z",
-          enrollmentCount: Math.floor(Math.random() * 1000) + 100,
-          category: "Programming",
-          tags: ["React", "JavaScript", "Frontend"],
-          curriculum: [
-            { section: 1, title: "Introduction", duration: 2 },
-            { section: 2, title: "Core Concepts", duration: 5 },
-            { section: 3, title: "Advanced Topics", duration: 8 }
-          ]
-        }
-      };
-      
-      console.log("✅ Mock Course Details fetched:", mockResponse);
-      alert(`👁️ Course Details Retrieved!\n\n ${course.title}\n💰 Price: $${course.price}\n⭐ Rating: ${course.rating}/5 (${course.ratingsCount} reviews)\n🎯 Level: ${course.level}\n⏱️ Duration: ${course.totalHours} hours\n📚 Lectures: ${course.lectures}\n👥 Students: ${mockResponse.course.enrollmentCount}\n\n✅ Ready for backend integration with getCourseDetails API!`);
-      
-      // TODO: Navigate to course detail page or open modal when real API is ready
-      
-    } catch (error) {
-      console.error("❌ Error fetching course details:", error);
-      alert("Error loading course details!");
-    }
-  };
-
-//////////////////////////////////////////////////////////
-  const [profileImage, setProfileImage] = useState(mentorData.profileImage);
+  const [profileImage, setProfileImage] = useState(null);
 
   // Course management state
   const [searchTerm, setSearchTerm] = useState("");
@@ -223,24 +48,101 @@ const MentorProfile = () => {
   const [reviewCurrentPage, setReviewCurrentPage] = useState(1);
   const reviewsPerPage = 6;
 
-  // Sample courses data - TODO: Replace with API data
-  const [allCourses] = useState(generateCourses(15));
+  // Real courses data from MongoDB API
+  const [allCourses, setAllCourses] = useState([]);
 
-  // Sample mentees data - TODO: Replace with API data
-  const [allMentees] = useState(generateMentees(20, allCourses));
+  // Real mentees data - TODO: Replace with API data
+  const [allMentees] = useState([]);
 
-  // Sample conversations data - TODO: Replace with API data
-  const [conversations] = useState(generateConversations(10, allMentees));
+  // Real conversations data - TODO: Replace with API data
+  const [conversations] = useState([]);
 
-  // Sample reviews data - TODO: Replace with API data
-  const [allReviews] = useState(generateReviews(25, allCourses, allMentees));
+  // Real reviews data from MongoDB API
+  const [allReviews, setAllReviews] = useState([]);
+
+  // Load courses from MongoDB
+  const loadCourses = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const { response, error } = await courseApi.getAllCourses();
+      console.log('API Response:', { response, error });
+      
+      if (error) {
+        console.error('API Error:', error);
+        setError('Failed to load courses');
+        setAllCourses([]);
+      } else if (response && response.data) {
+        // The API returns response.data directly, which contains the courses array
+        if (response.data.courses && Array.isArray(response.data.courses)) {
+          setAllCourses(response.data.courses);
+        } else if (Array.isArray(response.data)) {
+          // In case the API returns courses array directly in data
+          setAllCourses(response.data);
+        } else {
+          console.error('Unexpected response structure:', response.data);
+          setAllCourses([]);
+        }
+      } else {
+        console.error('No response data');
+        setAllCourses([]);
+      }
+    } catch (err) {
+      console.error('Error loading courses:', err);
+      setError('Failed to load courses');
+      setAllCourses([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Load reviews from MongoDB
+  const loadReviews = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const { response, error } = await courseApi.getAllReviews();
+      console.log('Reviews API Response:', { response, error });
+      
+      if (error) {
+        console.error('Reviews API Error:', error);
+        setError('Failed to load reviews');
+        setAllReviews([]);
+      } else if (response && response.data) {
+        if (response.data.reviews && Array.isArray(response.data.reviews)) {
+          setAllReviews(response.data.reviews);
+        } else if (Array.isArray(response.data)) {
+          setAllReviews(response.data);
+        } else {
+          console.error('Unexpected reviews response structure:', response.data);
+          setAllReviews([]);
+        }
+      } else {
+        console.error('No reviews response data');
+        setAllReviews([]);
+      }
+    } catch (err) {
+      console.error('Error loading reviews:', err);
+      setError('Failed to load reviews');
+      setAllReviews([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Load courses and reviews on component mount
+  useEffect(() => {
+    loadCourses();
+    loadReviews();
+  }, []);
 
   // Filter and search logic
   const getFilteredAndSortedCourses = () => {
     let filtered = allCourses.filter(
       (course) =>
-        course.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        course.level.toLowerCase().includes(searchTerm.toLowerCase())
+        course.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        course.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (course.description && course.description.toLowerCase().includes(searchTerm.toLowerCase()))
     );
 
     // Sort courses
@@ -256,7 +158,7 @@ const MentorProfile = () => {
         );
         break;
       case "popular":
-        filtered = filtered.sort((a, b) => b.students - a.students);
+        filtered = filtered.sort((a, b) => (b.mentees?.length || 0) - (a.mentees?.length || 0));
         break;
       default:
         break;
@@ -271,7 +173,7 @@ const MentorProfile = () => {
         filtered = filtered.sort((a, b) => b.price - a.price);
         break;
       case "rating":
-        filtered = filtered.sort((a, b) => b.rating - a.rating);
+        filtered = filtered.sort((a, b) => (b.rate || 0) - (a.rate || 0));
         break;
       default:
         break;
@@ -417,32 +319,37 @@ const MentorProfile = () => {
   // Reviews filter and search logic
   const getFilteredAndSortedReviews = () => {
     let filtered = allReviews.filter(
-      (review) =>
-        review.studentName
+      (review) => {
+        const studentName = review.author ? `${review.author.firstName || ''} ${review.author.lastName || ''}`.trim() || review.author.userName : '';
+        const courseName = review.target ? review.target.name : '';
+        const reviewText = review.content || '';
+        
+        return studentName
           .toLowerCase()
           .includes(reviewSearchTerm.toLowerCase()) ||
-        review.courseName
+        courseName
           .toLowerCase()
           .includes(reviewSearchTerm.toLowerCase()) ||
-        review.reviewText.toLowerCase().includes(reviewSearchTerm.toLowerCase())
+        reviewText.toLowerCase().includes(reviewSearchTerm.toLowerCase());
+      }
     );
 
     // Sort reviews
     switch (reviewSortBy) {
       case "latest":
         return filtered.sort(
-          (a, b) => new Date(b.reviewDate) - new Date(a.reviewDate)
+          (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
         );
       case "oldest":
         return filtered.sort(
-          (a, b) => new Date(a.reviewDate) - new Date(b.reviewDate)
+          (a, b) => new Date(a.createdAt) - new Date(b.createdAt)
         );
       case "highest-rating":
-        return filtered.sort((a, b) => b.rating - a.rating);
+        return filtered.sort((a, b) => (b.rate || 0) - (a.rate || 0));
       case "lowest-rating":
-        return filtered.sort((a, b) => a.rating - b.rating);
+        return filtered.sort((a, b) => (a.rate || 0) - (b.rate || 0));
       case "most-helpful":
-        return filtered.sort((a, b) => b.helpfulCount - a.helpfulCount);
+        return filtered.sort((a, b) => (b.helpfulCount || 0) - (a.helpfulCount || 0));
       default:
         return filtered;
     }
@@ -461,6 +368,22 @@ const MentorProfile = () => {
     setReviewCurrentPage(page);
   };
 
+  // Scroll to top of main content when tab changes
+  const scrollToMainContent = () => {
+    setTimeout(() => {
+      const mainContent = document.querySelector(".flex-1.min-w-0");
+      if (mainContent) {
+        mainContent.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    }, 100);
+  };
+
+  // Enhanced tab handlers with scroll
+  const handleTabChange = (tab) => {
+    setActiveTab(tab);
+    scrollToMainContent();
+  };
+
   return (
     <div className="min-h-screen bg-white-100">
       {/* Main Layout Container */}
@@ -471,12 +394,14 @@ const MentorProfile = () => {
           className="bg-slate-50 rounded-2xl shadow-sm p-8 flex flex-col items-center sticky top-10 self-start"
         >
           <img
-            src={minatoImg}
-            alt="Minato Namikaze"
+            src={profileImage || "/placeholder-profile.jpg"}
+            alt={`${formData.firstName} ${formData.lastName}` || "User Profile"}
             className="w-24 h-24 rounded-full object-cover mb-4"
           />
           <h2 className="font-semibold text-xl text-gray-900 mb-3">
-            Minato Namikaze
+            {formData.firstName && formData.lastName 
+              ? `${formData.firstName} ${formData.lastName}` 
+              : "Loading..."}
           </h2>
           <button className="bg-blue-600 text-white border-none rounded-lg px-6 py-1.5 mb-6 font-medium text-base">
             Mentor
@@ -491,7 +416,7 @@ const MentorProfile = () => {
                     ? "bg-gray-200 hover:bg-gray-300 hover:shadow-sm"
                     : "hover:bg-blue-50 hover:text-blue-600 hover:shadow-sm hover:scale-105"
                 }`}
-                onClick={() => setActiveTab("profile")}
+                onClick={() => handleTabChange("profile")}
               >
                 Profile
               </li>
@@ -501,7 +426,7 @@ const MentorProfile = () => {
                     ? "bg-gray-200 hover:bg-gray-300 hover:shadow-sm"
                     : "hover:bg-blue-50 hover:text-blue-600 hover:shadow-sm hover:scale-105"
                 }`}
-                onClick={() => setActiveTab("mycourses")}
+                onClick={() => handleTabChange("mycourses")}
               >
                 My Courses
               </li>
@@ -511,7 +436,7 @@ const MentorProfile = () => {
                     ? "bg-gray-200 hover:bg-gray-300 hover:shadow-sm"
                     : "hover:bg-blue-50 hover:text-blue-600 hover:shadow-sm hover:scale-105"
                 }`}
-                onClick={() => setActiveTab("mentees")}
+                onClick={() => handleTabChange("mentees")}
               >
                 Mentees
               </li>
@@ -522,7 +447,7 @@ const MentorProfile = () => {
                     : "hover:bg-blue-50 hover:text-blue-600 hover:shadow-sm hover:scale-105"
                 }`}
                 onClick={() => {
-                  setActiveTab("messages");
+                  handleTabChange("messages");
                   setSelectedConversation(null); // Reset to messages list when clicking tab
                 }}
               >
@@ -534,7 +459,7 @@ const MentorProfile = () => {
                     ? "bg-gray-200 hover:bg-gray-300 hover:shadow-sm"
                     : "hover:bg-blue-50 hover:text-blue-600 hover:shadow-sm hover:scale-105"
                 }`}
-                onClick={() => setActiveTab("reviews")}
+                onClick={() => handleTabChange("reviews")}
               >
                 My Reviews
               </li>
@@ -779,11 +704,8 @@ const MentorProfile = () => {
                     <h3 className="text-lg font-semibold text-gray-900">
                       Courses ({filteredCourses.length})
                     </h3>
-                    <button 
-                      onClick={handleCreateCourse}
-                      className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition font-medium text-sm"
-                    >
-                      New Course {/*fđfs8*/}
+                    <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition font-medium text-sm">
+                      New Course
                     </button>
                   </div>
                 </div>
@@ -869,59 +791,68 @@ const MentorProfile = () => {
                 </div>
 
                 {/* Course Grid - Dynamic rendering based on filtered data */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {currentCourses.length > 0 ? (
-                    currentCourses.map((course) => (
-                      <div
-                        key={course.id}
+                {loading ? (
+                  <div className="flex justify-center items-center py-12">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                    <span className="ml-3 text-gray-600">Loading courses...</span>
+                  </div>
+                ) : error ? (
+                  <div className="text-center py-12">
+                    <div className="text-red-600 mb-4">⚠️ {error}</div>
+                    <button 
+                      onClick={loadCourses}
+                      className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+                    >
+                      Retry Loading Courses
+                    </button>
+                  </div>
+                ) : (
+                  <div
+                    className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-start content-start"
+                    style={{
+                      height: "1500px",
+                    }}
+                  >
+                    {currentCourses.length > 0 ? (
+                      currentCourses.map((course) => (
+                        <div
+                          key={course._id || course.id}
                         className="border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow"
                       >
                         <img
-                          src={course.image}
-                          alt={course.title}
+                          src={course.thumbnail || "/placeholder-course.jpg"}
+                          alt={course.name}
                           className="w-full h-48 object-cover"
                         />
                         <div className="p-4">
                           <h4 className="font-semibold text-gray-900 mb-2 line-clamp-2">
-                            <button
-                              onClick={() => handleViewCourseDetails(course)}
-                              className="text-left hover:text-blue-600 transition-colors cursor-pointer w-full"
-                              title="Click to view course details"
-                            >
-                              {course.title}
-                            </button>
+                            {course.name}
                           </h4>
                           <p className="text-sm text-gray-600 mb-2">
-                            By {course.instructor}
+                            By {course.mentors?.[0]?.userName || 'Unknown Mentor'}
                           </p>
                           <div className="flex items-center gap-2 mb-2">
                             <div className="flex text-yellow-400 text-sm">
-                              {"★".repeat(Math.floor(course.rating))}
-                              {course.rating % 1 !== 0 && "☆"}
+                              {"★".repeat(Math.floor(course.rate || 0))}
+                              {(course.rate || 0) % 1 !== 0 && "☆"}
                             </div>
                             <span className="text-sm text-gray-600">
-                              ({course.ratingsCount} Ratings)
+                              ({course.numberOfRatings || 0} Ratings)
                             </span>
                           </div>
                           <p className="text-sm text-gray-600 mb-3">
-                            {course.totalHours} Total Hours. {course.lectures}{" "}
-                            Lectures. {course.level}
+                            {course.duration || 0} Hours. {course.lectures || 0}{" "}
+                            Lectures. {course.category}
                           </p>
                           <p className="font-bold text-lg text-gray-900 mb-3">
                             ${course.price}
                           </p>
-                          {/* Edit/Delete functionality with Mock API calls */}
+                          {/* TODO: Add edit/delete functionality with API calls */}
                           <div className="flex gap-2">
-                            <button 
-                              onClick={() => handleEditCourse(course)}
-                              className="flex-1 bg-blue-600 text-white py-2 px-3 rounded-lg hover:bg-blue-700 transition text-sm font-medium"
-                            >
+                            <button className="flex-1 bg-blue-600 text-white py-2 px-3 rounded-lg hover:bg-blue-700 transition text-sm font-medium">
                               Edit Course
                             </button>
-                            <button 
-                              onClick={() => handleDeleteCourse(course)}
-                              className="px-3 py-2 border border-red-300 text-red-600 rounded-lg hover:bg-red-50 transition text-sm"
-                            >
+                            <button className="px-3 py-2 border border-red-300 text-red-600 rounded-lg hover:bg-red-50 transition text-sm">
                               Delete
                             </button>
                           </div>
@@ -938,11 +869,12 @@ const MentorProfile = () => {
                       </p>
                     </div>
                   )}
-                </div>
+                  </div>
+                )}
 
                 {/* Pagination - Dynamic based on filtered results */}
                 {totalPages > 1 && (
-                  <div className="flex justify-center items-center gap-2 mt-8">
+                  <div className="flex justify-center items-center gap-2 mt-12 pt-6 border-t border-gray-100">
                     <button
                       onClick={() => handlePageChange(currentPage - 1)}
                       disabled={currentPage === 1}
@@ -1086,7 +1018,10 @@ const MentorProfile = () => {
                 </div>
 
                 {/* Mentees Grid - Dynamic rendering based on filtered data */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div
+                  className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start content-start"
+                  style={{ height: "2220px" }}
+                >
                   {currentMentees.length > 0 ? (
                     currentMentees.map((mentee) => (
                       <div
@@ -1188,7 +1123,7 @@ const MentorProfile = () => {
 
                 {/* Pagination - Dynamic based on filtered results */}
                 {totalMenteePages > 1 && (
-                  <div className="flex justify-center items-center gap-2 mt-8">
+                  <div className="flex justify-center items-center gap-2 mt-8 pt-6 border-t border-gray-200">
                     <button
                       onClick={() =>
                         handleMenteePageChange(menteeCurrentPage - 1)
@@ -1549,42 +1484,45 @@ const MentorProfile = () => {
                 </div>
 
                 {/* Reviews Grid - Dynamic rendering based on filtered data */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div
+                  className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start content-start"
+                  style={{ minHeight: "900px" }}
+                >
                   {currentReviews.length > 0 ? (
                     currentReviews.map((review) => (
                       <div
-                        key={review.id}
+                        key={review._id || review.id}
                         className="border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow"
                       >
                         {/* Review Header */}
                         <div className="flex items-start gap-4 mb-4">
                           <img
-                            src={review.studentAvatar}
-                            alt={review.studentName}
+                            src={review.author?.avatarUrl || "/placeholder-avatar.jpg"}
+                            alt={review.author ? `${review.author.firstName} ${review.author.lastName}` : 'User'}
                             className="w-12 h-12 rounded-full object-cover"
                           />
                           <div className="flex-1">
                             <div className="flex items-start justify-between mb-2">
                               <div>
                                 <h4 className="font-semibold text-gray-900 mb-1">
-                                  {review.studentName}
+                                  {review.author ? `${review.author.firstName || ''} ${review.author.lastName || ''}`.trim() || review.author.userName : 'Unknown User'}
                                 </h4>
                                 <p className="text-sm text-blue-600 font-medium">
-                                  {review.courseName}
+                                  {review.target?.name || 'Unknown Course'}
                                 </p>
                               </div>
                               <div className="flex items-center gap-2">
                                 <div className="flex text-yellow-400 text-sm">
-                                  {"★".repeat(review.rating)}
-                                  {"☆".repeat(5 - review.rating)}
+                                  {"★".repeat(review.rate || 0)}
+                                  {"☆".repeat(5 - (review.rate || 0))}
                                 </div>
                                 <span className="text-sm text-gray-600">
-                                  {review.rating}/5
+                                  {review.rate || 0}/5
                                 </span>
                               </div>
                             </div>
                             <p className="text-xs text-gray-500">
-                              {new Date(review.reviewDate).toLocaleDateString(
+                              {new Date(review.createdAt).toLocaleDateString(
                                 "en-US",
                                 {
                                   year: "numeric",
@@ -1599,7 +1537,7 @@ const MentorProfile = () => {
                         {/* Review Content */}
                         <div className="mb-4">
                           <p className="text-gray-700 text-sm leading-relaxed">
-                            {review.reviewText}
+                            {review.content}
                           </p>
                         </div>
 
@@ -1667,7 +1605,7 @@ const MentorProfile = () => {
 
                 {/* Pagination - Dynamic based on filtered results */}
                 {totalReviewPages > 1 && (
-                  <div className="flex justify-center items-center gap-2 mt-8">
+                  <div className="flex justify-center items-center gap-2 mt-8 pt-6 border-t border-gray-200">
                     <button
                       onClick={() =>
                         handleReviewPageChange(reviewCurrentPage - 1)

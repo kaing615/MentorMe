@@ -6,6 +6,7 @@ const privateClient = createPrivateClient();
 
 const courseEndpoints = {
     getAllCourses: "courses",
+    getAllReviews: "reviews",
     getCourseDetails: ({ courseId }) => `courses/${courseId}`,
     createCourse: "courses",
     getUserCourses: ({ userId }) => `user/users/${userId}/courses`,
@@ -131,6 +132,16 @@ const courseApi = {
             const response = await privateClient.delete(
                 courseEndpoints.removeContentFromCourse({ courseId, contentId })
             );
+            return { response };
+        } catch (error) {
+            return { error };
+        }
+    },
+
+    // Lấy tất cả reviews từ seeded database
+    getAllReviews: async (params = {}) => {
+        try {
+            const response = await publicClient.get(courseEndpoints.getAllReviews, { params });
             return { response };
         } catch (error) {
             return { error };
