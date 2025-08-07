@@ -7,6 +7,7 @@ import {
 } from "../controllers/createcourse.controller.js";
 import { verifyToken, authorizeRoles } from "../middlewares/auth.middleware.js";
 import { validateCreateCourse, validateCourseData as validateCourseDataMiddleware } from "../middlewares/createcourse.middleware.js";
+import { handleCourseImageUpload } from "../middlewares/upload.middleware.js";
 
 const router = express.Router();
 
@@ -28,7 +29,7 @@ const router = express.Router();
  *     requestBody:
  *       required: true
  *       content:
- *         application/json:
+ *         multipart/form-data:
  *           schema:
  *             type: object
  *             required:
@@ -36,9 +37,11 @@ const router = express.Router();
  *               - price
  *               - category
  *               - level
- *               - numberOfLectures
+ *               - lectures
  *               - courseOverview
  *               - keyLearningObjectives
+ *               - driveLink
+ *               - thumbnail
  *             properties:
  *               title:
  *                 type: string
@@ -56,10 +59,10 @@ const router = express.Router();
  *                 example: "Programming"
  *               level:
  *                 type: string
- *                 enum: [Beginner, Intermediate, Advanced]
+ *                 enum: [Beginner, Intermediate, Advanced, Expert]
  *                 description: Course difficulty level
  *                 example: "Intermediate"
- *               numberOfLectures:
+ *               lectures:
  *                 type: integer
  *                 minimum: 1
  *                 description: Total number of lectures
@@ -79,11 +82,15 @@ const router = express.Router();
  *                 maxLength: 500
  *                 description: Main learning objectives students will achieve
  *                 example: "Master JavaScript fundamentals, Build real projects..."
- *               googleDriveMaterialsLink:
+ *               driveLink:
  *                 type: string
  *                 format: uri
- *                 description: Google Drive link for course materials (optional)
+ *                 description: Google Drive link for course materials
  *                 example: "https://drive.google.com/drive/folders/..."
+ *               thumbnail:
+ *                 type: string
+ *                 format: binary
+ *                 description: Course thumbnail image (required)
  *     responses:
  *       201:
  *         description: Course created successfully
@@ -104,7 +111,7 @@ const router = express.Router();
  *       403:
  *         description: Forbidden - Only mentors can create courses
  */
-router.post("/", verifyToken, authorizeRoles('mentor'), validateCreateCourse, createNewCourse);
+router.post("/", verifyToken, authorizeRoles('mentor'), handleCourseImageUpload, validateCreateCourse, createNewCourse);
 
 /**
  * @swagger
@@ -220,7 +227,7 @@ router.get("/my-courses", verifyToken, getMyCourses);
  *                 type: string
  *               level:
  *                 type: string
- *               numberOfLectures:
+ *               lectures:
  *                 type: integer
  *               duration:
  *                 type: number
@@ -228,7 +235,7 @@ router.get("/my-courses", verifyToken, getMyCourses);
  *                 type: string
  *               keyLearningObjectives:
  *                 type: string
- *               googleDriveMaterialsLink:
+ *               driveLink:
  *                 type: string
  *     responses:
  *       200:

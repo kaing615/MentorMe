@@ -11,7 +11,7 @@ import http from "http";
 import cookieParser from "cookie-parser";
 import { fileURLToPath } from "url";
 import swaggerUi from "swagger-ui-express";
-import YAML from "yamljs";
+import specs from "./swagger.js";
 import routes from "./routes/index.js";
 
 dotenv.config();
@@ -35,7 +35,7 @@ app.use(cookieParser());
 app.use("/api/v1", routes);
 
 // Swagger UI setup
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument, {
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs, {
   customCss: '.swagger-ui .topbar { display: none }',
   customSiteTitle: "MentorMe API Documentation",
   swaggerOptions: {

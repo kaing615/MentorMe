@@ -3,9 +3,9 @@ import mongoose from "mongoose";
 const CourseSchema = new mongoose.Schema(
   {
     name: { type: String, required: true }, // Đổi từ 'title' thành 'name'
-    description: { type: String, required: true },
-    shortDescription: { type: String }, // Thêm shortDescription
-    thumbnail: { type: String }, // Thêm thumbnail
+    courseOverview: { type: String, required: true }, // Thay description thành courseOverview
+    keyLearningObjectives: { type: String }, // Thay shortDescription thành keyLearningObjectives
+    thumbnail: { type: String, required: true }, // Thêm thumbnail - REQUIRED
     price: { type: Number, required: true },
     mentors: [
       { // Đổi từ 'mentor' (số ít) thành 'mentors' (số nhiều)
@@ -16,7 +16,7 @@ const CourseSchema = new mongoose.Schema(
     ],
     mentees: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
     category: { type: String, required: true },
-    level: { type: String, enum: ['Beginner', 'Intermediate', 'Advanced'], required: true }, // Thêm level field
+    level: { type: String, enum: ['Beginner', 'Intermediate', 'Advanced', 'Expert'], required: true }, // Thêm Expert level
     tags: [{ type: String }],
     duration: { type: Number }, // duration có thể không bắt buộc lúc tạo?
     rate: { type: Number, default: 0 }, // Sử dụng 'rate' cho averageRating

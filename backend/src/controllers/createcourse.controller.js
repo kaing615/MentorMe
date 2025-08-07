@@ -11,15 +11,23 @@ export const createNewCourse = async (req, res) => {
       price, 
       category, 
       level, 
-      numberOfLectures, 
+      lectures, 
       duration, 
       courseOverview, 
       keyLearningObjectives, 
-      googleDriveMaterialsLink 
+      driveLink 
     } = req.body;
 
+    // Check if image was uploaded (handled by middleware)
+    if (!req.file) {
+      return responseHandler.badRequest(res, "Thumbnail image is required");
+    }
+
+    // Create thumbnail URL
+    const thumbnailUrl = `/uploads/courses/${req.file.filename}`;
+
     // Validate required fields
-    if (!title || !price || !category || !level || !numberOfLectures || !courseOverview || !keyLearningObjectives) {
+    if (!title || !price || !category || !level || !lectures || !courseOverview || !keyLearningObjectives || !driveLink) {
       return responseHandler.badRequest(res, "Missing required fields");
     }
 
@@ -28,19 +36,19 @@ export const createNewCourse = async (req, res) => {
       return responseHandler.badRequest(res, "Price must be a positive number");
     }
 
-    // Validate numberOfLectures is positive integer
-    if (isNaN(numberOfLectures) || numberOfLectures <= 0 || !Number.isInteger(Number(numberOfLectures))) {
+    // Validate lectures is positive integer
+    if (isNaN(lectures) || lectures <= 0 || !Number.isInteger(Number(lectures))) {
       return responseHandler.badRequest(res, "Number of lectures must be a positive integer");
     }
 
     // Validate level is one of the allowed values
-    const allowedLevels = ['Beginner', 'Intermediate', 'Advanced'];
+    const allowedLevels = ['Beginner', 'Intermediate', 'Advanced', 'Expert'];
     if (!allowedLevels.includes(level)) {
-      return responseHandler.badRequest(res, "Level must be one of: Beginner, Intermediate, Advanced");
+      return responseHandler.badRequest(res, "Level must be one of: Beginner, Intermediate, Advanced, Expert");
     }
 
-    // Validate Google Drive link format if provided
-    if (googleDriveMaterialsLink && !googleDriveMaterialsLink.includes('drive.google.com')) {
+    // Validate Google Drive link format
+    if (!driveLink.includes('drive.google.com')) {
       return responseHandler.badRequest(res, "Invalid Google Drive link format");
     }
 
@@ -58,14 +66,15 @@ export const createNewCourse = async (req, res) => {
     // Create new course with mapped fields
     const newCourse = new Course({
       name: title, // Map title to name (as per course model)
-      description: courseOverview, // Map courseOverview to description
-      shortDescription: keyLearningObjectives, // Map keyLearningObjectives to shortDescription
+      courseOverview: courseOverview, // Use courseOverview field directly
+      keyLearningObjectives: keyLearningObjectives, // Use keyLearningObjectives field directly
       price: Number(price),
       category: category,
-      level: level, // Note: This field may need to be added to the Course model
-      lectures: Number(numberOfLectures), // Map numberOfLectures to lectures
+      level: level,
+      lectures: Number(lectures), // Map lectures field
       duration: duration ? Number(duration) : undefined,
-      link: googleDriveMaterialsLink || undefined, // Map googleDriveMaterialsLink to link
+      link: driveLink, // Map driveLink to link
+      thumbnail: thumbnailUrl, // Add thumbnail URL
       mentors: [creatorId], // Set creator as mentor
       tags: [], // Empty tags array initially
       rate: 0, // Default rating
@@ -107,7 +116,8 @@ export const getCourseFormData = async (req, res) => {
       levels: [
         { value: "Beginner", label: "Beginner" },
         { value: "Intermediate", label: "Intermediate" },
-        { value: "Advanced", label: "Advanced" }
+        { value: "Advanced", label: "Advanced" },
+        { value: "Expert", label: "Expert" }
       ],
       validation: {
         title: {
@@ -119,7 +129,7 @@ export const getCourseFormData = async (req, res) => {
           required: true,
           type: "number"
         },
-        numberOfLectures: {
+        lectures: {
           min: 1,
           required: true,
           type: "integer"
@@ -138,8 +148,8 @@ export const getCourseFormData = async (req, res) => {
           maxLength: 500,
           required: true
         },
-        googleDriveMaterialsLink: {
-          required: false,
+        driveLink: {
+          required: true,
           pattern: "drive.google.com"
         }
       }

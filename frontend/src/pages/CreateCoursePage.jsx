@@ -3,12 +3,14 @@ import { useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
 import { MessageCircle, Bell, Calendar, User } from 'lucide-react';
-import { courseApi } from '../api/modules/course.api';
+import createCourseApi from '../api/modules/createcourse.api';
 import { toast } from 'react-toastify';
 
 const CreateCoursePage = () => {
   const [imagePreview, setImagePreview] = useState(null);
   const [isImageDragOver, setIsImageDragOver] = useState(false);
+  const [imageFile, setImageFile] = useState(null);
+  const [imageError, setImageError] = useState('');
 
   // Validation schema
   const courseSchema = yup.object({
@@ -37,6 +39,24 @@ const CreateCoursePage = () => {
   const handleImageChange = (e) => {
     const file = e.target.files[0];
     if (file) {
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        setImageError('Please select a valid image file');
+        setImageFile(null);
+        setImagePreview(null);
+        return;
+      }
+      
+      // Validate file size (5MB limit)
+      if (file.size > 5 * 1024 * 1024) {
+        setImageError('Image size must be less than 5MB');
+        setImageFile(null);
+        setImagePreview(null);
+        return;
+      }
+      
+      setImageError('');
+      setImageFile(file);
       const reader = new FileReader();
       reader.onload = (e) => setImagePreview(e.target.result);
       reader.readAsDataURL(file);
@@ -59,6 +79,17 @@ const CreateCoursePage = () => {
     const files = e.dataTransfer.files;
     if (files && files[0] && files[0].type.startsWith('image/')) {
       const file = files[0];
+      
+      // Validate file size (5MB limit)
+      if (file.size > 5 * 1024 * 1024) {
+        setImageError('Image size must be less than 5MB');
+        setImageFile(null);
+        setImagePreview(null);
+        return;
+      }
+      
+      setImageError('');
+      setImageFile(file);
       const reader = new FileReader();
       reader.onload = (e) => setImagePreview(e.target.result);
       reader.readAsDataURL(file);
@@ -68,34 +99,51 @@ const CreateCoursePage = () => {
       const dataTransfer = new DataTransfer();
       dataTransfer.items.add(file);
       imageInput.files = dataTransfer.files;
+    } else {
+      setImageError('Please drop a valid image file');
+      setImageFile(null);
+      setImagePreview(null);
     }
   };
 
   const onSubmit = async (data) => {
     try {
+      // Validate image is required
+      if (!imageFile) {
+        setImageError('Course image is required');
+        toast.error('Please select a course image');
+        return;
+      }
+      
       console.log('Form submitted with data:', data);
       
-      // Prepare course data (no file upload needed)
-      const courseData = {
-        title: data.title,
-        description: `${data.courseOverview}\n\nKey Learning Objectives:\n${data.keyLearningObjectives}`, // Combine both descriptions
-        price: parseFloat(data.price),
-        category: data.category,
-        level: data.level,
-        lectures: parseInt(data.lectures),
-        driveLink: data.driveLink,
-        duration: data.duration ? parseInt(data.duration) : undefined,
-      };
+      // Prepare FormData for multipart/form-data
+      const formData = new FormData();
+      formData.append('title', data.title);
+      formData.append('price', data.price);
+      formData.append('category', data.category);
+      formData.append('level', data.level);
+      formData.append('lectures', data.lectures);
+      formData.append('courseOverview', data.courseOverview);
+      formData.append('keyLearningObjectives', data.keyLearningObjectives);
+      formData.append('driveLink', data.driveLink);
+      formData.append('thumbnail', imageFile);
+      
+      if (data.duration) {
+        formData.append('duration', data.duration);
+      }
 
-      console.log('Creating course with data:', courseData);
+      console.log('Creating course with FormData');
       
       // Call API to create course
-      const response = await courseApi.createCourse(courseData);
+      const response = await createCourseApi.createCourse(formData);
       console.log('Course creation response:', response);
       
       toast.success('Course created successfully!');
       reset();
       setImagePreview(null);
+      setImageFile(null);
+      setImageError('');
     } catch (error) {
       console.error('Error creating course:', error);
       console.error('Error details:', error.response?.data || error.message);
@@ -124,7 +172,9 @@ const CreateCoursePage = () => {
                 <div className="relative">
                   <div 
                     className={`w-full h-72 bg-gray-100 rounded-lg overflow-hidden border-2 border-dashed transition-colors cursor-pointer ${
-                      isImageDragOver 
+                      imageError
+                        ? 'border-red-400 bg-red-50' 
+                        : isImageDragOver 
                         ? 'border-blue-400 bg-blue-50' 
                         : 'border-gray-300 hover:border-gray-400'
                     }`}
@@ -157,7 +207,9 @@ const CreateCoursePage = () => {
                     )}
                   </div>
                   <div className="mt-4">
-                    <p className="text-sm font-medium text-gray-700 text-center">Course image</p>
+                    <p className="text-sm font-medium text-gray-700 text-center">
+                      Course Image <span className="text-red-500">*</span>
+                    </p>
                     <input
                       id="course-image"
                       type="file"
@@ -165,6 +217,9 @@ const CreateCoursePage = () => {
                       onChange={handleImageChange}
                       className="hidden"
                     />
+                    {imageError && (
+                      <p className="mt-2 text-sm text-red-600 text-center">{imageError}</p>
+                    )}
                   </div>
                 </div>
 
@@ -206,7 +261,7 @@ const CreateCoursePage = () => {
                 {/* Title */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Title
+                    Title <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
@@ -222,7 +277,7 @@ const CreateCoursePage = () => {
                 {/* Price */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Price
+                    Price <span className="text-red-500">*</span>
                   </label>
                   <div className="relative">
                     <input
@@ -243,19 +298,23 @@ const CreateCoursePage = () => {
                 {/* Category */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Category
+                    Category <span className="text-red-500">*</span>
                   </label>
                   <select
                     {...register('category')}
                     className="w-full px-4 py-3 text-gray-400 border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 bg-white transition-all duration-200 focus:text-gray-700"
                   >
                     <option value="">Select category</option>
-                    <option value="programming">Programming</option>
-                    <option value="design">Design</option>
-                    <option value="business">Business</option>
-                    <option value="marketing">Marketing</option>
-                    <option value="language">Language</option>
-                    <option value="other">Other</option>
+                    <option value="Programming">Programming</option>
+                    <option value="Design">Design</option>
+                    <option value="Business">Business</option>
+                    <option value="Marketing">Marketing</option>
+                    <option value="Photography">Photography</option>
+                    <option value="Music">Music</option>
+                    <option value="Health & Fitness">Health & Fitness</option>
+                    <option value="Language">Language</option>
+                    <option value="Academic">Academic</option>
+                    <option value="Lifestyle">Lifestyle</option>
                   </select>
                   {errors.category && (
                     <p className="mt-1 text-sm text-red-600">{errors.category.message}</p>
@@ -265,17 +324,17 @@ const CreateCoursePage = () => {
                 {/* Level */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Level
+                    Level <span className="text-red-500">*</span>
                   </label>
                   <select
                     {...register('level')}
                     className="w-full px-4 py-3 text-gray-400 border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 bg-white transition-all duration-200 focus:text-gray-700"
                   >
                     <option value="">Select level</option>
-                    <option value="beginner">Beginner</option>
-                    <option value="intermediate">Intermediate</option>
-                    <option value="advanced">Advanced</option>
-                    <option value="expert">Expert</option>
+                    <option value="Beginner">Beginner</option>
+                    <option value="Intermediate">Intermediate</option>
+                    <option value="Advanced">Advanced</option>
+                    <option value="Expert">Expert</option>
                   </select>
                   {errors.level && (
                     <p className="mt-1 text-sm text-red-600">{errors.level.message}</p>

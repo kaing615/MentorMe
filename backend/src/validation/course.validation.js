@@ -12,8 +12,8 @@ const objectId = Joi.string().custom((value, helpers) => {
 // Schema cho việc tạo khóa học mới
 export const createCourseSchema = Joi.object({
   name: Joi.string().required(),
-  description: Joi.string().required(),
-  shortDescription: Joi.string().optional().allow(''), // Cho phép chuỗi rỗng
+  courseOverview: Joi.string().required(),
+  keyLearningObjectives: Joi.string().optional().allow(''), // Cho phép chuỗi rỗng
   thumbnail: Joi.string().optional().allow(''),
   price: Joi.number().min(0).required(),
   category: Joi.string().required(),
