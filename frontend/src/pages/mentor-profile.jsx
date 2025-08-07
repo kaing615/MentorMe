@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { PATH, MENTOR_PATH } from "../routes/path";
 import youtubeImg from "../assets/youtube.png";
 import facebookImg from "../assets/facebook.png";
 import linkedinImg from "../assets/linkedin.png";
@@ -7,6 +9,7 @@ import googleImg from "../assets/google.png";
 import courseApi from "../api/modules/course.api";
 
 const MentorProfile = () => {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("profile");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -704,7 +707,10 @@ const MentorProfile = () => {
                     <h3 className="text-lg font-semibold text-gray-900">
                       Courses ({filteredCourses.length})
                     </h3>
-                    <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition font-medium text-sm">
+                    <button 
+                      onClick={() => navigate(`${PATH.MENTOR}/${MENTOR_PATH.COURSES}`)}
+                      className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition font-medium text-sm"
+                    >
                       New Course
                     </button>
                   </div>

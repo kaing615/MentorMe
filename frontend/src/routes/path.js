@@ -23,4 +23,5 @@ export const ADMIN_PATH = {
 export const MENTOR_PATH = {
   HOME: "home",
   PROFILE: "profile",
+  COURSES: "courses",
 };

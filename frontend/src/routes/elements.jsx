@@ -3,6 +3,7 @@ import { useRoutes, Navigate } from "react-router-dom";
 import AllPagesLayout from "../components/layout/AllPagesLayout";
 import MentorPage from "../pages/mentor-page";
 import MentorProfile from "../pages/mentor-profile";
+import MentorCourses from "../pages/CreateCoursePage";
 
 const useRouterElements = () => {
   const elements = useRoutes([
@@ -21,6 +22,10 @@ const useRouterElements = () => {
         { 
             path: MENTOR_PATH.PROFILE, 
             element: <MentorProfile /> 
+        },
+        {
+            path: MENTOR_PATH.COURSES,
+            element: <MentorCourses />
         },
       ],
     },
