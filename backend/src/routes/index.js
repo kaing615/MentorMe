@@ -4,7 +4,7 @@ import authorizeRoles from "../middlewares/role.middleware.js";
 
 import userRoute from "./user.route.js"
 
-import userRoute from "./user.route.js";
+//import userRoute from "./user.route.js";
 import courseRoute from "./course.route.js";
 import createCourseRoute from "./createcourse.route.js";
 

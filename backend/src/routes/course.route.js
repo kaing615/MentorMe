@@ -15,6 +15,19 @@ import { verifyToken, authorizeRoles } from "../middlewares/auth.middleware.js";
 
 const router = express.Router();
 
+// Test route for creating course
+router.post("/", (req, res) => {
+  console.log("POST /courses called with data:", req.body);
+  res.status(201).json({
+    success: true,
+    message: "Course created successfully!",
+    data: {
+      id: "test-course-id",
+      ...req.body
+    }
+  });
+});
+
 /**
  * @swagger
  * tags:

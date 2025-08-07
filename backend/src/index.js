@@ -7,12 +7,18 @@ import helmet from "helmet";
 import bodyParser from "body-parser";
 import multer from "multer";
 import morgan from "morgan";
+import http from "http";
+import cookieParser from "cookie-parser";
 import { fileURLToPath } from "url";
 import swaggerUi from "swagger-ui-express";
 import YAML from "yamljs";
 import routes from "./routes/index.js";
 
 dotenv.config();
+
+// ES module equivalent of __dirname
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Load Swagger YAML file
 const swaggerDocument = YAML.load(path.join(__dirname, 'swagger.yaml'));
@@ -25,9 +31,8 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
+// API routes
 app.use("/api/v1", routes);
-
-app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
 // Swagger UI setup
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument, {
@@ -37,9 +42,6 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument, {
     persistAuthorization: true,
   }
 }));
-
-// API routes
-app.use("/api/v1", routes);
 
 app.get("/", (req, res) => {
   res.send(`
@@ -57,12 +59,10 @@ app.get("/", (req, res) => {
   `);
 });
 
-const server = http.createServer(app);
-
 mongoose
-  .connect(process.env.MONGO_URL)
+  .connect(process.env.MONGO_URL || 'mongodb://localhost:27017/mentorme')
   .then(() => {
-    console.log("MongoDB connected");
+    console.log("MongoDB connected to:", process.env.MONGO_URL || 'mongodb://localhost:27017/mentorme');
     app.listen(PORT, () => {
       console.log(`🚀 Server is running on http://localhost:${PORT}`);
       console.log(`📖 API Documentation available at http://localhost:${PORT}/api-docs`);
