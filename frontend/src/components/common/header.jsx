@@ -39,10 +39,7 @@ const Header = () => {
   };
 
   const handleLogout = () => {
-    // Clear user data from localStorage and Redux store
-    localStorage.removeItem('user');
-    localStorage.removeItem('token');
-    localStorage.removeItem('isLoggedIn');
+    // Clear user data using Redux action (will also clear localStorage)
     dispatch(clearUser());
     navigate('/');
   };
@@ -131,8 +128,8 @@ const Header = () => {
                 </div>
                 <div
                   className="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center rounded-full bg-slate-700 text-white text-sm font-bold cursor-pointer select-none hover:bg-slate-600 transition-colors duration-200"
-                  // onClick={handleLogout}
-                  title="Logout"
+                  onClick={handleLogout}
+                  title="Click to Logout"
                 >
                   {user?.firstName?.charAt(0).toUpperCase() || 'U'}
                 </div>

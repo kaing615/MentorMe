@@ -9,8 +9,8 @@ export const loginUser = createAsyncThunk(
 			console.log(response);
 
 			if (response?.data?.token) {
-				localStorage.setItem("user", JSON.stringify(response.data.user));
-				localStorage.setItem("actkn", response.data.token);
+				sessionStorage.setItem("user", JSON.stringify(response.data.user));
+				sessionStorage.setItem("actkn", response.data.token);
 				return response.data;
 			} else {
 				return rejectWithValue("Login failed.");
@@ -25,9 +25,9 @@ export const loginUser = createAsyncThunk(
 const authSlice = createSlice({
 	name: "auth",
 	initialState: {
-		user: JSON.parse(localStorage.getItem("user")) || null,
-		token: localStorage.getItem("actkn") || null,
-		isAuthenticated: !!localStorage.getItem("actkn"),
+		user: JSON.parse(sessionStorage.getItem("user")) || null,
+		token: sessionStorage.getItem("actkn") || null,
+		isAuthenticated: !!sessionStorage.getItem("actkn"),
 		status: "idle", // Changed from 'initializing' to 'idle' as a standard initial state
 		error: null,
 	},
@@ -38,14 +38,14 @@ const authSlice = createSlice({
 			state.isAuthenticated = false;
 			state.status = "idle";
 			state.error = null;
-			localStorage.removeItem("user");
-			localStorage.removeItem("actkn");
+			sessionStorage.removeItem("user");
+			sessionStorage.removeItem("actkn");
 			window.location.replace("/auth/signin");
 		},
 
 		initializeAuth: (state) => {
-			const storedUser = localStorage.getItem("user");
-			const storedToken = localStorage.getItem("actkn");
+			const storedUser = sessionStorage.getItem("user");
+			const storedToken = sessionStorage.getItem("actkn");
 			if (storedUser && storedToken) {
 				try {
 					state.user = JSON.parse(storedUser);
@@ -54,8 +54,8 @@ const authSlice = createSlice({
 					state.status = "succeeded"; // If initialized successfully
 				} catch (e) {
 					console.error("Failed to parse stored user or token:", e);
-					localStorage.removeItem("user");
-					localStorage.removeItem("actkn"); // Clean up 'actkn'
+					sessionStorage.removeItem("user");
+					sessionStorage.removeItem("actkn"); // Clean up 'actkn'
 					state.user = null;
 					state.token = null;
 					state.isAuthenticated = false;

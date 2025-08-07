@@ -102,20 +102,11 @@ const Login = () => {
 
       toast.success("Đăng nhập thành công!");
 
-      // Store user data in localStorage and Redux store
+      // Store user data in sessionStorage and Redux store
       if (response.data?.user) {
         const userData = response.data.user;
-        localStorage.setItem("user", JSON.stringify(userData));
-        localStorage.setItem("isLoggedIn", "true"); // Set login status in localStorage for header
-
-        
-        if (userData.role?.includes("mentee")) {
-        navigate(`${PATH.MENTEE}${MENTEE_PATH.HOME}`);
-        } else if (userData.role?.includes("mentor")) {
-            navigate(`${PATH.MENTOR}/${MENTOR_PATH.HOME}`);
-        } else {
-            navigate("/"); // Default fallback
-        }
+        sessionStorage.setItem("user", JSON.stringify(userData));
+        sessionStorage.setItem("isLoggedIn", "true"); // Set login status in sessionStorage for header
         
         // Dispatch user data to Redux store with isLoggedIn flag
         dispatch(setUser({
@@ -125,14 +116,17 @@ const Login = () => {
         }));
       }
       if (response.data?.token) {
-        localStorage.setItem("token", response.data.token);
+        sessionStorage.setItem("token", response.data.token);
       }
 
-      
-
       // Navigate based on user role or selected type
-      
-
+      if (selected === "mentee") {
+        navigate(`${PATH.MENTEE}${MENTEE_PATH.HOME}`); // Navigate to homeScreen for mentee
+      } else if (selected === "mentor") {
+        navigate(`${PATH.MENTOR}/${MENTOR_PATH.HOME}`); // Navigate to mentor page (will be updated later)
+      } else {
+        navigate("/"); // Default fallback
+      }
     } catch (error) {
       console.error("Login error:", error);
       console.error("Error response:", error.response);
