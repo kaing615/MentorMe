@@ -11,18 +11,26 @@ const objectId = Joi.string().custom((value, helpers) => {
 
 // Schema cho việc tạo khóa học mới
 export const createCourseSchema = Joi.object({
-  name: Joi.string().required(),
-  description: Joi.string().required(),
-  shortDescription: Joi.string().optional().allow(''), // Cho phép chuỗi rỗng
-  thumbnail: Joi.string().optional().allow(''),
-  price: Joi.number().min(0).required(),
+  title: Joi.string().required(),
+  price: Joi.alternatives().try(
+    Joi.number().min(0),
+    Joi.string().pattern(/^\d+(\.\d{1,2})?$/).custom((value) => parseFloat(value))
+  ).required(),
+  courseOverview: Joi.string().required(),
+  keyLearningObjectives: Joi.string().required(),
   category: Joi.string().required(),
-  tags: Joi.array().items(Joi.string().allow('')).optional(), // Cho phép mảng chuỗi rỗng
-  duration: Joi.number().min(0).optional(),
-  link: Joi.string().uri().optional().allow(''), // Validate link là URL và cho phép rỗng
-  lectures: Joi.number().min(0).optional(),
-  mentors: Joi.array().items(objectId).optional(), // Validate mentors là mảng các ObjectId
-  // averageRating và numberOfRatings sẽ được BE tự tính toán, không cần validate ở đây
+  level: Joi.string().valid('Beginner', 'Intermediate', 'Advanced', 'Expert').required(),
+  lectures: Joi.alternatives().try(
+    Joi.number().min(1),
+    Joi.string().pattern(/^\d+$/).custom((value) => parseInt(value))
+  ).required(),
+  duration: Joi.alternatives().try(
+    Joi.number().min(0).optional(),
+    Joi.string().pattern(/^\d+$/).custom((value) => parseInt(value)).optional(),
+    Joi.string().allow('').optional()
+  ),
+  driveLink: Joi.string().uri().required(),
+  // thumbnail sẽ được handle bởi multer, không cần validate ở đây
 });
 
 // Schema cho việc cập nhật khóa học (tất cả các trường đều optional)

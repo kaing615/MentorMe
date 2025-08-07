@@ -13,7 +13,7 @@ import {
 } from "../validation/course.validation.js"; // Sửa path từ validations thành validation
 
 const isMentorOfCourse = (course, userId) => {
-  return course.mentors.some(mentorId => mentorId.toString() === userId.toString());
+  return course.mentor && course.mentor.toString() === userId.toString();
 };
 
 // [GET] /api/courses - Get all courses
@@ -270,6 +270,9 @@ export const getCourseReviews = async (req, res) => {
 // [POST] /api/courses
 export const createCourse = async (req, res) => {
   try {
+    console.log('Request body:', req.body);
+    console.log('Request files:', req.files);
+    
     // Validate dữ liệu đầu vào
     const { error } = createCourseSchema.validate(req.body);
     if (error) {
@@ -277,21 +280,51 @@ export const createCourse = async (req, res) => {
     }
 
     const creatorId = req.user.id; 
-    const { name, description, shortDescription, thumbnail, price, category, tags, duration, link, lectures, mentors } = req.body;
+    const { 
+      title, 
+      price, 
+      courseOverview, 
+      keyLearningObjectives, 
+      category, 
+      level, 
+      lectures, 
+      duration, 
+      driveLink 
+    } = req.body;
+
+    // Get thumbnail from uploaded file
+    const thumbnail = req.file ? req.file.path : null;
+    
+    if (!thumbnail) {
+      return responseHandler.badRequest(res, "Course thumbnail is required");
+    }
 
     // Quyền tạo khóa học đã được kiểm tra bởi authorizeRoles('admin', 'mentor')
 
-    const newCourse = new Course({ ...req.body, mentors: mentors || [creatorId] }); 
+    const newCourse = new Course({ 
+      name: title, // Map title to name
+      description: courseOverview,
+      shortDescription: keyLearningObjectives,
+      thumbnail,
+      price: parseFloat(price),
+      category,
+      level,
+      lectures: parseInt(lectures),
+      duration: duration ? parseInt(duration) : undefined,
+      link: driveLink, // Map driveLink to link
+      mentor: creatorId, // Use singular mentor field
+      rate: 0,
+      numberOfRatings: 0,
+      status: 'published'
+    }); 
 
     await newCourse.save();
 
-    // Cập nhật thông tin khóa học vào model User của các mentor
-    if (newCourse.mentors && newCourse.mentors.length > 0) {
-      await User.updateMany(
-        { _id: { $in: newCourse.mentors } },
-        { $push: { courses: newCourse._id } } 
-      );
-    }
+    // Cập nhật thông tin khóa học vào model User của mentor
+    await User.findByIdAndUpdate(
+      creatorId,
+      { $push: { courses: newCourse._id } }
+    );
 
     return responseHandler.created(res, newCourse);
 
