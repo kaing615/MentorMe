@@ -2,6 +2,7 @@ import React, { useRef, useEffect, useState } from "react";
 import { useDispatch } from "react-redux";
 // Inject CSS to hide scrollbars for .no-scrollbar class
 import minatoImg from "../assets/minato.webp";
+import { IoStarOutline , IoStar } from "react-icons/io5";
 import oipImg from "../assets/OIP.webp";
 import reactSvg from "../assets/react.svg";
 import GradImg from "../assets/grad.png";
@@ -12,6 +13,7 @@ import { useNavigate } from "react-router-dom";
 import { MENTEE_PATH } from "../routes/path";
 import BoImg from "../assets/Bơ.jpg";
 import { showLoading, hideLoading } from "../redux/features/loading.slice";
+import courseApi from "../api/modules/course.api"
 
 const categories = [
   { icon: "📚", name: "Astrology", count: 17 },
@@ -168,6 +170,8 @@ const useHorizontalScrollBlockSwipe = () => {
 
 const HomeScreen = () => {
   const dispatch = useDispatch();
+  const [topCourses, setTopCourses] = useState([]);
+  const [coursesLoading, setCoursesLoading] = useState(false);
   const dragCourses = useHorizontalScrollBlockSwipe();
   const dragMentors = useHorizontalScrollBlockSwipe();
 
@@ -201,7 +205,7 @@ const HomeScreen = () => {
   // Scroll by 3 items per click
   const scrollCarouselBy = (ref, direction, itemSelector = "button") => {
     const container = ref.current;
-    if (!container) return;
+    if (!container) return; 
     const card = container.querySelector(itemSelector);
     let cardWidth = 320; // fallback
     let gap = 32; // fallback (gap-8 = 2rem = 32px)
@@ -244,6 +248,84 @@ const HomeScreen = () => {
     }, 1200);
     return () => clearTimeout(timeout);
   }, [dispatch]);
+
+  // Fetch top 6 courses với rate cao nhất
+  useEffect(() => {
+    const fetchTopCourses = async () => {
+      setCoursesLoading(true);
+      try {
+        console.log("Bắt đầu fetch top courses...");
+        const { response, err } = await courseApi.getTopCourses({ 
+          limit: 6, 
+          minRate: 4.0 
+        });
+        
+        console.log("Raw API response:", response);
+        console.log("API error:", err);
+        
+        if (response) {
+          console.log("Response data:", response.data);
+          console.log("Response courses:", response.data?.courses);
+          
+          // API trả về structure: {data: {courses: [...], message: "...", total: X}}
+          const coursesData = response.data?.courses || response.courses || [];
+          console.log("Final courses data:", coursesData);
+          console.log("Courses data length:", coursesData.length);
+          
+          setTopCourses(coursesData);
+        } else {
+          console.error("Lỗi lấy top courses:", err);
+          setTopCourses([]); // Set empty array khi có lỗi
+        }
+      } catch (error) {
+        console.error("Error fetching top courses:", error);
+        setTopCourses([]);
+      } finally {
+        setCoursesLoading(false);
+      }
+    };
+
+    fetchTopCourses();
+  }, []);
+
+  // Debug log để kiểm tra state
+  console.log("Current topCourses state:", topCourses);
+  const renderStars = (rating) => {
+      const stars = [];
+      const fullStars = Math.floor(rating);
+      const hasHalfStar = rating % 1 !== 0;
+      
+      // Render sao đầy
+      for (let i = 0; i < fullStars; i++) {
+          stars.push(
+              <IoStar key={`full-${i}`} className="text-yellow-500" size={20} />
+          );
+      }
+      
+      // Render sao nửa (nếu có)
+      if (hasHalfStar) {
+          stars.push(
+              <div key="half" className="relative">
+                  <IoStarOutline className="text-yellow-500" size={20} />
+                  <IoStar 
+                      className="text-yellow-500 absolute top-0 left-0" 
+                      size={20} 
+                      style={{ clipPath: 'inset(0 50% 0 0)' }}
+                  />
+              </div>
+          );
+      }
+      
+      // Render sao rỗng còn lại
+      const emptyStars = 5 - Math.ceil(rating);
+      for (let i = 0; i < emptyStars; i++) {
+          stars.push(
+              <IoStarOutline key={`empty-${i}`} className="text-yellow-500" size={20} />
+          );
+      }
+      
+      return stars;
+  };
 
   return (
     <div className="bg-gray-50 min-h-screen flex flex-col">
@@ -450,48 +532,62 @@ const HomeScreen = () => {
               tabIndex={-1}
             >
               <div className="inline-flex gap-8">
-                {courses.map((course, idx) => (
-                  <button
-                    key={idx}
-                    className="bg-white rounded-[18px] border border-[#D6E3F3] shadow-sm flex flex-col p-6 min-w-[290px] max-w-[320px] w-full transition-all duration-200 hover:shadow-lg hover:-translate-y-1 active:scale-95 focus:outline-none focus:ring-2 focus:ring-blue-400 group cursor-pointer"
-                    tabIndex={0}
-                    type="button"
-                    onClick={() => {
-                      /* API use */
-                    }}
-                    style={{ outline: "none", scrollSnapAlign: "start" }}
-                  >
-                    <img
-                      src={course.img}
-                      alt={course.title}
-                      className="w-full h-32 object-cover rounded-[14px] mb-4 group-hover:scale-105 transition-transform duration-200"
-                    />
-                    <div className="flex flex-col flex-1">
-                      <div className="font-bold text-lg text-[#1A2233] mb-1">
-                        {course.title}
-                      </div>
-                      <div className="text-sm text-[#6B7280] mb-1">
-                        By Viet Thang Nguyen
-                      </div>
-                      <div className="flex items-center gap-1 text-sm mb-1">
-                        <span className="text-[#F59E1B]">★</span>
-                        <span className="text-[#F59E1B]">★</span>
-                        <span className="text-[#F59E1B]">★</span>
-                        <span className="text-[#F59E1B]">★</span>
-                        <span className="text-[#F59E1B]">★</span>
-                        <span className="text-[#6B7280] ml-2">
-                          (1200 <span className="font-bold">Ratings</span>)
-                        </span>
-                      </div>
-                      <div className="text-sm text-[#6B7280] mb-1">
-                        22 Total Hours. 155 Lectures. Beginner
-                      </div>
-                      <div className="font-bold text-[#1A2233] text-xl mt-2">
-                        ${course.price}
-                      </div>
+                {coursesLoading ? (
+                  // Loading skeleton cho 3 cards
+                  [...Array(3)].map((_, idx) => (
+                    <div key={idx} className="bg-white rounded-[18px] border border-[#D6E3F3] shadow-sm flex flex-col p-6 min-w-[290px] max-w-[320px] w-full animate-pulse">
+                      <div className="w-full h-32 bg-gray-200 rounded-[14px] mb-4"></div>
+                      <div className="h-4 bg-gray-200 rounded mb-2"></div>
+                      <div className="h-3 bg-gray-200 rounded mb-2 w-3/4"></div>
+                      <div className="h-3 bg-gray-200 rounded mb-2"></div>
+                      <div className="h-3 bg-gray-200 rounded mb-2 w-1/2"></div>
+                      <div className="h-6 bg-gray-200 rounded mt-2 w-1/3"></div>
                     </div>
-                  </button>
-                ))}
+                  ))
+                ) : (
+                  (topCourses.length > 0 ? topCourses : courses).map((course, idx) => (
+                    <button
+                      key={course.courseId || idx}
+                      className="bg-white rounded-[18px] border border-[#D6E3F3] shadow-sm flex flex-col p-6 min-w-[290px] max-w-[320px] w-full transition-all duration-200 hover:shadow-lg hover:-translate-y-1 active:scale-95 focus:outline-none focus:ring-2 focus:ring-blue-400 group cursor-pointer whitespace-normal"
+                      tabIndex={0}
+                      type="button"
+                      onClick={() => {
+                        /* Navigate to course detail */
+                        if (course.courseId) {
+                          // navigate(`/courses/${course.courseId}`);
+                        }
+                      }}
+                      style={{ outline: "none", scrollSnapAlign: "start" }}
+                    >
+                      <img
+                        src={course.thumbnailUrl || course.img || oipImg}
+                        alt={course.title || "Course"}
+                        className="w-full h-32 object-cover rounded-[14px] mb-4 group-hover:scale-105 transition-transform duration-200"
+                        onError={(e) => {
+                          e.target.src = oipImg; // Fallback to default image if load fails
+                        }}
+                      />
+                      <div className="flex flex-col flex-1">
+                        <div className="font-bold text-lg text-[#1A2233] mb-1">
+                          {course.title || "Untitled Course"}
+                        </div>
+                        <div className="text-sm text-[#6B7280] mb-1">
+                          By {course.mentor?.userName || course.mentor?.email || course.mentor || "Unknown Mentor"}
+                        </div>
+                        <div className="flex justify-center gap-2 mt-1 text-slate-700">
+                            <div className="flex items-center">{renderStars(course.rate || 0)}</div>
+                            <span className="text-sm">({course.rate || 0})</span>
+                        </div>
+                        <div className="text-sm text-[#6B7280] mb-1">
+                          {course.duration || course.hours || "0"} Total Hours. {course.lectures || "0"} Lectures.
+                        </div>
+                        <div className="font-bold text-[#1A2233] text-xl mt-2">
+                          ${course.price || "0"}
+                        </div>
+                      </div>
+                    </button>
+                  ))
+                )}
               </div>
             </div>
           </div>
