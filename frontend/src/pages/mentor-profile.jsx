@@ -143,7 +143,7 @@ const MentorProfile = () => {
   const getFilteredAndSortedCourses = () => {
     let filtered = allCourses.filter(
       (course) =>
-        course.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        course.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
         course.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (course.description && course.description.toLowerCase().includes(searchTerm.toLowerCase()))
     );
@@ -324,7 +324,7 @@ const MentorProfile = () => {
     let filtered = allReviews.filter(
       (review) => {
         const studentName = review.author ? `${review.author.firstName || ''} ${review.author.lastName || ''}`.trim() || review.author.userName : '';
-        const courseName = review.target ? review.target.name : '';
+        const courseName = review.target ? review.target.title : '';
         const reviewText = review.content || '';
         
         return studentName
@@ -827,15 +827,15 @@ const MentorProfile = () => {
                       >
                         <img
                           src={course.thumbnail || "/placeholder-course.jpg"}
-                          alt={course.name}
+                          alt={course.title}
                           className="w-full h-48 object-cover"
                         />
                         <div className="p-4">
                           <h4 className="font-semibold text-gray-900 mb-2 line-clamp-2">
-                            {course.name}
+                            {course.title}
                           </h4>
                           <p className="text-sm text-gray-600 mb-2">
-                            By {course.mentors?.[0]?.userName || 'Unknown Mentor'}
+                            By {course.mentor?.userName || 'Unknown Mentor'}
                           </p>
                           <div className="flex items-center gap-2 mb-2">
                             <div className="flex text-yellow-400 text-sm">

@@ -24,7 +24,7 @@ export const getAllCourses = async (req, res) => {
     let query = {};
 
     if (search) {
-      query.name = { $regex: search, $options: 'i' };
+      query.title = { $regex: search, $options: 'i' };
     }
 
     let sortOptions = {};
@@ -33,7 +33,7 @@ export const getAllCourses = async (req, res) => {
     } else if (sortBy === 'oldest') {
       sortOptions = { createdAt: 1 };
     } else if (sortBy === 'rating') {
-      sortOptions = { averageRating: -1 }; 
+      sortOptions = { rate: -1 }; 
     } else if (sortBy === 'priceAsc') {
       sortOptions = { price: 1 }; 
     } else if (sortBy === 'priceDesc') {
@@ -68,7 +68,7 @@ export const getAllCourses = async (req, res) => {
     const skip = (page - 1) * limit;
 
     const courses = await Course.find(query)
-      .populate('mentors', 'userName avatar')
+      .populate('mentor', 'userName avatar')
       .skip(skip)
       .limit(limit)
       .sort(sortOptions);
@@ -105,13 +105,13 @@ export const getUserCourses = async (req, res) => {
     if (role === 'mentee') {
       query = { mentees: userId };
     } else if (role === 'mentor') {
-      query = { mentors: userId };
+      query = { mentor: userId }; // Fix: use singular mentor field
     } else {
       return responseHandler.badRequest(res, "Invalid role specified.");
     }
 
     if (search) {
-      query.name = { $regex: search, $options: 'i' };
+      query.title = { $regex: search, $options: 'i' };
     }
 
     let sortOptions = {};
@@ -120,7 +120,7 @@ export const getUserCourses = async (req, res) => {
     } else if (sortBy === 'oldest') {
       sortOptions = { createdAt: 1 };
     } else if (sortBy === 'rating') {
-      sortOptions = { averageRating: -1 }; 
+      sortOptions = { rate: -1 }; 
     } else if (sortBy === 'priceAsc') {
       sortOptions = { price: 1 }; 
     } else if (sortBy === 'priceDesc') {
@@ -152,7 +152,7 @@ export const getUserCourses = async (req, res) => {
     const skip = (page - 1) * limit;
 
     const courses = await Course.find(query)
-      .populate('mentors', 'userName avatar')
+      .populate('mentor', 'userName avatar')
       .skip(skip)
       .limit(limit)
       .sort(sortOptions);
@@ -173,13 +173,96 @@ export const getUserCourses = async (req, res) => {
   }
 };
 
+// [GET] /api/courses/my-courses - Get courses created by the current mentor
+export const getMyCourses = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { search, sortBy, filterBy, page = 1, limit = 10 } = req.query;
+
+    // Verify user exists and is a mentor
+    const user = await User.findById(userId);
+    if (!user) {
+      return responseHandler.notFound(res, "User not found.");
+    }
+
+    if (user.role !== 'mentor') {
+      return responseHandler.unauthorized(res, "Only mentors can access their courses.");
+    }
+
+    let query = { mentor: userId };
+
+    if (search) {
+      query.title = { $regex: search, $options: 'i' };
+    }
+
+    let sortOptions = {};
+    if (sortBy === 'newest') {
+      sortOptions = { createdAt: -1 };
+    } else if (sortBy === 'oldest') {
+      sortOptions = { createdAt: 1 };
+    } else if (sortBy === 'rating') {
+      sortOptions = { rate: -1 };
+    } else if (sortBy === 'priceAsc') {
+      sortOptions = { price: 1 };
+    } else if (sortBy === 'priceDesc') {
+      sortOptions = { price: -1 };
+    } else {
+      sortOptions = { createdAt: -1 };
+    }
+
+    // Add filter logic
+    if (filterBy) {
+      try {
+        const filters = JSON.parse(filterBy);
+        if (filters.category) {
+          query.category = filters.category;
+        }
+        if (filters.status) {
+          query.status = filters.status;
+        }
+        if (filters.priceMin) {
+          query.price = { ...query.price, $gte: filters.priceMin };
+        }
+        if (filters.priceMax) {
+          query.price = { ...query.price, $lte: filters.priceMax };
+        }
+      } catch (parseError) {
+        console.error("Error parsing filterBy JSON:", parseError);
+        return responseHandler.badRequest(res, "Invalid filterBy format.");
+      }
+    }
+
+    const skip = (page - 1) * limit;
+
+    const courses = await Course.find(query)
+      .populate('mentor', 'userName avatar')
+      .skip(skip)
+      .limit(limit)
+      .sort(sortOptions);
+
+    const totalCourses = await Course.countDocuments(query);
+    const totalPages = Math.ceil(totalCourses / limit);
+
+    return responseHandler.ok(res, {
+      courses,
+      totalCourses,
+      totalPages,
+      currentPage: parseInt(page),
+    });
+
+  } catch (err) {
+    console.error("Error getting my courses:", err);
+    responseHandler.error(res);
+  }
+};
+
 // [GET] /api/courses/:courseId
 export const getCourseDetails = async (req, res) => {
   try {
     const { courseId } = req.params;
 
     const course = await Course.findById(courseId)
-      .populate('mentors', 'userName avatar')
+      .populate('mentor', 'userName avatar')
       .populate('lessons');
 
     if (!course) {
@@ -238,7 +321,7 @@ export const addCourseReview = async (req, res) => {
 
     const reviews = await Review.find({ target: courseId, targetType: "Course" });
     const totalRatings = reviews.reduce((sum, review) => sum + review.rate, 0);
-    course.averageRating = totalRatings / reviews.length; 
+    course.rate = totalRatings / reviews.length; 
     course.numberOfRatings = reviews.length;
 
     await course.save();
@@ -302,7 +385,7 @@ export const createCourse = async (req, res) => {
     // Quyền tạo khóa học đã được kiểm tra bởi authorizeRoles('admin', 'mentor')
 
     const newCourse = new Course({ 
-      name: title, // Map title to name
+      title: title, // Giữ nguyên field title
       description: courseOverview,
       shortDescription: keyLearningObjectives,
       thumbnail,
@@ -357,31 +440,8 @@ export const updateCourse = async (req, res) => {
        return responseHandler.forbidden(res, "You do not have permission to update this course.");
     }
 
-    const oldMentors = course.mentors.map(mentorId => mentorId.toString());
-
     Object.assign(course, updateData);
-
     await course.save();
-
-    const newMentors = course.mentors.map(mentorId => mentorId.toString());
-
-    const removedMentors = oldMentors.filter(mentorId => !newMentors.includes(mentorId));
-
-    const addedMentors = newMentors.filter(mentorId => !oldMentors.includes(mentorId));
-
-    if (removedMentors.length > 0) {
-      await User.updateMany(
-        { _id: { $in: removedMentors } },
-        { $pull: { courses: courseId } }
-      );
-    }
-
-    if (addedMentors.length > 0) {
-       await User.updateMany(
-        { _id: { $in: addedMentors } },
-        { $push: { courses: courseId } }
-      );
-    }
 
     return responseHandler.ok(res, course);
 
@@ -407,7 +467,7 @@ export const deleteCourse = async (req, res) => {
        return responseHandler.forbidden(res, "You do not have permission to delete this course.");
     }
 
-    const mentorsOfCourse = course.mentors;
+    const mentorOfCourse = course.mentor;
     const menteesOfCourse = course.mentees;
 
     await Course.findByIdAndDelete(courseId);
@@ -415,9 +475,9 @@ export const deleteCourse = async (req, res) => {
     await Lesson.deleteMany({ course: courseId });
     await Review.deleteMany({ target: courseId, targetType: "Course" });
 
-    if (mentorsOfCourse && mentorsOfCourse.length > 0) {
-      await User.updateMany(
-        { _id: { $in: mentorsOfCourse } },
+    if (mentorOfCourse) {
+      await User.findByIdAndUpdate(
+        mentorOfCourse,
         { $pull: { courses: courseId } }
       );
     }
@@ -633,7 +693,7 @@ export const getAllReviews = async (req, res) => {
     
     const reviews = await Review.find({})
       .populate('author', 'userName firstName lastName avatarUrl')
-      .populate('target', 'name')
+      .populate('target', 'title')
       .sort(sortOptions)
       .skip(skip)
       .limit(parseInt(limit));

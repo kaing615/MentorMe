@@ -85,21 +85,22 @@ const usersData = [
 // Sample Courses Data
 const coursesData = [
   {
-    name: 'Complete JavaScript Bootcamp',
+    title: 'Complete JavaScript Bootcamp',
     description: 'Master JavaScript from basics to advanced concepts including ES6+, async programming, and modern development practices.',
     price: 99.99,
     duration: 40,
     lectures: 25,
     category: 'Programming',
-    level: 'Beginner to Advanced',
+    level: 'Beginner',
     thumbnail: 'https://images.unsplash.com/photo-1627398242454-45a1465c2479?w=400&h=250&fit=crop',
     rate: 4.6,
     numberOfRatings: 156,
-    mentors: [], // Will be populated with actual mentor IDs
-    status: 'published'
+    mentor: null, // Will be populated with actual mentor ID
+    status: 'published',
+    link: 'https://drive.google.com/drive/folders/example1'
   },
   {
-    name: 'React.js Complete Guide',
+    title: 'React.js Complete Guide',
     description: 'Build modern web applications with React.js, including hooks, context, routing, and state management.',
     price: 149.99,
     duration: 35,
@@ -109,11 +110,12 @@ const coursesData = [
     thumbnail: 'https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=400&h=250&fit=crop',
     rate: 4.8,
     numberOfRatings: 203,
-    mentors: [],
-    status: 'published'
+    mentor: null,
+    status: 'published',
+    link: 'https://drive.google.com/drive/folders/example2'
   },
   {
-    name: 'Python for Data Science',
+    title: 'Python for Data Science',
     description: 'Learn Python programming focused on data analysis, visualization, and machine learning fundamentals.',
     price: 129.99,
     duration: 45,
@@ -123,11 +125,12 @@ const coursesData = [
     thumbnail: 'https://images.unsplash.com/photo-1526379879527-8559ecfcaec0?w=400&h=250&fit=crop',
     rate: 4.5,
     numberOfRatings: 189,
-    mentors: [],
-    status: 'published'
+    mentor: null,
+    status: 'published',
+    link: 'https://drive.google.com/drive/folders/example3'
   },
   {
-    name: 'Node.js Backend Development',
+    title: 'Node.js Backend Development',
     description: 'Build scalable backend applications with Node.js, Express, and MongoDB. Learn REST APIs and authentication.',
     price: 119.99,
     duration: 38,
@@ -137,64 +140,9 @@ const coursesData = [
     thumbnail: 'https://images.unsplash.com/photo-1558494949-ef010cbdcc31?w=400&h=250&fit=crop',
     rate: 4.7,
     numberOfRatings: 134,
-    mentors: [],
-    status: 'published'
-  },
-  {
-    name: 'Machine Learning with Python',
-    description: 'Dive deep into machine learning algorithms, data preprocessing, and model evaluation using Python.',
-    price: 179.99,
-    duration: 50,
-    lectures: 42,
-    category: 'Machine Learning',
-    level: 'Advanced',
-    thumbnail: 'https://images.unsplash.com/photo-1555949963-aa79dcee981c?w=400&h=250&fit=crop',
-    rate: 4.9,
-    numberOfRatings: 87,
-    mentors: [],
-    status: 'published'
-  },
-  {
-    name: 'Java Spring Boot Masterclass',
-    description: 'Master enterprise Java development with Spring Boot, JPA, security, and microservices architecture.',
-    price: 159.99,
-    duration: 42,
-    lectures: 38,
-    category: 'Programming',
-    level: 'Advanced',
-    thumbnail: 'https://images.unsplash.com/photo-1542831371-29b0f74f9713?w=400&h=250&fit=crop',
-    rate: 4.4,
-    numberOfRatings: 92,
-    mentors: [],
-    status: 'published'
-  },
-  {
-    name: 'Full Stack Web Development',
-    description: 'Complete full-stack development course covering React, Node.js, Express, and MongoDB (MERN stack).',
-    price: 199.99,
-    duration: 60,
-    lectures: 55,
-    category: 'Full Stack',
-    level: 'Intermediate to Advanced',
-    thumbnail: 'https://images.unsplash.com/photo-1461749280684-dccba630e2f6?w=400&h=250&fit=crop',
-    rate: 4.8,
-    numberOfRatings: 245,
-    mentors: [],
-    status: 'published'
-  },
-  {
-    name: 'AWS Cloud Computing Fundamentals',
-    description: 'Learn cloud computing basics with AWS services including EC2, S3, RDS, and deployment strategies.',
-    price: 139.99,
-    duration: 32,
-    lectures: 26,
-    category: 'Cloud Computing',
-    level: 'Beginner to Intermediate',
-    thumbnail: 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=400&h=250&fit=crop',
-    rate: 4.3,
-    numberOfRatings: 108,
-    mentors: [],
-    status: 'published'
+    mentor: null,
+    status: 'published',
+    link: 'https://drive.google.com/drive/folders/example4'
   }
 ];
 
@@ -248,7 +196,7 @@ const seedDatabase = async () => {
       const assignedMentor = mentors[index % mentors.length];
       return {
         ...course,
-        mentors: [assignedMentor._id]
+        mentor: assignedMentor._id // Use singular mentor field
       };
     });
 
