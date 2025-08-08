@@ -1,4 +1,6 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
+import { useParams, useNavigate } from 'react-router-dom';
 import { IoStarOutline, IoStar } from "react-icons/io5";
 import { AiOutlineGlobal } from "react-icons/ai";
 import CoursePic from "../assets/thumbnail.png";
@@ -9,21 +11,105 @@ import twitterlogo from "../assets/twitter.png";
 import microsoftlogo from "../assets/microsoft.png";
 import minatoImg from "../assets/minato.webp";
 import { ImQuotesLeft } from "react-icons/im";
+import { showLoading, hideLoading } from "../redux/features/loading.slice";
+import courseApi from "../api/modules/course.api";
+import { toast } from "react-toastify";
+import { LiaHashtagSolid } from "react-icons/lia";
 
 const CourseDetail = () => {
-    // Course data - có thể lấy từ props hoặc API
-    const originalPrice = 99; // Giá gốc
-    const discountPercent = 50;
+    const { id } = useParams();
+    const navigate = useNavigate();
+    const dispatch = useDispatch();
     
-    const courseData = {
-        rating: 2.5,
-        totalTime: "12 total hours",
-        lectureCount: 45,
-        level: "All Levels",
-        originalPrice: originalPrice,
-        discountPercent: discountPercent,
-        currentPrice: originalPrice * (1 - discountPercent / 100) // Tính giá hiện tại
-    };
+    // States
+    const [courseData, setCourseData] = useState(null);
+    const [relatedCourses, setRelatedCourses] = useState([]);
+    const [error, setError] = useState(null);
+    
+    // Refs - phải khai báo trước early returns
+    const coursesRef = useRef(null);
+    const loadingTimerRef = useRef(null);
+    // const testimonialRef = useRef(null);
+    
+    // Fetch course data
+    useEffect(() => {
+        const fetchCourseData = async () => {
+            if (!id) return;
+            
+            dispatch(showLoading());
+            const startTime = Date.now();
+            
+            try {
+                
+                const { response: courseResponse, err: courseError } = await courseApi.getDetail({ 
+                    courseId: id 
+                });
+                
+                if (courseError) {
+                    throw new Error(courseError.message || "Không thể tải thông tin khóa học");
+                }
+                
+                const course = courseResponse.data.course;
+                setCourseData(course);
+                
+                // Fetch related courses
+                if (course && course.category) {
+                    const { response: relatedResponse } = await courseApi.getRelatedCourses({
+                        courseId: id,
+                        category: course.category,
+                        limit: 6
+                    });
+                    
+                    if (relatedResponse && relatedResponse.data && relatedResponse.data.courses) {
+                        setRelatedCourses(relatedResponse.data.courses);
+                    }
+                }
+                
+            } catch (error) {
+                console.error("Error fetching course data:", error);
+                setError(error.message);
+                toast.error(error.message || "Có lỗi xảy ra khi tải dữ liệu");
+            } finally {
+                // Đảm bảo loading hiển thị tối thiểu một khoảng thời gian
+                const MIN_DURATION = 1500; // ms
+                const elapsed = Date.now() - startTime;
+                const remaining = Math.max(MIN_DURATION - elapsed, 0);
+                if (loadingTimerRef.current) clearTimeout(loadingTimerRef.current);
+                loadingTimerRef.current = setTimeout(() => {
+                    dispatch(hideLoading());
+                    loadingTimerRef.current = null;
+                }, remaining);
+            }
+        };
+        
+        fetchCourseData();
+
+        // Cleanup khi đổi route hoặc unmount
+        return () => {
+            if (loadingTimerRef.current) {
+                clearTimeout(loadingTimerRef.current);
+                loadingTimerRef.current = null;
+            }
+        }
+
+    }, [id, dispatch]);
+    
+    // Loading state
+    if (!courseData && !error) {
+        return null; // LoadingPage sẽ hiển thị
+    }
+    
+    // Error state
+    if (error) {
+        return (
+            <div className="flex items-center justify-center min-h-screen">
+                <div className="text-center">
+                    <h2 className="text-2xl font-bold text-red-600 mb-4">Có lỗi xảy ra</h2>
+                    <p className="text-gray-600">{error}</p>
+                </div>
+            </div>
+        );
+    }
 
     // Testimonials data
     const testimonials = [
@@ -45,7 +131,7 @@ const CourseDetail = () => {
     ];
 
     // Testimonial carousel ref
-    const testimonialRef = useRef(null);
+    // const testimonialRef = useRef(null);
     
     // Scroll testimonial function
     const scrollTestimonialBy = (direction) => {
@@ -63,79 +149,8 @@ const CourseDetail = () => {
         container.scrollBy({ left: direction * scrollAmount, behavior: "smooth" });
     };
 
-    // Related courses data
-    const relatedCourses = [
-        {
-            title: "Programming Fundamentals",
-            mentor: "Viet Thang Nguyen",
-            rating: 4.8,
-            ratings: 1200,
-            hours: 22,
-            lectures: 155,
-            level: "Beginner",
-            price: 149.9,
-            img: minatoImg,
-        },
-        {
-            title: "UI/UX Design Basics",
-            mentor: "Viet Thang Nguyen",
-            rating: 4.7,
-            ratings: 1200,
-            hours: 18,
-            lectures: 120,
-            level: "Beginner",
-            price: 149.9,
-            img: minatoImg,
-        },
-        {
-            title: "Digital Marketing 101",
-            mentor: "Viet Thang Nguyen",
-            rating: 4.9,
-            ratings: 1200,
-            hours: 25,
-            lectures: 180,
-            level: "Intermediate",
-            price: 149.9,
-            img: minatoImg,
-        },
-        {
-            title: "Advanced JavaScript",
-            mentor: "Viet Thang Nguyen",
-            rating: 4.6,
-            ratings: 1200,
-            hours: 30,
-            lectures: 200,
-            level: "Advanced",
-            price: 149.9,
-            img: minatoImg,
-        },
-        {
-            title: "Advanced JavaScript",
-            mentor: "Viet Thang Nguyen",
-            rating: 4.6,
-            ratings: 1200,
-            hours: 30,
-            lectures: 200,
-            level: "Advanced",
-            price: 149.9,
-            img: minatoImg,
-        },
-        {
-            title: "Advanced JavaScript",
-            mentor: "Viet Thang Nguyen",
-            rating: 4.6,
-            ratings: 1200,
-            hours: 30,
-            lectures: 200,
-            level: "Advanced",
-            price: 149.9,
-            img: minatoImg,
-        },
-    ];
-
     // Top courses carousel ref and state
-    const coursesRef = useRef(null);
-    const [hoveredCarousel, setHoveredCarousel] = useState(null);
+    // const [hoveredCarousel, setHoveredCarousel] = useState(null);
 
     // Scroll courses function
     const scrollCoursesBy = (direction) => {
@@ -191,52 +206,67 @@ const CourseDetail = () => {
         return stars;
     };
 
+    const discountPrice = courseData.price - (courseData.price * (courseData.discount/100));
+
     return (
         <div title="Course Detail" className="flex flex-col">
             <div title="hold name and box of course" className="flex flex-row pt-3 pl-10 gap-8">
                 <div title="hold name of course" className="w-[70%] pt-10">
-                    <h1 className='font-bold text-5xl'>Programming Fundamentals</h1>
-                    <p className = "pt-3 text-slate-700">
-                        This course is designed to give you a solid foundation in programming, covering essential 
-                        <br />concepts, problem-solving techniques, and practical tools used by today's developers. Whether
-                        <br /> you're new to coding or looking to strengthen your basics, you'll learn the core principles and
-                        <br /> logic behind writing effective, real-world code across multiple platforms.
+                    <h1 className='font-bold text-5xl'>{courseData.title}</h1>
+                    <p className="pt-3 text-slate-700">
+                        {courseData.description}
                     </p>
 
                     <div title = "rating (star) | total time of course, number of lectures and level required" className="flex flex-row pt-3 items-center space-x-4">
                         <div className="flex flex-row items-center">
                             <div className="flex flex-row">
-                                {renderStars(courseData.rating)}
+                                {renderStars(courseData.rate || 0)}
                             </div>
-                            <span className="pl-2 text-lg font-medium">{courseData.rating}</span>
+                            <span className="pl-2 text-lg font-medium">{courseData.rate || 0}</span>
                         </div>
 
                         <p className = "text-lg text-slate-700">|</p>
                         
                         <div className="flex flex-row items-center text-slate-700">
-                            <span> {courseData.totalTime}</span>
+                            <span>{courseData.duration} total hours</span>
                         </div>
                         
                         <div className="flex flex-row items-center text-slate-700">
-                            <span>{courseData.lectureCount} Lectures</span>
+                            <span>{courseData.lectures} Lectures</span>
                         </div>
                         
                         <div className="flex flex-row items-center text-slate-700">
-                            <span>{courseData.level}</span>
+                            <span>{Array.isArray(courseData.category) ? courseData.category.join(', ') : courseData.category}</span>
                         </div>
                     </div>
 
                     <div title = "hold author" className = "flex flex-row mt-4">
-                        <div title = "avatar of author" className="w-12 h-12 rounded-full bg-gray-300 mr-3"></div>
+                        <div title = "avatar of author" className="w-12 h-12 rounded-full bg-gray-300 mr-3">
+                            <img src = {courseData.mentor.avatarUrl} alt="Avatar" className="w-full h-full object-cover rounded-full" />
+                        </div>
                         <div title = "hold name of author" className="flex flex-row mt-3">
                             <div>Create by</div>
-                            <div title = "name of author" className="font-semibold text-lg ml-2">John Doe</div>
+                            <div title = "name of author" className="font-semibold text-lg ml-2">
+                                {courseData.mentor?.userName || courseData.mentor?.email || "Anonymous"}
+                            </div>
                         </div>
                     </div>
 
                     <div title = "hold languege of course" className="flex flex-row mt-4 gap-3">
                         <AiOutlineGlobal className="text-gray-500" size={25} />
-                        <span className="text-gray-700">English, Spanish, Italian, German</span>
+                        <span className="text-gray-700">
+                            {courseData.language}
+                        </span>
+                    </div>
+
+                    <div title = "hold tags" className="flex flex-row mt-4 gap-3">
+                        <LiaHashtagSolid className="text-gray-500" size={25} />
+                        <span className="text-gray-700">
+                            {courseData.tags && courseData.tags.length > 0 
+                                ? courseData.tags.join(', ')
+                                : "No tags available"
+                            }
+                        </span>
                     </div>
                 </div>
 
@@ -249,14 +279,18 @@ const CourseDetail = () => {
 
                         <div title="hold price" className="flex flex-row items-center space-x-3 mb-4">
                             <span className="text-3xl font-bold text-black">
-                                ${courseData.currentPrice}
+                                ${discountPrice.toFixed(1)}
                             </span>
-                            <span className="text-xl text-gray-400 line-through">
-                                ${courseData.originalPrice}
-                            </span>
-                            <span className="text-lg font-semibold text-green-600">
-                                {courseData.discountPercent}% Off
-                            </span>
+                            {courseData.discount && courseData.discount > 0 && (
+                                <>
+                                    <span className="text-xl font-semibold text-gray-400 line-through">
+                                        ${courseData.price.toFixed(1)}
+                                    </span>
+                                    <span className="text-xl font-semibold text-green-600">
+                                        {courseData.discount}% Off
+                                    </span>
+                                </>
+                            )}
                         </div>
 
                         <div title = "hold button of course" className="flex flex-col space-y-3">
@@ -311,7 +345,7 @@ const CourseDetail = () => {
             </div>
 
             {/* Testimonials Section */}
-            <section className="w-full py-14 bg-white mt-16 pl-4" style={{ background: "#f8f9fb" }}>
+            {/* <section className="w-full py-14 bg-white mt-16 pl-4" style={{ background: "#f8f9fb" }}>
                 <div className="w-full flex flex-col gap-6">
                     <div className="flex flex-col md:flex-row md:items-end md:justify-between mb-4 px-10">
                         <div className="flex flex-col gap-1">
@@ -415,9 +449,9 @@ const CourseDetail = () => {
                         </div>
                     </div>
                 </div>
-            </section>
+            </section> */}
 
-            <section className="w-full py-10 bg-white">
+            <section className="w-full py-10 bg-white mt-5">
                 <div className="w-full">
                     <div className="flex flex-col md:flex-row md:items-end md:justify-between mb-6 px-10">
                         <div className="flex flex-col gap-1">
@@ -478,46 +512,38 @@ const CourseDetail = () => {
                             <div className="inline-flex gap-8">
                                 {relatedCourses.map((course, idx) => (
                                     <button
-                                        key={idx}
-                                        className="bg-white rounded-[18px] border border-[#D6E3F3] shadow-sm flex flex-col p-6 min-w-[290px] max-w-[320px] w-full transition-all duration-200 hover:shadow-lg hover:-translate-y-1 active:scale-95 focus:outline-none focus:ring-2 focus:ring-blue-400 group cursor-pointer"
-                                        tabIndex={0}
-                                        type="button"
-                                        onClick={() => {
-                                            /* Navigate to course detail */
-                                        }}
-                                        style={{ outline: "none", scrollSnapAlign: "start" }}
+                                        key={course.courseId || idx}
+                                        onClick={() => navigate(`/courses/${course.courseId}`)}
+                                        className="text-left border border-gray-200 rounded-lg p-4 w-[320px] hover:shadow-lg transition duration-200 flex flex-col items-start whitespace-normal"
                                     >
                                         <img
-                                            src={course.img}
+                                            src={course.thumbnailUrl || CoursePic}
                                             alt={course.title}
-                                            className="w-full h-32 object-cover rounded-[14px] mb-4 group-hover:scale-105 transition-transform duration-200"
+                                            className="w-[320px] h-[180px] object-cover rounded-lg mb-2"
                                         />
-                                        <div className="flex flex-col flex-1">
-                                            <div className="font-bold text-lg text-[#1A2233] mb-1">
-                                                {course.title}
+                                        <div className="font-bold text-lg line-clamp-2 break-words whitespace-normal max-w-full">{course.title}</div>
+                                        <div className="text-sm text-slate-600">By {course.mentor?.userName || course.mentor?.firstName}</div>
+                                        <div className="flex items-center gap-2 mt-1 text-slate-700">
+                                            <div className="flex items-center">{renderStars(course.rate || 0)}</div>
+                                            <span className="text-sm">({course.rate || 0})</span>
+                                        </div>
+                                        <div className="text-sm text-slate-600 mt-1">
+                                            {course.duration} hours · {course.lectures} Lectures · {Array.isArray(course.category) ? course.category.join(', ') : course.category}
+                                        </div>
+                                        <div className="font-bold flex flex-row text-xl mt-1 gap-1">
+                                            <div title="discount">
+                                                ${course.price - (course.price * (course.discount/100)).toFixed(1)}
                                             </div>
-                                            <div className="text-sm text-[#6B7280] mb-1">
-                                                By {course.mentor}
-                                            </div>
-                                            <div className="flex items-center gap-1 text-sm mb-1">
-                                                <span className="text-[#F59E1B]">★</span>
-                                                <span className="text-[#F59E1B]">★</span>
-                                                <span className="text-[#F59E1B]">★</span>
-                                                <span className="text-[#F59E1B]">★</span>
-                                                <span className="text-[#F59E1B]">★</span>
-                                                <span className="text-[#6B7280] ml-2">
-                                                    ({course.ratings} <span className="font-bold">Ratings</span>)
-                                                </span>
-                                            </div>
-                                            <div className="text-sm text-[#6B7280] mb-1">
-                                                {course.hours} Total Hours. {course.lectures} Lectures. {course.level}
-                                            </div>
-                                            <div className="font-bold text-[#1A2233] text-xl mt-2">
-                                                ${course.price}
+
+                                            <div title="original" className="text-base font-semibold text-gray-400 line-through">
+                                                ${course.price.toFixed(1)}
                                             </div>
                                         </div>
                                     </button>
                                 ))}
+                                {relatedCourses.length === 0 && (
+                                    <div className="text-slate-600">Chưa có khoá học tương tự.</div>
+                                )}
                             </div>
                         </div>
                     </div>

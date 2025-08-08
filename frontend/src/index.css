@@ -8,3 +8,12 @@
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
+
+/* Fallback utility: clamp text to 2 lines with ellipsis */
+.line-clamp-2 {
+  display: -webkit-box;
+  line-clamp: 2;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
