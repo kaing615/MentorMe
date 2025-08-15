@@ -293,8 +293,40 @@ const router = Router();
  *         description: Order not found
  */
 
+
+/**
+ * @swagger
+ * /api/payment/vnpay/ipn:
+ *   get:
+ *     summary: VNPay IPN webhook
+ *     description: VNPay gọi server-to-server về URL này để xác nhận giao dịch.
+ *       KHÔNG yêu cầu auth; xác thực bằng chữ ký HMAC SHA512 (vnp_SecureHash).
+ *     tags: [Payment]
+ *     parameters:
+ *       - in: query
+ *         name: vnp_TxnRef
+ *         schema: { type: string }
+ *         description: Mã đơn hàng/txnRef của merchant
+ *       - in: query
+ *         name: vnp_Amount
+ *         schema: { type: string }
+ *       - in: query
+ *         name: vnp_ResponseCode
+ *         schema: { type: string }
+ *       - in: query
+ *         name: vnp_TransactionStatus
+ *         schema: { type: string }
+ *       - in: query
+ *         name: vnp_SecureHash
+ *         schema: { type: string }
+ *     responses:
+ *       200:
+ *         description: Kết quả xác thực IPN (RspCode/Message)
+ */
+
 // Public routes (webhooks, returns)
 router.get("/vnpay/return", paymentController.handleVNPayReturn);   // GET /api/payment/vnpay/return
+router.get("/vnpay/ipn",    paymentController.handleVNPayIPN);      // GET /api/payment/vnpay/ipn (webhook)
 router.post("/momo/ipn", paymentController.handleMoMoIPN);          // POST /api/payment/momo/ipn
 
 // User routes (require authentication)

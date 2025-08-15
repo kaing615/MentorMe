@@ -368,11 +368,96 @@ export const getPaymentStatus = async (req, res) => {
     }
 };
 
+// ===== VNPay IPN (server-to-server) =====
+export const handleVNPayIPN = async (req, res) => {
+  try {
+    const vnpParams = { ...req.query };
+    const secureHash = vnpParams.vnp_SecureHash;
+    delete vnpParams.vnp_SecureHash;
+    delete vnpParams.vnp_SecureHashType;
+
+    // Sort params & build signData (KHÔNG encode)
+    const sortedKeys = Object.keys(vnpParams).sort();
+    const signData = sortedKeys
+      .filter((k) => vnpParams[k] !== undefined && vnpParams[k] !== null)
+      .map((k) => `${k}=${vnpParams[k]}`)
+      .join("&");
+
+    // Verify HMAC SHA512
+    const crypto = (await import("crypto")).default || (await import("crypto"));
+    const check = crypto.createHmac("sha512", PAYMENT_CONFIG.vnpay.hashSecret)
+      .update(Buffer.from(signData, "utf-8"))
+      .digest("hex");
+
+    if (check !== secureHash) {
+      return res.json({ RspCode: "97", Message: "Invalid signature" });
+    }
+
+    const {
+      vnp_TxnRef,              // orderNumber của bạn
+      vnp_Amount,              // số tiền * 100
+      vnp_ResponseCode,        // '00' nếu gateway ok
+      vnp_TransactionStatus,   // '00' nếu giao dịch thành công
+      vnp_TransactionNo,       // mã giao dịch tại VNPAY/bank (nếu có)
+    } = vnpParams;
+
+    // Lấy đơn theo orderNumber
+    const order = await Order.findByOrderNumber(vnp_TxnRef);
+    if (!order) return res.json({ RspCode: "01", Message: "Order not found" });
+
+    // Idempotent: nếu đơn đã xác nhận thành công
+    if (["paid", "completed"].includes(order.status)) {
+      return res.json({ RspCode: "02", Message: "Order already confirmed" });
+    }
+
+    // So khớp số tiền
+    const amountFromVnp = Number(vnp_Amount) / 100;
+    const expected = Number(order.totalAmount || order.amount || 0);
+    if (amountFromVnp !== expected) {
+      return res.json({ RspCode: "04", Message: "Invalid amount" });
+    }
+
+    // Kết quả giao dịch
+    const isSuccess =
+      vnp_ResponseCode === "00" && vnp_TransactionStatus === "00";
+
+    // Cập nhật đơn
+    if (isSuccess) {
+      order.status = "paid";
+      order.paymentInfo = {
+        ...(order.paymentInfo || {}),
+        method: "vnpay",
+        paymentGateway: "vnpay",
+        transactionId: vnp_TransactionNo || vnp_TxnRef,
+        paidAt: new Date(),
+      };
+      await order.save();
+      return res.json({ RspCode: "00", Message: "Confirm Success" });
+    } else {
+      order.status = "failed";
+      order.paymentInfo = {
+        ...(order.paymentInfo || {}),
+        method: "vnpay",
+        paymentGateway: "vnpay",
+        transactionId: vnp_TransactionNo || vnp_TxnRef,
+      };
+      await order.save();
+      // Theo đặc tả: vẫn trả 00 để VNPAY biết đã nhận IPN và ghi nhận thất bại
+      return res.json({ RspCode: "00", Message: "Confirm Failed" });
+    }
+  } catch (err) {
+    console.error("VNPay IPN error:", err);
+    // IPN luôn trả JSON theo đặc tả
+    return res.json({ RspCode: "99", Message: "Unknown error" });
+  }
+};
+
 export default {
     createVNPayPayment,
     handleVNPayReturn,
     createMoMoPayment,
     handleMoMoIPN,
+    handleVNPayIPN,
     createStripePayment,
     confirmManualPayment,
     getPaymentStatus

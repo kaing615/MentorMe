@@ -1,5 +1,4 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
-import { mockCartCourses } from "../data/mockCartData";
 
 const CartContext = createContext();
 
@@ -12,13 +11,8 @@ export const useCart = () => {
 };
 
 export const CartProvider = ({ children }) => {
-  // Initialize with mock data - auto select all courses for demo
-  const [courses, setCourses] = useState(
-    mockCartCourses.slice(0, 6).map((course) => ({
-      ...course,
-      selected: true, // Auto select all courses for demo
-    }))
-  );
+  // Initialize with empty cart or fetch from backend/localStorage as needed
+  const [courses, setCourses] = useState([]);
 
   // Coupon state
   const [appliedCoupon, setAppliedCoupon] = useState(null);

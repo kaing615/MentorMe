@@ -1,86 +1,91 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { formatCurrency } from "../data/mockCartData";
-import { useCart } from "../contexts/CartContext";
+import axios from "axios";
+import { cart as mockCart, menteeUser, order } from "../data/seedData";
+
+// Local currency formatter (VND)
+function formatCurrency(amount) {
+  if (typeof amount !== "number") return "₫0";
+  return amount.toLocaleString("vi-VN", { style: "currency", currency: "VND" });
+}
 
 const ShoppingCart = () => {
   const navigate = useNavigate();
-  const {
-    courses,
-    selectedCourses,
-    subtotal,
-    discount,
-    tax,
-    total,
-    toggleCourseSelection,
-    selectAllCourses,
-    removeCourse,
-  } = useCart();
-
-  // Check user authentication and role
-  useEffect(() => {
-    const checkUserAccess = () => {
-      // Check if user is logged in
-      const isLoggedIn = localStorage.getItem("isLoggedIn");
-      const userData = localStorage.getItem("userData");
-
-      if (!isLoggedIn || isLoggedIn !== "true") {
-        // User is not logged in, redirect to login
-        alert("Please login to access shopping cart");
-        navigate("/auth/signin");
-        return;
-      }
-
-      if (userData) {
-        try {
-          const user = JSON.parse(userData);
-          // Check if user role is mentor
-          if (user.role === "mentor") {
-            // Mentors cannot purchase courses
-            alert(
-              "Mentors cannot access shopping cart. Only mentees can purchase courses."
-            );
-            navigate("/");
-            return;
-          } else if (user.role !== "mentee") {
-            // Invalid role
-            alert("Invalid user role. Please contact support.");
-            navigate("/");
-            return;
-          }
-        } catch (error) {
-          console.error("Error parsing user data:", error);
-          alert("Invalid user data. Please login again.");
-          localStorage.removeItem("userData");
-          localStorage.setItem("isLoggedIn", "false");
-          navigate("/auth/signin");
-          return;
-        }
-      } else {
-        // No user data found
-        alert("User data not found. Please login again.");
-        localStorage.setItem("isLoggedIn", "false");
-        navigate("/auth/signin");
-        return;
-      }
-    };
-
-    checkUserAccess();
-  }, [navigate]);
-
-  const [currentTab, setCurrentTab] = useState("Shopping Cart");
+  const [courses, setCourses] = useState([]);
+  const [selectedCourses, setSelectedCourses] = useState([]);
+  // Hàm điều hướng sang trang checkout
+  const handleProceedToCheckout = () => {
+    navigate("/checkout", { state: { selectedCourses } });
+  };
+  const [subtotal, setSubtotal] = useState(0);
+  const [discount, setDiscount] = useState(0);
+  const [tax, setTax] = useState(0);
+  const [total, setTotal] = useState(0);
+  // const [loading, setLoading] = useState(true);
   const [selectAll, setSelectAll] = useState(false);
 
+  // Check user authentication and role, then fetch cart from backend or mock
+  useEffect(() => {
+    // Ưu tiên lấy userId từ localStorage, nếu không có thì dùng mock menteeUser
+    let userId = null;
+    const userData = localStorage.getItem("userData");
+    if (userData) {
+      try {
+        const user = JSON.parse(userData);
+        userId = user._id;
+      } catch {}
+    }
+    if (!userId) userId = menteeUser._id;
+
+    // Nếu có backend thì fetch, nếu không thì dùng mockCart
+    // (Ở đây chỉ test mock, có thể mở lại fetch backend nếu cần)
+    if (mockCart.user === userId) {
+      const mappedCourses = mockCart.items.map((item) => ({
+        ...item.courseId,
+        id: item.courseId._id,
+        selected: true,
+        quantity: item.quantity,
+      }));
+      setCourses(mappedCourses);
+      setSelectedCourses(mappedCourses);
+      setSubtotal(mockCart.subtotalAmount || 0);
+      setDiscount(mockCart.discountAmount || 0);
+      setTax(mockCart.taxAmount || 0);
+      setTotal(mockCart.totalAmount || 0);
+    } else {
+      setCourses([]);
+      setSelectedCourses([]);
+      setSubtotal(0);
+      setDiscount(0);
+      setTax(0);
+      setTotal(0);
+    }
+  }, []);
+
   // Handle select all toggle
-  const handleSelectAll = () => {
+  const handleSelectAll = async () => {
     const newSelectAll = !selectAll;
     setSelectAll(newSelectAll);
-    selectAllCourses(newSelectAll);
+    // Select/deselect all courses in UI
+    setCourses((prev) => prev.map((c) => ({ ...c, selected: newSelectAll })));
+    setSelectedCourses(newSelectAll ? [...courses] : []);
+    // Optionally, update backend if needed
   };
 
   // Handle individual course selection
   const handleCourseSelect = (courseId) => {
-    toggleCourseSelection(courseId);
+    setCourses((prev) =>
+      prev.map((c) => (c.id === courseId ? { ...c, selected: !c.selected } : c))
+    );
+    setSelectedCourses((prev) => {
+      const isSelected = prev.some((c) => c.id === courseId);
+      if (isSelected) {
+        return prev.filter((c) => c.id !== courseId);
+      } else {
+        const course = courses.find((c) => c.id === courseId);
+        return course ? [...prev, { ...course, selected: true }] : prev;
+      }
+    });
   };
 
   // Update select all state when courses change
@@ -88,23 +93,34 @@ const ShoppingCart = () => {
     const allSelected =
       courses.length > 0 && courses.every((course) => course.selected);
     setSelectAll(allSelected);
+    setSelectedCourses(courses.filter((c) => c.selected));
   }, [courses]);
 
+  // Recalculate subtotal, discount, tax, total when selectedCourses change
+  useEffect(() => {
+    const newSubtotal = selectedCourses.reduce(
+      (sum, c) => sum + (c.price || 0),
+      0
+    );
+    const newDiscount = 0;
+    const newTax = 0;
+    const newTotal = newSubtotal - newDiscount + newTax;
+    setSubtotal(newSubtotal);
+    setDiscount(newDiscount);
+    setTax(newTax);
+    setTotal(newTotal);
+  }, [selectedCourses]);
+
   // Handle remove course
-  const handleRemoveCourse = (courseId) => {
-    removeCourse(courseId);
-  };
-
-  // Handle save for later
-  const handleSaveForLater = (courseId) => {
-    // Implementation for save for later functionality
-    console.log("Save for later:", courseId);
-  };
-
-  // Handle proceed to checkout
-  const handleProceedToCheckout = () => {
-    if (selectedCourses.length > 0) {
-      navigate("/mentee/checkout");
+  const handleRemoveCourse = async (courseId) => {
+    try {
+      const token = localStorage.getItem("token");
+      await axios.delete(`/api/cart/remove/${courseId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setCourses((prev) => prev.filter((c) => c.id !== courseId));
+    } catch (error) {
+      alert("Failed to remove course from cart.");
     }
   };
 
@@ -259,19 +275,20 @@ const ShoppingCart = () => {
               {/* Course Summary */}
               <div className="mb-6 p-4 bg-white rounded-lg border border-gray-200">
                 <h3 className="font-medium text-gray-900 mb-3">
-                  {courses.length} Course{courses.length > 1 ? "s" : ""} in Cart
+                  {selectedCourses.length} Course
+                  {selectedCourses.length > 1 ? "s" : ""} selected
                 </h3>
-                {selectedCourses.length > 0 && (
-                  <p className="text-sm text-blue-600 mb-2">
-                    {selectedCourses.length} item
-                    {selectedCourses.length > 1 ? "s" : ""} selected
-                  </p>
-                )}
                 <p className="text-xs text-gray-500">
                   Total lectures:{" "}
-                  {courses.reduce((sum, course) => sum + course.lectures, 0)} •
-                  Total hours:{" "}
-                  {courses.reduce((sum, course) => sum + course.totalHours, 0)}
+                  {selectedCourses.reduce(
+                    (sum, course) => sum + (course.lectures || 0),
+                    0
+                  )}{" "}
+                  • Total hours:{" "}
+                  {selectedCourses.reduce(
+                    (sum, course) => sum + (course.totalHours || 0),
+                    0
+                  )}
                 </p>
               </div>
 

@@ -1,77 +1,94 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { formatCurrency } from "../data/mockCartData";
-import { useCart } from "../contexts/CartContext";
+import { useNavigate, useLocation } from "react-router-dom";
+import vnpayLogo from "../assets/Icon VNPAY.png";
+import {
+  cart as seedCart,
+  coupon as seedCoupon,
+  coupon2 as seedCoupon2,
+  menteeUser as seedUser,
+  order,
+} from "../data/seedData";
+
+const seedCoupons = [seedCoupon, seedCoupon2];
+
+// Local currency formatter (VND)
+function formatCurrency(amount) {
+  if (typeof amount !== "number") return "₫0";
+  return amount.toLocaleString("vi-VN", { style: "currency", currency: "VND" });
+}
 
 const Checkout = () => {
   const navigate = useNavigate();
-  const {
-    selectedCourses,
-    subtotal,
-    discount,
-    tax,
-    total,
-    appliedCoupon,
-    applyCoupon,
-    removeCoupon,
-  } = useCart();
+  const location = useLocation();
 
-  // Check user authentication and role
-  useEffect(() => {
-    const checkUserAccess = () => {
-      // Check if user is logged in
-      const isLoggedIn = localStorage.getItem("isLoggedIn");
-      const userData = localStorage.getItem("userData");
+  // State for mock cart data
+  const [selectedCourses, setSelectedCourses] = useState([]);
+  const [subtotal, setSubtotal] = useState(0);
+  // Base discount and tax: TODO - make configurable by admin
+  const BASE_DISCOUNT = 0; // TODO: Admin config
+  const TAX_RATE = 0; // TODO: Admin config
+  const [discount, setDiscount] = useState(BASE_DISCOUNT);
+  const [tax, setTax] = useState(0);
+  const [total, setTotal] = useState(0);
+  const [appliedCoupon, setAppliedCoupon] = useState(null);
 
-      if (!isLoggedIn || isLoggedIn !== "true") {
-        // User is not logged in, redirect to login
-        alert("Please login to access checkout page");
-        navigate("/auth/signin");
-        return;
-      }
+  // ---- NEW: simple form validation helpers ----
+  const [touched, setTouched] = useState({ country: false, state: false, paymentMethod: false });
+  const [errors, setErrors] = useState({ country: "", state: "", paymentMethod: "" });
 
-      if (userData) {
-        try {
-          const user = JSON.parse(userData);
-          // Check if user role is mentor
-          if (user.role === "mentor") {
-            // Mentors cannot purchase courses
-            alert(
-              "Mentors cannot purchase courses. Only mentees can checkout courses."
-            );
-            navigate("/");
-            return;
-          } else if (user.role !== "mentee") {
-            // Invalid role
-            alert("Invalid user role. Please contact support.");
-            navigate("/");
-            return;
-          }
-        } catch (error) {
-          console.error("Error parsing user data:", error);
-          alert("Invalid user data. Please login again.");
-          localStorage.removeItem("userData");
-          localStorage.setItem("isLoggedIn", "false");
-          navigate("/auth/signin");
-          return;
-        }
-      } else {
-        // No user data found
-        alert("User data not found. Please login again.");
-        localStorage.setItem("isLoggedIn", "false");
-        navigate("/auth/signin");
-        return;
-      }
+  const validate = (fd, pm) => {
+    const nextErrors = {
+      country: fd.country.trim() ? "" : "Country is required.",
+      state: fd.state.trim() ? "" : "State/Union Territory is required.",
+      paymentMethod: pm ? "" : "Please select a payment method.",
     };
+    setErrors(nextErrors);
+    // valid if all messages are empty
+    return !Object.values(nextErrors).some(Boolean);
+  };
 
-    checkUserAccess();
-  }, [navigate]);
+  // Check user authentication and load seed cart
+  useEffect(() => {
+    let userId = null;
+    const userData = localStorage.getItem("userData");
+    if (userData) {
+      try {
+        const user = JSON.parse(userData);
+        userId = user._id;
+      } catch {}
+    }
+    if (!userId) userId = seedUser._id;
 
-  const [paymentMethod, setPaymentMethod] = useState("Credit/Debit Card");
+    let coursesToUse = [];
+    if (location.state && location.state.selectedCourses) {
+      coursesToUse = location.state.selectedCourses;
+    } else if (seedCart.user === userId) {
+      coursesToUse = seedCart.items.map((item) => ({
+        ...item.courseId,
+        id: item.courseId._id,
+        selected: true,
+        quantity: item.quantity,
+      }));
+    }
+    setSelectedCourses(coursesToUse);
+    const newSubtotal = coursesToUse.reduce(
+      (sum, c) => sum + (c.price || 0),
+      0
+    );
+    setSubtotal(newSubtotal);
+    setDiscount(BASE_DISCOUNT);
+    setTax((newSubtotal - BASE_DISCOUNT) * TAX_RATE);
+    setTotal(
+      newSubtotal - BASE_DISCOUNT + (newSubtotal - BASE_DISCOUNT) * TAX_RATE
+    );
+  }, [navigate, location.state]);
+
+  const [paymentMethod, setPaymentMethod] = useState("");
   const [couponCode, setCouponCode] = useState("");
   const [showCouponInput, setShowCouponInput] = useState(false);
   const [couponMessage, setCouponMessage] = useState("");
   const [couponMessageType, setCouponMessageType] = useState(""); // "success" or "error"
+  const [showCouponSuggestions, setShowCouponSuggestions] = useState(false);
   const [showMomoQR, setShowMomoQR] = useState(false);
   const [showBankQR, setShowBankQR] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -84,6 +101,9 @@ const Checkout = () => {
     cvc: "",
   });
 
+  // convenience to compute if form is valid (for disabling the button)
+  const isFormValid = formData.country.trim() && formData.state.trim() && paymentMethod;
+
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({
@@ -93,39 +113,74 @@ const Checkout = () => {
   };
 
   const handleProceedToCheckout = () => {
-    // TODO: Replace with actual API call
-    const mockOrderId = Date.now().toString();
-    console.log("Processing checkout...", {
-      formData,
-      selectedCourses,
-      paymentMethod,
-      total,
-      orderId: mockOrderId,
-    });
+    // run validation once more on click
+    const ok = validate(formData, paymentMethod);
+    setTouched({ country: true, state: true, paymentMethod: true });
+    if (!ok) return;
 
-    // Navigate to order complete page with order ID
-    navigate(`/mentee/order_complete?orderId=${mockOrderId}`);
+    // Truyền đầy đủ thông tin order qua state
+    const orderInfo = {
+      _id: order._id,
+      selectedCourses,
+      subtotal,
+      discount,
+      tax,
+      total,
+      appliedCoupon,
+      createdAt: new Date().toISOString(),
+      status: "Completed",
+    };
+    navigate(`/order_complete?orderId=${orderInfo._id}`, {
+      state: { orderInfo },
+    });
   };
 
+  // Apply coupon code (ready for DB/seed test)
+  // TODO: Replace with API call to fetch coupon from DB
   const applyCouponCode = () => {
     if (!showCouponInput) {
       setShowCouponInput(true);
       setCouponMessage("");
     } else if (couponCode.trim()) {
-      // Apply coupon using CartContext
-      const result = applyCoupon(couponCode.trim());
-      setCouponMessage(result.message);
-      setCouponMessageType(result.success ? "success" : "error");
-
-      if (result.success) {
+      // Find matching coupon in seedCoupons
+      const foundCoupon = seedCoupons.find(
+        (c) =>
+          c.code.toUpperCase() === couponCode.trim().toUpperCase() && c.isActive
+      );
+      if (foundCoupon) {
+        // Calculate coupon discount
+        let couponDiscount = 0;
+        if (foundCoupon.discountType === "percent") {
+          couponDiscount = Math.round(
+            (subtotal * foundCoupon.discountValue) / 100
+          );
+        } else {
+          couponDiscount = foundCoupon.discountValue;
+        }
+        // Total discount = base + coupon
+        const totalDiscount = BASE_DISCOUNT + couponDiscount;
+        setDiscount(totalDiscount);
+        const newTax = (subtotal - totalDiscount) * TAX_RATE;
+        setTax(newTax);
+        setTotal(subtotal - totalDiscount + newTax);
+        setAppliedCoupon({ ...foundCoupon, discount: couponDiscount });
+        setCouponMessage("Coupon applied successfully!");
+        setCouponMessageType("success");
         setShowCouponInput(false);
         setCouponCode("");
+      } else {
+        setCouponMessage("Invalid or inactive coupon code.");
+        setCouponMessageType("error");
       }
     }
   };
 
   const handleRemoveCoupon = () => {
-    removeCoupon();
+    setAppliedCoupon(null);
+    setDiscount(BASE_DISCOUNT);
+    const newTax = (subtotal - BASE_DISCOUNT) * TAX_RATE;
+    setTax(newTax);
+    setTotal(subtotal - BASE_DISCOUNT + newTax);
     setCouponMessage("");
     setCouponCode("");
   };
@@ -182,7 +237,7 @@ const Checkout = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Country
+                    Country <span className="text-red-600">*</span>
                   </label>
                   <input
                     type="text"
@@ -190,12 +245,24 @@ const Checkout = () => {
                     placeholder="Enter Country"
                     value={formData.country}
                     onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    onBlur={() => {
+                      setTouched((t) => ({ ...t, country: true }));
+                      validate(formData, paymentMethod);
+                    }}
+                    aria-invalid={!!errors.country && touched.country}
+                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                      errors.country && touched.country
+                        ? "border-red-400"
+                        : "border-gray-300"
+                    }`}
                   />
+                  {errors.country && touched.country && (
+                    <p className="mt-1 text-xs text-red-600">{errors.country}</p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    State/Union Territory
+                    State/Union Territory <span className="text-red-600">*</span>
                   </label>
                   <input
                     type="text"
@@ -203,17 +270,34 @@ const Checkout = () => {
                     placeholder="Enter State"
                     value={formData.state}
                     onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    onBlur={() => {
+                      setTouched((t) => ({ ...t, state: true }));
+                      validate(formData, paymentMethod);
+                    }}
+                    aria-invalid={!!errors.state && touched.state}
+                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                      errors.state && touched.state
+                        ? "border-red-400"
+                        : "border-gray-300"
+                    }`}
                   />
+                  {errors.state && touched.state && (
+                    <p className="mt-1 text-xs text-red-600">{errors.state}</p>
+                  )}
                 </div>
               </div>
             </div>
 
             {/* Payment Method */}
             <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                Payment Method
-              </h3>
+              <div className="flex items-baseline justify-between">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                  Payment Method <span className="text-red-600">*</span>
+                </h3>
+                {errors.paymentMethod && touched.paymentMethod && (
+                  <p className="text-xs text-red-600">{errors.paymentMethod}</p>
+                )}
+              </div>
 
               {/* Credit/Debit Card Option */}
               <div className="mb-6">
@@ -227,6 +311,8 @@ const Checkout = () => {
                       setPaymentMethod(e.target.value);
                       setShowMomoQR(false);
                       setShowBankQR(false);
+                      setTouched((t) => ({ ...t, paymentMethod: true }));
+                      validate(formData, e.target.value);
                     }}
                     className="w-4 h-4 text-blue-600"
                   />
@@ -322,7 +408,6 @@ const Checkout = () => {
                                       <button
                                         key={month.value}
                                         onClick={() => {
-                                          // Set to current year by default when selecting only month
                                           const currentYear =
                                             new Date().getFullYear();
                                           handleDateSelect(
@@ -350,7 +435,6 @@ const Checkout = () => {
                                       <button
                                         key={year}
                                         onClick={() => {
-                                          // Set to January by default when selecting only year
                                           handleDateSelect(1, year);
                                         }}
                                         className="block w-full text-sm p-2 text-left border-b border-gray-100 hover:bg-blue-50 hover:text-blue-600 transition-colors"
@@ -402,6 +486,8 @@ const Checkout = () => {
                       setPaymentMethod(e.target.value);
                       setShowMomoQR(true);
                       setShowBankQR(false);
+                      setTouched((t) => ({ ...t, paymentMethod: true }));
+                      validate(formData, e.target.value);
                     }}
                     className="w-4 h-4 text-blue-600"
                   />
@@ -453,6 +539,8 @@ const Checkout = () => {
                       setPaymentMethod(e.target.value);
                       setShowBankQR(true);
                       setShowMomoQR(false);
+                      setTouched((t) => ({ ...t, paymentMethod: true }));
+                      validate(formData, e.target.value);
                     }}
                     className="w-4 h-4 text-blue-600"
                   />
@@ -509,6 +597,30 @@ const Checkout = () => {
                   </div>
                 )}
               </div>
+
+              {/* VNPAY Option */}
+              <div className="mb-6">
+                <label className="flex items-center justify-between gap-3 mb-4">
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="radio"
+                      name="paymentMethod"
+                      value="VNPAY"
+                      checked={paymentMethod === "VNPAY"}
+                      onChange={(e) => {
+                        setPaymentMethod(e.target.value);
+                        setShowMomoQR(false);
+                        setShowBankQR(false);
+                        setTouched((t) => ({ ...t, paymentMethod: true }));
+                        validate(formData, e.target.value);
+                      }}
+                      className="w-4 h-4 text-blue-600"
+                    />
+                    <span className="text-gray-900 font-medium">VNPAY</span>
+                  </div>
+                  <img src={vnpayLogo} alt="VNPAY" style={{ height: 24 }} />
+                </label>
+              </div>
             </div>
           </div>
 
@@ -526,7 +638,7 @@ const Checkout = () => {
                   {selectedCourses.length > 1 ? "s" : ""} Selected
                 </h3>
                 <p className="text-xs text-gray-500">
-                  Total:{" "}
+                  Total{" "}
                   {selectedCourses.reduce(
                     (sum, course) => sum + course.lectures,
                     0
@@ -574,40 +686,38 @@ const Checkout = () => {
 
               {/* Coupon Code */}
               <div className="mb-6">
-                {/* Show applied coupon if exists */}
+                {/* Coupon Input UI */}
                 {appliedCoupon ? (
-                  <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <svg
-                          className="w-5 h-5 text-green-600"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                          />
-                        </svg>
-                        <span className="text-sm font-medium text-green-800">
-                          Coupon "{appliedCoupon.code}" appllied!
-                        </span>
-                      </div>
-                      <button
-                        onClick={handleRemoveCoupon}
-                        className="text-green-600 hover:text-green-800 text-sm font-medium"
+                  <div className="flex items-center justify-between bg-green-50 border border-green-200 rounded-lg px-3 py-2 mb-2">
+                    <div className="flex items-center gap-2">
+                      <svg
+                        className="w-5 h-5 text-green-500"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
                       >
-                        Remove
-                      </button>
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M5 13l4 4L19 7"
+                        />
+                      </svg>
+                      <span className="text-sm font-medium text-green-800">
+                        Coupon "{appliedCoupon.code}" applied!
+                      </span>
                     </div>
+                    <button
+                      onClick={handleRemoveCoupon}
+                      className="text-green-600 hover:text-green-800 text-sm font-medium"
+                    >
+                      Remove
+                    </button>
                   </div>
                 ) : (
                   <button
                     onClick={applyCouponCode}
-                    className="w-full flex items-center gap-2 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                    className="w-full flex items-center gap-2 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors mb-2"
                   >
                     <svg
                       className="w-5 h-5 text-gray-400"
@@ -630,7 +740,7 @@ const Checkout = () => {
 
                 {/* Coupon Input Field */}
                 {showCouponInput && !appliedCoupon && (
-                  <div className="mt-3 space-y-3">
+                  <div className="mt-3 space-y-3 relative">
                     <div className="flex gap-2">
                       <input
                         type="text"
@@ -638,6 +748,10 @@ const Checkout = () => {
                         onChange={(e) => setCouponCode(e.target.value)}
                         placeholder="Enter coupon code"
                         className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                        onFocus={() => setShowCouponSuggestions(true)}
+                        onBlur={() =>
+                          setTimeout(() => setShowCouponSuggestions(false), 150)
+                        }
                         onKeyPress={(e) => {
                           if (e.key === "Enter") {
                             applyCouponCode();
@@ -652,6 +766,34 @@ const Checkout = () => {
                         Apply
                       </button>
                     </div>
+
+                    {/* Coupon suggestions dropdown */}
+                    {showCouponSuggestions && (
+                      <div className="absolute left-0 top-12 z-10 w-full bg-white border border-gray-200 rounded-lg shadow-lg">
+                        <div className="p-2 text-xs text-gray-500">
+                          Available coupons:
+                        </div>
+                        {[seedCoupon, seedCoupon2].map((c) => (
+                          <div
+                            key={c.code}
+                            className="px-4 py-2 cursor-pointer hover:bg-blue-50 text-sm"
+                            onMouseDown={() => {
+                              setCouponCode(c.code);
+                              setShowCouponSuggestions(false);
+                            }}
+                          >
+                            <span className="font-semibold text-blue-700">
+                              {c.code}
+                            </span>
+                            {c.description && (
+                              <span className="ml-2 text-gray-500">
+                                - {c.description}
+                              </span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
 
                     {/* Coupon message */}
                     {couponMessage && (
@@ -691,7 +833,7 @@ const Checkout = () => {
                 <div className="flex justify-between">
                   <span className="text-gray-600">Base Discount</span>
                   <span className="font-semibold text-green-600">
-                    -{formatCurrency(10.0)}
+                    -{formatCurrency(BASE_DISCOUNT)}
                   </span>
                 </div>
                 {appliedCoupon && (
@@ -720,10 +862,25 @@ const Checkout = () => {
               {/* Checkout Button */}
               <button
                 onClick={handleProceedToCheckout}
-                className="w-full bg-gray-900 text-white py-3 rounded-lg font-medium hover:bg-gray-800 transition-colors"
+                disabled={!isFormValid}
+                className={`w-full text-white py-3 rounded-lg font-medium transition-colors
+                  ${isFormValid ? "bg-gray-900 hover:bg-gray-800" : "bg-gray-400 cursor-not-allowed"}`}
+                onMouseEnter={() => {
+                  // khi hover mà chưa hợp lệ, đánh dấu các field đã "touched" để hiện lỗi
+                  if (!isFormValid) {
+                    setTouched({ country: true, state: true, paymentMethod: true });
+                    validate(formData, paymentMethod);
+                  }
+                }}
               >
                 Proceed to Checkout
               </button>
+
+              {!isFormValid && (
+                <p className="mt-2 text-xs text-gray-500">
+                  Vui lòng nhập Country, State và chọn Payment Method để tiếp tục.
+                </p>
+              )}
             </div>
           </div>
         </div>

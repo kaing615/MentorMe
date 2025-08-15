@@ -1,30 +1,38 @@
+// Format ISO date to dd/MM/yyyy HH:mm
+function formatDate(dateStr) {
+  if (!dateStr) return "";
+  const d = new Date(dateStr);
+  const pad = (n) => n.toString().padStart(2, "0");
+  return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} ${pad(
+    d.getHours()
+  )}:${pad(d.getMinutes())}`;
+}
+// Local currency formatter (VND)
+function formatCurrency(amount) {
+  if (typeof amount !== "number") return "₫0";
+  return amount.toLocaleString("vi-VN", {
+    style: "currency",
+    currency: "VND",
+  });
+}
+
 import React, { useState, useEffect } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
-import { formatCurrency } from "../data/mockCartData";
-import { useCart } from "../contexts/CartContext";
+import { useNavigate, useLocation } from "react-router-dom";
+// import { useCart } from "../contexts/CartContext"; // chưa dùng -> có thể xoá
+import { order } from "../data/seedData";
 
 const OrderComplete = () => {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  const { selectedCourses, subtotal, discount, tax, total } = useCart();
-
-  // States for order data
-  const [orderData, setOrderData] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-
-  // Get order ID from URL params
-  const orderId = searchParams.get("orderId");
+  const location = useLocation();
+  const orderInfo = location.state?.orderInfo;
 
   // Check user authentication and role
   useEffect(() => {
     const checkUserAccess = () => {
-      // Check if user is logged in
       const isLoggedIn = localStorage.getItem("isLoggedIn");
       const userData = localStorage.getItem("userData");
 
       if (!isLoggedIn || isLoggedIn !== "true") {
-        // User is not logged in, redirect to login
         alert("Please login to access this page");
         navigate("/auth/signin");
         return;
@@ -33,22 +41,19 @@ const OrderComplete = () => {
       if (userData) {
         try {
           const user = JSON.parse(userData);
-          // Check if user role is mentor
           if (user.role === "mentor") {
-            // Mentors cannot purchase courses
             alert(
               "Mentors cannot access order pages. Only mentees can view order details."
             );
             navigate("/");
             return;
           } else if (user.role !== "mentee") {
-            // Invalid role
             alert("Invalid user role. Please contact support.");
             navigate("/");
             return;
           }
-        } catch (error) {
-          console.error("Error parsing user data:", error);
+        } catch (e) {
+          console.error("Error parsing user data:", e);
           alert("Invalid user data. Please login again.");
           localStorage.removeItem("userData");
           localStorage.setItem("isLoggedIn", "false");
@@ -56,7 +61,6 @@ const OrderComplete = () => {
           return;
         }
       } else {
-        // No user data found
         alert("User data not found. Please login again.");
         localStorage.setItem("isLoggedIn", "false");
         navigate("/auth/signin");
@@ -67,101 +71,37 @@ const OrderComplete = () => {
     checkUserAccess();
   }, [navigate]);
 
-  useEffect(() => {
-    const loadOrderData = async () => {
-      if (orderId) {
-        try {
-          // TODO: Replace with actual API call when backend is ready
-          // const response = await fetch(`/api/orders/${orderId}`);
-          // const order = await response.json();
-
-          // Mock data for now - will be replaced with API call
-          const mockOrderData = {
-            id: orderId,
-            orderNumber: `#${orderId}`,
-            createdAt: new Date().toLocaleDateString(),
-            status: "completed",
-            courses: selectedCourses,
-            pricing: { subtotal, discount, tax, total },
-          };
-
-          setOrderData(mockOrderData);
-        } catch (err) {
-          setError("Failed to load order details");
-          console.error("Error loading order:", err);
-        }
-      } else {
-        // Fallback if no order ID - generate mock data
-        const fallbackOrderData = {
-          id: Date.now().toString(),
-          orderNumber: `#${Date.now()}`,
-          createdAt: new Date().toLocaleDateString(),
-          status: "completed",
-          courses: selectedCourses,
-          pricing: { subtotal, discount, tax, total },
-        };
-        setOrderData(fallbackOrderData);
-      }
-      setLoading(false);
-    };
-
-    loadOrderData();
-  }, [orderId, selectedCourses, subtotal, discount, tax, total]);
+  // Không cần load từ seedData, dùng trực tiếp orderInfo từ state
 
   const handleContinueShopping = () => {
-    navigate("/courses"); // Navigate to courses page
+    navigate("/courses");
   };
 
   // Loading state
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-white-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading order details...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Error state
-  if (error) {
+  if (!orderInfo) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <svg
-              className="w-8 h-8 text-red-500"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-              />
-            </svg>
-          </div>
-          <p className="text-red-600 mb-4">{error}</p>
+          <h1 className="text-2xl font-semibold text-red-600 mb-2">
+            Order Error
+          </h1>
+          <p className="text-gray-700 mb-6">Order info not found.</p>
           <button
-            onClick={() => navigate("/courses")}
-            className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+            onClick={handleContinueShopping}
+            className="px-6 py-3 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300"
           >
-            Continue Shopping
+            Back to Courses
           </button>
         </div>
       </div>
     );
   }
 
+  // Success state
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 lg:px-10 xl:px-14 2xl:px-20 py-16">
         <div className="max-w-md mx-auto text-center">
-          {/* Success Icon */}
           <div className="mb-8">
             <div className="w-24 h-24 bg-green-500 rounded-full flex items-center justify-center mx-auto">
               <svg
@@ -180,17 +120,15 @@ const OrderComplete = () => {
             </div>
           </div>
 
-          {/* Success Message */}
           <div className="mb-8">
             <h1 className="text-3xl font-bold text-gray-900 mb-4">
               Order Complete
             </h1>
             <p className="text-gray-600 text-lg">
-              You Will Receive a confirmation email soon!
+              You will receive a confirmation email soon!
             </p>
           </div>
 
-          {/* Order Details Card */}
           <div className="bg-white rounded-lg shadow-md p-6 mb-8 text-left">
             <div className="border-b border-gray-200 pb-4 mb-4">
               <h3 className="text-lg font-semibold text-gray-900 mb-2">
@@ -200,71 +138,65 @@ const OrderComplete = () => {
                 <div className="flex justify-between">
                   <span className="text-gray-600">Order ID:</span>
                   <span className="font-medium text-gray-900">
-                    {orderData?.orderNumber || "#Loading..."}
+                    {order._id || "#Loading..."}
                   </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">Date:</span>
                   <span className="font-medium text-gray-900">
-                    {orderData?.createdAt || "Loading..."}
+                    {formatDate(orderInfo.createdAt)}
                   </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">Courses Purchased:</span>
                   <span className="font-medium text-gray-900">
-                    {orderData?.courses?.length || selectedCourses.length}{" "}
-                    Course
-                    {(orderData?.courses?.length || selectedCourses.length) > 1
-                      ? "s"
-                      : ""}
+                    {orderInfo.selectedCourses?.length || 0} Course
+                    {orderInfo.selectedCourses?.length > 1 ? "s" : ""}
                   </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">Status:</span>
                   <span className="font-medium text-green-600 capitalize">
-                    {orderData?.status || "Completed"}
+                    {orderInfo?.status || "Completed"}
                   </span>
                 </div>
               </div>
             </div>
 
-            {/* Price Breakdown */}
             <div className="border-b border-gray-200 pb-4 mb-4">
               <h4 className="font-medium text-gray-900 mb-3">Price Details:</h4>
               <div className="space-y-2">
                 <div className="flex justify-between">
                   <span className="text-gray-600">Price:</span>
                   <span className="font-semibold">
-                    {formatCurrency(orderData?.pricing?.subtotal || subtotal)}
+                    {formatCurrency(orderInfo.subtotal)}
                   </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">Discount:</span>
                   <span className="font-semibold text-green-600">
-                    -{formatCurrency(orderData?.pricing?.discount || discount)}
+                    -{formatCurrency(orderInfo.discount)}
                   </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">Tax:</span>
                   <span className="font-semibold">
-                    {formatCurrency(orderData?.pricing?.tax || tax)}
+                    {formatCurrency(orderInfo.tax)}
                   </span>
                 </div>
               </div>
             </div>
 
-            {/* Total Amount */}
             <div className="flex justify-between mt-6 mb-4">
               <span className="text-xl font-semibold text-gray-700">
                 Total Amount:
               </span>
               <span className="text-xl font-bold text-green-600">
-                {formatCurrency(orderData?.pricing?.total || total)}
+                {formatCurrency(orderInfo.total)}
               </span>
             </div>
           </div>
 
-          {/* Action Buttons */}
           <div className="space-y-4">
             <button
               onClick={handleContinueShopping}
@@ -274,8 +206,8 @@ const OrderComplete = () => {
             </button>
           </div>
 
-          {/* Additional Information */}
-          <div className="mt-8 p-4 bg-blue-50 rounded-lg">
+          {/* Info & Support */}
+          <div className="mt-8 p-4 bg-blue-50 rounded-lg text-left">
             <div className="flex items-start gap-3">
               <svg
                 className="w-5 h-5 text-blue-600 mt-0.5"
@@ -290,22 +222,19 @@ const OrderComplete = () => {
                   d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
                 />
               </svg>
-              <div className="text-left">
+              <div>
                 <h4 className="font-medium text-blue-900 mb-1">
                   What happens next?
                 </h4>
-                <ul className="text-sm text-blue-800 space-y-1">
-                  <li>
-                    • You'll receive a confirmation email within 5 minutes
-                  </li>
-                  <li>• Access your course immediately in your dashboard</li>
-                  <li>• Start learning at your own pace</li>
+                <ul className="list-disc pl-6 text-sm text-blue-800 space-y-1">
+                  <li>You'll receive a confirmation email within 5 minutes</li>
+                  <li>Access your course immediately in your dashboard</li>
+                  <li>Start learning at your own pace</li>
                 </ul>
               </div>
             </div>
           </div>
 
-          {/* Support Information */}
           <div className="mt-6 text-sm text-gray-500">
             <p>
               Need help? Contact our support team at{" "}
