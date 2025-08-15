@@ -14,6 +14,9 @@ import SignUp from "../pages/SignUp";
 import Login from "../pages/Login";
 import ApplyAsMentor from "../pages/ApplyAsMentor";
 import VerifyEmailPage from "../pages/VerifyEmailPage";
+import MentorPage from "../pages/mentor-page";
+import AllCourses from "../pages/AllCourses";
+import MentorProfile from "../pages/mentor-profile";
 
 const useRouterElements = () => {
   const elements = useRoutes([
@@ -32,13 +35,21 @@ const useRouterElements = () => {
       ],
     },
     {
-      path: PATH.MENTOR,
+      path: `${PATH.MENTOR}`,
       element: <AllPagesLayout />,
       children: [
-        {
-          path: MENTOR_PATH.HOME,
-          element: <HomeScreen />,
+        { 
+            path: MENTOR_PATH.HOME, 
+            element: <MentorPage /> 
         },
+        { 
+            path: MENTOR_PATH.PROFILE, 
+            element: <MentorProfile /> 
+        },
+        {
+            path: MENTOR_PATH.ALLCOURSE,
+            element: <AllCourses />,
+        }
       ],
     },
     {
@@ -65,7 +76,6 @@ const useRouterElements = () => {
     },
   ]);
 
-  return elements;
   return elements;
 };
 
