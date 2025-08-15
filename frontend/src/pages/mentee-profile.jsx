@@ -1,16 +1,11 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import facebookImg from "../assets/facebook.png";
 import twitterImg from "../assets/twitter.png";
 import googleImg from "../assets/google.png";
 import minatoImg from "../assets/minato.webp";
-import {
-  generateMenteeProfile,
-  generateMenteeEnrolledCourses,
-  generateMenteeMessages,
-  generateMenteeReviews,
-  generateMentors,
-} from "../utils/simpleMockData";
+import menteeProfileApi from "../api/modules/menteeProfile.api";
+// Đã xoá mock data, chỉ dùng dữ liệu từ backend
 
 const MenteeProfile = () => {
   const navigate = useNavigate();
@@ -22,20 +17,53 @@ const MenteeProfile = () => {
   //   return response.json();
   // };
 
-  // Generate mentee profile data using mockup for now
-  const menteeData = generateMenteeProfile();
+  // State chỉ lấy dữ liệu từ backend
   const [formData, setFormData] = useState({
-    firstName: menteeData.firstName,
-    lastName: menteeData.lastName,
-    headline: menteeData.headline,
-    bio: menteeData.bio,
-    website: menteeData.website,
-    twitter: menteeData.twitter,
-    linkedin: menteeData.linkedin,
-    facebook: menteeData.facebook,
+    firstName: "",
+    lastName: "",
+    headline: "",
+    bio: "",
+    website: "",
+    twitter: "",
+    linkedin: "",
+    facebook: "",
   });
+  const [profileImage, setProfileImage] = useState("");
 
-  const [profileImage, setProfileImage] = useState(menteeData.profileImage);
+  console.log("MenteeProfile component mounted");
+  useEffect(() => {
+    console.log("Fetching profile...");
+    async function fetchProfile() {
+      try {
+        const res = await menteeProfileApi.getProfile();
+        const data = res.data;
+        console.log("API profile data:", data);
+        if (data && data.user) {
+          const user = data.user;
+          const profile = data.profile || {};
+          // Log các trường để debug
+          console.log("user:", user);
+          console.log("profile:", profile);
+          console.log("links:", profile.links);
+          setFormData((prev) => ({
+            ...prev,
+            firstName: user.firstName || "",
+            lastName: user.lastName || "",
+            headline: profile.headline || "",
+            bio: profile.bio || "",
+            website: profile.links?.website || "",
+            twitter: profile.links?.twitter || "",
+            linkedin: profile.links?.linkedin || "",
+            facebook: profile.links?.facebook || ""
+          }));
+          if (user.avatarUrl) setProfileImage(user.avatarUrl);
+        }
+      } catch (err) {
+        console.error("Profile fetch error:", err);
+      }
+    }
+    fetchProfile();
+  }, []);
 
   // Course management state
   const [searchTerm, setSearchTerm] = useState("");
@@ -43,46 +71,19 @@ const MenteeProfile = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const coursesPerPage = 6;
 
-  // TODO: Replace with API call - fetch enrolled courses
-  // const fetchEnrolledCourses = async (userId) => {
-  //   const response = await fetch(`/api/users/${userId}/courses`);
-  //   return response.json();
-  // };
-
-  // Sample enrolled courses data using mockup for now
-  const [allCourses] = useState(generateMenteeEnrolledCourses(12));
-
-  // Mentors management state
+  // Các state dữ liệu động, nếu chưa có API thì để mảng rỗng để không lỗi
+  const [allCourses] = useState([]);
+  const [allMentors] = useState([]);
+  const [allReviews] = useState([]);
+  // Các state khác giữ nguyên
   const [mentorSearchTerm, setMentorSearchTerm] = useState("");
   const [mentorFilterBy, setMentorFilterBy] = useState("all");
   const [mentorCurrentPage, setMentorCurrentPage] = useState(1);
   const mentorsPerPage = 6;
-
-  // TODO: Replace with API call - fetch available mentors
-  // const fetchMentors = async () => {
-  //   const response = await fetch('/api/mentors');
-  //   return response.json();
-  // };
-
-  // Sample mentors data using mockup for now
-  const [allMentors] = useState(generateMentors(15));
-
-  // Chat management state
   const [selectedChatMentor, setSelectedChatMentor] = useState(null);
   const [chatMessages, setChatMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
-
-  // Reviews management state
   const [reviewFilter, setReviewFilter] = useState("all");
-
-  // TODO: Replace with API call - fetch user reviews
-  // const fetchUserReviews = async (userId) => {
-  //   const response = await fetch(`/api/users/${userId}/reviews`);
-  //   return response.json();
-  // };
-
-  // Sample reviews data using mockup for now
-  const [allReviews] = useState(generateMenteeReviews(12));
   const [reviewsToShow, setReviewsToShow] = useState(6);
   const [reviewCurrentPage, setReviewCurrentPage] = useState(1);
   const reviewsPerPage = 4;
@@ -342,7 +343,7 @@ const MenteeProfile = () => {
             </h1>
           </div>
           <div className="flex items-center space-x-4">
-            <span className="text-sm">Welcome, {menteeData.firstName}!</span>
+            <span className="text-sm">Welcome, {formData?.firstName || "Mentee"}!</span>
           </div>
         </div>
       </header>

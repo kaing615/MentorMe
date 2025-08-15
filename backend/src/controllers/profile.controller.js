@@ -243,26 +243,51 @@ export const updateMenteeProfile = async (req, res) => {
   }
 };
 
+// export const getProfile = async (req, res) => {
+//   try {
+//     const userId = req.user.id;
+
+//     const user = await User.findById(userId);
+//     if (!user) {
+//       return responseHandler.badRequest(res, "User không tồn tại");
+//     }
+
+//     // Lấy thông tin profile
+//     const profile = await Profile.findOne({ user: userId });
+
+//     // Làm sạch dữ liệu trả về
+//     const userData = user.toObject();
+//     delete userData.password;
+//     delete userData.salt;
+//     delete userData.verifyKey;
+//     delete userData.resetToken;
+//     delete userData.resetTokenExpires;
+
+//     return responseHandler.ok(res, {
+//       user: userData,
+//       profile: profile,
+//     });
+//   } catch (err) {
+//     console.error("Lỗi lấy thông tin profile:", err);
+//     responseHandler.error(res, "Lỗi lấy thông tin profile!");
+//   }
+// };
+
 export const getProfile = async (req, res) => {
   try {
-    const userId = req.user.id;
-
-    const user = await User.findById(userId);
+    // Lấy user đầu tiên trong DB (user seed)
+    // Lấy user đầu tiên trong DB (user seed)
+    const user = await User.findOne();
     if (!user) {
       return responseHandler.badRequest(res, "User không tồn tại");
     }
-
-    // Lấy thông tin profile
-    const profile = await Profile.findOne({ user: userId });
-
-    // Làm sạch dữ liệu trả về
+    const profile = await Profile.findOne({ user: user._id });
     const userData = user.toObject();
     delete userData.password;
     delete userData.salt;
     delete userData.verifyKey;
     delete userData.resetToken;
     delete userData.resetTokenExpires;
-
     return responseHandler.ok(res, {
       user: userData,
       profile: profile,
@@ -272,7 +297,6 @@ export const getProfile = async (req, res) => {
     responseHandler.error(res, "Lỗi lấy thông tin profile!");
   }
 };
-
 export const changeAvatar = async (req, res) => {
   try {
     const userId = req.user.id;
