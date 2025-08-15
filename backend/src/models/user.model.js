@@ -29,7 +29,7 @@ const UserSchema = new mongoose.Schema(
     googleId: {
       type: String,
     },
-    avatarUrl: { type: String, default: "" }, 
+    avatarUrl: { type: String, default: "" },
     avatarPublicId: { type: String, default: "" },
     jobTitle: { type: String },
     location: { type: String },
@@ -40,11 +40,26 @@ const UserSchema = new mongoose.Schema(
     introVideo: { type: String },
     mentorReason: { type: String },
     greatestAchievement: { type: String },
-    role: [{ type: String, enum: ["mentor", "mentee"] }],
+    role: { type: String, enum: ["mentor", "mentee", "admin"] },
     isVerified: { type: Boolean, default: false },
     verifyKey: String,
     resetToken: { type: String },
     resetTokenExpires: { type: Date },
+    wishlist: [{ type: mongoose.Schema.ObjectId, ref: "Course" }],
+    purchasedCourses: [
+      {
+        course: {
+          type: mongoose.Schema.ObjectId,
+          ref: "Course",
+          required: true,
+        },
+        purchaseDate: { type: Date, default: Date.now },
+        orderId: { type: mongoose.Schema.ObjectId, ref: "Order" },
+        progress: { type: Number, default: 0, min: 0, max: 100 }, // Tiến độ học (%)
+        lastAccessDate: { type: Date, default: Date.now },
+        isCompleted: { type: Boolean, default: false },
+      },
+    ],
   },
   { timestamps: true }
 );

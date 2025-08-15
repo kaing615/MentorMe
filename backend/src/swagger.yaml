@@ -1,18 +1,384 @@
 openapi: 3.0.0
 info:
-  title: MentorMe API Docs
+  title: MentorMe API Documentation
   version: 1.0.0
-  description: API documentation for MentorMe backend
+  description: API documentation for MentorMe backend - Nền tảng kết nối Mentor và Mentee
+  contact:
+    name: MentorMe Team
+    email: support@mentorme.com
 
 servers:
-  - url: http://localhost:4000
+  - url: http://localhost:4000/api/v1
+    description: Development server
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+        userName:
+          type: string
+        firstName:
+          type: string
+        lastName:
+          type: string
+        email:
+          type: string
+        role:
+          type: string
+          enum: [mentor, mentee]
+        isVerified:
+          type: boolean
+
+    Profile:
+      type: object
+      properties:
+        id:
+          type: string
+        userId:
+          type: string
+        bio:
+          type: string
+        location:
+          type: string
+        avatarUrl:
+          type: string
+        links:
+          type: object
+        languages:
+          type: array
+          items:
+            type: string
+        timezone:
+          type: string
+
+    Error:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [error]
+        message:
+          type: string
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              field:
+                type: string
+              message:
+                type: string
+
+    # ===========================================
+    # PURCHASED COURSES SCHEMAS
+    # ===========================================
+    PurchasedCourse:
+      type: object
+      properties:
+        courseId:
+          type: string
+          description: ID của khóa học
+          example: "60d5f484f0b4a720e8f8d4a1"
+        courseInfo:
+          $ref: "#/components/schemas/CourseDetail"
+        purchaseDate:
+          type: string
+          format: date-time
+          description: Ngày mua khóa học
+          example: "2024-01-15T10:30:00Z"
+        progress:
+          type: number
+          minimum: 0
+          maximum: 100
+          description: Tiến độ học (0-100%)
+          example: 75
+        lastAccessDate:
+          type: string
+          format: date-time
+          description: Lần truy cập cuối
+          example: "2024-01-20T14:30:00Z"
+        isCompleted:
+          type: boolean
+          description: Đã hoàn thành khóa học
+          example: false
+        orderInfo:
+          $ref: "#/components/schemas/OrderInfo"
+
+    CourseDetail:
+      type: object
+      properties:
+        _id:
+          type: string
+          example: "60d5f484f0b4a720e8f8d4a1"
+        title:
+          type: string
+          example: "React Advanced Course"
+        description:
+          type: string
+          example: "Learn advanced React concepts and patterns"
+        price:
+          type: number
+          example: 299000
+        category:
+          type: string
+          example: "Programming"
+        duration:
+          type: number
+          description: Thời lượng (phút)
+          example: 1200
+        rate:
+          type: number
+          example: 4.5
+        link:
+          type: string
+          example: "https://mentorme.com/courses/react-advanced"
+        lectures:
+          type: number
+          example: 20
+        mentor:
+          $ref: "#/components/schemas/MentorInfo"
+
+    MentorInfo:
+      type: object
+      properties:
+        _id:
+          type: string
+          example: "60d5f484f0b4a720e8f8d4a2"
+        firstName:
+          type: string
+          example: "John"
+        lastName:
+          type: string
+          example: "Doe"
+        avatarUrl:
+          type: string
+          example: "https://cloudinary.com/mentor-avatar.jpg"
+        jobTitle:
+          type: string
+          example: "Senior React Developer"
+
+    OrderInfo:
+      type: object
+      properties:
+        _id:
+          type: string
+          example: "60d5f484f0b4a720e8f8d4a3"
+        transactionId:
+          type: string
+          example: "TXN123456789"
+        paymentMethod:
+          type: string
+          enum: [bank, momo, paypal, stripe, cash]
+          example: "paypal"
+        createdAt:
+          type: string
+          format: date-time
+          example: "2024-01-15T10:00:00Z"
+
+    PurchasedCoursesResponse:
+      type: object
+      properties:
+        status:
+          type: number
+          example: 200
+        message:
+          type: string
+          example: "Lấy danh sách khóa học đã mua thành công."
+        data:
+          type: object
+          properties:
+            totalCourses:
+              type: number
+              example: 5
+            courses:
+              type: array
+              items:
+                $ref: "#/components/schemas/PurchasedCourse"
+
+    LearningStats:
+      type: object
+      properties:
+        status:
+          type: number
+          example: 200
+        message:
+          type: string
+          example: "Lấy thống kê học tập thành công."
+        data:
+          type: object
+          properties:
+            totalCourses:
+              type: number
+              example: 10
+            completedCourses:
+              type: number
+              example: 3
+            inProgressCourses:
+              type: number
+              example: 5
+            notStartedCourses:
+              type: number
+              example: 2
+            averageProgress:
+              type: number
+              example: 65.5
+            completionRate:
+              type: number
+              example: 30
+
+    ProgressUpdateRequest:
+      type: object
+      required:
+        - progress
+      properties:
+        progress:
+          type: number
+          minimum: 0
+          maximum: 100
+          description: Tiến độ học từ 0-100%
+          example: 85
+
+    AddPurchasedCourseRequest:
+      type: object
+      required:
+        - courseId
+        - orderId
+      properties:
+        courseId:
+          type: string
+          pattern: "^[0-9a-fA-F]{24}$"
+          description: ID của khóa học (MongoDB ObjectId)
+          example: "60d5f484f0b4a720e8f8d4a1"
+        orderId:
+          type: string
+          pattern: "^[0-9a-fA-F]{24}$"
+          description: ID của đơn hàng (MongoDB ObjectId)
+          example: "60d5f484f0b4a720e8f8d4a3"
+
+    PurchaseSuccessRequest:
+      type: object
+      required:
+        - orderId
+      properties:
+        orderId:
+          type: string
+          pattern: "^[0-9a-fA-F]{24}$"
+          description: ID của đơn hàng đã thanh toán
+          example: "60d5f484f0b4a720e8f8d4a3"
+
+    CheckPurchaseResponse:
+      type: object
+      properties:
+        status:
+          type: number
+          example: 200
+        isPurchased:
+          type: boolean
+          example: true
+        courseData:
+          allOf:
+            - $ref: "#/components/schemas/PurchasedCourse"
+            - nullable: true
+
+    # ===========================================
+    # CART SCHEMAS
+    # ===========================================
+    CartItem:
+      type: object
+      properties:
+        course:
+          $ref: "#/components/schemas/CourseDetail"
+        addedAt:
+          type: string
+          format: date-time
+          description: Ngày thêm vào giỏ hàng
+          example: "2024-01-15T10:30:00Z"
+
+    CartResponse:
+      type: object
+      properties:
+        status:
+          type: number
+          example: 200
+        message:
+          type: string
+          example: "Lấy giỏ hàng thành công."
+        data:
+          type: object
+          properties:
+            totalCourses:
+              type: number
+              example: 3
+            totalPrice:
+              type: number
+              example: 1197000
+            courses:
+              type: array
+              items:
+                $ref: "#/components/schemas/CartItem"
+            cart:
+              type: object
+              properties:
+                _id:
+                  type: string
+                  example: "60d5f484f0b4a720e8f8d4a5"
+                user:
+                  type: string
+                  example: "60d5f484f0b4a720e8f8d4a2"
+                courses:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/CartItem"
+                totalPrice:
+                  type: number
+                  example: 1197000
+
+    AddToCartRequest:
+      type: object
+      required:
+        - courseId
+      properties:
+        courseId:
+          type: string
+          pattern: "^[0-9a-fA-F]{24}$"
+          description: ID của khóa học (MongoDB ObjectId)
+          example: "60d5f484f0b4a720e8f8d4a1"
+
+    CheckCartResponse:
+      type: object
+      properties:
+        status:
+          type: number
+          example: 200
+        message:
+          type: string
+          example: "Kiểm tra giỏ hàng thành công."
+        data:
+          type: object
+          properties:
+            courseId:
+              type: string
+              example: "60d5f484f0b4a720e8f8d4a1"
+            inCart:
+              type: boolean
+              example: true
 
 paths:
   /user/signup:
     post:
       tags:
-        - Auth
-      summary: Đăng ký tài khoản người dùng thường
+        - Authentication
+      summary: Đăng ký tài khoản Mentee
+      description: Đăng ký tài khoản người dùng thông thường (mentee). Sau khi đăng ký thành công, hệ thống sẽ gửi email xác thực.
       requestBody:
         required: true
         content:
@@ -29,28 +395,63 @@ paths:
               properties:
                 firstName:
                   type: string
+                  description: Họ của người dùng
+                  example: "Nguyen"
                 lastName:
                   type: string
+                  description: Tên của người dùng
+                  example: "Van A"
                 userName:
                   type: string
+                  description: Tên đăng nhập (unique)
+                  example: "testuser123"
                 email:
                   type: string
                   format: email
+                  description: Email đăng ký (unique)
+                  example: "test@example.com"
                 password:
                   type: string
+                  minLength: 6
+                  description: Mật khẩu (tối thiểu 6 ký tự)
+                  example: "Password123!"
                 confirmPassword:
                   type: string
+                  description: Xác nhận mật khẩu (phải giống password)
+                  example: "Password123!"
       responses:
         "201":
-          description: Đăng ký thành công (vui lòng kiểm tra email xác thực)
+          description: Đăng ký thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "success"
+                  message:
+                    type: string
+                    example: "Đăng ký thành công! Vui lòng kiểm tra email để xác thực tài khoản."
         "400":
-          description: Lỗi validate hoặc đăng ký thất bại
+          description: Lỗi validation hoặc email đã tồn tại
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: Lỗi server
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
 
   /user/signupMentor:
     post:
       tags:
-        - Auth
-      summary: Đăng ký tài khoản mentor (có upload avatar)
+        - Authentication
+      summary: Đăng ký tài khoản Mentor
+      description: Đăng ký tài khoản mentor với thông tin đầy đủ và upload avatar. Tạo cả User và Profile trong một request.
       requestBody:
         required: true
         content:
@@ -65,9 +466,7 @@ paths:
                 - password
                 - confirmPassword
                 - jobTitle
-                - location
                 - category
-                - skills
                 - bio
                 - mentorReason
                 - greatestAchievement
@@ -75,53 +474,106 @@ paths:
               properties:
                 firstName:
                   type: string
+                  description: Họ của mentor
+                  example: "Tran"
                 lastName:
                   type: string
+                  description: Tên của mentor
+                  example: "Van B"
                 userName:
                   type: string
+                  description: Tên đăng nhập (unique)
+                  example: "mentor123"
                 email:
                   type: string
                   format: email
+                  description: Email đăng ký (unique)
+                  example: "mentor@example.com"
                 password:
                   type: string
+                  minLength: 6
+                  description: Mật khẩu (tối thiểu 6 ký tự)
+                  example: "Password123!"
                 confirmPassword:
                   type: string
+                  description: Xác nhận mật khẩu
+                  example: "Password123!"
                 jobTitle:
                   type: string
-                location:
-                  type: string
+                  description: Chức danh công việc
+                  example: "Senior Developer"
                 category:
                   type: string
-                skills:
-                  type: array
-                  items:
-                    type: string
+                  description: Danh mục chuyên môn
+                  example: "Technology"
                 bio:
                   type: string
-                linkedinUrl:
-                  type: string
-                  format: uri
+                  description: Tiểu sử cá nhân
+                  example: "Experienced developer with 5+ years"
                 mentorReason:
                   type: string
+                  description: Lý do muốn làm mentor
+                  example: "Want to share knowledge"
                 greatestAchievement:
                   type: string
-                introVideo:
+                  description: Thành tựu lớn nhất
+                  example: "Led a successful startup"
+                location:
                   type: string
-                  format: uri
+                  description: Địa điểm (optional)
+                  example: "Ho Chi Minh City"
+                skills:
+                  type: string
+                  description: Kỹ năng (comma-separated, sẽ được parse thành array)
+                  example: "JavaScript,Node.js,React"
+                links:
+                  type: string
+                  description: Social links (JSON string, optional)
+                  example: '{"linkedin":"https://linkedin.com/in/mentor"}'
                 avatar:
                   type: string
                   format: binary
+                  description: Ảnh đại diện (required)
       responses:
         "201":
           description: Đăng ký mentor thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "success"
+                  message:
+                    type: string
+                    example: "Đăng ký mentor thành công!"
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      avatarUrl:
+                        type: string
         "400":
-          description: Lỗi validate hoặc đăng ký thất bại
+          description: Lỗi validation hoặc upload file
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: Lỗi server
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
 
   /user/signin:
     post:
       tags:
-        - Auth
-      summary: Đăng nhập (cho cả mentor/mentee)
+        - Authentication
+      summary: Đăng nhập hệ thống
+      description: Đăng nhập cho cả mentor và mentee. Trả về JWT token để sử dụng cho các API khác.
       requestBody:
         required: true
         content:
@@ -135,41 +587,111 @@ paths:
                 email:
                   type: string
                   format: email
+                  description: Email đăng ký
+                  example: "test@example.com"
                 password:
                   type: string
+                  description: Mật khẩu
+                  example: "Password123!"
       responses:
         "200":
           description: Đăng nhập thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "success"
+                  message:
+                    type: string
+                    example: "Đăng nhập thành công!"
+                  data:
+                    type: object
+                    properties:
+                      token:
+                        type: string
+                        description: JWT token (expires in 7 days)
+                        example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                      user:
+                        $ref: "#/components/schemas/User"
         "400":
           description: Email hoặc mật khẩu không đúng
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Tài khoản chưa được xác thực
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
 
   /user/verify:
     get:
       tags:
-        - Auth
-      summary: Xác thực email từ link gửi về email
+        - Authentication
+      summary: Xác thực email
+      description: Xác thực email thông qua link được gửi trong email đăng ký. Sau khi xác thực thành công, user sẽ được tự động đăng nhập.
       parameters:
         - in: query
           name: email
+          required: true
           schema:
             type: string
-          required: true
+            format: email
+          description: Email cần xác thực
+          example: "test@example.com"
         - in: query
           name: verifyKey
+          required: true
           schema:
             type: string
-          required: true
+          description: Verification key từ email
+          example: "abc123def456"
       responses:
         "200":
           description: Xác thực email thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "success"
+                  message:
+                    type: string
+                    example: "Xác thực email thành công!"
+                  data:
+                    type: object
+                    properties:
+                      token:
+                        type: string
+                        description: JWT token for auto login
+                      user:
+                        $ref: "#/components/schemas/User"
         "400":
-          description: Lỗi xác thực email
+          description: Lỗi xác thực email (link không hợp lệ hoặc đã hết hạn)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Không tìm thấy user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
 
   /user/resend-verification-email:
     post:
       tags:
-        - Auth
+        - Authentication
       summary: Gửi lại email xác thực
+      description: Gửi lại email xác thực cho user chưa được verify. Chỉ có thể gửi cho user đã đăng ký nhưng chưa xác thực.
       requestBody:
         required: true
         content:
@@ -182,17 +704,41 @@ paths:
                 email:
                   type: string
                   format: email
+                  description: Email cần gửi lại verification
+                  example: "test@example.com"
       responses:
         "200":
           description: Gửi lại email xác thực thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "success"
+                  message:
+                    type: string
+                    example: "Email xác thực đã được gửi lại!"
         "400":
-          description: Không tìm thấy user hoặc đã xác thực
+          description: User không tồn tại hoặc đã được xác thực
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: Lỗi gửi email
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
 
   /user/forgot-password:
     post:
       tags:
-        - Auth
+        - Authentication
       summary: Yêu cầu đặt lại mật khẩu
+      description: Gửi email chứa link reset password cho user. Vì lý do bảo mật, API luôn trả về thành công dù email có tồn tại hay không.
       requestBody:
         required: true
         content:
@@ -205,17 +751,41 @@ paths:
                 email:
                   type: string
                   format: email
+                  description: Email cần reset password
+                  example: "test@example.com"
       responses:
         "200":
-          description: Đã gửi mail đặt lại mật khẩu (nếu user tồn tại)
+          description: Yêu cầu reset password thành công (luôn trả về thành công vì lý do bảo mật)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "success"
+                  message:
+                    type: string
+                    example: "Nếu email tồn tại, link reset password đã được gửi!"
         "400":
-          description: Lỗi không tìm thấy user
+          description: Lỗi validation email
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: Lỗi server
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
 
   /user/reset-password:
     post:
       tags:
-        - Auth
-      summary: Đặt lại mật khẩu bằng token từ email
+        - Authentication
+      summary: Đặt lại mật khẩu
+      description: Đặt lại mật khẩu mới bằng cách sử dụng reset token từ email. Token có thời hạn giới hạn.
       requestBody:
         required: true
         content:
@@ -230,12 +800,871 @@ paths:
                 email:
                   type: string
                   format: email
+                  description: Email cần reset password
+                  example: "test@example.com"
                 token:
                   type: string
+                  description: Reset token từ email
+                  example: "abc123def456"
                 newPassword:
                   type: string
+                  minLength: 6
+                  description: Mật khẩu mới (tối thiểu 6 ký tự)
+                  example: "NewPassword123!"
       responses:
         "200":
           description: Đặt lại mật khẩu thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "success"
+                  message:
+                    type: string
+                    example: "Đặt lại mật khẩu thành công!"
         "400":
-          description: Token không hợp lệ hoặc lỗi validate
+          description: Token không hợp lệ hoặc đã hết hạn
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Không tìm thấy user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: Lỗi server
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  # Profile Management APIs
+  /profile:
+    get:
+      tags:
+        - Profile Management
+      summary: Lấy thông tin profile của user hiện tại
+      description: Lấy thông tin profile chi tiết của user đang đăng nhập (cả user và profile data)
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Lấy thông tin profile thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "success"
+                  data:
+                    type: object
+                    properties:
+                      user:
+                        $ref: "#/components/schemas/User"
+                      profile:
+                        $ref: "#/components/schemas/Profile"
+        "401":
+          description: Unauthorized - Token không hợp lệ
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Không tìm thấy profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /profile/mentor:
+    put:
+      tags:
+        - Profile Management
+      summary: Cập nhật profile Mentor
+      description: Cập nhật thông tin profile cho mentor. Có thể upload avatar mới cùng lúc.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - userName
+                - firstName
+                - lastName
+                - jobTitle
+                - category
+                - bio
+                - mentorReason
+              properties:
+                userName:
+                  type: string
+                  example: "mentor_updated"
+                firstName:
+                  type: string
+                  example: "Tran"
+                lastName:
+                  type: string
+                  example: "Van B Updated"
+                jobTitle:
+                  type: string
+                  example: "Tech Lead"
+                category:
+                  type: string
+                  example: "Technology"
+                bio:
+                  type: string
+                  example: "Updated bio with more experience"
+                mentorReason:
+                  type: string
+                  example: "Passionate about mentoring"
+                location:
+                  type: string
+                  example: "Ho Chi Minh City"
+                skills:
+                  type: array
+                  items:
+                    type: string
+                  example: ["JavaScript", "Node.js", "React"]
+                greatestAchievement:
+                  type: string
+                  example: "Led a team of 10 developers"
+                headline:
+                  type: string
+                  example: "Experienced Tech Lead"
+                experience:
+                  type: string
+                  example: "7+ years in software development"
+                introVideo:
+                  type: string
+                  example: "https://youtube.com/watch?v=abc123"
+                languages:
+                  type: array
+                  items:
+                    type: string
+                  example: ["Vietnamese", "English"]
+                timezone:
+                  type: string
+                  example: "GMT+7"
+                links:
+                  type: object
+                  properties:
+                    linkedin:
+                      type: string
+                    github:
+                      type: string
+                    website:
+                      type: string
+                  example:
+                    linkedin: "https://linkedin.com/in/mentor"
+                    github: "https://github.com/mentor"
+      responses:
+        "200":
+          description: Cập nhật profile mentor thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "success"
+                  message:
+                    type: string
+                    example: "Cập nhật profile mentor thành công!"
+                  data:
+                    type: object
+                    properties:
+                      user:
+                        $ref: "#/components/schemas/User"
+                      profile:
+                        $ref: "#/components/schemas/Profile"
+        "400":
+          description: Lỗi validation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Forbidden - Chỉ mentor mới được cập nhật mentor profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /profile/mentee:
+    put:
+      tags:
+        - Profile Management
+      summary: Cập nhật profile Mentee
+      description: Cập nhật thông tin profile cho mentee
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - userName
+                - firstName
+                - lastName
+              properties:
+                userName:
+                  type: string
+                  example: "mentee_updated"
+                firstName:
+                  type: string
+                  example: "Nguyen"
+                lastName:
+                  type: string
+                  example: "Van A Updated"
+                bio:
+                  type: string
+                  example: "Aspiring developer"
+                location:
+                  type: string
+                  example: "Hanoi"
+                description:
+                  type: string
+                  example: "Looking to learn new technologies"
+                goal:
+                  type: string
+                  example: "Become a full-stack developer"
+                education:
+                  type: string
+                  example: "Computer Science Graduate"
+                languages:
+                  type: array
+                  items:
+                    type: string
+                  example: ["Vietnamese", "English"]
+                timezone:
+                  type: string
+                  example: "GMT+7"
+                links:
+                  type: object
+                  properties:
+                    linkedin:
+                      type: string
+                    github:
+                      type: string
+                  example:
+                    linkedin: "https://linkedin.com/in/mentee"
+      responses:
+        "200":
+          description: Cập nhật profile mentee thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "success"
+                  message:
+                    type: string
+                    example: "Cập nhật profile mentee thành công!"
+                  data:
+                    type: object
+                    properties:
+                      user:
+                        $ref: "#/components/schemas/User"
+                      profile:
+                        $ref: "#/components/schemas/Profile"
+        "400":
+          description: Lỗi validation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /profile/avatar:
+    put:
+      tags:
+        - Profile Management
+      summary: Cập nhật avatar
+      description: Upload và cập nhật avatar mới cho user (cả mentor và mentee)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - avatar
+              properties:
+                avatar:
+                  type: string
+                  format: binary
+                  description: File ảnh đại diện (jpg, png, jpeg)
+      responses:
+        "200":
+          description: Cập nhật avatar thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "success"
+                  message:
+                    type: string
+                    example: "Cập nhật avatar thành công!"
+                  data:
+                    type: object
+                    properties:
+                      avatarUrl:
+                        type: string
+                        example: "https://cloudinary.com/image/abc123.jpg"
+        "400":
+          description: Lỗi upload file (file không hợp lệ hoặc quá lớn)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  # ===========================================
+  # PURCHASED COURSES ENDPOINTS
+  # ===========================================
+  /purchased-courses:
+    get:
+      tags:
+        - Purchased Courses
+      summary: Lấy danh sách khóa học đã mua
+      description: Lấy tất cả khóa học mà user đã mua với thông tin chi tiết
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Lấy danh sách thành công
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PurchasedCoursesResponse"
+        "401":
+          description: Unauthorized - Token không hợp lệ
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Không tìm thấy user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: Lỗi server
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /purchased-courses/stats:
+    get:
+      tags:
+        - Purchased Courses
+      summary: Lấy thống kê học tập
+      description: Lấy thống kê tổng quan về tiến độ học tập của user
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Lấy thống kê thành công
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LearningStats"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Không tìm thấy user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /purchased-courses/check/{courseId}:
+    get:
+      tags:
+        - Purchased Courses
+      summary: Kiểm tra trạng thái mua khóa học
+      description: Kiểm tra xem user đã mua khóa học cụ thể này chưa
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: courseId
+          required: true
+          schema:
+            type: string
+            pattern: "^[0-9a-fA-F]{24}$"
+          description: ID của khóa học cần kiểm tra
+          example: "60d5f484f0b4a720e8f8d4a1"
+      responses:
+        "200":
+          description: Kiểm tra thành công
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CheckPurchaseResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Không tìm thấy user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /purchased-courses/{courseId}/progress:
+    put:
+      tags:
+        - Purchased Courses
+      summary: Cập nhật tiến độ học
+      description: Cập nhật tiến độ học cho khóa học đã mua
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: courseId
+          required: true
+          schema:
+            type: string
+            pattern: "^[0-9a-fA-F]{24}$"
+          description: ID của khóa học
+          example: "60d5f484f0b4a720e8f8d4a1"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProgressUpdateRequest"
+      responses:
+        "200":
+          description: Cập nhật tiến độ thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: number
+                    example: 200
+                  message:
+                    type: string
+                    example: "Cập nhật tiến độ học thành công."
+                  data:
+                    type: object
+                    properties:
+                      courseId:
+                        type: string
+                        example: "60d5f484f0b4a720e8f8d4a1"
+                      progress:
+                        type: number
+                        example: 85
+                      isCompleted:
+                        type: boolean
+                        example: false
+        "400":
+          description: Lỗi validation hoặc chưa mua khóa học này
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Không tìm thấy user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /purchased-courses/purchase-success:
+    post:
+      tags:
+        - Purchased Courses
+      summary: Xử lý thanh toán thành công
+      description: Tự động thêm các khóa học từ đơn hàng vào danh sách đã mua khi thanh toán thành công
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PurchaseSuccessRequest"
+      responses:
+        "200":
+          description: Xử lý thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: number
+                    example: 200
+                  message:
+                    type: string
+                    example: "Xử lý mua khóa học thành công."
+                  data:
+                    type: object
+                    properties:
+                      orderId:
+                        type: string
+                        example: "60d5f484f0b4a720e8f8d4a3"
+                      coursesAdded:
+                        type: number
+                        description: Số khóa học đã thêm vào danh sách
+                        example: 3
+                      totalCourses:
+                        type: number
+                        description: Tổng số khóa học trong đơn hàng
+                        example: 3
+        "400":
+          description: Đơn hàng chưa thanh toán hoặc lỗi validation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Đơn hàng không thuộc về user này
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Không tìm thấy đơn hàng hoặc user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  # ===========================================
+  # CART ENDPOINTS
+  # ===========================================
+  /cart:
+    get:
+      tags:
+        - Shopping Cart
+      summary: Lấy giỏ hàng của user
+      description: Lấy danh sách khóa học trong giỏ hàng với thông tin chi tiết. Giỏ hàng sẽ được tự động tạo nếu chưa tồn tại.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Lấy giỏ hàng thành công
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CartResponse"
+        "401":
+          description: Unauthorized - Token không hợp lệ
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: Lỗi server
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+    post:
+      tags:
+        - Shopping Cart
+      summary: Thêm khóa học vào giỏ hàng
+      description: Thêm khóa học vào giỏ hàng. Không thể thêm khóa học đã mua hoặc đã có trong giỏ hàng.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddToCartRequest"
+      responses:
+        "200":
+          description: Thêm vào giỏ hàng thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: number
+                    example: 200
+                  message:
+                    type: string
+                    example: "Thêm khóa học vào giỏ hàng thành công."
+                  data:
+                    type: object
+                    properties:
+                      courseId:
+                        type: string
+                        example: "60d5f484f0b4a720e8f8d4a1"
+                      courseTitle:
+                        type: string
+                        example: "React Advanced Course"
+                      totalCourses:
+                        type: number
+                        example: 3
+                      totalPrice:
+                        type: number
+                        example: 898000
+                      cart:
+                        $ref: "#/components/schemas/CartResponse"
+        "400":
+          description: Course ID không hợp lệ (validation middleware), đã mua khóa học, hoặc đã có trong giỏ hàng
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              examples:
+                validation_error:
+                  summary: Lỗi validation
+                  value:
+                    status: 400
+                    message: "Course ID không hợp lệ"
+                already_purchased:
+                  summary: Đã mua khóa học
+                  value:
+                    status: 400
+                    message: "Bạn đã mua khóa học này rồi."
+                already_in_cart:
+                  summary: Đã có trong giỏ hàng
+                  value:
+                    status: 400
+                    message: "Khóa học đã có trong giỏ hàng."
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Không tìm thấy khóa học
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+    delete:
+      tags:
+        - Shopping Cart
+      summary: Xóa toàn bộ giỏ hàng
+      description: Xóa tất cả khóa học khỏi giỏ hàng. Giỏ hàng sẽ được tự động tạo nếu chưa tồn tại.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Xóa giỏ hàng thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: number
+                    example: 200
+                  message:
+                    type: string
+                    example: "Xóa toàn bộ giỏ hàng thành công."
+                  data:
+                    type: object
+                    properties:
+                      totalCourses:
+                        type: number
+                        example: 0
+                      totalPrice:
+                        type: number
+                        example: 0
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Không tìm thấy giỏ hàng
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /cart/{courseId}:
+    delete:
+      tags:
+        - Shopping Cart
+      summary: Xóa khóa học khỏi giỏ hàng
+      description: Xóa một khóa học cụ thể khỏi giỏ hàng
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: courseId
+          required: true
+          schema:
+            type: string
+            pattern: "^[0-9a-fA-F]{24}$"
+          description: ID của khóa học cần xóa
+          example: "60d5f484f0b4a720e8f8d4a1"
+      responses:
+        "200":
+          description: Xóa khóa học thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: number
+                    example: 200
+                  message:
+                    type: string
+                    example: "Xóa khóa học khỏi giỏ hàng thành công."
+                  data:
+                    type: object
+                    properties:
+                      courseId:
+                        type: string
+                        example: "60d5f484f0b4a720e8f8d4a1"
+                      totalCourses:
+                        type: number
+                        example: 2
+                      totalPrice:
+                        type: number
+                        example: 599000
+        "400":
+          description: Course ID không hợp lệ (validation middleware)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                status: 400
+                message: "Course ID không hợp lệ"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Khóa học không có trong giỏ hàng
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                status: 404
+                message: "Khóa học không có trong giỏ hàng."
+
+  /cart/check/{courseId}:
+    get:
+      tags:
+        - Shopping Cart
+      summary: Kiểm tra khóa học có trong giỏ hàng không
+      description: Kiểm tra xem một khóa học cụ thể có trong giỏ hàng của user không. Giỏ hàng sẽ được tự động tạo nếu chưa tồn tại.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: courseId
+          required: true
+          schema:
+            type: string
+            pattern: "^[0-9a-fA-F]{24}$"
+          description: ID của khóa học cần kiểm tra (MongoDB ObjectId)
+          example: "60d5f484f0b4a720e8f8d4a1"
+      responses:
+        "200":
+          description: Kiểm tra thành công
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CheckCartResponse"
+        "400":
+          description: Course ID không hợp lệ (validation middleware)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                status: 400
+                message: "Course ID không hợp lệ"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Không tìm thấy khóa học
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                status: 404
+                message: "Không tìm thấy khóa học."
+        "500":
+          description: Lỗi server
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"

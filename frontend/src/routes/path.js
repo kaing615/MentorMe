@@ -16,10 +16,14 @@ export const AUTH_PATH = {
 
 export const MENTEE_PATH = {
   HOME: "home",
+<<<<<<< HEAD
   PROFILE: "profile",
   ORDER_COMPLETE: "order-complete-course",
   ALL_MENTORS: "mentors",
   ALL_COURSES: "courses",
+=======
+  COURSE: "course",
+>>>>>>> origin/dev
 };
 
 export const ADMIN_PATH = {
@@ -29,7 +33,10 @@ export const ADMIN_PATH = {
 export const MENTOR_PATH = {
   HOME: "home",
 };
+<<<<<<< HEAD
 
 export const PLATFORM_PATH = {
   HOMESCREEN: "homescreen",
 };
+=======
+>>>>>>> origin/dev

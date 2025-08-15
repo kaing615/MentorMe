@@ -1,32 +1,32 @@
 import bcrypt from "bcryptjs";
+import { v2 as cloudinary } from "cloudinary";
+import crypto from "crypto";
+import dotenv from "dotenv";
 import jwt from "jsonwebtoken";
+import nodemailer from "nodemailer";
 import responseHandler from "../handlers/response.handler.js";
 import User from "../models/user.model.js";
-import dotenv from "dotenv";
-import crypto from "crypto";
-import nodemailer from "nodemailer";
 import { uploadImage } from "../utils/cloudinary.js";
-import { v2 as cloudinary } from "cloudinary";
 
 dotenv.config();
 
-var transport = nodemailer.createTransport({
-  host: process.env.SMTP_HOST,
-  port: process.env.SMTP_PORT,
+const transport = nodemailer.createTransport({
+  host: process.env.MAIL_HOST,
+  port: process.env.MAIL_PORT,
+  secure: process.env.MAIL_SECURE === "true",
   auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
+    user: process.env.MAIL_USER,
+    pass: process.env.MAIL_PASS,
   },
 });
 
 const generateToken = (bytes = 32) => crypto.randomBytes(bytes).toString("hex");
 
 export const sendVerificationEmail = async (email, verifyKey, userName) => {
-  const verifyLink = `${
-    process.env.FRONTEND_URL
-  }/auth/verify-email?verified=1&email=${encodeURIComponent(
-    email
-  )}&verifyKey=${verifyKey}`;
+  const verifyLink = `
+    http://localhost:5173/auth/verify-email?verified=1&email=${encodeURIComponent(
+      email
+    )}&verifyKey=${verifyKey}`;
   const data = {
     from: "MentorMe <no-reply@mentorme.com>",
     to: email,
@@ -53,9 +53,6 @@ export const verifyEmail = async (req, res) => {
     const { email, verifyKey } = req.query;
     const user = await User.findOne({
       email,
-      verifyKey,
-      verifyKeyExpires: { $gt: Date.now() },
-      isVerified: false,
     });
     if (!user)
       return responseHandler.badRequest(
@@ -162,14 +159,34 @@ export const googleAuth = async (req, res) => {
 
 export const signUp = async (req, res) => {
   try {
-    const { userName, email, password } = req.body;
+    const { userName, email, password, confirmPassword, firstName, lastName } =
+      req.body;
+
+    if (!email) {
+      return responseHandler.badRequest(res, "Email không được bỏ trống.");
+    }
 
     const checkUser = await User.findOne({ email });
     if (checkUser)
       return responseHandler.badRequest(res, "Email đã được sử dụng.");
 
-    if (!password) {
+    if (!firstName) {
+      return responseHandler.badRequest(res, "Tên không được để trống.");
+    }
+
+    if (!lastName) {
+      return responseHandler.badRequest(res, "Họ không được để trống.");
+    }
+
+    if (!password || !confirmPassword) {
       return responseHandler.badRequest(res, "Mật khẩu không được để trống.");
+    }
+
+    if (password != confirmPassword) {
+      return responseHandler.badRequest(
+        res,
+        "Mật khẩu và xác nhận mật khẩu không khớp."
+      );
     }
 
     const salt = await bcrypt.genSalt(10);
@@ -179,9 +196,12 @@ export const signUp = async (req, res) => {
 
     const user = new User({
       email,
+      firstName,
+      lastName,
       userName,
       password: hashedPassword,
       salt,
+      role: "mentee",
       isVerified: false,
       isDeleted: false,
       verifyKey,
@@ -294,7 +314,8 @@ export const signUpMentor = async (req, res) => {
       salt,
       avatarUrl,
       avatarPublicId,
-      role: ["mentor"],
+      role: "mentor",
+      isVerified: false,
       // ... các trường còn lại
       ...rest,
     });
@@ -309,6 +330,23 @@ export const signUpMentor = async (req, res) => {
   } catch (err) {
     console.error("Lỗi signUpMentor:", err);
     responseHandler.error(res, err.message || "Lỗi đăng ký mentor!");
+  }
+};
+
+export const getPendingMentor = async (req, res) => {
+  try {
+    const mentors = await User.find({
+      role: "mentor",
+      isVerified: false,
+    });
+
+    return responseHandler.ok(res, mentors);
+  } catch (err) {
+    console.log("Lỗi lấy mentor chờ duyệt: ", err);
+    return responseHandler.error(
+      res,
+      err.message || "Lỗi lấy mentor chờ duyệt!"
+    );
   }
 };
 

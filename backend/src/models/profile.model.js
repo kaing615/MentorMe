@@ -3,17 +3,37 @@ import mongoose from "mongoose";
 const ProfileSchema = new mongoose.Schema(
   {
     user: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+
+    // Basic Info (moved from User)
+    jobTitle: { type: String, default: "" },
+    location: { type: String, default: "" },
+    category: { type: String, default: "" },
+    bio: { type: String, default: "" },
+
+    // Skills & Experience
+    skills: { type: [String], default: [] },
+    experience: { type: String, default: "" },
+
+    // Mentor specific
     headline: { type: String, default: "" },
-    bio: { type: String, default: "" }, //mentor
-    skills: { type: [String], default: [] }, //mentor
-    experience: { type: String, default: "" }, //mentor
-    description: { type: String, default: "" }, //mentee
-    goal: { type: String, default: "" }, //mentee
-    education: { type: String, default: "" }, //mentee
-    languages: { type: [String], default: [] }, //mentor, mentee
-    timezone: { type: String, default: "" }, //mentor, mentee
-    reviews: [{ type: mongoose.Schema.Types.ObjectId, ref: "Review" }], //mentor
-    rate: { type: Number, default: 0 }, //mentor
+    mentorReason: { type: String, default: "" },
+    greatestAchievement: { type: String, default: "" },
+    introVideo: { type: String, default: "" },
+
+    // Mentee specific
+    description: { type: String, default: "" },
+    goal: { type: String, default: "" },
+    education: { type: String, default: "" },
+
+    // Common
+    languages: { type: [String], default: [] },
+    timezone: { type: String, default: "" },
+
+    // Business Logic
+    reviews: [{ type: mongoose.Schema.Types.ObjectId, ref: "Review" }],
+    rate: { type: Number, default: 0 },
+
+    // Social Links (consolidated)
     links: {
       website: { type: String, default: "" },
       X: { type: String, default: "" },
