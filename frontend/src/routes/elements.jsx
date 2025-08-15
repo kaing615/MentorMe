@@ -66,6 +66,7 @@ const useRouterElements = () => {
   ]);
 
   return elements;
+  return elements;
 };
 
 export default useRouterElements;

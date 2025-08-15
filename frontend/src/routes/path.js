@@ -21,6 +21,7 @@ export const MENTEE_PATH = {
 
 export const ADMIN_PATH = {
   DASHBOARD: "dashboard",
+  DASHBOARD: "dashboard",
 };
 
 export const MENTOR_PATH = {
