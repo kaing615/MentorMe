@@ -5,68 +5,48 @@ import linkedinImg from "../assets/linkedin.png";
 import twitterImg from "../assets/twitter.png";
 import googleImg from "../assets/google.png";
 import minatoImg from "../assets/minato.jpg";
-import {
-  generateMentorProfile,
-  generateCourses,
-  generateMentees,
-  generateConversations,
-  generateReviews,
-} from "../utils/mockData";
 
 const MentorProfile = () => {
   const [activeTab, setActiveTab] = useState("profile");
 
-  // Generate mentor profile data using Faker
-  const mentorData = generateMentorProfile();
+  // Chuẩn bị cho tích hợp API, khởi tạo state rỗng
   const [formData, setFormData] = useState({
-    firstName: mentorData.firstName,
-    lastName: mentorData.lastName,
-    headline: mentorData.headline,
-    bio: mentorData.bio,
-    website: mentorData.website,
-    twitter: mentorData.twitter,
-    linkedin: mentorData.linkedin,
-    youtube: mentorData.youtube,
-    facebook: mentorData.facebook,
+    firstName: "",
+    lastName: "",
+    headline: "",
+    bio: "",
+    website: "",
+    twitter: "",
+    linkedin: "",
+    youtube: "",
+    facebook: "",
   });
-
-  const [profileImage, setProfileImage] = useState(mentorData.profileImage);
-
+  const [profileImage, setProfileImage] = useState("");
   // Course management state
   const [searchTerm, setSearchTerm] = useState("");
   const [sortBy, setSortBy] = useState("latest");
   const [filterBy, setFilterBy] = useState("relevance");
   const [currentPage, setCurrentPage] = useState(1);
   const coursesPerPage = 9;
-
   // Mentee management state
   const [menteeSearchTerm, setMenteeSearchTerm] = useState("");
   const [menteeSortBy, setMenteeSortBy] = useState("latest");
   const [menteeCurrentPage, setMenteeCurrentPage] = useState(1);
   const menteesPerPage = 8;
-
   // Message management state
   const [selectedConversation, setSelectedConversation] = useState(null);
   const [messageInput, setMessageInput] = useState("");
   const [searchMessages, setSearchMessages] = useState("");
-
   // Reviews management state
   const [reviewSearchTerm, setReviewSearchTerm] = useState("");
   const [reviewSortBy, setReviewSortBy] = useState("latest");
   const [reviewCurrentPage, setReviewCurrentPage] = useState(1);
   const reviewsPerPage = 6;
-
-  // Sample courses data - TODO: Replace with API data
-  const [allCourses] = useState(generateCourses(15));
-
-  // Sample mentees data - TODO: Replace with API data
-  const [allMentees] = useState(generateMentees(20, allCourses));
-
-  // Sample conversations data - TODO: Replace with API data
-  const [conversations] = useState(generateConversations(10, allMentees));
-
-  // Sample reviews data - TODO: Replace with API data
-  const [allReviews] = useState(generateReviews(25, allCourses, allMentees));
+  // Chuẩn bị cho tích hợp API
+  const [allCourses, setAllCourses] = useState([]);
+  const [allMentees, setAllMentees] = useState([]);
+  const [conversations, setConversations] = useState([]);
+  const [allReviews, setAllReviews] = useState([]);
 
   // Filter and search logic
   const getFilteredAndSortedCourses = () => {
@@ -628,9 +608,6 @@ const MentorProfile = () => {
                     <h3 className="text-lg font-semibold text-gray-900">
                       Courses ({filteredCourses.length})
                     </h3>
-                    <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition font-medium text-sm">
-                      New Course
-                    </button>
                   </div>
                 </div>
 

@@ -2,50 +2,15 @@ import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 // import axios from "../api/clients/public.client"; // Uncomment and adjust path if you have a custom axios client
 import minatoPic from "../assets/minato.jpg";
-import { generateMentorProfile, generateCourses } from "../utils/mockData";
 
 const AllCourses = () => {
   const { mentorId } = useParams(); // Get mentor ID from URL params
   const navigate = useNavigate();
 
-  // Generate dynamic data using faker
-  const mentorProfile = generateMentorProfile();
-  const allCoursesData = generateCourses(20); // Generate 20 courses
-
-  // Default mentor data with faker-generated content
-  const defaultMentor = {
-    name: `${mentorProfile.firstName} ${mentorProfile.lastName}`,
-    title: mentorProfile.headline,
-    avatar: mentorProfile.profileImage,
-    totalCourses: allCoursesData.length,
-    totalStudents: allCoursesData.reduce(
-      (total, course) => total + course.students,
-      0
-    ),
-    averageRating: 4.8,
-  };
-
-  // Transform generated courses to match component structure
-  const transformedCourses = allCoursesData.map((course) => ({
-    id: course.id,
-    title: course.title,
-    duration: `${course.totalHours}h`,
-    lessons: course.lectures,
-    level: course.level,
-    rating: course.rating,
-    lectures: course.ratingsCount,
-    price: course.price,
-    category: course.category,
-    description: course.description,
-    instructor: course.instructor,
-    students: course.students,
-    createdAt: course.createdAt,
-    image: course.image,
-  }));
-
-  const [mentor, setMentor] = useState(defaultMentor);
-  const [allCourses, setAllCourses] = useState(transformedCourses);
-  const [filteredCourses, setFilteredCourses] = useState(transformedCourses);
+  // Chuẩn bị cho tích hợp API, khởi tạo state rỗng
+  const [mentor, setMentor] = useState(null);
+  const [allCourses, setAllCourses] = useState([]);
+  const [filteredCourses, setFilteredCourses] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [selectedLevel, setSelectedLevel] = useState("all");
@@ -113,9 +78,9 @@ const AllCourses = () => {
     startIndex + coursesPerPage
   );
 
-  // Fetch data from API
+  // Fetch data từ API (chuẩn bị tích hợp)
   useEffect(() => {
-    // TODO: Replace with actual API calls
+    // TODO: Tích hợp API ở đây, ví dụ:
     // axios.get(`/mentors/${mentorId}`).then(res => {
     //   if (res.data) setMentor(res.data);
     // });
@@ -162,21 +127,23 @@ const AllCourses = () => {
 
           <div className="flex items-center gap-6">
             <img
-              src={mentor.avatar}
-              alt={mentor.name}
+              src={mentor?.avatar || "/vite.svg"}
+              alt={mentor?.name || "Mentor"}
               className="w-16 h-16 rounded-full object-cover"
             />
             <div>
               <h1 className="text-2xl font-bold text-gray-900 mb-1">
-                {mentor.name}
+                {mentor?.name || "Mentor Name"}
               </h1>
-              <p className="text-gray-600">{mentor.title}</p>
+              <p className="text-gray-600">{mentor?.title || "Mentor Title"}</p>
               <div className="flex items-center gap-4 mt-2 text-sm text-gray-500">
-                <span>{mentor.totalCourses} courses</span>
-                <span>{mentor.totalStudents.toLocaleString()} students</span>
+                <span>{mentor?.totalCourses || 0} courses</span>
+                <span>
+                  {(mentor?.totalStudents || 0).toLocaleString()} students
+                </span>
                 <div className="flex items-center gap-1">
                   <span className="text-yellow-500">★</span>
-                  <span>{mentor.averageRating} rating</span>
+                  <span>{mentor?.averageRating || 0} rating</span>
                 </div>
               </div>
             </div>

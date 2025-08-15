@@ -5,184 +5,26 @@ import minatoPic from "../assets/minato.jpg";
 const MentorPage = () => {
   const navigate = useNavigate();
 
-  const defaultMentor = {
-    name: "Cong Khoa Van",
-    title: "Fullstack Developer, Teacher",
-    totalStudents: 1000,
-    reviewsCount: 154,
-    website: "#",
-    twitter: "#",
-    youtube: "#",
-    about:
-      "Cong Khoa Van is a highly skilled professional with a solid foundation in computer science. He is known for his expertise in designing and developing user-centric digital solutions.",
-    expertise: [
-      "User Experience Design",
-      "User Interface Design",
-      "Web Development",
-      "Mobile App Design",
-    ],
-    experience:
-      "Van has a comprehensive background in UX/UI design, having worked with renowned companies. His portfolio includes a diverse range of projects across various sectors, mobile apps, and e-commerce platforms.",
-    averageRating: 4.6,
-    ratingStats: [
-      { star: 5, percent: 65 },
-      { star: 4, percent: 25 },
-      { star: 3, percent: 6 },
-      { star: 2, percent: 2 },
-      { star: 1, percent: 2 },
-    ],
-  };
-  const defaultCourses = [
-    {
-      id: 1,
-      title: "Programming Fundamentals",
-      duration: "24h",
-      lessons: 100,
-      level: "Beginner",
-      rating: 4.8,
-      lectures: 154,
-      price: 149,
-    },
-    {
-      id: 2,
-      title: "JavaScript Basics",
-      duration: "18h",
-      lessons: 80,
-      level: "Beginner",
-      rating: 4.7,
-      lectures: 120,
-      price: 149,
-    },
-    {
-      id: 3,
-      title: "React for Beginners",
-      duration: "20h",
-      lessons: 90,
-      level: "Beginner",
-      rating: 4.9,
-      lectures: 130,
-      price: 149,
-    },
-    {
-      id: 4,
-      title: "Web Development",
-      duration: "30h",
-      lessons: 110,
-      level: "Beginner",
-      rating: 4.8,
-      lectures: 140,
-      price: 149,
-    },
-    {
-      id: 5,
-      title: "Node.js Backend Development",
-      duration: "28h",
-      lessons: 95,
-      level: "Intermediate",
-      rating: 4.9,
-      lectures: 165,
-      price: 199,
-    },
-    {
-      id: 6,
-      title: "Python for Data Science",
-      duration: "35h",
-      lessons: 120,
-      level: "Intermediate",
-      rating: 4.8,
-      lectures: 180,
-      price: 179,
-    },
-    {
-      id: 7,
-      title: "MongoDB Database Design",
-      duration: "22h",
-      lessons: 75,
-      level: "Beginner",
-      rating: 4.7,
-      lectures: 125,
-      price: 139,
-    },
-    {
-      id: 8,
-      title: "Advanced CSS & SASS",
-      duration: "26h",
-      lessons: 85,
-      level: "Intermediate",
-      rating: 4.8,
-      lectures: 145,
-      price: 159,
-    },
-    {
-      id: 9,
-      title: "Vue.js Complete Guide",
-      duration: "32h",
-      lessons: 105,
-      level: "Intermediate",
-      rating: 4.9,
-      lectures: 175,
-      price: 189,
-    },
-    {
-      id: 10,
-      title: "TypeScript Mastery",
-      duration: "24h",
-      lessons: 90,
-      level: "Advanced",
-      rating: 4.8,
-      lectures: 155,
-      price: 199,
-    },
-  ];
-  const defaultReviews = [
-    {
-      id: 1,
-      userName: "Lamine Yamal",
-      rating: 5,
-      date: "Reviewed on 22nd June, 2025",
-      comment:
-        "I was honestly nervous at first since I had zero experience in this field. But my mentor, Viet Thang Nguyen, made everything so easy to understand! He broke down all the tricky stuff into simple, real-life tips, and our chats were actually fun and super motivating. I feel way more confident now thanks to his guidance!",
-    },
-    {
-      id: 2,
-      userName: "Sarah Johnson",
-      rating: 5,
-      date: "Reviewed on 22nd June, 2025",
-      comment:
-        "I was honestly nervous at first since I had zero experience in this field. But my mentor, Viet Thang Nguyen, made everything so easy to understand! He broke down all the tricky stuff into simple, real-life tips, and our chats were actually fun and super motivating. I feel way more confident now thanks to his guidance!",
-    },
-    {
-      id: 3,
-      userName: "Michael Chen",
-      rating: 5,
-      date: "Reviewed on 22nd June, 2025",
-      comment:
-        "I was honestly nervous at first since I had zero experience in this field. But my mentor, Viet Thang Nguyen, made everything so easy to understand! He broke down all the tricky stuff into simple, real-life tips, and our chats were actually fun and super motivating. I feel way more confident now thanks to his guidance!",
-    },
-  ];
-
-  const [mentor, setMentor] = useState(defaultMentor);
-  const [courses, setCourses] = useState(defaultCourses);
-  const [reviews, setReviews] = useState(defaultReviews);
+  // Chuẩn bị cho tích hợp API, khởi tạo state rỗng
+  const [mentor, setMentor] = useState(null);
+  const [courses, setCourses] = useState([]);
+  const [reviews, setReviews] = useState([]);
   // You can set loading and error state if needed
   // const [loading, setLoading] = useState(false);
   // const [error, setError] = useState(null);
 
   // Fetch data from backend API and overwrite default data if available
   useEffect(() => {
-    // Example API endpoints (replace with your actual endpoints)
-    // const mentorId = "1"; // Get from route or props if needed
-    // setLoading(true);
+    // TODO: Tích hợp API ở đây, ví dụ:
     // axios.get(`/mentors/${mentorId}`).then(res => {
     //   if (res.data) setMentor(res.data);
-    // }).catch(err => setError(err));
+    // });
     // axios.get(`/mentors/${mentorId}/courses`).then(res => {
     //   if (res.data && Array.isArray(res.data) && res.data.length > 0) setCourses(res.data);
     // });
     // axios.get(`/mentors/${mentorId}/reviews`).then(res => {
     //   if (res.data && Array.isArray(res.data) && res.data.length > 0) setReviews(res.data);
     // });
-    // setLoading(false);
   }, []);
 
   // --- Carousel logic for More Courses section ---
