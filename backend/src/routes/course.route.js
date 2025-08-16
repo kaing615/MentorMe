@@ -1,4 +1,6 @@
 import express from "express";
+import upload from "../utils/multer.js";
+
 import {
   getAllCourses,
   getMyCourses,
@@ -13,8 +15,9 @@ import {
   removeMentorFromCourse,
   addContentToCourse,
   removeContentFromCourse,
-} from "../controllers/course.controller.js"; 
-import { verifyToken, authorizeRoles } from "../middlewares/auth.middleware.js"; 
+} from "../controllers/course.controller.js";
+import { verifyToken, authorizeRoles } from "../middlewares/auth.middleware.js";
+import forceMentor from "../middlewares/forceMentor.middleware.js";
 
 const router = express.Router();
 
@@ -253,7 +256,8 @@ router.get("/:courseId/reviews", getCourseReviews);
  *       401:
  *         description: Unauthorized
  */
-router.post("/", verifyToken, createCourse);
+
+router.post("/", forceMentor, upload.single("thumbnail"), createCourse);
 
 /**
  * @swagger
@@ -317,7 +321,7 @@ router.post("/", verifyToken, createCourse);
  *         description: Course not found
  */
 router.put("/:courseId", verifyToken, updateCourse);
-router.delete("/:courseId", verifyToken, deleteCourse);
+router.delete("/:courseId", forceMentor, deleteCourse);
 
 /**
  * @swagger

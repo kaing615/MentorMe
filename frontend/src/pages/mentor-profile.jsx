@@ -1,5 +1,6 @@
+
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { PATH, MENTOR_PATH } from "../routes/path";
 import youtubeImg from "../assets/youtube.png";
 import facebookImg from "../assets/facebook.png";
@@ -8,9 +9,18 @@ import twitterImg from "../assets/twitter.png";
 import googleImg from "../assets/google.png";
 import courseApi from "../api/modules/course.api";
 
+
+
 const MentorProfile = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [activeTab, setActiveTab] = useState("profile");
+  // Khi location.state.tab thay đổi (navigate từ CreateCoursePage), tự động chuyển tab
+  useEffect(() => {
+    if (location.state && location.state.tab) {
+      setActiveTab(location.state.tab);
+    }
+  }, [location.state]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [formData, setFormData] = useState({
@@ -24,6 +34,42 @@ const MentorProfile = () => {
     youtube: "",
     facebook: "",
   });
+
+  // Sửa trong mentor-profile.jsx
+  const handleDeleteCourse = async (course) => {
+    const courseId = course._id || course.id;
+    if (!courseId) {
+      alert('Invalid course id!');
+      return;
+    }
+    if (!window.confirm('Are you sure you want to delete this course?')) return;
+    try {
+      setLoading(true);
+      const { response, error } = await courseApi.deleteCourse({ courseId });
+      console.log('Delete response:', { response, error });
+      if (error) {
+        console.error('Delete error:', error);
+        const errorMessage = error.response?.data?.message || 'Delete failed!';
+        alert(errorMessage);
+        return;
+      }
+      // Nếu response tồn tại là coi như thành công (do interceptor chỉ trả về response.data)
+      if (response) {
+        setAllCourses((prev) => prev.filter((c) => (c._id || c.id) !== courseId));
+        alert('Course deleted successfully!');
+        console.log('Course deleted successfully');
+      } else {
+        // Không có response
+        console.error('Delete failed, no response:', response);
+        alert('Delete failed - no response');
+      }
+    } catch (err) {
+      console.error('Delete failed:', err);
+      alert('Delete failed - network error');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const [profileImage, setProfileImage] = useState(null);
 
@@ -826,7 +872,7 @@ const MentorProfile = () => {
                         className="border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow"
                       >
                         <img
-                          src={course.thumbnail || "/placeholder-course.jpg"}
+                          src={course.thumbnail ? (course.thumbnail.startsWith('http') ? course.thumbnail : `http://localhost:4000/${course.thumbnail}`) : "/placeholder-course.jpg"}
                           alt={course.title}
                           className="w-full h-48 object-cover"
                         />
@@ -858,7 +904,10 @@ const MentorProfile = () => {
                             <button className="flex-1 bg-blue-600 text-white py-2 px-3 rounded-lg hover:bg-blue-700 transition text-sm font-medium">
                               Edit Course
                             </button>
-                            <button className="px-3 py-2 border border-red-300 text-red-600 rounded-lg hover:bg-red-50 transition text-sm">
+                            <button
+                              className="px-3 py-2 border border-red-300 text-red-600 rounded-lg hover:bg-red-50 transition text-sm"
+                              onClick={() => handleDeleteCourse(course)}
+                            >
                               Delete
                             </button>
                           </div>

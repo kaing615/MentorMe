@@ -1,9 +1,12 @@
+
 import responseHandler from "../handlers/response.handler.js";
 import Course from "../models/course.model.js";
 import User from "../models/user.model.js";
 import Lesson from "../models/lesson.model.js";
 import Review from "../models/review.model.js";
-import mongoose from "mongoose"; 
+import mongoose from "mongoose";
+import path from "path";
+import fs from "fs";
 import { 
   createCourseSchema, 
   updateCourseSchema, 
@@ -353,16 +356,21 @@ export const getCourseReviews = async (req, res) => {
 // [POST] /api/courses
 export const createCourse = async (req, res) => {
   try {
-    console.log('Request body:', req.body);
-    console.log('Request files:', req.files);
-    
+    console.log('===== [CREATE COURSE] =====');
+    console.log('req.body:', req.body);
+    console.log('req.file:', req.file);
+    console.log('req.files:', req.files);
+    console.log('req.headers:', req.headers);
+    console.log('===========================');
+
     // Validate dữ liệu đầu vào
     const { error } = createCourseSchema.validate(req.body);
     if (error) {
+      console.error('[VALIDATION ERROR]', error);
       return responseHandler.badRequest(res, error.details[0].message);
     }
 
-    const creatorId = req.user.id; 
+    const creatorId = req.user?.id || null;
     const { 
       title, 
       price, 
@@ -379,10 +387,9 @@ export const createCourse = async (req, res) => {
     const thumbnail = req.file ? req.file.path : null;
     
     if (!thumbnail) {
+      console.error('[THUMBNAIL ERROR] No thumbnail uploaded');
       return responseHandler.badRequest(res, "Course thumbnail is required");
     }
-
-    // Quyền tạo khóa học đã được kiểm tra bởi authorizeRoles('admin', 'mentor')
 
     const newCourse = new Course({ 
       title: title, // Giữ nguyên field title
@@ -403,17 +410,28 @@ export const createCourse = async (req, res) => {
 
     await newCourse.save();
 
-    // Cập nhật thông tin khóa học vào model User của mentor
-    await User.findByIdAndUpdate(
-      creatorId,
-      { $push: { courses: newCourse._id } }
-    );
+    // Cập nhật thông tin khóa học vào model User của mentor nếu có creatorId
+    if (creatorId) {
+      await User.findByIdAndUpdate(
+        creatorId,
+        { $push: { courses: newCourse._id } }
+      );
+    }
 
     return responseHandler.created(res, newCourse);
 
   } catch (err) {
-    console.error("Error creating course:", err);
-    responseHandler.error(res);
+    console.error("[CREATE COURSE ERROR]", err);
+    if (err && err.stack) {
+      console.error('[STACK TRACE]', err.stack);
+    }
+    // Trả về lỗi chi tiết cho client (chỉ để debug, không nên để production)
+    return res.status(500).json({
+      message: 'Internal server error',
+      error: err.message,
+      stack: err.stack,
+      full: err
+    });
   }
 };
 
@@ -467,11 +485,29 @@ export const deleteCourse = async (req, res) => {
        return responseHandler.forbidden(res, "You do not have permission to delete this course.");
     }
 
+
     const mentorOfCourse = course.mentor;
     const menteesOfCourse = course.mentees;
 
-    await Course.findByIdAndDelete(courseId);
+    // Xoá file thumbnail nếu có
+    if (course.thumbnail) {
+      let thumbnailPath = course.thumbnail;
+      // Normalize path separators for cross-platform
+      thumbnailPath = thumbnailPath.replace(/\\/g, '/');
+      // Nếu có tiền tố uploads/ thì giữ nguyên, nếu không thì thêm vào
+      if (!thumbnailPath.startsWith('uploads/')) {
+        thumbnailPath = path.join('uploads', thumbnailPath);
+      }
+      // Đảm bảo dùng path.resolve để lấy đúng đường dẫn tuyệt đối
+      const fullPath = path.resolve(process.cwd(), thumbnailPath);
+      fs.unlink(fullPath, (err) => {
+        if (err && err.code !== 'ENOENT') {
+          console.error('Error deleting thumbnail:', err, fullPath);
+        }
+      });
+    }
 
+    await Course.findByIdAndDelete(courseId);
     await Lesson.deleteMany({ course: courseId });
     await Review.deleteMany({ target: courseId, targetType: "Course" });
 

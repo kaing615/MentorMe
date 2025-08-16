@@ -14,12 +14,14 @@ const createPrivateClient = (dispatch) => {
 
 	privateClient.interceptors.request.use(
 		async (config) => {
-			config.headers = {
-				...config.headers,
-				"Content-Type": "application/json",
-				Authorization: `Bearer ${localStorage.getItem("actkn")}`,
-			};
-			return config;
+			   // Only set Content-Type if not FormData
+			   const isFormData = config.data instanceof FormData;
+			   config.headers = {
+				   ...config.headers,
+				   ...(isFormData ? {} : { "Content-Type": "application/json" }),
+				   Authorization: `Bearer ${localStorage.getItem("actkn")}`,
+			   };
+			   return config;
 		},
 		(error) => Promise.reject(error)
 	);

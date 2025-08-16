@@ -31,6 +31,10 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
+
+// Serve uploads folder as static
+app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
+
 // API routes
 app.use("/api/v1", routes);
 

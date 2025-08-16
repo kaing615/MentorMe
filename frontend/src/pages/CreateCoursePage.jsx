@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
@@ -8,6 +9,7 @@ import { toast } from 'react-toastify';
 
 const CreateCoursePage = () => {
   const [imagePreview, setImagePreview] = useState(null);
+  const navigate = useNavigate();
   const [isImageDragOver, setIsImageDragOver] = useState(false);
   const [imageFile, setImageFile] = useState(null);
   const [imageError, setImageError] = useState('');
@@ -144,6 +146,10 @@ const CreateCoursePage = () => {
       setImagePreview(null);
       setImageFile(null);
       setImageError('');
+      // Chuyển hướng về trang My Courses sau khi tạo thành công
+      setTimeout(() => {
+        navigate('/mentor/profile', { state: { tab: 'mycourses' } });
+      }, 800);
     } catch (error) {
       console.error('Error creating course:', error);
       console.error('Error details:', error.response?.data || error.message);

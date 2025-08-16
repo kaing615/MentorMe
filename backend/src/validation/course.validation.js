@@ -14,7 +14,11 @@ export const createCourseSchema = Joi.object({
   title: Joi.string().required(),
   price: Joi.alternatives().try(
     Joi.number().min(0),
-    Joi.string().pattern(/^\d+(\.\d{1,2})?$/).custom((value) => parseFloat(value))
+    Joi.string().pattern(/^\d+(\.\d{1,2})?$/).custom((value, helpers) => {
+      const num = parseFloat(value);
+      if (isNaN(num)) return helpers.error('any.invalid');
+      return num;
+    })
   ).required(),
   courseOverview: Joi.string().required(),
   keyLearningObjectives: Joi.string().required(),
@@ -22,13 +26,22 @@ export const createCourseSchema = Joi.object({
   level: Joi.string().valid('Beginner', 'Intermediate', 'Advanced', 'Expert').required(),
   lectures: Joi.alternatives().try(
     Joi.number().min(1),
-    Joi.string().pattern(/^\d+$/).custom((value) => parseInt(value))
+    Joi.string().pattern(/^\d+$/).custom((value, helpers) => {
+      const num = parseInt(value);
+      if (isNaN(num)) return helpers.error('any.invalid');
+      return num;
+    })
   ).required(),
   duration: Joi.alternatives().try(
-    Joi.number().min(0).optional(),
-    Joi.string().pattern(/^\d+$/).custom((value) => parseInt(value)).optional(),
-    Joi.string().allow('').optional()
-  ),
+    Joi.number().min(0),
+    Joi.string().pattern(/^\d+$/).custom((value, helpers) => {
+      if (value === "") return undefined;
+      const num = parseInt(value);
+      if (isNaN(num)) return helpers.error('any.invalid');
+      return num;
+    }),
+    Joi.string().allow("")
+  ).optional(),
   driveLink: Joi.string().uri().required(),
   // thumbnail sẽ được handle bởi multer, không cần validate ở đây
 });

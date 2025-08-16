@@ -49,46 +49,17 @@ const courseApi = {
     // Tạo course mới (hỗ trợ cả JSON và FormData cho file upload)
     createCourse: async (courseData) => {
         try {
-            // Kiểm tra xem có file thumbnail không
-            const hasFile = courseData instanceof FormData || courseData.thumbnail instanceof File;
-            
-            let requestData;
-            let config = {};
-
-            if (hasFile && !(courseData instanceof FormData)) {
-                // Tạo FormData nếu có file nhưng chưa phải FormData
-                requestData = new FormData();
-                
-                // Append tất cả các field từ courseData
-                Object.keys(courseData).forEach(key => {
-                    if (courseData[key] !== undefined && courseData[key] !== null && courseData[key] !== '') {
-                        if (key === 'thumbnail' && courseData[key] instanceof File) {
-                            requestData.append(key, courseData[key]);
-                        } else {
-                            requestData.append(key, courseData[key].toString());
-                        }
-                    }
-                });
-
-                config.headers = {
-                    'Content-Type': 'multipart/form-data',
-                };
-            } else if (courseData instanceof FormData) {
-                // Đã là FormData rồi
-                requestData = courseData;
-                config.headers = {
-                    'Content-Type': 'multipart/form-data',
-                };
+            // Nếu là FormData (gửi file), không set headers, axios sẽ tự động xử lý
+            if (courseData instanceof FormData) {
+                const response = await privateClient.post(courseEndpoints.createCourse, courseData);
+                return { response };
             } else {
-                // Không có file, gửi JSON
-                requestData = courseData;
-                config.headers = {
-                    'Content-Type': 'application/json',
-                };
+                // Nếu không phải FormData, gửi JSON
+                const response = await privateClient.post(courseEndpoints.createCourse, courseData, {
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                return { response };
             }
-
-            const response = await privateClient.post(courseEndpoints.createCourse, requestData, config);
-            return { response };
         } catch (error) {
             return { error };
         }
@@ -140,9 +111,11 @@ const courseApi = {
     // Xóa course
     deleteCourse: async ({ courseId }) => {
         try {
+            // Sử dụng privateClient thay vì publicClient vì delete course cần authentication
             const response = await privateClient.delete(courseEndpoints.deleteCourse({ courseId }));
             return { response };
         } catch (error) {
+            console.error('Delete course API error:', error);
             return { error };
         }
     },
