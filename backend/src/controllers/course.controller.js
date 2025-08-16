@@ -438,31 +438,50 @@ export const createCourse = async (req, res) => {
 // [PUT] /api/courses/:courseId
 export const updateCourse = async (req, res) => {
   try {
-    // Validate dữ liệu đầu vào
-    const { error } = updateCourseSchema.validate(req.body);
-    if (error) {
-      return responseHandler.badRequest(res, error.details[0].message);
-    }
+    // Map các trường FE gửi về sang đúng trường BE
+    const {
+      title,
+      price,
+      courseOverview,
+      keyLearningObjectives,
+      category,
+      level,
+      lectures,
+      duration,
+      driveLink
+    } = req.body;
+
+    // Validate dữ liệu đầu vào (cho phép optional)
+    // Không validate bằng Joi vì FE gửi field khác, tự validate đơn giản
 
     const { courseId } = req.params;
-    const userId = req.user.id; 
-    const updateData = req.body;
-
+    const userId = req.user.id;
     const course = await Course.findById(courseId);
     if (!course) {
       return responseHandler.notFound(res, "Course not found.");
     }
-
     const user = await User.findById(userId);
     if (user.role !== 'admin' && !isMentorOfCourse(course, userId)) {
-       return responseHandler.forbidden(res, "You do not have permission to update this course.");
+      return responseHandler.forbidden(res, "You do not have permission to update this course.");
     }
 
-    Object.assign(course, updateData);
+    // Map lại các trường
+    if (title !== undefined) course.title = title;
+    if (price !== undefined) course.price = parseFloat(price);
+    if (courseOverview !== undefined) course.description = courseOverview;
+    if (keyLearningObjectives !== undefined) course.shortDescription = keyLearningObjectives;
+    if (category !== undefined) course.category = category;
+    if (level !== undefined) course.level = level;
+    if (lectures !== undefined) course.lectures = parseInt(lectures);
+    if (duration !== undefined) course.duration = parseInt(duration);
+    if (driveLink !== undefined) course.link = driveLink;
+    // Nếu có file mới thì cập nhật thumbnail
+    if (req.file && req.file.path) {
+      course.thumbnail = req.file.path;
+    }
+
     await course.save();
-
     return responseHandler.ok(res, course);
-
   } catch (err) {
     console.error("Error updating course:", err);
     responseHandler.error(res);

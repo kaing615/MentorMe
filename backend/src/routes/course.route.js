@@ -320,7 +320,8 @@ router.post("/", forceMentor, upload.single("thumbnail"), createCourse);
  *       404:
  *         description: Course not found
  */
-router.put("/:courseId", verifyToken, updateCourse);
+  // router.put("/:courseId", verifyToken, upload.single("thumbnail"), updateCourse); // OLD: yêu cầu đăng nhập
+  router.put("/:courseId", forceMentor, upload.single("thumbnail"), updateCourse); // NEW: cho phép không cần đăng nhập
 router.delete("/:courseId", forceMentor, deleteCourse);
 
 /**

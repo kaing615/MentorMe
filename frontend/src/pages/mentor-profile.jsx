@@ -866,55 +866,68 @@ const MentorProfile = () => {
                     }}
                   >
                     {currentCourses.length > 0 ? (
-                      currentCourses.map((course) => (
+                      currentCourses.map((course) => {
+                        console.log('Course card data:', course);
+                        console.log('overview:', course.overview, '| description:', course.description);
+                        return (
                         <div
                           key={course._id || course.id}
-                        className="border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow"
-                      >
-                        <img
-                          src={course.thumbnail ? (course.thumbnail.startsWith('http') ? course.thumbnail : `http://localhost:4000/${course.thumbnail}`) : "/placeholder-course.jpg"}
-                          alt={course.title}
-                          className="w-full h-48 object-cover"
-                        />
-                        <div className="p-4">
-                          <h4 className="font-semibold text-gray-900 mb-2 line-clamp-2">
-                            {course.title}
-                          </h4>
-                          <p className="text-sm text-gray-600 mb-2">
-                            By {course.mentor?.userName || 'Unknown Mentor'}
-                          </p>
-                          <div className="flex items-center gap-2 mb-2">
-                            <div className="flex text-yellow-400 text-sm">
-                              {"★".repeat(Math.floor(course.rate || 0))}
-                              {(course.rate || 0) % 1 !== 0 && "☆"}
+                          className="border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow min-h-[520px] flex flex-col"
+                        >
+                          <img
+                            src={course.thumbnail ? (course.thumbnail.startsWith('http') ? course.thumbnail : `http://localhost:4000/${course.thumbnail}`) : "/placeholder-course.jpg"}
+                            alt={course.title}
+                            className="w-full h-48 object-cover"
+                          />
+                          <div className="w-full h-px bg-gray-200 mb-3" style={{marginTop: 0}} />
+                          <div className="flex-1 flex flex-col p-4 pb-0">
+                            <div className="flex flex-col" style={{ minHeight: '120px', justifyContent: 'flex-start' }}>
+                              <h4 className="font-semibold text-gray-900 mb-2 line-clamp-2">
+                                {course.title}
+                              </h4>
+                              <p className="text-sm text-gray-600 mb-2">
+                                By {course.mentor?.userName || 'Unknown Mentor'}
+                              </p>
+                              <div className="flex items-center gap-2 mb-2">
+                                <div className="flex text-yellow-400 text-sm">
+                                  {"★".repeat(Math.floor(course.rate || 0))}
+                                  {(course.rate || 0) % 1 !== 0 && "☆"}
+                                </div>
+                                <span className="text-sm text-gray-600">
+                                  ({course.numberOfRatings || 0} Ratings)
+                                </span>
+                              </div>
+                              <p className="text-sm text-gray-600 mb-2">
+                                {course.duration || 0} Hours. {course.lectures || 0} Lectures. {course.category}
+                              </p>
+                              {(course.overview || course.description) && (
+                                <p className="text-gray-400 text-sm mb-2 line-clamp-2" style={{display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden'}} title={course.overview || course.description}>
+                                  {course.overview || course.description}
+                                </p>
+                              )}
                             </div>
-                            <span className="text-sm text-gray-600">
-                              ({course.numberOfRatings || 0} Ratings)
-                            </span>
+                            <p className="font-bold text-xl text-gray-900 mb-2 mt-auto">
+                              ${course.price}
+                            </p>
                           </div>
-                          <p className="text-sm text-gray-600 mb-3">
-                            {course.duration || 0} Hours. {course.lectures || 0}{" "}
-                            Lectures. {course.category}
-                          </p>
-                          <p className="font-bold text-lg text-gray-900 mb-3">
-                            ${course.price}
-                          </p>
-                          {/* TODO: Add edit/delete functionality with API calls */}
-                          <div className="flex gap-2">
-                            <button className="flex-1 bg-blue-600 text-white py-2 px-3 rounded-lg hover:bg-blue-700 transition text-sm font-medium">
+                          <div className="flex gap-2 p-4 pt-0 mt-auto">
+                            <button
+                              className="flex-1 bg-blue-600 text-white py-2 px-3 rounded-lg hover:bg-blue-700 transition text-sm font-medium"
+                              onClick={() => navigate(`/mentor/edit-course/${course._id || course.id}`)}
+                            >
                               Edit Course
                             </button>
                             <button
-                              className="px-3 py-2 border border-red-300 text-red-600 rounded-lg hover:bg-red-50 transition text-sm"
+                              className="flex-1 px-3 py-2 border border-red-300 text-red-600 rounded-lg hover:bg-red-50 transition text-sm"
                               onClick={() => handleDeleteCourse(course)}
                             >
                               Delete
                             </button>
                           </div>
                         </div>
-                      </div>
-                    ))
-                  ) : (
+                        );
+                      })
+                    ) : (
                     <div className="col-span-full text-center py-12">
                       <p className="text-gray-500 text-lg mb-2">
                         No courses found

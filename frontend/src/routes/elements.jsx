@@ -4,6 +4,7 @@ import AllPagesLayout from "../components/layout/AllPagesLayout";
 import MentorPage from "../pages/mentor-page";
 import MentorProfile from "../pages/mentor-profile";
 import MentorCourses from "../pages/CreateCoursePage";
+import EditCoursePage from "../pages/EditCoursePage";
 
 const useRouterElements = () => {
   const elements = useRoutes([
@@ -18,7 +19,11 @@ const useRouterElements = () => {
         { 
             path: MENTOR_PATH.HOME, 
             element: <MentorPage /> 
-        },
+    },
+    {
+      path: "edit-course/:courseId",
+      element: <EditCoursePage />
+    },
         { 
             path: MENTOR_PATH.PROFILE, 
             element: <MentorProfile /> 
