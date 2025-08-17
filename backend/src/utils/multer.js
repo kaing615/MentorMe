@@ -1,15 +1,12 @@
-import multer from "multer";
-
-const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: 2 * 1024 * 1024 },
-  fileFilter: (req, file, cb) => {
-    if (file.mimetype.startsWith("image/")) {
-      cb(null, true);
-    } else {
-      cb(new Error("File không phải là ảnh!"), false);
-    }
+import multer from 'multer';
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, 'uploads/'); // tạo thư mục uploads nếu chưa có
+  },
+  filename: function (req, file, cb) {
+    cb(null, Date.now() + '-' + file.originalname);
   }
 });
+const upload = multer({ storage });
 
 export default upload;

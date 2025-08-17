@@ -39,6 +39,7 @@ const forbidden = (res, message) =>
     message: message || "Forbidden",
   });
 
+
 export default {
   error,
   badrequest: badRequest,

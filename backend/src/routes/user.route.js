@@ -5,6 +5,7 @@ import * as userValidation from "../validations/user.validation.js";
 
 import userController from "../controllers/user.controller.js";
 import parseSkillsMiddleware from "../middlewares/parseSkills.middleware.js";
+import { getUserCourses } from "../controllers/course.controller.js";
 
 const router = express.Router();
 
@@ -127,5 +128,8 @@ router.post(
   validateBody(userValidation.resetPasswordSchema),
   userController.resetPassword
 );
+
+// Route để lấy danh sách khóa học của user
+router.get("/users/:userId/courses", getUserCourses);
 
 export default router;

@@ -1668,3 +1668,1352 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+
+  # CREATE COURSE APIs
+  /courses:
+    post:
+      tags:
+        - Create Course
+      summary: Create a new course
+      description: Create a new course with comprehensive details. Only mentors can create courses. Supports both JSON and form-data with file upload for thumbnail.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - title
+                - price
+                - courseOverview
+                - keyLearningObjectives
+                - category
+                - level
+                - lectures
+                - driveLink
+              properties:
+                title:
+                  type: string
+                  description: Course title
+                  example: "Complete JavaScript Mastery Course"
+                price:
+                  oneOf:
+                    - type: number
+                      minimum: 0
+                    - type: string
+                      pattern: '^\d+(\.\d{1,2})?$'
+                  description: Course price (accepts number or string format)
+                  example: 99.99
+                courseOverview:
+                  type: string
+                  description: Comprehensive overview of the course content
+                  example: "This comprehensive JavaScript course will take you from beginner to advanced level. You'll learn modern ES6+ features, DOM manipulation, async programming, and build real-world projects."
+                keyLearningObjectives:
+                  type: string
+                  description: Main learning objectives students will achieve
+                  example: "Master JavaScript fundamentals, Build interactive web applications, Understand async programming, Work with APIs and databases"
+                category:
+                  type: string
+                  description: Course category
+                  example: "Programming"
+                level:
+                  type: string
+                  enum: [Beginner, Intermediate, Advanced, Expert]
+                  description: Course difficulty level
+                  example: "Intermediate"
+                lectures:
+                  oneOf:
+                    - type: integer
+                      minimum: 1
+                    - type: string
+                      pattern: '^\d+$'
+                  description: Total number of lectures (accepts number or string format)
+                  example: 25
+                duration:
+                  oneOf:
+                    - type: number
+                      minimum: 0
+                    - type: string
+                      pattern: '^\d+$'
+                    - type: string
+                      enum: ['']
+                  description: Course duration in hours (optional, accepts empty string)
+                  example: 10.5
+                driveLink:
+                  type: string
+                  format: uri
+                  description: Google Drive link for course materials
+                  example: "https://drive.google.com/drive/folders/1234567890abcdef"
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - title
+                - price
+                - courseOverview
+                - keyLearningObjectives
+                - category
+                - level
+                - lectures
+                - driveLink
+              properties:
+                title:
+                  type: string
+                  description: Course title
+                price:
+                  type: string
+                  description: Course price
+                courseOverview:
+                  type: string
+                  description: Course overview
+                keyLearningObjectives:
+                  type: string
+                  description: Key learning objectives
+                category:
+                  type: string
+                  description: Course category
+                level:
+                  type: string
+                  enum: [Beginner, Intermediate, Advanced, Expert]
+                  description: Course difficulty level
+                lectures:
+                  type: string
+                  description: Number of lectures
+                duration:
+                  type: string
+                  description: Course duration (optional)
+                driveLink:
+                  type: string
+                  description: Google Drive materials link
+                thumbnail:
+                  type: string
+                  format: binary
+                  description: Course thumbnail image (max 5MB, jpg/jpeg/png/gif/webp)
+      responses:
+        "201":
+          description: Course created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Course created successfully"
+                  course:
+                    type: object
+                    properties:
+                      _id:
+                        type: string
+                        example: "64a1b2c3d4e5f6789012345"
+                      name:
+                        type: string
+                        example: "Complete JavaScript Mastery Course"
+                      description:
+                        type: string
+                        example: "This comprehensive JavaScript course will take you from beginner to advanced level..."
+                      shortDescription:
+                        type: string
+                        example: "Master JavaScript fundamentals, Build interactive web applications..."
+                      price:
+                        type: number
+                        example: 99.99
+                      category:
+                        type: string
+                        example: "Programming"
+                      level:
+                        type: string
+                        example: "Intermediate"
+                      lectures:
+                        type: number
+                        example: 25
+                      duration:
+                        type: number
+                        example: 10.5
+                      link:
+                        type: string
+                        example: "https://drive.google.com/drive/folders/..."
+                      thumbnail:
+                        type: string
+                        example: "uploads/thumbnails/course-123-thumbnail.jpg"
+                      mentor:
+                        type: string
+                        example: "64a1b2c3d4e5f6789012348"
+                      mentees:
+                        type: array
+                        items:
+                          type: string
+                        example: []
+                      averageRating:
+                        type: number
+                        example: 0
+                      numberOfRatings:
+                        type: number
+                        example: 0
+                      createdAt:
+                        type: string
+                        format: date-time
+                        example: "2024-01-01T10:00:00.000Z"
+                      updatedAt:
+                        type: string
+                        format: date-time
+                        example: "2024-01-01T10:00:00.000Z"
+        "400":
+          description: Invalid input data or validation failed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Validation failed"
+                  errors:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        field:
+                          type: string
+                          example: "title"
+                        message:
+                          type: string
+                          example: "Title is required"
+        "401":
+          description: Unauthorized - Token missing or invalid
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Access denied. No token provided."
+        "403":
+          description: Forbidden - Only mentors can create courses
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Access denied. Only mentors can create courses."
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Internal server error"
+
+    get:
+      tags:
+        - Create Course
+      summary: Get all courses
+      description: Retrieve all courses with optional filtering by category, level, and search query. Supports pagination.
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+          description: Page number for pagination
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 10
+          description: Number of courses per page
+        - name: category
+          in: query
+          schema:
+            type: string
+          description: Filter courses by category
+        - name: level
+          in: query
+          schema:
+            type: string
+            enum: [Beginner, Intermediate, Advanced, Expert]
+          description: Filter courses by difficulty level
+        - name: search
+          in: query
+          schema:
+            type: string
+          description: Search courses by title or description
+        - name: sortBy
+          in: query
+          schema:
+            type: string
+            enum: [createdAt, price, averageRating, name]
+            default: createdAt
+          description: Sort courses by field
+        - name: sortOrder
+          in: query
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+          description: Sort order
+      responses:
+        "200":
+          description: Courses retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  courses:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        _id:
+                          type: string
+                        name:
+                          type: string
+                        description:
+                          type: string
+                        shortDescription:
+                          type: string
+                        price:
+                          type: number
+                        category:
+                          type: string
+                        level:
+                          type: string
+                        lectures:
+                          type: number
+                        duration:
+                          type: number
+                        thumbnail:
+                          type: string
+                        averageRating:
+                          type: number
+                        numberOfRatings:
+                          type: number
+                        mentor:
+                          type: object
+                          properties:
+                            _id:
+                              type: string
+                            firstName:
+                              type: string
+                            lastName:
+                              type: string
+                            avatar:
+                              type: string
+                        createdAt:
+                          type: string
+                          format: date-time
+                  totalCourses:
+                    type: integer
+                    example: 25
+                  totalPages:
+                    type: integer
+                    example: 3
+                  currentPage:
+                    type: integer
+                    example: 1
+                  hasNextPage:
+                    type: boolean
+                    example: true
+                  hasPrevPage:
+                    type: boolean
+                    example: false
+        "500":
+          description: Internal server error
+
+  /courses/{courseId}:
+    get:
+      tags:
+        - Create Course
+      summary: Get course details by ID
+      description: Retrieve detailed information about a specific course including mentor details and reviews.
+      parameters:
+        - in: path
+          name: courseId
+          schema:
+            type: string
+          required: true
+          description: The ID of the course to get
+      responses:
+        "200":
+          description: Course details retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  course:
+                    type: object
+                    properties:
+                      _id:
+                        type: string
+                      name:
+                        type: string
+                      description:
+                        type: string
+                      shortDescription:
+                        type: string
+                      category:
+                        type: string
+                      level:
+                        type: string
+                        enum: [Beginner, Intermediate, Advanced, Expert]
+                      price:
+                        type: number
+                      duration:
+                        type: number
+                      lectures:
+                        type: number
+                      link:
+                        type: string
+                      thumbnail:
+                        type: string
+                      averageRating:
+                        type: number
+                      numberOfRatings:
+                        type: number
+                      mentor:
+                        type: object
+                        properties:
+                          _id:
+                            type: string
+                          firstName:
+                            type: string
+                          lastName:
+                            type: string
+                          avatar:
+                            type: string
+                          profile:
+                            type: object
+                            properties:
+                              jobTitle:
+                                type: string
+                              bio:
+                                type: string
+                              skills:
+                                type: array
+                                items:
+                                  type: string
+                      mentees:
+                        type: array
+                        items:
+                          type: string
+                      createdAt:
+                        type: string
+                        format: date-time
+                      updatedAt:
+                        type: string
+                        format: date-time
+        "404":
+          description: Course not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  message:
+                    type: string
+                    example: "Course not found"
+        "500":
+          description: Internal server error
+
+    put:
+      tags:
+        - Create Course
+      summary: Update course details
+      description: Update an existing course. Only the mentor who created the course can update it.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: courseId
+          schema:
+            type: string
+          required: true
+          description: The ID of the course to update
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                  description: Course title
+                price:
+                  oneOf:
+                    - type: number
+                      minimum: 0
+                    - type: string
+                      pattern: '^\d+(\.\d{1,2})?$'
+                  description: Course price
+                courseOverview:
+                  type: string
+                  description: Course overview
+                keyLearningObjectives:
+                  type: string
+                  description: Key learning objectives
+                category:
+                  type: string
+                  description: Course category
+                level:
+                  type: string
+                  enum: [Beginner, Intermediate, Advanced, Expert]
+                  description: Course difficulty level
+                lectures:
+                  oneOf:
+                    - type: integer
+                      minimum: 1
+                    - type: string
+                      pattern: '^\d+$'
+                  description: Number of lectures
+                duration:
+                  oneOf:
+                    - type: number
+                      minimum: 0
+                    - type: string
+                      pattern: '^\d+$'
+                    - type: string
+                      enum: ['']
+                  description: Course duration
+                driveLink:
+                  type: string
+                  format: uri
+                  description: Google Drive materials link
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                price:
+                  type: string
+                courseOverview:
+                  type: string
+                keyLearningObjectives:
+                  type: string
+                category:
+                  type: string
+                level:
+                  type: string
+                lectures:
+                  type: string
+                duration:
+                  type: string
+                driveLink:
+                  type: string
+                thumbnail:
+                  type: string
+                  format: binary
+                  description: New course thumbnail (optional)
+      responses:
+        "200":
+          description: Course updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Course updated successfully"
+                  course:
+                    type: object
+                    properties:
+                      _id:
+                        type: string
+                      name:
+                        type: string
+                      description:
+                        type: string
+                      shortDescription:
+                        type: string
+                      price:
+                        type: number
+                      category:
+                        type: string
+                      level:
+                        type: string
+                      lectures:
+                        type: number
+                      duration:
+                        type: number
+                      link:
+                        type: string
+                      thumbnail:
+                        type: string
+                      updatedAt:
+                        type: string
+                        format: date-time
+        "400":
+          description: Invalid input data or validation failed
+        "401":
+          description: Unauthorized - Token missing or invalid
+        "403":
+          description: Forbidden - Only the course mentor can update
+        "404":
+          description: Course not found
+        "500":
+          description: Internal server error
+
+    delete:
+      tags:
+        - Create Course
+      summary: Delete a course
+      description: Delete an existing course. Only the mentor who created the course can delete it.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: courseId
+          schema:
+            type: string
+          required: true
+          description: The ID of the course to delete
+      responses:
+        "200":
+          description: Course deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Course deleted successfully"
+        "401":
+          description: Unauthorized - Token missing or invalid
+        "403":
+          description: Forbidden - Only the course mentor can delete
+        "404":
+          description: Course not found
+        "500":
+          description: Internal server error
+
+  /courses/my-courses:
+    get:
+      tags:
+        - Create Course
+      summary: Get my created courses
+      description: Retrieve courses created by the current authenticated mentor with pagination support.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+          description: Page number for pagination
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 10
+          description: Number of courses per page
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [active, inactive, draft]
+          description: Filter courses by status
+        - name: sortBy
+          in: query
+          schema:
+            type: string
+            enum: [createdAt, price, averageRating, name]
+            default: createdAt
+          description: Sort courses by field
+        - name: sortOrder
+          in: query
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+          description: Sort order
+      responses:
+        "200":
+          description: User's courses retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  courses:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        _id:
+                          type: string
+                        name:
+                          type: string
+                        description:
+                          type: string
+                        price:
+                          type: number
+                        category:
+                          type: string
+                        level:
+                          type: string
+                        lectures:
+                          type: number
+                        duration:
+                          type: number
+                        thumbnail:
+                          type: string
+                        averageRating:
+                          type: number
+                        numberOfRatings:
+                          type: number
+                        mentees:
+                          type: array
+                          items:
+                            type: string
+                        createdAt:
+                          type: string
+                          format: date-time
+                        updatedAt:
+                          type: string
+                          format: date-time
+                  totalCourses:
+                    type: integer
+                    example: 25
+                  totalPages:
+                    type: integer
+                    example: 3
+                  currentPage:
+                    type: integer
+                    example: 1
+                  hasNextPage:
+                    type: boolean
+                    example: true
+                  hasPrevPage:
+                    type: boolean
+                    example: false
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden - Only mentors can access this endpoint
+        "500":
+          description: Internal server error
+
+  # COURSE ENROLLMENT & REVIEWS APIs
+  /courses/{courseId}/enroll:
+    post:
+      tags:
+        - Course Enrollment
+      summary: Enroll in a course
+      description: Allow a student to enroll in a course. Only students can enroll in courses.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: courseId
+          schema:
+            type: string
+          required: true
+          description: The ID of the course to enroll in
+      responses:
+        "200":
+          description: Successfully enrolled in course
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Successfully enrolled in course"
+                  enrollment:
+                    type: object
+                    properties:
+                      courseId:
+                        type: string
+                      userId:
+                        type: string
+                      enrolledAt:
+                        type: string
+                        format: date-time
+        "400":
+          description: Already enrolled or invalid request
+        "401":
+          description: Unauthorized - Token required
+        "403":
+          description: Forbidden - Mentors cannot enroll in courses
+        "404":
+          description: Course not found
+        "500":
+          description: Internal server error
+
+    delete:
+      tags:
+        - Course Enrollment
+      summary: Unenroll from a course
+      description: Allow a student to unenroll from a course.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: courseId
+          schema:
+            type: string
+          required: true
+          description: The ID of the course to unenroll from
+      responses:
+        "200":
+          description: Successfully unenrolled from course
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Successfully unenrolled from course"
+        "400":
+          description: Not enrolled in course
+        "401":
+          description: Unauthorized - Token required
+        "404":
+          description: Course not found
+        "500":
+          description: Internal server error
+
+  /courses/{courseId}/reviews:
+    post:
+      tags:
+        - Course Reviews
+      summary: Add a review to a course
+      description: Allow enrolled students to add a review and rating to a course they have taken.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: courseId
+          schema:
+            type: string
+          required: true
+          description: The ID of the course to add review to
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - rating
+                - comment
+              properties:
+                rating:
+                  type: number
+                  minimum: 1
+                  maximum: 5
+                  description: Rating from 1 to 5 stars
+                  example: 4.5
+                comment:
+                  type: string
+                  minLength: 10
+                  maxLength: 1000
+                  description: Review comment
+                  example: "Great course! I learned a lot about JavaScript fundamentals and the projects were very practical."
+      responses:
+        "201":
+          description: Review added successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Review added successfully"
+                  review:
+                    type: object
+                    properties:
+                      _id:
+                        type: string
+                        example: "64a1b2c3d4e5f6789012345"
+                      user:
+                        type: object
+                        properties:
+                          _id:
+                            type: string
+                          firstName:
+                            type: string
+                          lastName:
+                            type: string
+                          avatar:
+                            type: string
+                      course:
+                        type: string
+                        example: "64a1b2c3d4e5f6789012346"
+                      rating:
+                        type: number
+                        example: 4.5
+                      comment:
+                        type: string
+                        example: "Great course! Very informative."
+                      createdAt:
+                        type: string
+                        format: date-time
+                        example: "2024-01-01T10:00:00.000Z"
+        "400":
+          description: Invalid input, validation error, or already reviewed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  message:
+                    type: string
+                    example: "You have already reviewed this course"
+        "401":
+          description: Unauthorized - Token required
+        "403":
+          description: Forbidden - Must be enrolled in course to review
+        "404":
+          description: Course not found
+        "500":
+          description: Internal server error
+
+    get:
+      tags:
+        - Course Reviews
+      summary: Get all reviews for a course
+      description: Retrieve all reviews for a specific course with pagination support.
+      parameters:
+        - in: path
+          name: courseId
+          schema:
+            type: string
+          required: true
+          description: The ID of the course to get reviews for
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+          description: Page number for pagination
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 10
+          description: Number of reviews per page
+        - name: sortBy
+          in: query
+          schema:
+            type: string
+            enum: [createdAt, rating]
+            default: createdAt
+          description: Sort reviews by field
+        - name: sortOrder
+          in: query
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+          description: Sort order
+        - name: rating
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 5
+          description: Filter reviews by rating
+      responses:
+        "200":
+          description: Reviews retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  reviews:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        _id:
+                          type: string
+                        user:
+                          type: object
+                          properties:
+                            _id:
+                              type: string
+                            firstName:
+                              type: string
+                            lastName:
+                              type: string
+                            avatar:
+                              type: string
+                        rating:
+                          type: number
+                        comment:
+                          type: string
+                        createdAt:
+                          type: string
+                          format: date-time
+                        updatedAt:
+                          type: string
+                          format: date-time
+                  totalReviews:
+                    type: integer
+                    example: 25
+                  totalPages:
+                    type: integer
+                    example: 3
+                  currentPage:
+                    type: integer
+                    example: 1
+                  averageRating:
+                    type: number
+                    example: 4.2
+                  ratingDistribution:
+                    type: object
+                    properties:
+                      "5":
+                        type: integer
+                        example: 10
+                      "4":
+                        type: integer
+                        example: 8
+                      "3":
+                        type: integer
+                        example: 5
+                      "2":
+                        type: integer
+                        example: 2
+                      "1":
+                        type: integer
+                        example: 0
+        "404":
+          description: Course not found
+        "500":
+          description: Internal server error
+
+  /courses/{courseId}/reviews/{reviewId}:
+    put:
+      tags:
+        - Course Reviews
+      summary: Update a review
+      description: Allow users to update their own review for a course.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: courseId
+          schema:
+            type: string
+          required: true
+          description: The ID of the course
+        - in: path
+          name: reviewId
+          schema:
+            type: string
+          required: true
+          description: The ID of the review to update
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                rating:
+                  type: number
+                  minimum: 1
+                  maximum: 5
+                  description: Updated rating from 1 to 5 stars
+                comment:
+                  type: string
+                  minLength: 10
+                  maxLength: 1000
+                  description: Updated review comment
+      responses:
+        "200":
+          description: Review updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Review updated successfully"
+                  review:
+                    type: object
+                    properties:
+                      _id:
+                        type: string
+                      rating:
+                        type: number
+                      comment:
+                        type: string
+                      updatedAt:
+                        type: string
+                        format: date-time
+        "400":
+          description: Invalid input or validation error
+        "401":
+          description: Unauthorized - Token required
+        "403":
+          description: Forbidden - Can only update own reviews
+        "404":
+          description: Course or review not found
+        "500":
+          description: Internal server error
+
+    delete:
+      tags:
+        - Course Reviews
+      summary: Delete a review
+      description: Allow users to delete their own review for a course.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: courseId
+          schema:
+            type: string
+          required: true
+          description: The ID of the course
+        - in: path
+          name: reviewId
+          schema:
+            type: string
+          required: true
+          description: The ID of the review to delete
+      responses:
+        "200":
+          description: Review deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Review deleted successfully"
+        "401":
+          description: Unauthorized - Token required
+        "403":
+          description: Forbidden - Can only delete own reviews
+        "404":
+          description: Course or review not found
+        "500":
+          description: Internal server error
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  
+  schemas:
+    Error:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        message:
+          type: string
+          example: "Error message"
+        error:
+          type: string
+          example: "Detailed error information"
+    
+    Course:
+      type: object
+      properties:
+        _id:
+          type: string
+          example: "64a1b2c3d4e5f6789012345"
+        name:
+          type: string
+          example: "Complete JavaScript Mastery Course"
+        description:
+          type: string
+          example: "This comprehensive JavaScript course will take you from beginner to advanced level..."
+        shortDescription:
+          type: string
+          example: "Master JavaScript fundamentals, Build interactive web applications..."
+        price:
+          type: number
+          example: 99.99
+        category:
+          type: string
+          example: "Programming"
+        level:
+          type: string
+          enum: [Beginner, Intermediate, Advanced, Expert]
+          example: "Intermediate"
+        lectures:
+          type: number
+          example: 25
+        duration:
+          type: number
+          example: 10.5
+        link:
+          type: string
+          example: "https://drive.google.com/drive/folders/..."
+        thumbnail:
+          type: string
+          example: "uploads/thumbnails/course-123-thumbnail.jpg"
+        mentor:
+          type: string
+          example: "64a1b2c3d4e5f6789012348"
+        mentees:
+          type: array
+          items:
+            type: string
+          example: []
+        averageRating:
+          type: number
+          example: 4.2
+        numberOfRatings:
+          type: number
+          example: 15
+        createdAt:
+          type: string
+          format: date-time
+          example: "2024-01-01T10:00:00.000Z"
+        updatedAt:
+          type: string
+          format: date-time
+          example: "2024-01-01T10:00:00.000Z"
+    
+    User:
+      type: object
+      properties:
+        _id:
+          type: string
+          example: "64a1b2c3d4e5f6789012348"
+        firstName:
+          type: string
+          example: "John"
+        lastName:
+          type: string
+          example: "Doe"
+        userName:
+          type: string
+          example: "johndoe"
+        email:
+          type: string
+          format: email
+          example: "john.doe@example.com"
+        role:
+          type: string
+          enum: [student, mentor]
+          example: "mentor"
+        avatar:
+          type: string
+          example: "uploads/avatars/user-123-avatar.jpg"
+        isVerified:
+          type: boolean
+          example: true
+        createdAt:
+          type: string
+          format: date-time
+          example: "2024-01-01T10:00:00.000Z"
+    
+    Review:
+      type: object
+      properties:
+        _id:
+          type: string
+          example: "64a1b2c3d4e5f6789012349"
+        user:
+          $ref: '#/components/schemas/User'
+        course:
+          type: string
+          example: "64a1b2c3d4e5f6789012345"
+        rating:
+          type: number
+          minimum: 1
+          maximum: 5
+          example: 4.5
+        comment:
+          type: string
+          example: "Great course! I learned a lot about JavaScript fundamentals."
+        createdAt:
+          type: string
+          format: date-time
+          example: "2024-01-01T10:00:00.000Z"
+        updatedAt:
+          type: string
+          format: date-time
+          example: "2024-01-01T10:00:00.000Z"
+
+tags:
+  - name: Auth
+    description: User authentication and management APIs
+  - name: Create Course
+    description: APIs for creating and managing courses with comprehensive validation
+  - name: Course Enrollment
+    description: APIs for course enrollment and unenrollment
+  - name: Course Reviews
+    description: APIs for course reviews and ratings management

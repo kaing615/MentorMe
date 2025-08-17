@@ -1,17 +1,17 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate, useLocation, Outlet } from 'react-router-dom';
-import { useSelector, useDispatch } from 'react-redux';
-import { clearUser } from '../../redux/features/user.slice';
-import { IoSearch, IoCartOutline } from 'react-icons/io5';
-import { FaRegHeart, FaRegBell } from 'react-icons/fa';
-import { MdOutlineShoppingCart } from 'react-icons/md';
+import React, { useState, useEffect } from "react";
+import { useNavigate, useLocation, Outlet } from "react-router-dom";
+import { useSelector, useDispatch } from "react-redux";
+import { clearUser } from "../../redux/features/user.slice";
+import { IoSearch, IoCartOutline } from "react-icons/io5";
+import { FaRegHeart, FaRegBell } from "react-icons/fa";
+import { MdOutlineShoppingCart } from "react-icons/md";
 
 const Header = () => {
   const [showCategories, setShowCategories] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   const dispatch = useDispatch();
-  
+
   // Get user data from Redux store
   const user = useSelector((state) => state.user);
   const isLoggedIn = user?.isLoggedIn || false;
@@ -19,19 +19,10 @@ const Header = () => {
   useEffect(() => {
     const currentPath = location.pathname;
     const shouldShowCategories =
-      currentPath.includes('/auth/signin') || currentPath.includes('/auth/apply-as-men');
-
+      currentPath.includes("/auth/signin") ||
+      currentPath.includes("/auth/apply-as-men");
     setShowCategories(shouldShowCategories);
-    localStorage.setItem('mentorMode', shouldShowCategories.toString());
-
-    const handleStorageChange = (e) => {
-      if (e.key === 'mentorMode') {
-        setShowCategories(e.newValue === 'true');
-      }
-    };
-
-    window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
+    localStorage.setItem("mentorMode", shouldShowCategories.toString());
   }, [location.pathname]);
 
   const handleAPICall = (id, action) => {
@@ -39,12 +30,11 @@ const Header = () => {
   };
 
   const handleLogout = () => {
-    // Clear user data from localStorage and Redux store
-    localStorage.removeItem('user');
-    localStorage.removeItem('token');
-    localStorage.removeItem('isLoggedIn');
+    localStorage.removeItem("user");
+    localStorage.removeItem("token");
+    localStorage.removeItem("isLoggedIn");
     dispatch(clearUser());
-    navigate('/');
+    navigate("/");
   };
 
   return (
@@ -55,9 +45,9 @@ const Header = () => {
           <div
             className="text-slate-500 text-xl md:text-2xl font-inter font-bold mr-4 md:mr-9 min-w-[100px] cursor-pointer hover:text-slate-600 transition-colors duration-200"
             onClick={() => {
-              localStorage.setItem('mentorMode', 'false');
+              localStorage.setItem("mentorMode", "false");
               setShowCategories(false);
-              navigate('/');
+              navigate("/");
             }}
           >
             MentorMe
@@ -65,7 +55,7 @@ const Header = () => {
 
           {/* Categories or Mentors */}
           <div className="hidden md:block text-slate-500 text-[14px] md:text-[16px] font-inter font-light leading-5 mr-6 md:mr-10 whitespace-nowrap cursor-pointer hover:text-slate-600 transition-colors duration-200">
-            {showCategories ? 'Categories' : 'Mentors'}
+            {showCategories ? "Categories" : "Mentors"}
           </div>
 
           {/* Search Bar */}
@@ -90,9 +80,9 @@ const Header = () => {
               <>
                 <button
                   onClick={() => {
-                    localStorage.setItem('mentorMode', 'true');
+                    localStorage.setItem("mentorMode", "true");
                     setShowCategories(true);
-                    navigate('/auth/signin');
+                    navigate("/auth/signin");
                   }}
                   className="px-2 sm:px-3 py-2 text-xs sm:text-sm border border-slate-500 bg-transparent text-slate-500 font-light rounded hover:bg-slate-500 hover:text-white transition-all duration-200"
                 >
@@ -100,9 +90,9 @@ const Header = () => {
                 </button>
                 <button
                   onClick={() => {
-                    localStorage.setItem('mentorMode', 'false');
+                    localStorage.setItem("mentorMode", "false");
                     setShowCategories(false);
-                    navigate('/auth/signup');
+                    navigate("/auth/signup");
                   }}
                   className="px-2 sm:px-3 py-2 text-xs sm:text-sm bg-slate-700 border border-slate-500 text-white font-light rounded hover:bg-slate-600 hover:border-slate-600 transition-all duration-200"
                 >
@@ -113,28 +103,37 @@ const Header = () => {
               <div className="flex items-center gap-2 sm:gap-3 md:gap-4">
                 <div
                   className="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center cursor-pointer"
-                  onClick={() => handleAPICall('demo-mentor-id', 'Favorite')}
+                  onClick={() => handleAPICall("demo-mentor-id", "Favorite")}
                 >
-                  <FaRegHeart size={20} className="text-slate-500 hover:text-red-500 transition-colors duration-200" />
+                  <FaRegHeart
+                    size={20}
+                    className="text-slate-500 hover:text-red-500 transition-colors duration-200"
+                  />
                 </div>
                 <div
                   className="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center cursor-pointer"
-                  onClick={() => handleAPICall('cart-mentor-id', 'Cart')}
+                  onClick={() => handleAPICall("cart-mentor-id", "Cart")}
                 >
-                  <MdOutlineShoppingCart size={20} className="text-slate-500 hover:text-slate-600 transition-colors duration-200" />
+                  <MdOutlineShoppingCart
+                    size={20}
+                    className="text-slate-500 hover:text-slate-600 transition-colors duration-200"
+                  />
                 </div>
                 <div
                   className="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center cursor-pointer"
-                  onClick={() => handleAPICall('bell-mentor-id', 'Bell')}
+                  onClick={() => handleAPICall("bell-mentor-id", "Bell")}
                 >
-                  <FaRegBell size={20} className="text-slate-500 hover:text-blue-500 transition-colors duration-200" />
+                  <FaRegBell
+                    size={20}
+                    className="text-slate-500 hover:text-blue-500 transition-colors duration-200"
+                  />
                 </div>
                 <div
                   className="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center rounded-full bg-slate-700 text-white text-sm font-bold cursor-pointer select-none hover:bg-slate-600 transition-colors duration-200"
                   // onClick={handleLogout}
                   title="Logout"
                 >
-                  {user?.firstName?.charAt(0).toUpperCase() || 'U'}
+                  {user?.firstName?.charAt(0).toUpperCase() || "U"}
                 </div>
               </div>
             )}

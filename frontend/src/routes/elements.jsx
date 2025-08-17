@@ -14,6 +14,11 @@ import SignUp from "../pages/SignUp";
 import Login from "../pages/Login";
 import ApplyAsMentor from "../pages/ApplyAsMentor";
 import VerifyEmailPage from "../pages/VerifyEmailPage";
+import AllPagesLayout from "../components/layout/AllPagesLayout";
+import MentorPage from "../pages/mentor-page";
+import MentorProfile from "../pages/mentor-profile";
+import MentorCourses from "../pages/CreateCoursePage";
+import EditCoursePage from "../pages/EditCoursePage";
 
 const useRouterElements = () => {
   const elements = useRoutes([

@@ -13,10 +13,11 @@ const publicClient = axios.create({
 publicClient.interceptors.request.use(
     (config) => {
         const token = localStorage.getItem('actkn');
-        
-        // Chỉ set Content-Type là application/json khi không phải FormData
-        const headers = {
+        // Only set Content-Type if not FormData
+        const isFormData = config.data instanceof FormData;
+        config.headers = {
             ...config.headers,
+            ...(isFormData ? {} : { "Content-Type": "application/json" }),
             ...(token && { "Authorization": `Bearer ${token}` }),
         };
         
