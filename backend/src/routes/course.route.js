@@ -7,9 +7,9 @@ import * as courseValidation from "../validations/course.validation.js";
 import upload from "../utils/multer.js";
 
 import {
-  getAllCourses,
+  getCourses,
   getMyCourses,
-  getCourseDetails,
+  getCourseById,
   createCourse,
   updateCourse,
   deleteCourse,
@@ -75,12 +75,7 @@ router.get("/mentor/:mentorId", courseController.getCoursesByMentor);
  * @body {Number} lectures - Số bài giảng
  * @returns {Object} course info
  */
-router.post(
-  "/",
-  tokenMiddleware.auth,
-  validateBody(courseValidation.createCourseSchema),
-  courseController.createCourse
-);
+router.post("/", forceMentor, upload.single("thumbnail"), createCourse);
 
 
 /**
@@ -107,7 +102,7 @@ router.post(
  *         schema:
  *           type: string
  *           enum: [newest, oldest, rating, priceAsc, priceDesc]
- *         description: Sort courses by criteria
+ router.get("/:courseId", getCourseById);
  *       - in: query
  *         name: filterBy
  *         schema:
@@ -144,7 +139,7 @@ router.post(
  *                 currentPage:
  *                   type: integer
  */
-router.get("/", getAllCourses);
+router.get("/", getCourses);
 
 /**
  * @swagger
@@ -206,7 +201,12 @@ router.get("/", getAllCourses);
  *       404:
  *         description: User not found
  */
-router.get("/my-courses", verifyToken, authorizeRoles(['mentor']), getMyCourses);
+router.get(
+  "/my-courses",
+  forceMentor,
+  authorizeRoles(["mentor"]),
+  getMyCourses
+);
 
 /**
  * @swagger
@@ -231,7 +231,7 @@ router.get("/my-courses", verifyToken, authorizeRoles(['mentor']), getMyCourses)
  *       404:
  *         description: Course not found
  */
-router.get("/:courseId", getCourseDetails);
+router.get("/:courseId", getCourseById);
 
 /**
  * @swagger
@@ -289,7 +289,7 @@ router.get("/:courseId", getCourseDetails);
  *       404:
  *         description: Course not found
  */
-router.post("/:courseId/reviews", verifyToken, addCourseReview);
+router.post("/:courseId/reviews", forceMentor, addCourseReview);
 router.get("/:courseId/reviews", getCourseReviews);
 
 /**
@@ -382,8 +382,8 @@ router.post("/", forceMentor, upload.single("thumbnail"), createCourse);
  *       404:
  *         description: Course not found
  */
-  // router.put("/:courseId", verifyToken, upload.single("thumbnail"), updateCourse); // OLD: yêu cầu đăng nhập
-  router.put("/:courseId", forceMentor, upload.single("thumbnail"), updateCourse); // NEW: cho phép không cần đăng nhập
+// router.put("/:courseId", forceMentor, upload.single("thumbnail"), updateCourse); // OLD: yêu cầu đăng nhập
+router.put("/:courseId", forceMentor, upload.single("thumbnail"), updateCourse); // NEW: cho phép không cần đăng nhập
 router.delete("/:courseId", forceMentor, deleteCourse);
 
 /**
@@ -423,7 +423,7 @@ router.delete("/:courseId", forceMentor, deleteCourse);
  *       404:
  *         description: Course not found
  */
-router.post("/:courseId/mentors", verifyToken, addMentorToCourse);
+router.post("/:courseId/mentors", forceMentor, addMentorToCourse);
 
 /**
  * @swagger
@@ -456,7 +456,11 @@ router.post("/:courseId/mentors", verifyToken, addMentorToCourse);
  *       404:
  *         description: Course not found
  */
-router.delete("/:courseId/mentors/:mentorId", verifyToken, removeMentorFromCourse);
+router.delete(
+  "/:courseId/mentors/:mentorId",
+  forceMentor,
+  removeMentorFromCourse
+);
 
 /**
  * @swagger
@@ -489,7 +493,7 @@ router.delete("/:courseId/mentors/:mentorId", verifyToken, removeMentorFromCours
  *       404:
  *         description: Course not found
  */
-router.post("/:courseId/content", verifyToken, addContentToCourse);
+router.post("/:courseId/content", forceMentor, addContentToCourse);
 
 /**
  * @swagger
@@ -520,6 +524,10 @@ router.post("/:courseId/content", verifyToken, addContentToCourse);
  *       404:
  *         description: Course not found
  */
-router.delete("/:courseId/content/:contentId", verifyToken, removeContentFromCourse);
+router.delete(
+  "/:courseId/content/:contentId",
+  forceMentor,
+  removeContentFromCourse
+);
 
 export default router;

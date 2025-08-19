@@ -8,7 +8,7 @@ export const updateMentorProfile = async (req, res) => {
   try {
     const userId = req.user.id;
 
-    // Phân tách data cho User và Profile
+    // Phân tách data cho User và Profilev à
     const {
       // User Model fields (authentication + basic)
       userName,

@@ -117,7 +117,6 @@ const CreateCoursePage = () => {
         return;
       }
       
-      console.log('Form submitted with data:', data);
       
       // Prepare FormData for multipart/form-data
       const formData = new FormData();
@@ -135,11 +134,9 @@ const CreateCoursePage = () => {
         formData.append('duration', data.duration);
       }
 
-      console.log('Creating course with FormData');
       
       // Call API to create course
       const response = await createCourseApi.createCourse(formData);
-      console.log('Course creation response:', response);
       
       toast.success('Course created successfully!');
       reset();

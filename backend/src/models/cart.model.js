@@ -29,8 +29,8 @@ const CartSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+CartSchema.index({ "courses.course": 1 });
 // Index for better performance
-CartSchema.index({ user: 1 });
 CartSchema.index({ "courses.course": 1 });
 
 export default mongoose.model("Cart", CartSchema);

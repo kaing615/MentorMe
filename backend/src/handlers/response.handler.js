@@ -4,11 +4,11 @@ const responseWithData = (res, statusCode, data) => {
   });
 };
 
-const error = (res) =>
+const error = (res, err) =>
   responseWithData(res, 500, {
     status: 500,
     message: "Oops! Something went wrong",
-    error: error,
+    error: err?.message || err,
   });
 
 const badRequest = (res, message) =>
@@ -39,13 +39,12 @@ const forbidden = (res, message) =>
     message: message || "Forbidden",
   });
 
-
 export default {
   error,
-  badrequest: badRequest,
+  badRequest,
   ok,
   created,
   unauthorized,
-  notfound: notFound,
+  notFound,
   forbidden,
 };

@@ -254,8 +254,6 @@ export const getCoursesByMentor = async (req, res) => {
   }
 };
 
-// Các hàm bổ sung từ phiên bản thứ hai (giữ nguyên tên, không trùng lặp)
-// Đã hợp nhất logic getAllCourses vào getCourses, không cần hàm này nữa
 export const getUserCourses = async (req, res) => {
   try {
     const { userId } = req.params;
@@ -614,7 +612,7 @@ export const deleteCourse = async (req, res) => {
     return responseHandler.ok(res, { message: "Course deleted successfully." });
   } catch (err) {
     console.error("Error deleting course:", err);
-    responseHandler.error(res);
+    responseHandler.error(res, err);
   }
 };
 export const addMentorToCourse = async (req, res) => {
@@ -850,10 +848,8 @@ export default {
   createCourse,
   getCoursesByMentor,
   handlePurchaseSuccess,
-  // getAllCourses, // Đã hợp nhất vào getCourses
   getUserCourses,
   getMyCourses,
-  // getCourseDetails, // Đã hợp nhất vào getCourseById
   addCourseReview,
   getCourseReviews,
   updateCourse,

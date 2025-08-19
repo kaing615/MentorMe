@@ -4,39 +4,34 @@ import queryString from "query-string";
 const baseURL = `http://localhost:4000/api/v1`;
 
 const publicClient = axios.create({
-    baseURL,
-    paramsSerializer: {
-        encode: (params) => queryString.stringify(params),
-    },
+  baseURL,
+  paramsSerializer: {
+    encode: (params) => queryString.stringify(params),
+  },
 });
 
 publicClient.interceptors.request.use(
-    (config) => {
-        const token = localStorage.getItem('actkn');
-        // Only set Content-Type if not FormData
-        const isFormData = config.data instanceof FormData;
-        config.headers = {
-            ...config.headers,
-            ...(isFormData ? {} : { "Content-Type": "application/json" }),
-            ...(token && { "Authorization": `Bearer ${token}` }),
-        };
-        
-        // Nếu data không phải FormData thì mới set Content-Type là application/json
-        if (!(config.data instanceof FormData)) {
-            headers["Content-Type"] = "application/json";
-        }
-        
-        config.headers = headers;
-        return config;
-    },
-    (error) => Promise.reject(error)
+  (config) => {
+    const token = localStorage.getItem("actkn");
+    // Only set Content-Type if not FormData
+    const isFormData = config.data instanceof FormData;
+    config.headers = {
+      ...config.headers,
+      ...(isFormData ? {} : { "Content-Type": "application/json" }),
+      ...(token && { Authorization: `Bearer ${token}` }),
+    };
+
+    // Không cần xử lý headers riêng lẻ, đã gộp ở trên
+    return config;
+  },
+  (error) => Promise.reject(error)
 );
 
 publicClient.interceptors.response.use(
-    (response) => response?.data || response,
-    (error) => {
-        throw error?.response?.data || error;
-    }
+  (response) => response?.data || response,
+  (error) => {
+    throw error?.response?.data || error;
+  }
 );
 
 export default publicClient;

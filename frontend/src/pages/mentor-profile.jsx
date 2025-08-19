@@ -1,5 +1,5 @@
-
 import React, { useState, useEffect } from "react";
+import { FaUserCircle } from "react-icons/fa";
 import { useNavigate, useLocation } from "react-router-dom";
 import { PATH, MENTOR_PATH } from "../routes/path";
 import youtubeImg from "../assets/youtube.png";
@@ -7,20 +7,31 @@ import facebookImg from "../assets/facebook.png";
 import linkedinImg from "../assets/linkedin.png";
 import twitterImg from "../assets/twitter.png";
 import googleImg from "../assets/google.png";
-import courseApi from "../api/modules/course.api";
-
-
+// import courseApi from "../api/modules/course.api";
 
 const MentorProfile = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const [activeTab, setActiveTab] = useState("profile");
+  // Đọc tab từ localStorage khi load, ưu tiên location.state.tab nếu có
+  const getInitialTab = () => {
+    if (location.state && location.state.tab) return location.state.tab;
+    const savedTab = localStorage.getItem("mentorProfileTab");
+    return savedTab || "profile";
+  };
+  const [activeTab, setActiveTab] = useState(getInitialTab());
+
   // Khi location.state.tab thay đổi (navigate từ CreateCoursePage), tự động chuyển tab
   useEffect(() => {
     if (location.state && location.state.tab) {
       setActiveTab(location.state.tab);
+      localStorage.setItem("mentorProfileTab", location.state.tab);
     }
   }, [location.state]);
+
+  // Khi activeTab thay đổi, lưu vào localStorage
+  useEffect(() => {
+    localStorage.setItem("mentorProfileTab", activeTab);
+  }, [activeTab]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [formData, setFormData] = useState({
@@ -39,33 +50,18 @@ const MentorProfile = () => {
   const handleDeleteCourse = async (course) => {
     const courseId = course._id || course.id;
     if (!courseId) {
-      alert('Invalid course id!');
+      alert("Invalid course id!");
       return;
     }
-    if (!window.confirm('Are you sure you want to delete this course?')) return;
+    if (!window.confirm("Are you sure you want to delete this course?")) return;
     try {
       setLoading(true);
-      const { response, error } = await courseApi.deleteCourse({ courseId });
-      console.log('Delete response:', { response, error });
-      if (error) {
-        console.error('Delete error:', error);
-        const errorMessage = error.response?.data?.message || 'Delete failed!';
-        alert(errorMessage);
-        return;
-      }
-      // Nếu response tồn tại là coi như thành công (do interceptor chỉ trả về response.data)
-      if (response) {
-        setAllCourses((prev) => prev.filter((c) => (c._id || c.id) !== courseId));
-        alert('Course deleted successfully!');
-        console.log('Course deleted successfully');
-      } else {
-        // Không có response
-        console.error('Delete failed, no response:', response);
-        alert('Delete failed - no response');
-      }
+      // Xóa course khỏi danh sách mock
+      setAllCourses((prev) => prev.filter((c) => (c._id || c.id) !== courseId));
+      alert("Course deleted successfully!");
     } catch (err) {
-      console.error('Delete failed:', err);
-      alert('Delete failed - network error');
+      console.error("Delete failed:", err);
+      alert("Delete failed - network error");
     } finally {
       setLoading(false);
     }
@@ -98,6 +94,7 @@ const MentorProfile = () => {
   const reviewsPerPage = 6;
 
   // Real courses data from MongoDB API
+  // No mock data, empty courses array
   const [allCourses, setAllCourses] = useState([]);
 
   // Real mentees data - TODO: Replace with API data
@@ -107,6 +104,7 @@ const MentorProfile = () => {
   const [conversations] = useState([]);
 
   // Real reviews data from MongoDB API
+  // No mock data, empty reviews array
   const [allReviews, setAllReviews] = useState([]);
 
   // Load courses from MongoDB
@@ -115,11 +113,10 @@ const MentorProfile = () => {
       setLoading(true);
       setError(null);
       const { response, error } = await courseApi.getAllCourses();
-      console.log('API Response:', { response, error });
-      
+
       if (error) {
-        console.error('API Error:', error);
-        setError('Failed to load courses');
+        console.error("API Error:", error);
+        setError("Failed to load courses");
         setAllCourses([]);
       } else if (response && response.data) {
         // The API returns response.data directly, which contains the courses array
@@ -129,16 +126,16 @@ const MentorProfile = () => {
           // In case the API returns courses array directly in data
           setAllCourses(response.data);
         } else {
-          console.error('Unexpected response structure:', response.data);
+          console.error("Unexpected response structure:", response.data);
           setAllCourses([]);
         }
       } else {
-        console.error('No response data');
+        console.error("No response data");
         setAllCourses([]);
       }
     } catch (err) {
-      console.error('Error loading courses:', err);
-      setError('Failed to load courses');
+      console.error("Error loading courses:", err);
+      setError("Failed to load courses");
       setAllCourses([]);
     } finally {
       setLoading(false);
@@ -151,11 +148,11 @@ const MentorProfile = () => {
       setLoading(true);
       setError(null);
       const { response, error } = await courseApi.getAllReviews();
-      console.log('Reviews API Response:', { response, error });
-      
+      console.log("Reviews API Response:", { response, error });
+
       if (error) {
-        console.error('Reviews API Error:', error);
-        setError('Failed to load reviews');
+        console.error("Reviews API Error:", error);
+        setError("Failed to load reviews");
         setAllReviews([]);
       } else if (response && response.data) {
         if (response.data.reviews && Array.isArray(response.data.reviews)) {
@@ -163,16 +160,19 @@ const MentorProfile = () => {
         } else if (Array.isArray(response.data)) {
           setAllReviews(response.data);
         } else {
-          console.error('Unexpected reviews response structure:', response.data);
+          console.error(
+            "Unexpected reviews response structure:",
+            response.data
+          );
           setAllReviews([]);
         }
       } else {
-        console.error('No reviews response data');
+        console.error("No reviews response data");
         setAllReviews([]);
       }
     } catch (err) {
-      console.error('Error loading reviews:', err);
-      setError('Failed to load reviews');
+      console.error("Error loading reviews:", err);
+      setError("Failed to load reviews");
       setAllReviews([]);
     } finally {
       setLoading(false);
@@ -180,10 +180,7 @@ const MentorProfile = () => {
   };
 
   // Load courses and reviews on component mount
-  useEffect(() => {
-    loadCourses();
-    loadReviews();
-  }, []);
+  // Không gọi API courses/reviews nữa, chỉ dùng dữ liệu mock
 
   // Filter and search logic
   const getFilteredAndSortedCourses = () => {
@@ -191,7 +188,8 @@ const MentorProfile = () => {
       (course) =>
         course.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
         course.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (course.description && course.description.toLowerCase().includes(searchTerm.toLowerCase()))
+        (course.description &&
+          course.description.toLowerCase().includes(searchTerm.toLowerCase()))
     );
 
     // Sort courses
@@ -207,7 +205,9 @@ const MentorProfile = () => {
         );
         break;
       case "popular":
-        filtered = filtered.sort((a, b) => (b.mentees?.length || 0) - (a.mentees?.length || 0));
+        filtered = filtered.sort(
+          (a, b) => (b.mentees?.length || 0) - (a.mentees?.length || 0)
+        );
         break;
       default:
         break;
@@ -367,21 +367,21 @@ const MentorProfile = () => {
 
   // Reviews filter and search logic
   const getFilteredAndSortedReviews = () => {
-    let filtered = allReviews.filter(
-      (review) => {
-        const studentName = review.author ? `${review.author.firstName || ''} ${review.author.lastName || ''}`.trim() || review.author.userName : '';
-        const courseName = review.target ? review.target.title : '';
-        const reviewText = review.content || '';
-        
-        return studentName
-          .toLowerCase()
-          .includes(reviewSearchTerm.toLowerCase()) ||
-        courseName
-          .toLowerCase()
-          .includes(reviewSearchTerm.toLowerCase()) ||
-        reviewText.toLowerCase().includes(reviewSearchTerm.toLowerCase());
-      }
-    );
+    let filtered = allReviews.filter((review) => {
+      const studentName = review.author
+        ? `${review.author.firstName || ""} ${
+            review.author.lastName || ""
+          }`.trim() || review.author.userName
+        : "";
+      const courseName = review.target ? review.target.title : "";
+      const reviewText = review.content || "";
+
+      return (
+        studentName.toLowerCase().includes(reviewSearchTerm.toLowerCase()) ||
+        courseName.toLowerCase().includes(reviewSearchTerm.toLowerCase()) ||
+        reviewText.toLowerCase().includes(reviewSearchTerm.toLowerCase())
+      );
+    });
 
     // Sort reviews
     switch (reviewSortBy) {
@@ -398,7 +398,9 @@ const MentorProfile = () => {
       case "lowest-rating":
         return filtered.sort((a, b) => (a.rate || 0) - (b.rate || 0));
       case "most-helpful":
-        return filtered.sort((a, b) => (b.helpfulCount || 0) - (a.helpfulCount || 0));
+        return filtered.sort(
+          (a, b) => (b.helpfulCount || 0) - (a.helpfulCount || 0)
+        );
       default:
         return filtered;
     }
@@ -417,20 +419,16 @@ const MentorProfile = () => {
     setReviewCurrentPage(page);
   };
 
-  // Scroll to top of main content when tab changes
-  const scrollToMainContent = () => {
-    setTimeout(() => {
-      const mainContent = document.querySelector(".flex-1.min-w-0");
-      if (mainContent) {
-        mainContent.scrollIntoView({ behavior: "smooth", block: "start" });
-      }
-    }, 100);
+  // Scroll lên đầu trang (bao gồm cả header) khi chuyển tab
+  const scrollToTop = () => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  // Enhanced tab handlers with scroll
+  // Tab handler: set tab, lưu localStorage, cuộn lên đầu
   const handleTabChange = (tab) => {
     setActiveTab(tab);
-    scrollToMainContent();
+    localStorage.setItem("mentorProfileTab", tab);
+    scrollToTop();
   };
 
   return (
@@ -442,15 +440,23 @@ const MentorProfile = () => {
           style={{ width: 280, minWidth: 280 }}
           className="bg-slate-50 rounded-2xl shadow-sm p-8 flex flex-col items-center sticky top-10 self-start"
         >
-          <img
-            src={profileImage || "/placeholder-profile.jpg"}
-            alt={`${formData.firstName} ${formData.lastName}` || "User Profile"}
-            className="w-24 h-24 rounded-full object-cover mb-4"
-          />
+          {profileImage ? (
+            <img
+              src={profileImage}
+              alt={
+                formData.firstName || formData.lastName
+                  ? `${formData.firstName} ${formData.lastName}`
+                  : "Default Avatar"
+              }
+              className="w-24 h-24 rounded-full object-cover mb-4"
+            />
+          ) : (
+            <FaUserCircle className="w-24 h-24 text-gray-300 mb-4" />
+          )}
           <h2 className="font-semibold text-xl text-gray-900 mb-3">
-            {formData.firstName && formData.lastName 
-              ? `${formData.firstName} ${formData.lastName}` 
-              : "Loading..."}
+            {formData.firstName || formData.lastName
+              ? `${formData.firstName} ${formData.lastName}`.trim()
+              : "Name"}
           </h2>
           <button className="bg-blue-600 text-white border-none rounded-lg px-6 py-1.5 mb-6 font-medium text-base">
             Mentor
@@ -583,15 +589,17 @@ const MentorProfile = () => {
                 </div>
               </div>
 
-              {/* Image Upload Section */}
+              {/* Image Upload Section - Chỉ còn ô preview, click để upload */}
               <div className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100">
                 <h3 className="text-lg font-semibold text-gray-900 mb-6">
                   Profile Image
                 </h3>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Image Preview
-                </label>
-                <div className="border-2 border-dashed border-gray-300 rounded-lg p-12 text-center mb-4 bg-gray-50">
+                <div
+                  className="border-2 border-dashed border-gray-300 rounded-lg p-12 text-center mb-4 bg-gray-50 cursor-pointer flex items-center justify-center"
+                  onClick={() => document.getElementById("imageUpload").click()}
+                  style={{ minHeight: 120 }}
+                  title="Click to upload/change avatar"
+                >
                   {profileImage ? (
                     <img
                       src={profileImage}
@@ -601,8 +609,8 @@ const MentorProfile = () => {
                   ) : (
                     <div className="w-24 h-24 bg-gray-300 rounded mx-auto flex items-center justify-center">
                       <svg
-                        width="24"
-                        height="24"
+                        width="32"
+                        height="32"
                         fill="none"
                         stroke="currentColor"
                         className="text-gray-500"
@@ -616,42 +624,14 @@ const MentorProfile = () => {
                       </svg>
                     </div>
                   )}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageUpload}
+                    className="hidden"
+                    id="imageUpload"
+                  />
                 </div>
-
-                <div className="flex gap-3 items-end mb-3">
-                  <div className="flex-1">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Add/Change Image
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="Label"
-                      className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                      readOnly
-                    />
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={handleImageUpload}
-                      className="hidden"
-                      id="imageUpload"
-                    />
-                  </div>
-                  <label
-                    htmlFor="imageUpload"
-                    className="bg-gray-100 border border-gray-300 text-gray-700 px-4 py-2 rounded hover:bg-gray-200 transition cursor-pointer"
-                  >
-                    Upload Image
-                  </label>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={handleSaveImage}
-                  className="bg-gray-900 text-white px-4 py-2 rounded hover:bg-gray-800 transition"
-                >
-                  Save Image
-                </button>
               </div>
 
               {/* Links Section */}
@@ -740,6 +720,18 @@ const MentorProfile = () => {
                   </div>
                 </div>
               </div>
+              {/* Nút lưu profile ở cuối form */}
+              <button
+                type="button"
+                className="bg-blue-600 text-white px-6 py-2 rounded-lg font-semibold mt-8 float-right"
+                onClick={() => {
+                  // Giả lập cập nhật tên và avatar, bạn cần thay bằng API thực tế
+                  alert("Profile updated!");
+                  // TODO: Gọi API cập nhật tên và avatar ở đây
+                }}
+              >
+                Save Profile
+              </button>
             </form>
           )}
 
@@ -753,8 +745,10 @@ const MentorProfile = () => {
                     <h3 className="text-lg font-semibold text-gray-900">
                       Courses ({filteredCourses.length})
                     </h3>
-                    <button 
-                      onClick={() => navigate(`${PATH.MENTOR}/${MENTOR_PATH.COURSES}`)}
+                    <button
+                      onClick={() =>
+                        navigate(`${PATH.MENTOR}/${MENTOR_PATH.CREATECOURSE}`)
+                      }
                       className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition font-medium text-sm"
                     >
                       New Course
@@ -846,12 +840,14 @@ const MentorProfile = () => {
                 {loading ? (
                   <div className="flex justify-center items-center py-12">
                     <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-                    <span className="ml-3 text-gray-600">Loading courses...</span>
+                    <span className="ml-3 text-gray-600">
+                      Loading courses...
+                    </span>
                   </div>
                 ) : error ? (
                   <div className="text-center py-12">
                     <div className="text-red-600 mb-4">⚠️ {error}</div>
-                    <button 
+                    <button
                       onClick={loadCourses}
                       className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
                     >
@@ -867,76 +863,109 @@ const MentorProfile = () => {
                   >
                     {currentCourses.length > 0 ? (
                       currentCourses.map((course) => {
-                        console.log('Course card data:', course);
-                        console.log('overview:', course.overview, '| description:', course.description);
                         return (
-                        <div
-                          key={course._id || course.id}
-                          className="border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow min-h-[520px] flex flex-col"
-                        >
-                          <img
-                            src={course.thumbnail ? (course.thumbnail.startsWith('http') ? course.thumbnail : `http://localhost:4000/${course.thumbnail}`) : "/placeholder-course.jpg"}
-                            alt={course.title}
-                            className="w-full h-48 object-cover"
-                          />
-                          <div className="w-full h-px bg-gray-200 mb-3" style={{marginTop: 0}} />
-                          <div className="flex-1 flex flex-col p-4 pb-0">
-                            <div className="flex flex-col" style={{ minHeight: '120px', justifyContent: 'flex-start' }}>
-                              <h4 className="font-semibold text-gray-900 mb-2 line-clamp-2">
-                                {course.title}
-                              </h4>
-                              <p className="text-sm text-gray-600 mb-2">
-                                By {course.mentor?.userName || 'Unknown Mentor'}
-                              </p>
-                              <div className="flex items-center gap-2 mb-2">
-                                <div className="flex text-yellow-400 text-sm">
-                                  {"★".repeat(Math.floor(course.rate || 0))}
-                                  {(course.rate || 0) % 1 !== 0 && "☆"}
-                                </div>
-                                <span className="text-sm text-gray-600">
-                                  ({course.numberOfRatings || 0} Ratings)
-                                </span>
-                              </div>
-                              <p className="text-sm text-gray-600 mb-2">
-                                {course.duration || 0} Hours. {course.lectures || 0} Lectures. {course.category}
-                              </p>
-                              {(course.overview || course.description) && (
-                                <p className="text-gray-400 text-sm mb-2 line-clamp-2" style={{display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden'}} title={course.overview || course.description}>
-                                  {course.overview || course.description}
+                          <div
+                            key={course._id || course.id}
+                            className="border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow min-h-[520px] flex flex-col"
+                          >
+                            <img
+                              src={
+                                course.thumbnail
+                                  ? course.thumbnail.startsWith("http")
+                                    ? course.thumbnail
+                                    : `http://localhost:4000/${course.thumbnail}`
+                                  : "/placeholder-course.jpg"
+                              }
+                              alt={course.title}
+                              className="w-full h-48 object-cover"
+                            />
+                            <div
+                              className="w-full h-px bg-gray-200 mb-3"
+                              style={{ marginTop: 0 }}
+                            />
+                            <div className="flex-1 flex flex-col p-4 pb-0">
+                              <div
+                                className="flex flex-col"
+                                style={{
+                                  minHeight: "120px",
+                                  justifyContent: "flex-start",
+                                }}
+                              >
+                                <h4 className="font-semibold text-gray-900 mb-2 line-clamp-2">
+                                  {course.title}
+                                </h4>
+                                <p className="text-sm text-gray-600 mb-2">
+                                  By{" "}
+                                  {course.mentor?.userName || "Unknown Mentor"}
                                 </p>
-                              )}
+                                <div className="flex items-center gap-2 mb-2">
+                                  <div className="flex text-yellow-400 text-sm">
+                                    {"★".repeat(Math.floor(course.rate || 0))}
+                                    {(course.rate || 0) % 1 !== 0 && "☆"}
+                                  </div>
+                                  <span className="text-sm text-gray-600">
+                                    ({course.numberOfRatings || 0} Ratings)
+                                  </span>
+                                </div>
+                                <p className="text-sm text-gray-600 mb-2">
+                                  {course.duration || 0} Hours.{" "}
+                                  {course.lectures || 0} Lectures.{" "}
+                                  {course.category}
+                                </p>
+                                {(course.overview || course.description) && (
+                                  <p
+                                    className="text-gray-400 text-sm mb-2 line-clamp-2"
+                                    style={{
+                                      display: "-webkit-box",
+                                      WebkitLineClamp: 2,
+                                      WebkitBoxOrient: "vertical",
+                                      overflow: "hidden",
+                                    }}
+                                    title={
+                                      course.overview || course.description
+                                    }
+                                  >
+                                    {course.overview || course.description}
+                                  </p>
+                                )}
+                              </div>
+                              <p className="font-bold text-xl text-gray-900 mb-2 mt-auto">
+                                ${course.price}
+                              </p>
                             </div>
-                            <p className="font-bold text-xl text-gray-900 mb-2 mt-auto">
-                              ${course.price}
-                            </p>
+                            <div className="flex gap-2 p-4 pt-0 mt-auto">
+                              <button
+                                className="flex-1 bg-blue-600 text-white py-2 px-3 rounded-lg hover:bg-blue-700 transition text-sm font-medium"
+                                onClick={() =>
+                                  navigate(
+                                    `/mentor/edit-course/${
+                                      course._id || course.id
+                                    }`
+                                  )
+                                }
+                              >
+                                Edit Course
+                              </button>
+                              <button
+                                className="flex-1 px-3 py-2 border border-red-300 text-red-600 rounded-lg hover:bg-red-50 transition text-sm"
+                                onClick={() => handleDeleteCourse(course)}
+                              >
+                                Delete
+                              </button>
+                            </div>
                           </div>
-                          <div className="flex gap-2 p-4 pt-0 mt-auto">
-                            <button
-                              className="flex-1 bg-blue-600 text-white py-2 px-3 rounded-lg hover:bg-blue-700 transition text-sm font-medium"
-                              onClick={() => navigate(`/mentor/edit-course/${course._id || course.id}`)}
-                            >
-                              Edit Course
-                            </button>
-                            <button
-                              className="flex-1 px-3 py-2 border border-red-300 text-red-600 rounded-lg hover:bg-red-50 transition text-sm"
-                              onClick={() => handleDeleteCourse(course)}
-                            >
-                              Delete
-                            </button>
-                          </div>
-                        </div>
                         );
                       })
                     ) : (
-                    <div className="col-span-full text-center py-12">
-                      <p className="text-gray-500 text-lg mb-2">
-                        No courses found
-                      </p>
-                      <p className="text-gray-400">
-                        Try adjusting your search or filter criteria
-                      </p>
-                    </div>
-                  )}
+                      <div className="col-span-full text-center py-12">
+                        <p className="text-gray-500 text-lg mb-2">
+                          No courses found
+                        </p>
+                        <p className="text-gray-400">
+                          Try adjusting your search or filter criteria
+                        </p>
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -1471,15 +1500,6 @@ const MentorProfile = () => {
                     <h3 className="text-lg font-semibold text-gray-900">
                       My Reviews ({filteredReviews.length})
                     </h3>
-                    <div className="flex items-center gap-2">
-                      <div className="flex text-yellow-400 text-lg">
-                        {"★".repeat(Math.floor(4.7))}
-                        {"☆".repeat(5 - Math.floor(4.7))}
-                      </div>
-                      <span className="text-sm text-gray-600 font-medium">
-                        4.7 average rating
-                      </span>
-                    </div>
                   </div>
                 </div>
 
@@ -1565,18 +1585,29 @@ const MentorProfile = () => {
                         {/* Review Header */}
                         <div className="flex items-start gap-4 mb-4">
                           <img
-                            src={review.author?.avatarUrl || "/placeholder-avatar.jpg"}
-                            alt={review.author ? `${review.author.firstName} ${review.author.lastName}` : 'User'}
+                            src={
+                              review.author?.avatarUrl ||
+                              "/placeholder-avatar.jpg"
+                            }
+                            alt={
+                              review.author
+                                ? `${review.author.firstName} ${review.author.lastName}`
+                                : "User"
+                            }
                             className="w-12 h-12 rounded-full object-cover"
                           />
                           <div className="flex-1">
                             <div className="flex items-start justify-between mb-2">
                               <div>
                                 <h4 className="font-semibold text-gray-900 mb-1">
-                                  {review.author ? `${review.author.firstName || ''} ${review.author.lastName || ''}`.trim() || review.author.userName : 'Unknown User'}
+                                  {review.author
+                                    ? `${review.author.firstName || ""} ${
+                                        review.author.lastName || ""
+                                      }`.trim() || review.author.userName
+                                    : "Unknown User"}
                                 </h4>
                                 <p className="text-sm text-blue-600 font-medium">
-                                  {review.target?.name || 'Unknown Course'}
+                                  {review.target?.name || "Unknown Course"}
                                 </p>
                               </div>
                               <div className="flex items-center gap-2">
