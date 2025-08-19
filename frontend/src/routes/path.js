@@ -28,5 +28,6 @@ export const MENTOR_PATH = {
   PROFILE: "profile",
   HOMEPAGE: "homepage",
   CREATECOURSE: "create-course",
-  COURSEDETAIL: "course-detail"
+  COURSEDETAIL: "course-detail",
+  EDITCOURSE: "edit-course",
 };

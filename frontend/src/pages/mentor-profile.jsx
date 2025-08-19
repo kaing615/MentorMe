@@ -3,13 +3,120 @@ import { FaUserCircle } from "react-icons/fa";
 import { useNavigate, useLocation } from "react-router-dom";
 import { PATH, MENTOR_PATH } from "../routes/path";
 import youtubeImg from "../assets/youtube.png";
+import profileApi from "../api/modules/profile.api";
 import facebookImg from "../assets/facebook.png";
 import linkedinImg from "../assets/linkedin.png";
 import twitterImg from "../assets/twitter.png";
 import googleImg from "../assets/google.png";
-// import courseApi from "../api/modules/course.api";
+import courseApi from "../api/modules/course.api";
 
 const MentorProfile = () => {
+  // State lưu thông tin profile
+  const [profile, setProfile] = useState(null);
+  // CRUD API integration for Profile
+  const handleUpdateProfile = async (updatedData) => {
+    setLoading(true);
+    setError(null);
+    const { response, error } = await profileApi.updateProfile(updatedData);
+    if (error) {
+      setError("Cập nhật profile thất bại");
+    } else if (response && response.data) {
+      setProfile(response.data);
+      alert("Cập nhật profile thành công!");
+    }
+    setLoading(false);
+  };
+
+  const handleGetProfileDetail = async () => {
+    setLoading(true);
+    setError(null);
+    const { response, error } = await profileApi.getProfileDetail();
+    if (error) {
+      setError("Không thể tải chi tiết profile");
+    } else if (response && response.data) {
+      setProfile(response.data);
+    }
+    setLoading(false);
+  };
+
+  // CRUD API integration for Course
+  const handleCreateCourse = async (courseData) => {
+    setLoading(true);
+    setError(null);
+    const { response, error } = await courseApi.createCourse(courseData);
+    if (error) {
+      setError("Tạo khóa học thất bại");
+    } else if (response && response.data) {
+      setAllCourses((prev) => [response.data, ...prev]);
+      alert("Tạo khóa học thành công!");
+    }
+    setLoading(false);
+  };
+
+  const handleUpdateCourse = async (courseId, updatedData) => {
+    setLoading(true);
+    setError(null);
+    const { response, error } = await courseApi.updateCourse(
+      courseId,
+      updatedData
+    );
+    if (error) {
+      setError("Cập nhật khóa học thất bại");
+    } else if (response && response.data) {
+      setAllCourses((prev) =>
+        prev.map((c) => (c._id === courseId ? response.data : c))
+      );
+      alert("Cập nhật khóa học thành công!");
+    }
+    setLoading(false);
+  };
+
+  const handleGetCourseDetail = async (courseId) => {
+    setLoading(true);
+    setError(null);
+    if (!courseId) {
+      setError("Course ID is undefined!");
+      setLoading(false);
+      return;
+    }
+    const { response, error } = await courseApi.getDetail({ courseId });
+    if (error) {
+      setError("Không thể tải chi tiết khóa học");
+    } else if (response && response.data) {
+      // You can set a state for selected course detail if needed
+      alert("Đã tải chi tiết khóa học");
+    }
+    setLoading(false);
+  };
+
+  // Replace mock delete with API delete
+  const handleDeleteCourse = async (course) => {
+    const courseId = course._id || course.id;
+    if (!courseId) {
+      alert("Invalid course id!");
+      return;
+    }
+    if (!window.confirm("Are you sure you want to delete this course?")) return;
+    try {
+      setLoading(true);
+      const { response, error } = await courseApi.deleteCourse({ courseId });
+      if (error) {
+        setError("Xóa khóa học thất bại");
+        alert("Delete failed - API error");
+      } else {
+        setAllCourses((prev) =>
+          prev.filter((c) => (c._id || c.id) !== courseId)
+        );
+        alert("Course deleted successfully!");
+      }
+    } catch (err) {
+      console.error("Delete failed:", err);
+      alert("Delete failed - network error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const navigate = useNavigate();
   const location = useLocation();
   // Đọc tab từ localStorage khi load, ưu tiên location.state.tab nếu có
@@ -21,6 +128,25 @@ const MentorProfile = () => {
   const [activeTab, setActiveTab] = useState(getInitialTab());
 
   // Khi location.state.tab thay đổi (navigate từ CreateCoursePage), tự động chuyển tab
+  // Lấy thông tin profile khi mount
+  useEffect(() => {
+    const fetchProfile = async () => {
+      setLoading(true);
+      setError(null);
+      const { response, error } = await profileApi.getProfile();
+      if (error) {
+        setError("Không thể tải thông tin profile");
+        setProfile(null);
+      } else if (response && response.data) {
+        setProfile(response.data);
+      } else {
+        setProfile(null);
+      }
+      setLoading(false);
+    };
+    fetchProfile();
+  }, []);
+
   useEffect(() => {
     if (location.state && location.state.tab) {
       setActiveTab(location.state.tab);
@@ -47,25 +173,6 @@ const MentorProfile = () => {
   });
 
   // Sửa trong mentor-profile.jsx
-  const handleDeleteCourse = async (course) => {
-    const courseId = course._id || course.id;
-    if (!courseId) {
-      alert("Invalid course id!");
-      return;
-    }
-    if (!window.confirm("Are you sure you want to delete this course?")) return;
-    try {
-      setLoading(true);
-      // Xóa course khỏi danh sách mock
-      setAllCourses((prev) => prev.filter((c) => (c._id || c.id) !== courseId));
-      alert("Course deleted successfully!");
-    } catch (err) {
-      console.error("Delete failed:", err);
-      alert("Delete failed - network error");
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const [profileImage, setProfileImage] = useState(null);
 
@@ -866,7 +973,10 @@ const MentorProfile = () => {
                         return (
                           <div
                             key={course._id || course.id}
-                            className="border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow min-h-[520px] flex flex-col"
+                            className="border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow min-h-[520px] flex flex-col cursor-pointer"
+                            onClick={() =>
+                              navigate(`/courses/${course._id || course.id}`)
+                            }
                           >
                             <img
                               src={
@@ -936,19 +1046,21 @@ const MentorProfile = () => {
                             <div className="flex gap-2 p-4 pt-0 mt-auto">
                               <button
                                 className="flex-1 bg-blue-600 text-white py-2 px-3 rounded-lg hover:bg-blue-700 transition text-sm font-medium"
-                                onClick={() =>
+                                onClick={(e) => {
+                                  e.stopPropagation();
                                   navigate(
-                                    `/mentor/edit-course/${
-                                      course._id || course.id
-                                    }`
-                                  )
-                                }
+                                    `/mentor/edit-course` //${course._id || course.id}
+                                  );
+                                }}
                               >
                                 Edit Course
                               </button>
                               <button
                                 className="flex-1 px-3 py-2 border border-red-300 text-red-600 rounded-lg hover:bg-red-50 transition text-sm"
-                                onClick={() => handleDeleteCourse(course)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeleteCourse(course);
+                                }}
                               >
                                 Delete
                               </button>

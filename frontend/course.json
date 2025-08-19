@@ -1,0 +1,19 @@
+{
+  "title": "React for Beginners",
+  "description": "Learn React from zero to basic apps",
+  "shortDescription": "JSX, components, props, state, effects",
+  "thumbnail": "uploads/covers/react-beginners.jpg",
+  "price": 49,
+  "mentor": { "$oid": "6894582fcc165a7ec583fb0a" },
+  "category": "Web Development",
+  "tags": ["react", "frontend"],
+  "duration": "5 hours",
+  "link": "https://drive.google.com/your-course-link",
+  "lectures": 24,
+  "level": "Beginner",
+  "mentees": [],
+  "numberOfRatings": 0,
+  "rate": 0,
+  "createdAt": { "$date": "2025-08-19T10:00:00Z" },
+  "updatedAt": { "$date": "2025-08-19T10:00:00Z" }
+}

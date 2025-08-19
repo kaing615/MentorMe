@@ -18,6 +18,7 @@ import MentorProfile from "../pages/mentor-profile";
 import MentorPage from "../pages/mentor-page";
 import CreateCoursePage from "../pages/CreateCoursePage";
 import CourseDetail from "../pages/CourseDetail";
+import EditCoursePage from "../pages/EditCoursePage";
 
 
 const useRouterElements = () => {
@@ -59,6 +60,10 @@ const useRouterElements = () => {
         {
           path: MENTOR_PATH.COURSEDETAIL,
           element: <CourseDetail />
+        },
+        {
+          path: MENTOR_PATH.EDITCOURSE,
+          element: <EditCoursePage />
         }
       ],
     },
