@@ -582,11 +582,11 @@ const HomeScreen = () => {
             >
               <div className="inline-flex gap-8">
                 {mentors.map((mentor, idx) => (
-                  <button
+                  <div
                     key={idx}
                     className="bg-white rounded-[18px] border border-[#D6E3F3] shadow-sm flex flex-col items-center p-6 min-w-[260px] max-w-[300px] w-full transition-all duration-200 hover:shadow-lg hover:-translate-y-1 active:scale-95 focus:outline-none focus:ring-2 focus:ring-blue-400 group cursor-pointer"
                     tabIndex={0}
-                    type="button"
+                    role="button"
                     onClick={() => {
                       /* API use */
                     }}
@@ -617,7 +617,10 @@ const HomeScreen = () => {
                           </span>
                         </div>
                       </div>
-                      <button className="w-full flex items-center justify-center gap-2 bg-[#2563eb] text-white font-semibold rounded-lg py-2 mt-auto text-base hover:bg-[#1749b1] transition">
+                      <div
+                        className="w-full flex items-center justify-center gap-2 bg-[#2563eb] text-white font-semibold rounded-lg py-2 mt-auto text-base hover:bg-[#1749b1] transition"
+                        style={{ cursor: "pointer" }}
+                      >
                         Send Message
                         <svg
                           xmlns="http://www.w3.org/2000/svg"
@@ -633,9 +636,9 @@ const HomeScreen = () => {
                             d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25H4.5a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.668c0 .456-.244.88-.64 1.1l-7.5 4.167a2.25 2.25 0 01-2.22 0l-7.5-4.167a1.125 1.125 0 01-.64-1.1V6.75"
                           />
                         </svg>
-                      </button>
+                      </div>
                     </div>
-                  </button>
+                  </div>
                 ))}
               </div>
             </div>
