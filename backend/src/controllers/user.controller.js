@@ -291,18 +291,18 @@ export const signUpMentor = async (req, res) => {
       return responseHandler.badRequest(res, "Vui lòng upload ảnh đại diện.");
     }
 
-    if (req.file) {
-      const base64 = `data:${
-        req.file.mimetype
-      };base64,${req.file.buffer.toString("base64")}`;
-      const uploadResult = await uploadImage(base64, {
-        public_id: `avatar_mentor_${Date.now()}`,
-        folder: "user_avatars",
-        overwrite: true,
-      });
-      avatarUrl = uploadResult.secure_url;
-      avatarPublicId = uploadResult.public_id;
+    if (!req.file) {
+      return responseHandler.badRequest(res, "Vui lòng upload ảnh đại diện.");
     }
+
+    const base64 = `data:${req.file.mimetype};base64,${req.file.buffer.toString(
+      "base64"
+    )}`;
+    const uploadResult = await uploadImage(base64, {
+      public_id: `avatar_mentor_${Date.now()}`,
+      folder: "user_avatars",
+      overwrite: true,
+    });
 
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);

@@ -1,17 +1,19 @@
 import React, { useState, useEffect } from "react";
+import { useSelector } from "react-redux";
 import { FaUserCircle } from "react-icons/fa";
 import { useNavigate, useLocation } from "react-router-dom";
 import { PATH, MENTOR_PATH } from "../routes/path";
 import youtubeImg from "../assets/youtube.png";
-import profileApi from "../api/modules/profile.api";
 import facebookImg from "../assets/facebook.png";
 import linkedinImg from "../assets/linkedin.png";
 import twitterImg from "../assets/twitter.png";
 import googleImg from "../assets/google.png";
 import courseApi from "../api/modules/course.api";
-import userApi from "../api/modules/user.api";
+import profileApi from "../api/modules/profile.api";
 
 const MentorProfile = () => {
+  // Get user from Redux state (auth slice)
+  const user = useSelector((s) => s.auth?.user);
   // State lưu thông tin profile
   const [profile, setProfile] = useState(null);
   // CRUD API integration for Profile
@@ -31,11 +33,19 @@ const MentorProfile = () => {
   const handleGetProfileDetail = async () => {
     setLoading(true);
     setError(null);
-    const { response, error } = await profileApi.getProfileDetail();
-    if (error) {
-      setError("Không thể tải chi tiết profile");
-    } else if (response && response.data) {
-      setProfile(response.data);
+    try {
+      const { response, error } = await profileApi.getProfileDetail();
+      console.log("[MentorProfile] getProfileDetail response:", response);
+      console.log("[MentorProfile] getProfileDetail error:", error);
+      if (error) {
+        setError("Không thể tải chi tiết profile");
+        console.error("[MentorProfile] getProfileDetail error:", error);
+      } else if (response && response.data) {
+        setProfile(response.data);
+        console.log("[MentorProfile] setProfile:", response.data);
+      }
+    } catch (err) {
+      console.error("[MentorProfile] getProfileDetail exception:", err);
     }
     setLoading(false);
   };
@@ -161,16 +171,17 @@ const MentorProfile = () => {
   }, [activeTab]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  // Initialize formData with user info if available
   const [formData, setFormData] = useState({
-    firstName: "",
-    lastName: "",
-    headline: "",
-    bio: "",
-    website: "",
-    twitter: "",
-    linkedin: "",
-    youtube: "",
-    facebook: "",
+    firstName: user?.firstName || "",
+    lastName: user?.lastName || "",
+    headline: user?.headline || "",
+    bio: user?.bio || "",
+    website: user?.website || "",
+    twitter: user?.twitter || "",
+    linkedin: user?.linkedin || "",
+    youtube: user?.youtube || "",
+    facebook: user?.facebook || "",
   });
 
   // Sửa trong mentor-profile.jsx
@@ -832,11 +843,7 @@ const MentorProfile = () => {
               <button
                 type="button"
                 className="bg-blue-600 text-white px-6 py-2 rounded-lg font-semibold mt-8 float-right"
-                onClick={() => {
-                  // Giả lập cập nhật tên và avatar, bạn cần thay bằng API thực tế
-                  alert("Profile updated!");
-                  // TODO: Gọi API cập nhật tên và avatar ở đây
-                }}
+                onClick={() => handleUpdateProfile(formData)}
               >
                 Save Profile
               </button>
