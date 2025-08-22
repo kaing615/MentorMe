@@ -4,7 +4,7 @@ import upload from "../utils/multer.js";
 import * as userValidation from "../validations/user.validation.js";
 
 import userController from "../controllers/user.controller.js";
-import parseSkillsMiddleware from "../middlewares/parseSkills.middleware.js";
+import parseFieldsMiddleware from "../middlewares/parseFields.middleware.js";
 
 const router = express.Router();
 
@@ -54,7 +54,7 @@ router.post(
 router.post(
   "/signupMentor",
   upload.single("avatar"),
-  parseSkillsMiddleware,
+  parseFieldsMiddleware,
   validateBody(userValidation.signUpMentorSchema),
   userController.signUpMentor
 );

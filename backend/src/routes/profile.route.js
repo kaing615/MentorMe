@@ -11,10 +11,10 @@ const router = express.Router();
 
 /**
  * @route   GET /api/profile/
- * @desc    Lấy thông tin profile của user hiện tại
+ * @desc    Lấy profile của user hiện tại (auto-create nếu chưa có)
  * @access  Private (Cần authentication)
  * @middleware tokenMiddleware.auth - Xác thực JWT token
- * @returns {Object} user, profile - Thông tin user và profile đã được làm sạch
+ * @returns {Object} profile - Profile đầy đủ với user info và reviews (auto-populated)
  */
 router.get("/", tokenMiddleware.auth, profileController.getProfile);
 

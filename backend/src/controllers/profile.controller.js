@@ -3,6 +3,7 @@ import responseHandler from "../handlers/response.handler.js";
 import Profile from "../models/profile.model.js";
 import User from "../models/user.model.js";
 import { uploadImage } from "../utils/cloudinary.js";
+import profileUtils from "../utils/profile.utils.js";
 
 export const updateMentorProfile = async (req, res) => {
   try {
@@ -247,29 +248,24 @@ export const getProfile = async (req, res) => {
   try {
     const userId = req.user.id;
 
-    const user = await User.findById(userId);
-    if (!user) {
-      return responseHandler.badRequest(res, "User không tồn tại");
+    // Lấy profile đầy đủ với auto-create và populate
+    const profile = await profileUtils.getFullProfile(userId);
+
+    if (!profile) {
+      // Nếu không có profile, tạo profile mới
+      const newProfile = await profileUtils.findOrCreateProfile(userId);
+      const fullProfile = await profileUtils.getFullProfile(userId);
+      return responseHandler.ok(
+        res,
+        fullProfile,
+        "Profile được tạo mới thành công."
+      );
     }
 
-    // Lấy thông tin profile
-    const profile = await Profile.findOne({ user: userId });
-
-    // Làm sạch dữ liệu trả về
-    const userData = user.toObject();
-    delete userData.password;
-    delete userData.salt;
-    delete userData.verifyKey;
-    delete userData.resetToken;
-    delete userData.resetTokenExpires;
-
-    return responseHandler.ok(res, {
-      user: userData,
-      profile: profile,
-    });
-  } catch (err) {
-    console.error("Lỗi lấy thông tin profile:", err);
-    responseHandler.error(res, "Lỗi lấy thông tin profile!");
+    return responseHandler.ok(res, profile, "Lấy profile thành công.");
+  } catch (error) {
+    console.error("Error getting profile:", error);
+    return responseHandler.error(res, "Lỗi khi lấy profile: " + error.message);
   }
 };
 
@@ -313,8 +309,8 @@ export const changeAvatar = async (req, res) => {
 };
 
 export default {
+  getProfile,
   updateMentorProfile,
   updateMenteeProfile,
-  getProfile,
   changeAvatar,
 };
