@@ -14,6 +14,12 @@ import SignUp from "../pages/SignUp";
 import Login from "../pages/Login";
 import ApplyAsMentor from "../pages/ApplyAsMentor";
 import VerifyEmailPage from "../pages/VerifyEmailPage";
+import MentorProfile from "../pages/mentor-profile";
+import MentorPage from "../pages/mentor-page";
+import CreateCoursePage from "../pages/CreateCoursePage";
+import CourseDetail from "../pages/CourseDetail";
+import EditCoursePage from "../pages/EditCoursePage";
+
 
 const useRouterElements = () => {
   const elements = useRoutes([
@@ -39,6 +45,26 @@ const useRouterElements = () => {
           path: MENTOR_PATH.HOME,
           element: <HomeScreen />,
         },
+        {
+          path: MENTOR_PATH.PROFILE,
+          element: <MentorProfile />,
+        },
+        {
+          path: MENTOR_PATH.HOMEPAGE,
+          element: <MentorPage />,
+        },
+        {
+          path: MENTOR_PATH.CREATECOURSE,
+          element: <CreateCoursePage />
+        },
+        {
+          path: MENTOR_PATH.COURSEDETAIL,
+          element: <CourseDetail />
+        },
+        {
+          path: MENTOR_PATH.EDITCOURSE,
+          element: <EditCoursePage />
+        }
       ],
     },
     {
