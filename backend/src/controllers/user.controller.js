@@ -1,10 +1,18 @@
 import bcrypt from "bcryptjs";
+import { v2 as cloudinary } from "cloudinary";
+import crypto from "crypto";
+import dotenv from "dotenv";
 import jwt from "jsonwebtoken";
+import nodemailer from "nodemailer";
 import responseHandler from "../handlers/response.handler.js";
 import User from "../models/user.model.js";
+<<<<<<< HEAD
 import dotenv from "dotenv";
 import crypto from "crypto";
 import nodemailer from "nodemailer";
+=======
+import { uploadImage } from "../utils/cloudinary.js";
+>>>>>>> 0e92a0b1b0aa6b6f0df3f429a0d7adecbc27d9a5
 
 dotenv.config();
 
@@ -20,6 +28,7 @@ var transport = nodemailer.createTransport({
 const generateToken = (bytes = 32) => crypto.randomBytes(bytes).toString("hex");
 
 export const sendVerificationEmail = async (email, verifyKey, userName) => {
+<<<<<<< HEAD
 	const verifyLink = `${
 		process.env.FRONTEND_URL
 	}/auth/verify-email?verified=1&email=${encodeURIComponent(
@@ -30,6 +39,17 @@ export const sendVerificationEmail = async (email, verifyKey, userName) => {
 		to: email,
 		subject: "Xác thực tài khoản MentorMe",
 		html: `
+=======
+  const verifyLink = `
+    http://localhost:5173/auth/verify-email?verified=1&email=${encodeURIComponent(
+      email
+    )}&verifyKey=${verifyKey}`;
+  const data = {
+    from: "MentorMe <no-reply@mentorme.com>",
+    to: email,
+    subject: "Xác thực tài khoản MentorMe",
+    html: `
+>>>>>>> 0e92a0b1b0aa6b6f0df3f429a0d7adecbc27d9a5
             <h3>Xin chào ${userName || ""}!</h3>
             <p>Bạn vừa đăng ký tài khoản MentorMe. Vui lòng bấm vào liên kết dưới đây để xác thực email:</p>
             <a href="${verifyLink}">${verifyLink}</a>
@@ -47,6 +67,7 @@ export const sendVerificationEmail = async (email, verifyKey, userName) => {
 };
 
 export const verifyEmail = async (req, res) => {
+<<<<<<< HEAD
 	try {
 		const { email, verifyKey } = req.query;
 		const user = await User.findOne({
@@ -60,6 +81,18 @@ export const verifyEmail = async (req, res) => {
 				res,
 				"Liên kết xác thực không hợp lệ hoặc đã được sử dụng."
 			);
+=======
+  try {
+    const { email, verifyKey } = req.query;
+    const user = await User.findOne({
+      email,
+    });
+    if (!user)
+      return responseHandler.badRequest(
+        res,
+        "Liên kết xác thực không hợp lệ hoặc đã được sử dụng."
+      );
+>>>>>>> 0e92a0b1b0aa6b6f0df3f429a0d7adecbc27d9a5
 
 		user.isVerified = true;
 		user.verifyKey = "";
@@ -159,8 +192,14 @@ export const googleAuth = async (req, res) => {
 };
 
 export const signUp = async (req, res) => {
+<<<<<<< HEAD
 	try {
 		const { userName, email, password } = req.body;
+=======
+  try {
+    const { userName, email, password, confirmPassword, firstName, lastName } =
+      req.body;
+>>>>>>> 0e92a0b1b0aa6b6f0df3f429a0d7adecbc27d9a5
 
 		const checkUser = await User.findOne({ email });
 		if (checkUser)
@@ -192,6 +231,7 @@ export const signUp = async (req, res) => {
 		await sendVerificationEmail(user.email, user.verifyKey, user.userName);
 		await user.save();
 
+<<<<<<< HEAD
 		if (user.isVerified) {
 			const token = jwt.sign(
 				{ id: user._id, role: user.role },
@@ -219,6 +259,176 @@ export const signUp = async (req, res) => {
 	}
 };
 
+=======
+    if (password != confirmPassword) {
+      return responseHandler.badRequest(
+        res,
+        "Mật khẩu và xác nhận mật khẩu không khớp."
+      );
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+    const verifyKey = generateToken();
+    const verifyKeyExpires = Date.now() + 24 * 60 * 60 * 1000;
+
+    const user = new User({
+      email,
+      firstName,
+      lastName,
+      userName,
+      password: hashedPassword,
+      salt,
+      role: "mentee",
+      isVerified: false,
+      isDeleted: false,
+      verifyKey,
+      verifyKeyExpires,
+    });
+
+    await sendVerificationEmail(user.email, user.verifyKey, user.userName);
+    await user.save();
+
+    if (user.isVerified) {
+      const token = jwt.sign(
+        { id: user._id, role: user.role },
+        process.env.JWT_SECRET,
+        { expiresIn: "7d" }
+      );
+      const userData = user.toObject();
+      delete userData.password;
+      delete userData.salt;
+      delete userData.verifyKey;
+      return responseHandler.created(res, {
+        token,
+        user: userData,
+      });
+    }
+
+    return responseHandler.created(res, {
+      message:
+        "Đăng ký thành công! Vui lòng kiểm tra email để xác thực tài khoản.",
+      id: user._id,
+    });
+  } catch (err) {
+    console.error("Lỗi đăng ký:", err);
+    responseHandler.error(res);
+  }
+};
+
+export const changeAvatar = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    const user = await User.findById(userId);
+    if (!user) return responseHandler.badRequest(res, "User không tồn tại");
+
+    if (user.avatarPublicId) {
+      await cloudinary.uploader.destroy(user.avatarPublicId);
+    }
+
+    if (!req.file) {
+      return responseHandler.badRequest(res, "Chưa có file avatar gửi lên!");
+    }
+
+    const base64 = `data:${req.file.mimetype};base64,${req.file.buffer.toString(
+      "base64"
+    )}`;
+    const result = await uploadImage(base64, {
+      public_id: `avatar_${userId}_${Date.now()}`,
+      folder: "user_avatars",
+      overwrite: true,
+    });
+
+    user.avatarUrl = result.secure_url;
+    user.avatarPublicId = result.public_id;
+    await user.save();
+
+    return responseHandler.ok(res, {
+      message: "Đổi avatar thành công!",
+      avatarUrl: user.avatarUrl,
+    });
+  } catch (err) {
+    console.error("Lỗi đổi avatar:", err);
+    responseHandler.error(res, "Đổi avatar thất bại!");
+  }
+};
+
+export const signUpMentor = async (req, res) => {
+  try {
+    const { userName, email, password, ...rest } = req.body;
+
+    const checkUser = await User.findOne({ email });
+    if (checkUser)
+      return responseHandler.badRequest(res, "Email đã được sử dụng");
+
+    let avatarUrl = "";
+    let avatarPublicId = "";
+
+    if (!req.file) {
+      return responseHandler.badRequest(res, "Vui lòng upload ảnh đại diện.");
+    }
+
+    if (req.file) {
+      const base64 = `data:${
+        req.file.mimetype
+      };base64,${req.file.buffer.toString("base64")}`;
+      const uploadResult = await uploadImage(base64, {
+        public_id: `avatar_mentor_${Date.now()}`,
+        folder: "user_avatars",
+        overwrite: true,
+      });
+      avatarUrl = uploadResult.secure_url;
+      avatarPublicId = uploadResult.public_id;
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
+    const user = new User({
+      userName,
+      email,
+      password: hashedPassword,
+      salt,
+      avatarUrl,
+      avatarPublicId,
+      role: "mentor",
+      isVerified: false,
+      // ... các trường còn lại
+      ...rest,
+    });
+
+    await user.save();
+
+    return responseHandler.created(res, {
+      message: "Đăng ký mentor thành công!",
+      id: user._id,
+      avatarUrl: user.avatarUrl,
+    });
+  } catch (err) {
+    console.error("Lỗi signUpMentor:", err);
+    responseHandler.error(res, err.message || "Lỗi đăng ký mentor!");
+  }
+};
+
+export const getPendingMentor = async (req, res) => {
+  try {
+    const mentors = await User.find({
+      role: "mentor",
+      isVerified: false,
+    });
+
+    return responseHandler.ok(res, mentors);
+  } catch (err) {
+    console.log("Lỗi lấy mentor chờ duyệt: ", err);
+    return responseHandler.error(
+      res,
+      err.message || "Lỗi lấy mentor chờ duyệt!"
+    );
+  }
+};
+
+>>>>>>> 0e92a0b1b0aa6b6f0df3f429a0d7adecbc27d9a5
 export const signIn = async (req, res) => {
 	try {
 		const { email, password } = req.body;
