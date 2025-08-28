@@ -14,6 +14,11 @@ import MenteeProfile from "../pages/mentee-profile";
 import AllCoursePage from "../pages/AllCoursepage";
 import AllMentors from "../pages/AllMentors";
 import OrderCompleteCourse from "../pages/order-complete-course";
+import SignUp_SignIn_layout from "../components/layout/SignUp_SignIn_layout";
+import SignUp from "../pages/SignUp";
+import Login from "../pages/Login";
+import ApplyAsMentor from "../pages/ApplyAsMentor";
+import VerifyEmailPage from "../pages/VerifyEmailPage";
 
 const useRouterElements = () => {
   const elements = useRoutes([
@@ -44,6 +49,28 @@ const useRouterElements = () => {
         {
           path: MENTEE_PATH.ALL_COURSES,
           element: <AllCoursePage />,
+        },
+      ],
+    },
+    {
+      path: PATH.AUTH,
+      element: <SignUp_SignIn_layout />,
+      children: [
+        {
+          path: AUTH_PATH.SIGNUP,
+          element: <SignUp />,
+        },
+        {
+          path: AUTH_PATH.SIGNIN,
+          element: <Login />,
+        },
+        {
+          path: AUTH_PATH.APPLY_AS_MENTOR,
+          element: <ApplyAsMentor />,
+        },
+        {
+          path: AUTH_PATH.VERIFY_EMAIL,
+          element: <VerifyEmailPage />,
         },
       ],
     },

@@ -275,13 +275,12 @@ export const updateMenteeProfile = async (req, res) => {
 
 export const getProfile = async (req, res) => {
   try {
-    // Lấy user đầu tiên trong DB (user seed)
-    // Lấy user đầu tiên trong DB (user seed)
-    const user = await User.findOne();
+    const userId = req.user.id;
+    const user = await User.findById(userId);
     if (!user) {
       return responseHandler.badRequest(res, "User không tồn tại");
     }
-    const profile = await Profile.findOne({ user: user._id });
+    const profile = await Profile.findOne({ user: userId });
     const userData = user.toObject();
     delete userData.password;
     delete userData.salt;

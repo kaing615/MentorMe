@@ -1,6 +1,6 @@
 import express from "express";
 import { validateBody } from "../middlewares/joi.middleware.js";
-import tokenMiddleware from "../middlewares/token.middleware.js";
+import authMiddleware from "../middlewares/auth.middleware.js";
 import upload from "../utils/multer.js";
 import * as profileValidation from "../validations/profile.validation.js";
 
@@ -16,8 +16,7 @@ const router = express.Router();
  * @middleware tokenMiddleware.auth - Xác thực JWT token
  * @returns {Object} user, profile - Thông tin user và profile đã được làm sạch
  */
-//router.get("/", tokenMiddleware.auth, profileController.getProfile);
-router.get("/", profileController.getProfile);
+router.get("/", authMiddleware.verifyToken, profileController.getProfile);
 
 /**
  * @route   PUT /api/profile/mentor
@@ -48,7 +47,7 @@ router.get("/", profileController.getProfile);
  */
 router.put(
   "/mentor",
-  tokenMiddleware.auth,
+  authMiddleware.verifyToken,
   upload.single("avatar"),
   parseSkillsMiddleware,
   validateBody(profileValidation.updateMentorProfileSchema),
@@ -78,7 +77,7 @@ router.put(
  */
 router.put(
   "/mentee",
-  tokenMiddleware.auth,
+  authMiddleware.verifyToken,
   upload.single("avatar"),
   validateBody(profileValidation.updateMenteeProfileSchema),
   profileController.updateMenteeProfile
@@ -95,7 +94,7 @@ router.put(
  */
 router.put(
   "/avatar",
-  tokenMiddleware.auth,
+  authMiddleware.verifyToken,
   upload.single("avatar"),
   profileController.changeAvatar
 );

@@ -1,12 +1,12 @@
 import express from "express";
 import cartController from "../controllers/cart.controller.js";
-import tokenMiddleware from "../middlewares/token.middleware.js";
+import authMiddleware from "../middlewares/auth.middleware.js";
 import cartValidator from "../middlewares/validators/cart.middleware.js";
 
 const router = express.Router();
 
 // Tất cả cart routes đều cần authentication
-router.use(tokenMiddleware.auth);
+router.use(authMiddleware.verifyToken);
 
 /**
  * @route   GET /api/cart

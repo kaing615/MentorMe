@@ -1,7 +1,7 @@
 import express from "express";
 import courseController from "../controllers/course.controller.js";
 import { validateBody } from "../middlewares/joi.middleware.js";
-import tokenMiddleware from "../middlewares/token.middleware.js";
+import authMiddleware from "../middlewares/auth.middleware.js";
 import * as courseValidation from "../validations/course.validation.js";
 
 const router = express.Router();
@@ -57,7 +57,7 @@ router.get("/mentor/:mentorId", courseController.getCoursesByMentor);
  */
 router.post(
   "/",
-  tokenMiddleware.auth,
+  authMiddleware.verifyToken,
   validateBody(courseValidation.createCourseSchema),
   courseController.createCourse
 );
