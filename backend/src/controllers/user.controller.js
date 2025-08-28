@@ -317,6 +317,10 @@ export const signUpMentor = async (req, res) => {
       greatestAchievement,
       links,
       introVideo,
+      headline,
+      experience,
+      languages,
+      timezone,
       ...rest
     } = req.body;
 
@@ -433,6 +437,14 @@ export const signUpMentor = async (req, res) => {
     });
   } catch (err) {
     console.error("Lỗi signUpMentor:", err);
+    if (err.details) {
+      // Nếu là lỗi validation của Joi
+      console.error("Chi tiết lỗi Joi:", err.details);
+      return responseHandler.error(res, {
+        message: err.message || "Lỗi đăng ký mentor!",
+        details: err.details,
+      });
+    }
     responseHandler.error(res, err.message || "Lỗi đăng ký mentor!");
   }
 };
