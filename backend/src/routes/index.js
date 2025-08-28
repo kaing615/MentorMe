@@ -5,13 +5,18 @@ import courseRoute from "./course.route.js";
 import profileRoute from "./profile.route.js";
 import purchasedCourseRoute from "./purchasedCourse.route.js";
 import userRoute from "./user.route.js";
+import bookingRoute from "./booking.route.js";
 
 const router = express.Router();
 
 router.use("/user", userRoute);
 router.use("/profile", profileRoute);
+<<<<<<< HEAD
 router.use("/course", courseRoute);
 router.use("/purchased-courses", purchasedCourseRoute);
 router.use("/cart", cartRoute);
+=======
+router.use("/booking", bookingRoute);
+>>>>>>> origin/feature/BE-appoint-booking
 
 export default router;
