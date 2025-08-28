@@ -1,185 +1,42 @@
 import React, { useEffect, useState, useRef } from "react";
+import profileApi from "../api/modules/profile.api";
+import courseApi from "../api/modules/course.api";
 // import axios from "../api/clients/public.client"; // Uncomment and adjust path if you have a custom axios client
 import minatoPic from "../assets/minato.jpg";
 const MentorPage = () => {
-  const defaultMentor = {
-    name: "Cong Khoa Van",
-    title: "Fullstack Developer, Teacher",
-    totalStudents: 1000,
-    reviewsCount: 154,
-    website: "#",
-    twitter: "#",
-    youtube: "#",
-    about:
-      "Cong Khoa Van is a highly skilled professional with a solid foundation in computer science. He is known for his expertise in designing and developing user-centric digital solutions.",
-    expertise: [
-      "User Experience Design",
-      "User Interface Design",
-      "Web Development",
-      "Mobile App Design",
-    ],
-    experience:
-      "Van has a comprehensive background in UX/UI design, having worked with renowned companies. His portfolio includes a diverse range of projects across various sectors, mobile apps, and e-commerce platforms.",
-    averageRating: 4.6,
-    ratingStats: [
-      { star: 5, percent: 65 },
-      { star: 4, percent: 25 },
-      { star: 3, percent: 6 },
-      { star: 2, percent: 2 },
-      { star: 1, percent: 2 },
-    ],
-  };
-  const defaultCourses = [
-    {
-      id: 1,
-      title: "Programming Fundamentals",
-      duration: "24h",
-      lessons: 100,
-      level: "Beginner",
-      rating: 4.8,
-      lectures: 154,
-      price: 149,
-    },
-    {
-      id: 2,
-      title: "JavaScript Basics",
-      duration: "18h",
-      lessons: 80,
-      level: "Beginner",
-      rating: 4.7,
-      lectures: 120,
-      price: 149,
-    },
-    {
-      id: 3,
-      title: "React for Beginners",
-      duration: "20h",
-      lessons: 90,
-      level: "Beginner",
-      rating: 4.9,
-      lectures: 130,
-      price: 149,
-    },
-    {
-      id: 4,
-      title: "Web Development",
-      duration: "30h",
-      lessons: 110,
-      level: "Beginner",
-      rating: 4.8,
-      lectures: 140,
-      price: 149,
-    },
-    {
-      id: 5,
-      title: "Node.js Backend Development",
-      duration: "28h",
-      lessons: 95,
-      level: "Intermediate",
-      rating: 4.9,
-      lectures: 165,
-      price: 199,
-    },
-    {
-      id: 6,
-      title: "Python for Data Science",
-      duration: "35h",
-      lessons: 120,
-      level: "Intermediate",
-      rating: 4.8,
-      lectures: 180,
-      price: 179,
-    },
-    {
-      id: 7,
-      title: "MongoDB Database Design",
-      duration: "22h",
-      lessons: 75,
-      level: "Beginner",
-      rating: 4.7,
-      lectures: 125,
-      price: 139,
-    },
-    {
-      id: 8,
-      title: "Advanced CSS & SASS",
-      duration: "26h",
-      lessons: 85,
-      level: "Intermediate",
-      rating: 4.8,
-      lectures: 145,
-      price: 159,
-    },
-    {
-      id: 9,
-      title: "Vue.js Complete Guide",
-      duration: "32h",
-      lessons: 105,
-      level: "Intermediate",
-      rating: 4.9,
-      lectures: 175,
-      price: 189,
-    },
-    {
-      id: 10,
-      title: "TypeScript Mastery",
-      duration: "24h",
-      lessons: 90,
-      level: "Advanced",
-      rating: 4.8,
-      lectures: 155,
-      price: 199,
-    },
-  ];
-  const defaultReviews = [
-    {
-      id: 1,
-      userName: "Lamine Yamal",
-      rating: 5,
-      date: "Reviewed on 22nd June, 2025",
-      comment:
-        "I was honestly nervous at first since I had zero experience in this field. But my mentor, Viet Thang Nguyen, made everything so easy to understand! He broke down all the tricky stuff into simple, real-life tips, and our chats were actually fun and super motivating. I feel way more confident now thanks to his guidance!",
-    },
-    {
-      id: 2,
-      userName: "Sarah Johnson",
-      rating: 5,
-      date: "Reviewed on 22nd June, 2025",
-      comment:
-        "I was honestly nervous at first since I had zero experience in this field. But my mentor, Viet Thang Nguyen, made everything so easy to understand! He broke down all the tricky stuff into simple, real-life tips, and our chats were actually fun and super motivating. I feel way more confident now thanks to his guidance!",
-    },
-    {
-      id: 3,
-      userName: "Michael Chen",
-      rating: 5,
-      date: "Reviewed on 22nd June, 2025",
-      comment:
-        "I was honestly nervous at first since I had zero experience in this field. But my mentor, Viet Thang Nguyen, made everything so easy to understand! He broke down all the tricky stuff into simple, real-life tips, and our chats were actually fun and super motivating. I feel way more confident now thanks to his guidance!",
-    },
-  ];
-
-  const [mentor, setMentor] = useState(defaultMentor);
-  const [courses, setCourses] = useState(defaultCourses);
-  const [reviews, setReviews] = useState(defaultReviews);
-  // You can set loading and error state if needed
-  // const [loading, setLoading] = useState(false);
-  // const [error, setError] = useState(null);
+  // State declarations
+  const [mentor, setMentor] = useState(null);
+  const [courses, setCourses] = useState([]);
+  const [reviews, setReviews] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
 
   // Fetch data from backend API and overwrite default data if available
   useEffect(() => {
-    // Example API endpoints (replace with your actual endpoints)
-    // const mentorId = "1"; // Get from route or props if needed
-    // setLoading(true);
-    // axios.get(`/mentors/${mentorId}`).then(res => {
-    //   if (res.data) setMentor(res.data);
-    // }).catch(err => setError(err));
-    // axios.get(`/mentors/${mentorId}/courses`).then(res => {
-    //   if (res.data && Array.isArray(res.data) && res.data.length > 0) setCourses(res.data);
-    // });
-    // axios.get(`/mentors/${mentorId}/reviews`).then(res => {
-    //   if (res.data && Array.isArray(res.data) && res.data.length > 0) setReviews(res.data);
-    // });
-    // setLoading(false);
+    const fetchMentorData = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        // Fetch mentor profile
+        const mentorRes = await profileApi.getProfile();
+        if (mentorRes?.data) setMentor(mentorRes.data);
+
+        // Fetch mentor's courses
+        const mentorId = mentorRes?.data?.user?._id;
+        if (mentorId) {
+          const coursesRes = await courseApi.getCoursesByMentor(mentorId);
+          if (Array.isArray(coursesRes)) setCourses(coursesRes);
+        }
+
+        // Fetch mentor's reviews (if you have this API)
+        // const reviewsRes = await reviewApi.getReviewsByMentor(mentorId);
+        // if (Array.isArray(reviewsRes)) setReviews(reviewsRes);
+      } catch (err) {
+        setError("Không thể tải dữ liệu mentor hoặc khóa học");
+      }
+      setLoading(false);
+    };
+    fetchMentorData();
   }, []);
 
   // --- Carousel logic for More Courses section ---
@@ -204,72 +61,65 @@ const MentorPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col py-0">
+    <div className="min-h-screen bg-white-50 flex flex-col py-0">
       <main className="w-full flex flex-col">
         <div className="w-full mt-8 p-0">
-          {/* Mentor Info Section */}
+          {/* Mentor Info Section - fetch and display real data */}
           {mentor && (
             <div className="w-full flex flex-col md:flex-row md:items-start md:justify-between max-w-7xl mx-auto w-full px-2 md:px-4">
               {/* Left info + about */}
               <div className="flex-1 min-w-0 pr-0 md:pr-12">
                 <div className="text-base text-gray-500 mb-1">Mentor</div>
                 <h1 className="text-4xl font-bold text-gray-900 mb-1">
-                  Viet Thang Nguyen
+                  {mentor?.user?.firstName || "Mentor"}{" "}
+                  {mentor?.user?.lastName || ""}
                 </h1>
                 <div className="text-lg text-gray-700 mb-4 font-medium">
-                  Fullstack Developer, Teacher
+                  {mentor?.jobTitle || mentor?.user?.jobTitle || ""}
                 </div>
                 <div className="flex gap-16 mb-6">
                   <div>
                     <div className="text-base text-gray-500 font-medium mb-1">
                       Total Students
                     </div>
-                    <div className="text-3xl font-bold text-gray-900">1000</div>
+                    <div className="text-3xl font-bold text-gray-900">
+                      {mentor?.totalStudents || "N/A"}
+                    </div>
                   </div>
                   <div>
                     <div className="text-base text-gray-500 font-medium mb-1">
                       Reviews
                     </div>
-                    <div className="text-3xl font-bold text-gray-900">154</div>
+                    <div className="text-3xl font-bold text-gray-900">
+                      {mentor?.reviewsCount || "N/A"}
+                    </div>
                   </div>
                 </div>
                 {/* About Section merged here */}
                 <div className="w-full mt-0">
                   <h3 className="text-xl font-bold mb-2 text-gray-900">
-                    About Viet Thang Nguyen
+                    About {mentor?.user?.firstName || "Mentor"}
                   </h3>
                   <p className="mb-6 text-gray-700 text-justify">
-                    Viet Thang Nguyen is a highly skilled IT professional with a
-                    solid foundation in computer science from the United States.
-                    With over a decade of experience in designing and developing
-                    user-centric digital solutions, Thang excels at building
-                    intuitive and impactful applications. His strong background
-                    in IT, combined with a keen eye for usability and
-                    innovation, enables him to create seamless digital
-                    experiences that truly make a difference.
+                    {mentor?.bio || mentor?.user?.bio || "No bio available."}
                   </p>
                   <h4 className="font-bold mb-2 text-gray-900">
                     Areas of Expertise
                   </h4>
                   <ul className="list-disc list-inside mb-6 text-gray-800">
-                    <li>User Experience (UX) Design</li>
-                    <li>User Interface (UI) Design</li>
-                    <li>Information Architecture</li>
-                    <li>Interaction Design</li>
-                    <li>Visual Design</li>
-                    <li>Usability Testing</li>
-                    <li>Wireframing and Prototyping</li>
-                    <li>Design Thinking</li>
+                    {(mentor?.skills || mentor?.user?.skills || []).map(
+                      (skill, idx) => (
+                        <li key={idx}>{skill}</li>
+                      )
+                    )}
                   </ul>
                   <h4 className="font-bold mb-2 text-gray-900">
                     Professional Experience
                   </h4>
                   <p className="text-gray-700 text-justify">
-                    Ronald Richard has an extensive professional background in
-                    UX/UI design, having worked with renowned companies such as
-                    [Company Name] and [Company Name]. His portfolio includes a
-                    diverse range of projects spanning web applications, mobile
-                    apps, and e-commerce platforms.
+                    {mentor?.greatestAchievement ||
+                      mentor?.user?.greatestAchievement ||
+                      "No professional experience provided."}
                   </p>
                 </div>
               </div>
@@ -277,26 +127,29 @@ const MentorPage = () => {
               <div className="flex flex-col items-center w-80 flex-shrink-0 mt-8 md:mt-0">
                 <div className="w-40 h-40 rounded-full overflow-hidden border-4 border-gray-100 shadow mb-6 bg-gray-200 ">
                   <img
-                    src="https://randomuser.me/api/portraits/men/32.jpg"
-                    alt="Viet Thang Nguyen"
+                    src={
+                      mentor?.user?.avatarUrl ||
+                      "https://randomuser.me/api/portraits/men/32.jpg"
+                    }
+                    alt={mentor?.user?.firstName || "Mentor"}
                     className="w-full h-full object-cover"
                   />
                 </div>
                 <div className="flex flex-col gap-3 w-full max-w-xs">
                   <a
-                    href="#"
+                    href={mentor?.links?.website || "#"}
                     className="w-full border border-gray-300 rounded py-2 text-center text-gray-700 font-medium hover:bg-gray-100 transition"
                   >
                     Website
                   </a>
                   <a
-                    href="#"
+                    href={mentor?.links?.twitter || "#"}
                     className="w-full border border-gray-300 rounded py-2 text-center text-gray-700 font-medium hover:bg-gray-100 transition"
                   >
                     Twitter
                   </a>
                   <a
-                    href="#"
+                    href={mentor?.links?.youtube || "#"}
                     className="w-full border border-gray-300 rounded py-2 text-center text-gray-700 font-medium hover:bg-gray-100 transition"
                   >
                     Youtube
@@ -310,15 +163,12 @@ const MentorPage = () => {
           )}
 
           {/* More Courses Section - Figma style, horizontal carousel, closer match */}
-          <section
-            className="w-full py-14 bg-white"
-            style={{ background: "#f8f9fb" }}
-          >
+          <section className="w-full py-14" style={{ background: "#f9fbfd" }}>
             <div className="max-w-7xl mx-auto w-full px-2 md:px-4">
               <div className="flex justify-between items-center mb-8 px-2">
                 <h3 className="text-[24px] font-bold text-[#222]">
-                  More Courses by{" "}
-                  <span className="text-[#2563eb]">{mentor?.name}</span>
+                  More Courses by {mentor?.user?.firstName || "Mentor"}
+                  <span className="text-[#F8FAFC]">{mentor?.name}</span>
                 </h3>
                 <div className="flex gap-3">
                   <button
@@ -377,171 +227,93 @@ const MentorPage = () => {
               >
                 <div className="inline-flex gap-6 pb-2">
                   {courses.map((course, idx) => (
-                    <div
-                      key={course.id}
-                      className="course-card bg-white rounded-2xl border border-[#e3eaf3] shadow-sm flex flex-col p-5 min-w-[270px] max-w-[300px] w-full transition-all duration-200 hover:shadow-lg hover:-translate-y-1 cursor-pointer"
-                      style={{ scrollSnapAlign: "start" }}
+                    <a
+                      key={course._id || course.id || idx}
+                      href={`/mentor/courses/${course._id || course.id}`}
+                      className="course-card bg-white rounded-xl border border-gray-200 shadow-lg flex flex-col min-w-[300px] max-w-[340px] w-full transition-all duration-200 hover:shadow-xl hover:-translate-y-1 cursor-pointer overflow-hidden"
+                      style={{
+                        scrollSnapAlign: "start",
+                        textDecoration: "none",
+                      }}
                     >
-                      <div className="h-[140px] w-full bg-gray-200 rounded-xl mb-4 overflow-hidden flex items-center justify-center">
+                      <div className="h-[140px] w-full bg-white-100 rounded-t-xl flex items-center justify-center">
                         <img
-                          src={minatoPic}
-                          alt="course"
-                          className="object-cover w-full h-full"
+                          src={course.thumbnail || minatoPic}
+                          alt={course.title}
+                          className="object-cover h-[120px] w-[92%] rounded-xl"
+                          style={{ marginTop: "4px", marginBottom: "4px" }}
                         />
                       </div>
-                      <div className="font-extrabold text-[22px] text-blue-700 mb-2 leading-tight line-clamp-2">
-                        {course.title}
-                      </div>
-                      <div className="text-sm text-[#222] font-semibold mb-1">
-                        By{" "}
-                        <span className="text-green-700 font-bold">
-                          {mentor?.name}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-1 text-base mb-1">
-                        {[...Array(5)].map((_, i) => (
-                          <span key={i} className="text-[#fbbf24] text-lg">
-                            ★
-                          </span>
-                        ))}
-                        <span className="text-sm text-[#222] ml-2 font-bold">
-                          (1200 <span className="font-extrabold">Ratings</span>)
-                        </span>
-                      </div>
-                      <div className="text-sm mb-2">
-                        <span className="text-[#6b7280]">
-                          {course.duration}. {course.lectures} Lectures.
-                        </span>{" "}
-                        <span className="font-bold text-green-600">
-                          Level: {course.level}
-                        </span>
-                      </div>
-                      <div className="font-extrabold text-[#e53935] text-2xl mt-auto">
-                        ${course.price}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </section>
-
-          {/* Mentor Reviews */}
-          <div className="mt-8">
-            <div className="max-w-7xl mx-auto w-full px-2 md:px-4">
-              <h3 className="text-2xl font-bold mb-6 text-gray-900">
-                Mentee Reviews
-              </h3>
-
-              <div className="flex flex-col lg:flex-row gap-8">
-                {/* Left side - Rating Summary */}
-                <div className="lg:w-1/3">
-                  <div className="flex items-center gap-3 mb-4">
-                    <span className="text-yellow-500 text-4xl">★</span>
-                    <div>
-                      <div className="text-3xl font-bold text-gray-900">
-                        {mentor?.averageRating || 4.6}
-                      </div>
-                      <div className="text-sm text-gray-600">
-                        {(reviews.length * 48951).toLocaleString()} reviews
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Rating breakdown */}
-                  <div className="space-y-2">
-                    {mentor?.ratingStats?.map((stat, idx) => (
-                      <div key={idx} className="flex items-center gap-2">
-                        <div className="flex items-center gap-1">
+                      <div className="flex flex-col px-5 py-4 flex-1">
+                        <div className="font-bold text-[20px] text-gray-900 mb-2 leading-tight">
+                          {course.title}
+                        </div>
+                        <div className="text-base text-gray-700 font-normal mb-1">
+                          By{" "}
+                          {course.authorName ||
+                            course.mentorName ||
+                            mentor?.user?.firstName ||
+                            "Mentor"}
+                        </div>
+                        <div className="flex items-center gap-1 text-base mb-2">
                           {[...Array(5)].map((_, i) => (
                             <span
                               key={i}
-                              className={`text-sm ${
-                                i < stat.star
-                                  ? "text-yellow-500"
+                              className={`text-lg ${
+                                i < (course.rating || 0)
+                                  ? "text-yellow-400"
                                   : "text-gray-300"
                               }`}
                             >
                               ★
                             </span>
                           ))}
+                          <span className="text-base text-gray-700 ml-2 font-bold">
+                            ({course.ratingsCount || 0}{" "}
+                            <span className="font-bold">Ratings</span>)
+                          </span>
                         </div>
-                        <div className="flex-1 bg-gray-200 rounded-full h-2 mx-2">
-                          <div
-                            className="bg-yellow-500 h-2 rounded-full"
-                            style={{ width: `${stat.percent}%` }}
-                          ></div>
+                        <div className="text-base text-gray-700 mb-2">
+                          {course.duration || course.totalHours || ""}.{" "}
+                          {course.lectures || course.totalLectures || ""}{" "}
+                          Lectures. {course.category || course.level || ""}
                         </div>
-                        <span className="text-sm text-gray-600 w-8">
-                          {stat.percent}%
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Right side - Reviews */}
-                <div className="lg:w-2/3">
-                  <div className="space-y-4">
-                    {reviews.map((review, index) => (
-                      <div
-                        key={review.id}
-                        className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm"
-                      >
-                        <div className="flex items-start gap-4">
-                          <div className="w-12 h-12 rounded-full overflow-hidden bg-gray-200 flex-shrink-0">
-                            <img
-                              src={`https://randomuser.me/api/portraits/${
-                                index % 2 === 0 ? "men" : "women"
-                              }/${30 + index}.jpg`}
-                              alt={review.userName}
-                              className="w-full h-full object-cover"
-                            />
+                        {course.level && (
+                          <div className="font-bold text-green-600 mb-2">
+                            Level: {course.level}
                           </div>
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-2">
-                              <span className="font-semibold text-gray-900">
-                                {review.userName}
-                              </span>
-                              <div className="flex items-center gap-1">
-                                <span className="text-yellow-500 text-lg">
-                                  ★
-                                </span>
-                                <span className="font-semibold text-gray-900">
-                                  {review.rating}
-                                </span>
-                              </div>
-                            </div>
-                            <div className="text-sm text-gray-500 mb-3">
-                              {review.date}
-                            </div>
-                            <p className="text-gray-700 leading-relaxed">
-                              {review.comment}
-                            </p>
-                          </div>
+                        )}
+                        <div className="font-bold text-black text-2xl mt-auto">
+                          ${course.price}
                         </div>
                       </div>
-                    ))}
-                  </div>
-
-                  <div className="flex justify-start mt-8">
-                    <button
-                      className="px-6 py-3 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 transition"
-                      onClick={() => {
-                        // API use
-                        console.log(
-                          "Navigate to reviews page - API to be implemented"
-                        );
-                      }}
-                    >
-                      View more Reviews
-                    </button>
-                  </div>
+                    </a>
+                  ))}
                 </div>
               </div>
             </div>
-          </div>
+          </section>
+          {/* Mentor Reviews Section - empty UI, ready for API, aligned with My Courses */}
+          <section
+            className="w-full py-10 bg-white"
+            style={{ background: "white" }}
+          >
+            <div className="max-w-7xl mx-auto w-full px-2 md:px-4">
+              <h3 className="text-[24px] font-bold text-[#222] mb-8">
+                Mentee Reviews
+              </h3>
+              <div className="flex flex-col gap-6 min-h-[180px]">
+                {/* No reviews yet, ready for API integration */}
+              </div>
+              <div className="flex justify-center mt-8">
+                <button className="border border-gray-300 rounded px-6 py-2 text-gray-700 font-medium hover:bg-gray-100 transition">
+                  View more Reviews
+                </button>
+              </div>
+            </div>
+          </section>
         </div>
+        {/* Close .w-full.mt-8.p-0 */}
       </main>
     </div>
   );
