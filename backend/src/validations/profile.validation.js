@@ -77,9 +77,13 @@ export const updateMentorProfileSchema = Joi.object({
     "string.min": "Experience phải từ 10-1000 ký tự",
     "string.max": "Experience phải từ 10-1000 ký tự",
   }),
-  introVideo: Joi.string().uri().optional().messages({
-    "string.uri": "Intro Video phải là URL hợp lệ",
-  }),
+  introVideo: Joi.string()
+    .uri()
+    .optional()
+    .messages({
+      "string.uri": "Intro Video phải là URL hợp lệ",
+    })
+    .allow(""),
   languages: Joi.array().items(Joi.string()).optional().messages({
     "array.base": "Languages phải là mảng",
   }),

@@ -1,4 +1,13 @@
+// Capitalize initials of each word
+function capitalizeWords(str) {
+  if (!str) return "";
+  return str
+    .split(" ")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(" ");
+}
 import React, { useState, useEffect } from "react";
+import { toast } from "react-toastify";
 import { FaUserCircle } from "react-icons/fa";
 import { useNavigate, useLocation } from "react-router-dom";
 import { PATH, MENTOR_PATH } from "../routes/path";
@@ -13,16 +22,31 @@ import courseApi from "../api/modules/course.api";
 const MentorProfile = () => {
   // State lưu thông tin profile
   const [profile, setProfile] = useState(null);
-  // CRUD API integration for Profile
-  const handleUpdateProfile = async (updatedData) => {
+  // Hàm lưu profile vào DB khi bấm nút Save Profile
+  const handleUpdateProfile = async () => {
     setLoading(true);
     setError(null);
-    const { response, error } = await profileApi.updateProfile(updatedData);
-    if (error) {
-      setError("Cập nhật profile thất bại");
-    } else if (response && response.data) {
-      setProfile(response.data);
-      alert("Cập nhật profile thành công!");
+    try {
+      // Gom dữ liệu từ formData và avatar
+      const payload = { ...formData };
+      if (profileImage) {
+        payload.avatar = profileImage;
+      }
+      const response = await profileApi.updateMentorProfile(payload);
+      if (response && response.data) {
+        setProfile(response.data);
+        setProfileImage(null); // Reset local image preview để sidebar lấy avatar từ backend
+        toast.success("Cập nhật profile thành công!", {
+          position: "top-right",
+          autoClose: 3000,
+        });
+      }
+    } catch (error) {
+      setError(error.message || "Cập nhật profile thất bại");
+      toast.error(error.message || "Cập nhật profile thất bại", {
+        position: "top-right",
+        autoClose: 4000,
+      });
     }
     setLoading(false);
   };
@@ -43,12 +67,22 @@ const MentorProfile = () => {
   const handleCreateCourse = async (courseData) => {
     setLoading(true);
     setError(null);
-    const { response, error } = await courseApi.createCourse(courseData);
-    if (error) {
+    try {
+      const formData = courseApi.createCourseFormData(courseData);
+      const { response, error } = await courseApi.createCourse(formData);
+      if (error) {
+        setError("Tạo khóa học thất bại");
+      } else if (response && response.data) {
+        // Sau khi tạo thành công, reload lại danh sách courses
+        if (profile?.user?._id) {
+          const mentorId = profile.user._id;
+          const courses = await courseApi.getCoursesByMentor(mentorId);
+          setAllCourses(courses);
+        }
+        alert("Tạo khóa học thành công!");
+      }
+    } catch (err) {
       setError("Tạo khóa học thất bại");
-    } else if (response && response.data) {
-      setAllCourses((prev) => [response.data, ...prev]);
-      alert("Tạo khóa học thành công!");
     }
     setLoading(false);
   };
@@ -93,7 +127,10 @@ const MentorProfile = () => {
   const handleDeleteCourse = async (course) => {
     const courseId = course._id || course.id;
     if (!courseId) {
-      alert("Invalid course id!");
+      toast.error("Invalid course id!", {
+        position: "top-right",
+        autoClose: 4000,
+      });
       return;
     }
     if (!window.confirm("Are you sure you want to delete this course?")) return;
@@ -102,16 +139,25 @@ const MentorProfile = () => {
       const { response, error } = await courseApi.deleteCourse({ courseId });
       if (error) {
         setError("Xóa khóa học thất bại");
-        alert("Delete failed - API error");
+        toast.error("Xóa khóa học thất bại", {
+          position: "top-right",
+          autoClose: 4000,
+        });
       } else {
         setAllCourses((prev) =>
           prev.filter((c) => (c._id || c.id) !== courseId)
         );
-        alert("Course deleted successfully!");
+        toast.success("Xóa khóa học thành công!", {
+          position: "top-right",
+          autoClose: 3000,
+        });
       }
     } catch (err) {
       console.error("Delete failed:", err);
-      alert("Delete failed - network error");
+      toast.error("Delete failed - network error", {
+        position: "top-right",
+        autoClose: 4000,
+      });
     } finally {
       setLoading(false);
     }
@@ -119,52 +165,124 @@ const MentorProfile = () => {
 
   const navigate = useNavigate();
   const location = useLocation();
-  // Đọc tab từ localStorage khi load, ưu tiên location.state.tab nếu có
-  const getInitialTab = () => {
-    if (location.state && location.state.tab) return location.state.tab;
-    const savedTab = localStorage.getItem("mentorProfileTab");
-    return savedTab || "profile";
-  };
-  const [activeTab, setActiveTab] = useState(getInitialTab());
-
-  // Khi location.state.tab thay đổi (navigate từ CreateCoursePage), tự động chuyển tab
-  // Lấy thông tin profile khi mount
-  useEffect(() => {
-    const fetchProfile = async () => {
-      setLoading(true);
-      setError(null);
-      const { response, error } = await profileApi.getProfile();
-      if (error) {
-        setError("Không thể tải thông tin profile");
-        setProfile(null);
-      } else if (response && response.data) {
-        setProfile(response.data);
-      } else {
-        setProfile(null);
-      }
-      setLoading(false);
-    };
-    fetchProfile();
-  }, []);
-
-  useEffect(() => {
-    if (location.state && location.state.tab) {
-      setActiveTab(location.state.tab);
-      localStorage.setItem("mentorProfileTab", location.state.tab);
-    }
-  }, [location.state]);
+  // Tab logic: luôn vào tab 'profile' khi vào mentor/profile lần đầu, reload thì giữ tab hiện tại
+  const [activeTab, setActiveTab] = useState(() => {
+    // Nếu có tab lưu trong localStorage thì lấy, không thì mặc định là 'profile'
+    return localStorage.getItem("mentorProfileTab") || "profile";
+  });
 
   // Khi activeTab thay đổi, lưu vào localStorage
   useEffect(() => {
     localStorage.setItem("mentorProfileTab", activeTab);
   }, [activeTab]);
+
+  // Khi vào mentor/profile lần đầu (mount), luôn về tab 'profile'
+  useEffect(() => {
+    if (!localStorage.getItem("mentorProfileTab")) {
+      setActiveTab("profile");
+      localStorage.setItem("mentorProfileTab", "profile");
+    }
+  }, []);
+
+  // Lấy thông tin profile khi mount
+  useEffect(() => {
+    const fetchProfileAndCourses = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const data = await profileApi.getProfile();
+        const profileData = data?.data;
+        console.log("Profile API response:", profileData);
+        if (!profileData || !profileData.user) {
+          setError(
+            "Không nhận được dữ liệu profile từ API hoặc thiếu thông tin user."
+          );
+          setProfile(null);
+          setFormData({
+            userName: "",
+            firstName: "",
+            lastName: "",
+            jobTitle: "",
+            category: "",
+            bio: "",
+            mentorReason: "",
+            headline: "",
+            website: "",
+            twitter: "",
+            linkedin: "",
+            youtube: "",
+            facebook: "",
+          });
+          setProfileImage(null);
+          setAllCourses([]);
+        } else {
+          setProfile(profileData);
+          setFormData({
+            userName: profileData?.user?.userName || "",
+            firstName: profileData?.user?.firstName || "",
+            lastName: profileData?.user?.lastName || "",
+            bio: profileData?.bio || profileData?.user?.bio || "",
+            jobTitle:
+              profileData?.jobTitle || profileData?.user?.jobTitle || "",
+            category:
+              profileData?.category || profileData?.user?.category || "",
+            skills:
+              Array.isArray(profileData?.skills) &&
+              profileData.skills.length > 0
+                ? profileData.skills
+                : Array.isArray(profileData?.user?.skills)
+                ? profileData.user.skills
+                : [],
+            experience:
+              profileData?.experience || profileData?.user?.experience || "",
+            location:
+              profileData?.location || profileData?.user?.location || "",
+            mentorReason:
+              profileData?.mentorReason ||
+              profileData?.user?.mentorReason ||
+              "",
+            greatestAchievement:
+              profileData?.greatestAchievement ||
+              profileData?.user?.greatestAchievement ||
+              "",
+            introVideo:
+              profileData?.introVideo || profileData?.user?.introVideo || "",
+            headline:
+              profileData?.headline || profileData?.user?.headline || "",
+            website: profileData?.links?.website || "",
+            twitter: profileData?.links?.X || "",
+            linkedin: profileData?.links?.linkedin || "",
+            youtube: profileData?.links?.youtube || "",
+            facebook: profileData?.links?.facebook || "",
+          });
+          setProfileImage(profileData?.user?.avatarUrl || null);
+          // Lấy đúng danh sách khóa học của mentor
+          if (profileData?.user?._id) {
+            const mentorId = profileData.user._id;
+            const courses = await courseApi.getCoursesByMentor(mentorId);
+            setAllCourses(courses);
+          }
+        }
+      } catch (error) {
+        setError("Không thể tải thông tin profile hoặc courses");
+        setProfile(null);
+        setAllCourses([]);
+      }
+      setLoading(false);
+    };
+    fetchProfileAndCourses();
+  }, []);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [formData, setFormData] = useState({
+    userName: "",
     firstName: "",
     lastName: "",
-    headline: "",
+    jobTitle: "",
+    category: "",
     bio: "",
+    mentorReason: "",
+    headline: "",
     website: "",
     twitter: "",
     linkedin: "",
@@ -173,8 +291,29 @@ const MentorProfile = () => {
   });
 
   // Sửa trong mentor-profile.jsx
-
   const [profileImage, setProfileImage] = useState(null);
+
+  // Đổi avatar khi upload ảnh mới
+  const handleChangeAvatar = async (file) => {
+    try {
+      const res = await profileApi.changeAvatar(file);
+      if (res && res.avatarUrl) {
+        setProfileImage(res.avatarUrl);
+        // Có thể cập nhật lại profile nếu muốn
+        if (profile && profile.user) {
+          setProfile((prev) => ({
+            ...prev,
+            user: {
+              ...prev.user,
+              avatarUrl: res.avatarUrl,
+            },
+          }));
+        }
+      }
+    } catch (err) {
+      alert("Đổi avatar thất bại!");
+    }
+  };
 
   // Course management state
   const [searchTerm, setSearchTerm] = useState("");
@@ -220,29 +359,22 @@ const MentorProfile = () => {
       setLoading(true);
       setError(null);
       const { response, error } = await courseApi.getAllCourses();
-
-      if (error) {
-        console.error("API Error:", error);
+      if (error || !response?.data) {
         setError("Failed to load courses");
         setAllCourses([]);
-      } else if (response && response.data) {
-        // The API returns response.data directly, which contains the courses array
-        if (response.data.courses && Array.isArray(response.data.courses)) {
-          setAllCourses(response.data.courses);
-        } else if (Array.isArray(response.data)) {
-          // In case the API returns courses array directly in data
-          setAllCourses(response.data);
-        } else {
-          console.error("Unexpected response structure:", response.data);
-          setAllCourses([]);
-        }
+        setLoading(false);
+        return;
+      }
+      if (response.data.courses && Array.isArray(response.data.courses)) {
+        setAllCourses(response.data.courses);
+      } else if (Array.isArray(response.data)) {
+        setAllCourses(response.data);
       } else {
-        console.error("No response data");
+        setError("Unexpected response structure");
         setAllCourses([]);
       }
     } catch (err) {
-      console.error("Error loading courses:", err);
-      setError("Failed to load courses");
+      setError("Error loading courses");
       setAllCourses([]);
     } finally {
       setLoading(false);
@@ -400,6 +532,7 @@ const MentorProfile = () => {
 
   const handlePageChange = (page) => {
     setCurrentPage(page);
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const handleInputChange = (e) => {
@@ -547,12 +680,14 @@ const MentorProfile = () => {
           style={{ width: 280, minWidth: 280 }}
           className="bg-slate-50 rounded-2xl shadow-sm p-8 flex flex-col items-center sticky top-10 self-start"
         >
-          {profileImage ? (
+          {profile?.user?.avatarUrl || profile?.avatarUrl ? (
             <img
-              src={profileImage}
+              src={profile.user.avatarUrl || profile.avatarUrl}
               alt={
-                formData.firstName || formData.lastName
-                  ? `${formData.firstName} ${formData.lastName}`
+                profile?.user?.firstName || profile?.user?.lastName
+                  ? `${capitalizeWords(
+                      profile.user.firstName
+                    )} ${capitalizeWords(profile.user.lastName)}`
                   : "Default Avatar"
               }
               className="w-24 h-24 rounded-full object-cover mb-4"
@@ -561,8 +696,10 @@ const MentorProfile = () => {
             <FaUserCircle className="w-24 h-24 text-gray-300 mb-4" />
           )}
           <h2 className="font-semibold text-xl text-gray-900 mb-3">
-            {formData.firstName || formData.lastName
-              ? `${formData.firstName} ${formData.lastName}`.trim()
+            {profile?.user?.firstName || profile?.user?.lastName
+              ? `${capitalizeWords(profile.user.firstName)} ${capitalizeWords(
+                  profile.user.lastName
+                )}`.trim()
               : "Name"}
           </h2>
           <button className="bg-blue-600 text-white border-none rounded-lg px-6 py-1.5 mb-6 font-medium text-base">
@@ -652,6 +789,7 @@ const MentorProfile = () => {
                       className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                     />
                   </div>
+
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Last Name
@@ -659,12 +797,103 @@ const MentorProfile = () => {
                     <input
                       type="text"
                       name="lastName"
-                      placeholder="Label"
                       value={formData.lastName}
                       onChange={handleInputChange}
                       className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                     />
                   </div>
+                </div>
+
+                {/* Job Title & Category row */}
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Job Title
+                    </label>
+                    <input
+                      type="text"
+                      name="jobTitle"
+                      value={formData.jobTitle || ""}
+                      onChange={handleInputChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Category (Expertise)
+                    </label>
+                    <input
+                      type="text"
+                      name="category"
+                      value={formData.category || ""}
+                      onChange={handleInputChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
+                </div>
+
+                {/* Skills, Experience, Mentor Reason, Greatest Achievement */}
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Skills (comma separated)
+                    </label>
+                    <input
+                      type="text"
+                      name="skills"
+                      value={
+                        Array.isArray(formData.skills)
+                          ? formData.skills.join(", ")
+                          : formData.skills || ""
+                      }
+                      onChange={(e) =>
+                        handleInputChange({
+                          target: {
+                            name: "skills",
+                            value: e.target.value.split(/,\s*/),
+                          },
+                        })
+                      }
+                      className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="e.g. React, Node.js, MongoDB"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Experience
+                    </label>
+                    <input
+                      type="text"
+                      name="experience"
+                      value={formData.experience || ""}
+                      onChange={handleInputChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
+                </div>
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Reason to become a mentor
+                  </label>
+                  <textarea
+                    name="mentorReason"
+                    rows={2}
+                    value={formData.mentorReason || ""}
+                    onChange={handleInputChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 resize-none"
+                  />
+                </div>
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Greatest Achievement
+                  </label>
+                  <input
+                    type="text"
+                    name="greatestAchievement"
+                    value={formData.greatestAchievement || ""}
+                    onChange={handleInputChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                  />
                 </div>
 
                 <div className="mb-4">
@@ -692,6 +921,32 @@ const MentorProfile = () => {
                     value={formData.bio}
                     onChange={handleInputChange}
                     className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 resize-none"
+                  />
+                </div>
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Intro Video (URL)
+                  </label>
+                  <input
+                    type="url"
+                    name="introVideo"
+                    value={formData.introVideo || ""}
+                    onChange={handleInputChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="https://..."
+                  />
+                </div>
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Location
+                  </label>
+                  <input
+                    type="text"
+                    name="location"
+                    value={formData.location || ""}
+                    onChange={handleInputChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="City, Country"
                   />
                 </div>
               </div>
@@ -734,7 +989,11 @@ const MentorProfile = () => {
                   <input
                     type="file"
                     accept="image/*"
-                    onChange={handleImageUpload}
+                    onChange={(e) => {
+                      handleImageUpload(e);
+                      if (e.target.files[0])
+                        handleChangeAvatar(e.target.files[0]);
+                    }}
                     className="hidden"
                     id="imageUpload"
                   />
@@ -830,14 +1089,15 @@ const MentorProfile = () => {
               {/* Nút lưu profile ở cuối form */}
               <button
                 type="button"
-                className="bg-blue-600 text-white px-6 py-2 rounded-lg font-semibold mt-8 float-right"
-                onClick={() => {
-                  // Giả lập cập nhật tên và avatar, bạn cần thay bằng API thực tế
-                  alert("Profile updated!");
-                  // TODO: Gọi API cập nhật tên và avatar ở đây
-                }}
+                className={`bg-blue-600 text-white px-6 py-2 rounded-lg font-semibold mt-8 float-right transition-all duration-200 ${
+                  loading
+                    ? "opacity-50 cursor-not-allowed"
+                    : "hover:bg-blue-700 hover:scale-105"
+                }`}
+                onClick={loading ? undefined : handleUpdateProfile}
+                disabled={loading}
               >
-                Save Profile
+                {loading ? "Saving..." : "Save Profile"}
               </button>
             </form>
           )}
@@ -969,105 +1229,122 @@ const MentorProfile = () => {
                     }}
                   >
                     {currentCourses.length > 0 ? (
-                      currentCourses.map((course) => {
-                        return (
-                          <div
-                            key={course._id || course.id}
-                            className="border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow min-h-[520px] flex flex-col cursor-pointer"
-                            onClick={() =>
-                              navigate(`/courses/${course._id || course.id}`)
+                      currentCourses.map((course) => (
+                        <div
+                          key={course._id || course.id}
+                          className="border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow min-h-[340px] flex flex-col cursor-pointer"
+                          onClick={() => {
+                            navigate(
+                              `/mentor/course-detail/${course._id || course.id}`
+                            );
+                          }}
+                        >
+                          <img
+                            src={
+                              course.thumbnail
+                                ? /cloudinary\.com|res\.cloudinary\.com/.test(
+                                    course.thumbnail
+                                  )
+                                  ? course.thumbnail
+                                  : course.thumbnail.startsWith("http")
+                                  ? course.thumbnail
+                                  : `http://localhost:4000/${course.thumbnail}`
+                                : "/placeholder-course.jpg"
                             }
-                          >
-                            <img
-                              src={
-                                course.thumbnail
-                                  ? course.thumbnail.startsWith("http")
-                                    ? course.thumbnail
-                                    : `http://localhost:4000/${course.thumbnail}`
-                                  : "/placeholder-course.jpg"
-                              }
-                              alt={course.title}
-                              className="w-full h-48 object-cover"
-                            />
+                            alt={course.title}
+                            className="w-full h-48 object-cover"
+                          />
+                          {/* Đã bỏ phần ngăn cách lớn, chỉ giữ card nhỏ gọn */}
+                          <div className="flex-1 flex flex-col p-4 pb-0">
                             <div
-                              className="w-full h-px bg-gray-200 mb-3"
-                              style={{ marginTop: 0 }}
-                            />
-                            <div className="flex-1 flex flex-col p-4 pb-0">
-                              <div
-                                className="flex flex-col"
-                                style={{
-                                  minHeight: "120px",
-                                  justifyContent: "flex-start",
-                                }}
-                              >
-                                <h4 className="font-semibold text-gray-900 mb-2 line-clamp-2">
-                                  {course.title}
-                                </h4>
-                                <p className="text-sm text-gray-600 mb-2">
-                                  By{" "}
-                                  {course.mentor?.userName || "Unknown Mentor"}
-                                </p>
-                                <div className="flex items-center gap-2 mb-2">
-                                  <div className="flex text-yellow-400 text-sm">
-                                    {"★".repeat(Math.floor(course.rate || 0))}
-                                    {(course.rate || 0) % 1 !== 0 && "☆"}
-                                  </div>
-                                  <span className="text-sm text-gray-600">
-                                    ({course.numberOfRatings || 0} Ratings)
-                                  </span>
-                                </div>
-                                <p className="text-sm text-gray-600 mb-2">
-                                  {course.duration || 0} Hours.{" "}
-                                  {course.lectures || 0} Lectures.{" "}
-                                  {course.category}
-                                </p>
-                                {(course.overview || course.description) && (
-                                  <p
-                                    className="text-gray-400 text-sm mb-2 line-clamp-2"
-                                    style={{
-                                      display: "-webkit-box",
-                                      WebkitLineClamp: 2,
-                                      WebkitBoxOrient: "vertical",
-                                      overflow: "hidden",
-                                    }}
-                                    title={
-                                      course.overview || course.description
-                                    }
-                                  >
-                                    {course.overview || course.description}
-                                  </p>
-                                )}
-                              </div>
-                              <p className="font-bold text-xl text-gray-900 mb-2 mt-auto">
-                                ${course.price}
+                              className="flex flex-col"
+                              style={{
+                                minHeight: "120px",
+                                justifyContent: "flex-start",
+                              }}
+                            >
+                              <h4 className="font-semibold text-gray-900 mb-2 line-clamp-2">
+                                {course.title}
+                              </h4>
+                              <p className="text-sm text-gray-600 mb-2">
+                                By{" "}
+                                {(() => {
+                                  const capitalizeWords = (str) =>
+                                    str
+                                      ? str
+                                          .split(" ")
+                                          .map(
+                                            (word) =>
+                                              word.charAt(0).toUpperCase() +
+                                              word.slice(1)
+                                          )
+                                          .join(" ")
+                                      : "";
+                                  if (course.mentor?.userName)
+                                    return capitalizeWords(
+                                      course.mentor.userName
+                                    );
+                                  if (course.mentor?.firstName)
+                                    return `${capitalizeWords(
+                                      course.mentor.firstName
+                                    )} ${capitalizeWords(
+                                      course.mentor.lastName
+                                    )}`;
+                                  return "Unknown Mentor";
+                                })()}
                               </p>
+                              <div className="flex items-center gap-2 mb-2">
+                                <div className="flex text-yellow-400 text-sm">
+                                  {"★".repeat(Math.floor(course.rate || 0))}
+                                  {(course.rate || 0) % 1 !== 0 && "☆"}
+                                </div>
+                                <span className="text-sm text-gray-600">
+                                  ({course.numberOfRatings || 0} Ratings)
+                                </span>
+                              </div>
+                              <p className="text-sm text-gray-600 mb-2">
+                                {course.duration || 0} Hours.{" "}
+                                {course.lectures || 0} Lectures.{" "}
+                                {course.category}
+                              </p>
+                              {/* Đã bỏ hiển thị course overview và key learning objectives */}
+                              {/* Hiển thị level nếu có */}
+                              {course.level && (
+                                <p className="text-green-500 text-xs mb-2">
+                                  <b>Level:</b> {course.level}
+                                </p>
+                              )}
                             </div>
-                            <div className="flex gap-2 p-4 pt-0 mt-auto">
-                              <button
-                                className="flex-1 bg-blue-600 text-white py-2 px-3 rounded-lg hover:bg-blue-700 transition text-sm font-medium"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  navigate(
-                                    `/mentor/edit-course` //${course._id || course.id}
-                                  );
-                                }}
-                              >
-                                Edit Course
-                              </button>
-                              <button
-                                className="flex-1 px-3 py-2 border border-red-300 text-red-600 rounded-lg hover:bg-red-50 transition text-sm"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleDeleteCourse(course);
-                                }}
-                              >
-                                Delete
-                              </button>
-                            </div>
+                            <p className="font-bold text-xl text-gray-900 mb-2 mt-auto">
+                              ${course.price}
+                            </p>
                           </div>
-                        );
-                      })
+                          <div className="flex gap-2 p-4 pt-0 mt-auto">
+                            <button
+                              className="flex-1 bg-blue-600 text-white py-2 px-3 rounded-lg hover:bg-blue-700 transition text-sm font-medium"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                navigate(
+                                  `/mentor/edit-course/${
+                                    course._id || course.id
+                                  }`
+                                );
+                              }}
+                            >
+                              Edit Course
+                            </button>
+                            <button
+                              className="flex-1 px-3 py-2 border border-red-300 text-red-600 rounded-lg hover:bg-red-50 transition text-sm"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteCourse(course);
+                              }}
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </div>
+                      ))
                     ) : (
                       <div className="col-span-full text-center py-12">
                         <p className="text-gray-500 text-lg mb-2">

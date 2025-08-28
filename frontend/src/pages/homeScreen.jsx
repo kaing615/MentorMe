@@ -457,7 +457,15 @@ const HomeScreen = () => {
                     tabIndex={0}
                     type="button"
                     onClick={() => {
-                      /* API use */
+                      // Điều hướng tới trang chi tiết khóa học
+                      // Giả sử course có trường _id hoặc courseId
+                      if (course._id) {
+                        navigate(`/course/${course._id}`);
+                      } else if (course.courseId) {
+                        navigate(`/course/${course.courseId}`);
+                      } else {
+                        toast.error("Không tìm thấy ID khóa học");
+                      }
                     }}
                     style={{ outline: "none", scrollSnapAlign: "start" }}
                   >

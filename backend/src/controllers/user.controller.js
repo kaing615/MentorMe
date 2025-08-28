@@ -396,8 +396,12 @@ export const signUpMentor = async (req, res) => {
         bio,
         mentorReason,
         greatestAchievement,
-        links,
+        headline,
+        experience,
         introVideo,
+        languages,
+        timezone,
+        links,
       },
       "mentor"
     );

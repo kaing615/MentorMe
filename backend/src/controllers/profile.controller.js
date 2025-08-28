@@ -6,10 +6,12 @@ import { uploadImage } from "../utils/cloudinary.js";
 import profileUtils from "../utils/profile.utils.js";
 
 export const updateMentorProfile = async (req, res) => {
+  // Log dữ liệu nhận từ FE để debug lỗi 400
+  console.log("[updateMentorProfile] req.body:", req.body);
   try {
     const userId = req.user.id;
 
-    // Phân tách data cho User và Profilev à
+    // Phân tách data cho User và Profile
     const {
       // User Model fields (authentication + basic)
       userName,
@@ -68,24 +70,16 @@ export const updateMentorProfile = async (req, res) => {
       avatarPublicId = result.public_id;
     }
 
-    // Xử lý skills array
+    // Xử lý skills: nếu là chuỗi (từ FormData) thì chuyển thành mảng, nếu là mảng thì giữ nguyên
     let skillsArray = skills;
     if (typeof skills === "string") {
-      skillsArray = skills.split(",").map((skill) => skill.trim());
+      skillsArray = skills
+        .split(",")
+        .map((skill) => skill.trim())
+        .filter(Boolean);
+    } else if (!Array.isArray(skillsArray)) {
+      skillsArray = [];
     }
-
-    // Cập nhật User Model (only authentication + basic info)
-    const updatedUser = await User.findByIdAndUpdate(
-      userId,
-      {
-        userName,
-        firstName,
-        lastName,
-        avatarUrl,
-        avatarPublicId,
-      },
-      { new: true, runValidators: true }
-    );
 
     // Tìm hoặc tạo Profile
     let profile = await Profile.findOne({ user: userId });
@@ -93,18 +87,51 @@ export const updateMentorProfile = async (req, res) => {
       profile = new Profile({ user: userId });
     }
 
-    // Cập nhật Profile Model (all business logic)
-    if (jobTitle !== undefined) profile.jobTitle = jobTitle;
-    if (location !== undefined) profile.location = location;
-    if (category !== undefined) profile.category = category;
-    if (skillsArray !== undefined) profile.skills = skillsArray;
-    if (bio !== undefined) profile.bio = bio;
-    if (mentorReason !== undefined) profile.mentorReason = mentorReason;
-    if (greatestAchievement !== undefined)
+    // Update both Profile and User models for all mentor fields
+    if (userName !== undefined) user.userName = userName;
+    const capitalize = (str) =>
+      str ? str.charAt(0).toUpperCase() + str.slice(1) : "";
+    if (firstName !== undefined) user.firstName = capitalize(firstName);
+    if (lastName !== undefined) user.lastName = capitalize(lastName);
+    if (avatarUrl !== undefined) user.avatarUrl = avatarUrl;
+    if (avatarPublicId !== undefined) user.avatarPublicId = avatarPublicId;
+    if (bio !== undefined) {
+      profile.bio = bio;
+      user.bio = bio;
+    }
+    if (jobTitle !== undefined) {
+      profile.jobTitle = jobTitle;
+      user.jobTitle = jobTitle;
+    }
+    if (location !== undefined) {
+      profile.location = location;
+      user.location = location;
+    }
+    if (category !== undefined) {
+      profile.category = category;
+      user.category = category;
+    }
+    if (skillsArray !== undefined) {
+      profile.skills = skillsArray;
+      user.skills = skillsArray;
+    }
+    if (mentorReason !== undefined) {
+      profile.mentorReason = mentorReason;
+      user.mentorReason = mentorReason;
+    }
+    if (greatestAchievement !== undefined) {
       profile.greatestAchievement = greatestAchievement;
-    if (headline !== undefined) profile.headline = headline;
+      user.greatestAchievement = greatestAchievement;
+    }
+    if (headline !== undefined) {
+      profile.headline = headline;
+      user.headline = headline;
+    }
     if (experience !== undefined) profile.experience = experience;
-    if (introVideo !== undefined) profile.introVideo = introVideo;
+    if (introVideo !== undefined) {
+      profile.introVideo = introVideo;
+      user.introVideo = introVideo;
+    }
     if (languages !== undefined) profile.languages = languages;
     if (timezone !== undefined) profile.timezone = timezone;
 
@@ -113,10 +140,11 @@ export const updateMentorProfile = async (req, res) => {
       profile.links = { ...profile.links, ...links };
     }
 
+    await user.save();
     await profile.save();
 
     // Làm sạch dữ liệu trả về
-    const userData = updatedUser.toObject();
+    const userData = user.toObject();
     delete userData.password;
     delete userData.salt;
     delete userData.verifyKey;
@@ -126,6 +154,7 @@ export const updateMentorProfile = async (req, res) => {
     return responseHandler.ok(res, {
       message: "Cập nhật thông tin mentor thành công!",
       user: userData,
+      bio: profile.bio,
       profile: profile,
     });
   } catch (err) {
@@ -236,6 +265,7 @@ export const updateMenteeProfile = async (req, res) => {
     return responseHandler.ok(res, {
       message: "Cập nhật thông tin mentee thành công!",
       user: userData,
+      bio: profile.bio,
       profile: profile,
     });
   } catch (err) {
@@ -249,19 +279,62 @@ export const getProfile = async (req, res) => {
     const userId = req.user.id;
 
     // Lấy profile đầy đủ với auto-create và populate
-    const profile = await profileUtils.getFullProfile(userId);
+    let profile = await profileUtils.getFullProfile(userId);
 
     if (!profile) {
       // Nếu không có profile, tạo profile mới
-      const newProfile = await profileUtils.findOrCreateProfile(userId);
-      const fullProfile = await profileUtils.getFullProfile(userId);
+      await profileUtils.findOrCreateProfile(userId);
+      profile = await profileUtils.getFullProfile(userId);
+      console.log("[getProfile] Created profile:", {
+        bio: profile.bio,
+        description: profile.description,
+        user: profile.user,
+      });
       return responseHandler.ok(
         res,
-        fullProfile,
+        profile,
         "Profile được tạo mới thành công."
       );
     }
 
+    // Merge mentor fields from user into profile if they exist
+    if (profile.user) {
+      const userFields = [
+        "jobTitle",
+        "location",
+        "category",
+        "skills",
+        "mentorReason",
+        "greatestAchievement",
+        "headline",
+        "introVideo",
+        "bio",
+      ];
+      userFields.forEach((field) => {
+        if (
+          (profile[field] === undefined ||
+            profile[field] === "" ||
+            profile[field] == null) &&
+          profile.user[field] !== undefined
+        ) {
+          profile[field] = profile.user[field];
+        }
+      });
+      // Also sync avatarUrl if missing
+      if (
+        (!profile.avatarUrl || profile.avatarUrl === "") &&
+        profile.user.avatarUrl
+      ) {
+        profile.avatarUrl = profile.user.avatarUrl;
+      }
+    }
+
+    // Log giá trị bio khi trả về cho frontend
+    console.log("[getProfile] Fetched profile:", {
+      bio: profile.bio,
+      description: profile.description,
+      user: profile.user,
+    });
     return responseHandler.ok(res, profile, "Lấy profile thành công.");
   } catch (error) {
     console.error("Error getting profile:", error);

@@ -1,10 +1,4 @@
-import {
-  PATH,
-  AUTH_PATH,
-  ADMIN_PATH,
-  MENTEE_PATH,
-  MENTOR_PATH,
-} from "./path";
+import { PATH, AUTH_PATH, ADMIN_PATH, MENTEE_PATH, MENTOR_PATH } from "./path";
 import { useRoutes, Navigate } from "react-router-dom";
 import WelcomePage from "../pages/WelcomePage";
 import HomeScreen from "../pages/homeScreen";
@@ -19,7 +13,6 @@ import MentorPage from "../pages/mentor-page";
 import CreateCoursePage from "../pages/CreateCoursePage";
 import CourseDetail from "../pages/CourseDetail";
 import EditCoursePage from "../pages/EditCoursePage";
-
 
 const useRouterElements = () => {
   const elements = useRoutes([
@@ -55,15 +48,19 @@ const useRouterElements = () => {
         },
         {
           path: MENTOR_PATH.CREATECOURSE,
-          element: <CreateCoursePage />
+          element: <CreateCoursePage />,
         },
         {
-          path: MENTOR_PATH.COURSEDETAIL,
-          element: <CourseDetail />
+          path: `${MENTOR_PATH.COURSEDETAIL}/:id`,
+          element: <CourseDetail />,
         },
         {
-          path: MENTOR_PATH.EDITCOURSE,
-          element: <EditCoursePage />
+          path: `${MENTOR_PATH.EDITCOURSE}/:id`,
+          element: <EditCoursePage />,
+        },
+        {
+          path: "courses/:id",
+          element: <CourseDetail />,
         }
       ],
     },

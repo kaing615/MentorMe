@@ -1,3 +1,5 @@
+// ...existing code...
+// Đặt route này sau khi khởi tạo router
 import express from "express";
 import courseController from "../controllers/course.controller.js";
 import { validateBody } from "../middlewares/joi.middleware.js";
@@ -25,6 +27,15 @@ import { verifyToken, authorizeRoles } from "../middlewares/auth.middleware.js";
 import forceMentor from "../middlewares/forceMentor.middleware.js";
 
 const router = express.Router();
+/**
+ * @route   GET /api/course/related
+ * @desc    Lấy các khóa học liên quan theo category
+ * @access  Public
+ * @query {String} courseId - ID của khóa học hiện tại
+ * @query {String} category - Danh mục
+ * @query {Number} limit - Số lượng khóa học liên quan trả về
+ */
+router.get("/related", courseController.getRelatedCourses);
 
 /**
  * @route   GET /api/course
@@ -76,7 +87,6 @@ router.get("/mentor/:mentorId", courseController.getCoursesByMentor);
  * @returns {Object} course info
  */
 router.post("/", forceMentor, upload.single("thumbnail"), createCourse);
-
 
 /**
  * @swagger

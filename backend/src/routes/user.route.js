@@ -128,6 +128,7 @@ router.post(
   userController.resetPassword
 );
 
+import { getUserCourses } from "../controllers/course.controller.js";
 // Route để lấy danh sách khóa học của user
 router.get("/users/:userId/courses", getUserCourses);
 

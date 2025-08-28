@@ -16,7 +16,7 @@ const router = express.Router();
  * @middleware tokenMiddleware.auth - Xác thực JWT token
  * @returns {Object} profile - Profile đầy đủ với user info và reviews (auto-populated)
  */
-router.get("/", profileController.getProfile);
+router.get("/", tokenMiddleware.auth, profileController.getProfile);
 
 /**
  * @route   PUT /api/profile/mentor

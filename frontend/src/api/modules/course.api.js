@@ -33,7 +33,7 @@ const courseEndpoints = {
 };
 
 const courseApi = {
-    // Lấy danh sách tất cả courses
+  // Lấy danh sách tất cả courses
   getList: async ({ page = 1, limit = 10, category, mentor, tags } = {}) => {
     try {
       let queryParams = new URLSearchParams({
@@ -82,12 +82,18 @@ const courseApi = {
 
   getRelatedCourses: async ({ courseId, category, limit }) => {
     try {
-        // Normalize category to CSV string if it's an array
-        const categoryParam = Array.isArray(category) ? category.join(',') : category;
-        const response = await publicClient.get(`${courseEndpoints.related()}?courseId=${courseId}&category=${encodeURIComponent(categoryParam || '')}&limit=${limit ?? 6}`);
-        return { response };
-    } catch (err) { 
-        return { err };
+      // Normalize category to CSV string if it's an array
+      const categoryParam = Array.isArray(category)
+        ? category.join(",")
+        : category;
+      const response = await publicClient.get(
+        `${courseEndpoints.related()}?courseId=${courseId}&category=${encodeURIComponent(
+          categoryParam || ""
+        )}&limit=${limit ?? 6}`
+      );
+      return { response };
+    } catch (err) {
+      return { err };
     }
   },
 
@@ -390,6 +396,14 @@ const courseApi = {
       }
     });
 
+    // Đảm bảo luôn có trường description và link đúng chuẩn backend
+    // Gộp courseOverview + keyLearningObjectives cho description
+    const description = `${courseData.courseOverview || ""}\n${
+      courseData.keyLearningObjectives || ""
+    }`;
+    formData.set("description", description.trim());
+    formData.set("link", courseData.driveLink || "");
+
     return formData;
   },
 
@@ -466,6 +480,18 @@ const courseApi = {
       isValid: true,
       message: "Validation passed",
     };
+  },
+
+  // Lấy danh sách khóa học của mentor
+  getCoursesByMentor: async (mentorId, params = {}) => {
+    try {
+      const response = await publicClient.get(`/course/mentor/${mentorId}`, {
+        params,
+      });
+      return response.data?.data?.courses || [];
+    } catch (error) {
+      return [];
+    }
   },
 };
 

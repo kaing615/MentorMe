@@ -389,27 +389,34 @@ const MentorPage = () => {
                           className="object-cover w-full h-full"
                         />
                       </div>
-                      <div className="font-semibold text-[18px] text-[#222] mb-1 leading-tight line-clamp-2">
+                      <div className="font-extrabold text-[22px] text-blue-700 mb-2 leading-tight line-clamp-2">
                         {course.title}
                       </div>
-                      <div className="text-xs text-[#6b7280] mb-1">
-                        By {mentor?.name}
+                      <div className="text-sm text-[#222] font-semibold mb-1">
+                        By{" "}
+                        <span className="text-green-700 font-bold">
+                          {mentor?.name}
+                        </span>
                       </div>
-                      <div className="flex items-center gap-1 text-sm mb-1">
+                      <div className="flex items-center gap-1 text-base mb-1">
                         {[...Array(5)].map((_, i) => (
-                          <span key={i} className="text-[#fbbf24] text-base">
+                          <span key={i} className="text-[#fbbf24] text-lg">
                             ★
                           </span>
                         ))}
-                        <span className="text-xs text-[#6b7280] ml-2 font-semibold">
-                          (1200 <span className="font-bold">Ratings</span>)
+                        <span className="text-sm text-[#222] ml-2 font-bold">
+                          (1200 <span className="font-extrabold">Ratings</span>)
                         </span>
                       </div>
-                      <div className="text-xs text-[#6b7280] mb-2">
-                        {course.duration}. {course.lectures} Lectures.{" "}
-                        {course.level}
+                      <div className="text-sm mb-2">
+                        <span className="text-[#6b7280]">
+                          {course.duration}. {course.lectures} Lectures.
+                        </span>{" "}
+                        <span className="font-bold text-green-600">
+                          Level: {course.level}
+                        </span>
                       </div>
-                      <div className="font-bold text-[#222] text-lg mt-auto">
+                      <div className="font-extrabold text-[#e53935] text-2xl mt-auto">
                         ${course.price}
                       </div>
                     </div>

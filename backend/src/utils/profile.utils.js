@@ -123,7 +123,8 @@ const getFullProfile = async (userId) => {
     const profile = await Profile.findOne({ user: userId })
       .populate({
         path: "user",
-        select: "userName firstName lastName email avatarUrl role createdAt",
+        select:
+          "userName firstName lastName email avatarUrl role createdAt bio jobTitle location category skills mentorReason greatestAchievement headline introVideo experience",
       })
       .populate({
         path: "reviews",
