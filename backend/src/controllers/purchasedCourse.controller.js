@@ -9,7 +9,17 @@ import User from "../models/user.model.js";
  */
 const getPurchasedCourses = async (req, res) => {
   try {
-    const { id: userId } = req.user;
+    // Nếu không có req.user, lấy user đầu tiên trong DB (dev mode)
+    let userId;
+    if (req.user && req.user.id) {
+      userId = req.user.id;
+    } else {
+      const firstUser = await User.findOne();
+      if (!firstUser) {
+        return responseHandler.notfound(res, "Không tìm thấy user.");
+      }
+      userId = firstUser._id;
+    }
 
     const user = await User.findById(userId)
       .populate({

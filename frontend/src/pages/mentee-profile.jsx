@@ -5,11 +5,25 @@ import twitterImg from "../assets/twitter.png";
 import googleImg from "../assets/google.png";
 import minatoImg from "../assets/minato.webp";
 import menteeProfileApi from "../api/modules/menteeProfile.api";
+import purchasedCourseApi from "../api/modules/purchasedCourse.api";
 // Đã xoá mock data, chỉ dùng dữ liệu từ backend
 
 const MenteeProfile = () => {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState("profile");
+  // Đọc tab từ localStorage, mặc định là 'profile'
+  const [activeTab, setActiveTab] = useState(
+    () => localStorage.getItem("menteeProfileTab") || "profile"
+  );
+
+  useEffect(() => {
+    // Khi đổi tab, lưu vào localStorage
+    localStorage.setItem("menteeProfileTab", activeTab);
+  }, [activeTab]);
+
+  useEffect(() => {
+    // Khi load trang, cuộn lên đầu
+    window.scrollTo({ top: 0, left: 0, behavior: "smooth" });
+  }, []);
 
   // TODO: Replace with API call - fetch user profile data
   // const fetchUserProfile = async (userId) => {
@@ -21,8 +35,10 @@ const MenteeProfile = () => {
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
-    headline: "",
     bio: "",
+    description: "",
+    goal: "",
+    education: "",
     website: "",
     twitter: "",
     linkedin: "",
@@ -49,12 +65,14 @@ const MenteeProfile = () => {
             ...prev,
             firstName: user.firstName || "",
             lastName: user.lastName || "",
-            headline: profile.headline || "",
             bio: profile.bio || "",
+            description: profile.description || "",
+            goal: profile.goal || "",
+            education: profile.education || "",
             website: profile.links?.website || "",
             twitter: profile.links?.twitter || "",
             linkedin: profile.links?.linkedin || "",
-            facebook: profile.links?.facebook || ""
+            facebook: profile.links?.facebook || "",
           }));
           if (user.avatarUrl) setProfileImage(user.avatarUrl);
         }
@@ -65,6 +83,24 @@ const MenteeProfile = () => {
     fetchProfile();
   }, []);
 
+  // Fetch purchased courses
+  const [purchasedCourses, setPurchasedCourses] = useState([]);
+
+  useEffect(() => {
+    async function fetchPurchasedCourses() {
+      try {
+        const res = await purchasedCourseApi.getPurchasedCourses();
+        const data = res.data;
+        if (data && data.data && Array.isArray(data.data.courses)) {
+          setPurchasedCourses(data.data.courses);
+        }
+      } catch (err) {
+        console.error("Purchased courses fetch error:", err);
+      }
+    }
+    fetchPurchasedCourses();
+  }, []);
+
   // Course management state
   const [searchTerm, setSearchTerm] = useState("");
   const [filterBy, setFilterBy] = useState("all");
@@ -72,7 +108,6 @@ const MenteeProfile = () => {
   const coursesPerPage = 6;
 
   // Các state dữ liệu động, nếu chưa có API thì để mảng rỗng để không lỗi
-  const [allCourses] = useState([]);
   const [allMentors] = useState([]);
   const [allReviews] = useState([]);
   // Các state khác giữ nguyên
@@ -249,18 +284,23 @@ const MenteeProfile = () => {
 
   // Filter and search logic for courses
   const getFilteredCourses = () => {
-    let filtered = allCourses.filter(
-      (course) =>
-        course.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        course.instructor.toLowerCase().includes(searchTerm.toLowerCase())
+    let filtered = purchasedCourses.filter(
+      (item) =>
+        item.courseInfo.title
+          .toLowerCase()
+          .includes(searchTerm.toLowerCase()) ||
+        item.courseInfo.mentor?.firstName
+          ?.toLowerCase()
+          .includes(searchTerm.toLowerCase()) ||
+        ""
     );
 
     switch (filterBy) {
       case "completed":
-        filtered = filtered.filter((course) => course.isCompleted);
+        filtered = filtered.filter((item) => item.isCompleted);
         break;
       case "available":
-        filtered = filtered.filter((course) => !course.isCompleted);
+        filtered = filtered.filter((item) => !item.isCompleted);
         break;
       default:
         break;
@@ -331,23 +371,6 @@ const MenteeProfile = () => {
 
   return (
     <>
-      {/* Header */}
-      <header className="w-full bg-slate-800 text-white py-3 px-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center">
-            <h1
-              className="text-lg font-bold cursor-pointer hover:text-gray-300 transition-colors"
-              onClick={() => navigate("/home")}
-            >
-              MentorMe
-            </h1>
-          </div>
-          <div className="flex items-center space-x-4">
-            <span className="text-sm">Welcome, {formData?.firstName || "Mentee"}!</span>
-          </div>
-        </div>
-      </header>
-
       <div className="min-h-screen bg-white-100">
         {/* Main Layout Container */}
         <div className="flex max-w-7xl mx-auto pt-10 gap-8 px-8 min-h-screen">
@@ -380,14 +403,7 @@ const MenteeProfile = () => {
                   onClick={() => {
                     setActiveTab("profile");
                     setTimeout(() => {
-                      const mainContent =
-                        document.querySelector(".flex-1.min-w-0");
-                      if (mainContent) {
-                        mainContent.scrollIntoView({
-                          behavior: "smooth",
-                          block: "start",
-                        });
-                      }
+                      window.scrollTo({ top: 0, left: 0, behavior: "smooth" });
                     }, 100);
                   }}
                 >
@@ -402,14 +418,7 @@ const MenteeProfile = () => {
                   onClick={() => {
                     setActiveTab("mycourses");
                     setTimeout(() => {
-                      const mainContent =
-                        document.querySelector(".flex-1.min-w-0");
-                      if (mainContent) {
-                        mainContent.scrollIntoView({
-                          behavior: "smooth",
-                          block: "start",
-                        });
-                      }
+                      window.scrollTo({ top: 0, left: 0, behavior: "smooth" });
                     }, 100);
                   }}
                 >
@@ -424,14 +433,7 @@ const MenteeProfile = () => {
                   onClick={() => {
                     setActiveTab("mentors");
                     setTimeout(() => {
-                      const mainContent =
-                        document.querySelector(".flex-1.min-w-0");
-                      if (mainContent) {
-                        mainContent.scrollIntoView({
-                          behavior: "smooth",
-                          block: "start",
-                        });
-                      }
+                      window.scrollTo({ top: 0, left: 0, behavior: "smooth" });
                     }, 100);
                   }}
                 >
@@ -445,19 +447,10 @@ const MenteeProfile = () => {
                   }`}
                   onClick={() => {
                     setActiveTab("messages");
-                    // Reset chat state to go back to chat list
                     setSelectedChatMentor(null);
                     setChatMessages([]);
-                    // Scroll to main content area when switching to messages tab
                     setTimeout(() => {
-                      const mainContent =
-                        document.querySelector(".flex-1.min-w-0");
-                      if (mainContent) {
-                        mainContent.scrollIntoView({
-                          behavior: "smooth",
-                          block: "start",
-                        });
-                      }
+                      window.scrollTo({ top: 0, left: 0, behavior: "smooth" });
                     }, 100);
                   }}
                 >
@@ -472,14 +465,7 @@ const MenteeProfile = () => {
                   onClick={() => {
                     setActiveTab("reviews");
                     setTimeout(() => {
-                      const mainContent =
-                        document.querySelector(".flex-1.min-w-0");
-                      if (mainContent) {
-                        mainContent.scrollIntoView({
-                          behavior: "smooth",
-                          block: "start",
-                        });
-                      }
+                      window.scrollTo({ top: 0, left: 0, behavior: "smooth" });
                     }, 100);
                   }}
                 >
@@ -496,7 +482,7 @@ const MenteeProfile = () => {
                 {/* Personal Information Section */}
                 <div className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100">
                   <h3 className="text-lg font-semibold text-gray-900 mb-6">
-                    Personal Information
+                    Basic Info
                   </h3>
                   <div className="grid grid-cols-2 gap-4 mb-4">
                     <div>
@@ -526,32 +512,56 @@ const MenteeProfile = () => {
                       />
                     </div>
                   </div>
-
                   <div className="mb-4">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Headline
-                    </label>
-                    <input
-                      type="text"
-                      name="headline"
-                      placeholder="Your professional headline"
-                      value={formData.headline}
-                      onChange={handleInputChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                    />
-                  </div>
-
-                  <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Bio
                     </label>
                     <textarea
                       name="bio"
-                      placeholder="Tell us about yourself and your goals"
-                      rows={3}
+                      placeholder="Short bio about yourself"
+                      rows={2}
                       value={formData.bio}
                       onChange={handleInputChange}
                       className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 resize-none"
+                    />
+                  </div>
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Description
+                    </label>
+                    <textarea
+                      name="description"
+                      placeholder="Describe yourself as a mentee"
+                      rows={2}
+                      value={formData.description}
+                      onChange={handleInputChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 resize-none"
+                    />
+                  </div>
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Goal
+                    </label>
+                    <input
+                      type="text"
+                      name="goal"
+                      placeholder="Your learning/career goals"
+                      value={formData.goal}
+                      onChange={handleInputChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Education
+                    </label>
+                    <input
+                      type="text"
+                      name="education"
+                      placeholder="Your education background"
+                      value={formData.education}
+                      onChange={handleInputChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                     />
                   </div>
                 </div>
@@ -564,7 +574,19 @@ const MenteeProfile = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Image Preview
                   </label>
-                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-12 text-center mb-4 bg-gray-50">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageUpload}
+                    id="imageUpload"
+                    style={{ display: "none" }}
+                  />
+                  <div
+                    className="border-2 border-dashed border-gray-300 rounded-lg p-12 text-center mb-4 bg-gray-50 cursor-pointer"
+                    onClick={() =>
+                      document.getElementById("imageUpload").click()
+                    }
+                  >
                     {profileImage ? (
                       <img
                         src={profileImage}
@@ -590,41 +612,6 @@ const MenteeProfile = () => {
                       </div>
                     )}
                   </div>
-
-                  <div className="flex gap-3 items-end mb-3">
-                    <div className="flex-1">
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Add/Change Image
-                      </label>
-                      <input
-                        type="text"
-                        placeholder="Image path"
-                        className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                        readOnly
-                      />
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={handleImageUpload}
-                        className="hidden"
-                        id="imageUpload"
-                      />
-                    </div>
-                    <label
-                      htmlFor="imageUpload"
-                      className="bg-gray-100 border border-gray-300 text-gray-700 px-4 py-2 rounded hover:bg-gray-200 transition cursor-pointer"
-                    >
-                      Upload Image
-                    </label>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={handleSaveImage}
-                    className="bg-gray-900 text-white px-4 py-2 rounded hover:bg-gray-800 transition"
-                  >
-                    Save Image
-                  </button>
                 </div>
 
                 {/* Links Section */}

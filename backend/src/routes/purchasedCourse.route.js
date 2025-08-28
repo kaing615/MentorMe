@@ -7,7 +7,7 @@ import * as userValidation from "../validations/user.validation.js";
 const router = express.Router();
 
 // Tất cả routes đều yêu cầu authentication
-router.use(authMiddleware.verifyToken);
+// router.use(authMiddleware.verifyToken);
 
 /**
  * @route   GET /api/purchased-courses

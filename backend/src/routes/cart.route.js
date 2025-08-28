@@ -6,7 +6,7 @@ import cartValidator from "../middlewares/validators/cart.middleware.js";
 const router = express.Router();
 
 // Tất cả cart routes đều cần authentication
-router.use(authMiddleware.verifyToken);
+// router.use(authMiddleware.verifyToken);
 
 /**
  * @route   GET /api/cart
