@@ -6,7 +6,427 @@ function capitalizeWords(str) {
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
     .join(" ");
 }
-import React, { useState, useEffect } from "react";
+
+// --- Schedule Builder Helpers ---------------------------------------------------------------
+function toMinutes(hhmm) { const [h, m] = hhmm.split(":").map(Number); return h * 60 + (m || 0); }
+function toHHMM(mins) { const h = Math.floor(mins / 60); const m = mins % 60; return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`; }
+function generateTimes(startHH = 8, endHH = 22, stepMin = 30) {
+  const out = []; let t = startHH * 60; const end = endHH * 60; while (t < end) { out.push(toHHMM(t)); t += stepMin; } return out;
+}
+function todayKey() { const d = new Date(); return d.toISOString().slice(0,10); }
+function isPast(dateStr) { const today = new Date(todayKey()+"T00:00:00"); const d = new Date(dateStr+"T00:00:00"); return d < today; }
+function isInCurrentYear(dateStr) { const y = new Date().getFullYear(); const d = new Date(dateStr+"T00:00:00"); return d.getFullYear() === y; }
+function formatHuman(dateStr) {
+  try {
+    const d = new Date(dateStr + "T00:00:00");
+    return d.toLocaleDateString(undefined, { weekday: "short", year: "numeric", month: "short", day: "2-digit" });
+  } catch { return dateStr; }
+}
+
+// Helper function to check if time is in the past for today
+function isTimeInPast(timeStr, dateStr) {
+  const today = todayKey();
+  if (dateStr !== today) return false; // Not today, so time is not in past
+  
+  const now = new Date();
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+  const timeMinutes = toMinutes(timeStr);
+  
+  return timeMinutes <= currentMinutes;
+}
+
+// Helper function to filter out past times for today
+function getAvailableTimes(dateStr) {
+  const allTimes = generateTimes(8, 22, 30);
+  const today = todayKey();
+  
+  if (dateStr !== today) return allTimes; // Not today, return all times
+  
+  // For today, filter out past times
+  return allTimes.filter(time => !isTimeInPast(time, dateStr));
+}
+
+// --- Schedule Builder Component ---------------------------------------------------------------
+function MentorAvailabilityBuilder({ onBack, onSave, editingSchedule }) {
+  const [mode, setMode] = useState("builder"); // 'builder' | 'review'
+  const [selectedDate, setSelectedDate] = useState("");
+  const [error, setError] = useState("");
+  const [pickedForDay, setPickedForDay] = useState(new Set()); // working selection
+  const [availability, setAvailability] = useState({}); // committed while editing
+  const [savedSnapshot, setSavedSnapshot] = useState(null); // what we "persisted"
+
+  // Load editing data when component mounts or editingSchedule changes
+  useEffect(() => {
+    if (editingSchedule) {
+      setAvailability(editingSchedule.availability || {});
+    } else {
+      setAvailability({});
+    }
+  }, [editingSchedule]);
+
+  const times = useMemo(() => getAvailableTimes(selectedDate), [selectedDate]);
+
+  function validateDate(dateStr) {
+    if (!dateStr) return "Please choose a date.";
+    if (isPast(dateStr)) return "Selected date is in the past. Please choose today or a future date.";
+    if (!isInCurrentYear(dateStr)) return "Only dates within the current year are allowed.";
+    return "";
+  }
+
+  function onDateChange(v) {
+    setSelectedDate(v);
+    setError(validateDate(v));
+    const saved = availability[v] || [];
+    // Filter out past times if it's today
+    const validSavedTimes = saved.filter(time => !isTimeInPast(time, v));
+    setPickedForDay(new Set(validSavedTimes));
+  }
+
+  function toggleTime(t) {
+    const next = new Set(pickedForDay);
+    if (next.has(t)) next.delete(t); else next.add(t);
+    setPickedForDay(next);
+  }
+
+  function submitDay() {
+    const e = validateDate(selectedDate);
+    if (e) { setError(e); return; }
+    if (pickedForDay.size === 0) {
+      setError("Please select at least one time slot before submitting.");
+      return;
+    }
+    setError("");
+    const arr = Array.from(pickedForDay).sort((a,b)=>toMinutes(a)-toMinutes(b));
+    setAvailability((prev) => ({ ...prev, [selectedDate]: arr }));
+  }
+
+  function removeDay(dateKey) {
+    const copy = { ...availability }; delete copy[dateKey]; setAvailability(copy);
+    if (dateKey === selectedDate) setPickedForDay(new Set());
+  }
+
+  async function saveAll() {
+    // Guard: must have at least 1 submitted day before saving
+    if (Object.keys(availability).length === 0) {
+      alert("Please submit at least one day before saving.");
+      return;
+    }
+    // In a real app, call your API here then navigate to a separate page.
+    const payload = { slots: availability, createdAt: new Date().toISOString() };
+    console.log("SAVE ALL", payload);
+    
+    if (onSave) {
+      onSave(payload);
+    } else {
+      setSavedSnapshot(payload);
+      setMode("review");
+    }
+  }
+
+  if (mode === "review") {
+    return (
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <h1 className="text-2xl font-semibold">Your Availability</h1>
+            <div className="flex gap-3">
+              <button 
+                onClick={() => setMode("builder")}
+                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition text-sm font-medium flex items-center gap-2"
+              > 
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+                Create schedule
+              </button>
+              <button 
+                onClick={() => alert("Publish stub: wire to your API.")}
+                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition text-sm font-medium flex items-center gap-2"
+              > 
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+                Publish
+              </button>
+            </div>
+          </div>
+
+          <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
+            <div className="p-6 space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600">Saved at</p>
+                  <p className="font-medium">{new Date(savedSnapshot?.createdAt || Date.now()).toLocaleString()}</p>
+                </div>
+                <div className="text-sm text-gray-600">{Object.keys(savedSnapshot?.slots || {}).length} day(s)</div>
+              </div>
+
+              {Object.keys(savedSnapshot?.slots || {}).length === 0 ? (
+                <p className="text-sm text-gray-600">No availability to show.</p>
+              ) : (
+                <div className="space-y-4">
+                  {Object.entries(savedSnapshot.slots)
+                    .sort(([a],[b]) => a.localeCompare(b))
+                    .map(([dateKey, list]) => (
+                      <div key={dateKey} className="rounded-lg border border-gray-200 p-4">
+                        <div className="mb-2 font-medium">{formatHuman(dateKey)} ({dateKey})</div>
+                        <div className="grid grid-cols-3 gap-2 md:grid-cols-4 lg:grid-cols-6">
+                          {list.map((t) => (
+                            <div key={t} className="rounded-lg border border-gray-200 px-3 py-2 text-sm text-center">{t}</div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="text-sm text-gray-600">
+            Tip: This page is a read-only summary of what you saved. Use <b>Create schedule</b> to add or modify availability, then save again.
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // --- Builder view -------------------------------------------------------
+  return (
+    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+      <div className="flex items-center gap-3 mb-6">
+        <button
+          onClick={onBack}
+          className="p-2 hover:bg-gray-100 rounded-lg transition"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          </svg>
+        </button>
+        <h1 className="text-2xl font-semibold">
+          {editingSchedule ? `Edit Schedule ${editingSchedule.name}` : "Set Specific-Day Availability"}
+        </h1>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-[1.2fr_1fr] gap-6">
+        <div className="bg-gradient-to-br from-white to-blue-50/30 border border-blue-200 rounded-xl shadow-sm">
+          <div className="p-6 space-y-6">
+            <header className="text-center pb-4 border-b border-blue-100">
+
+              <p className="text-sm text-blue-600">
+                {editingSchedule 
+                  ? "Modify your existing schedule by adding/removing dates and time slots." 
+                  : "Pick a date, toggle the available times, then submit that day."
+                }
+              </p>
+            </header>
+
+            {/* Date */}
+            <section className="space-y-3">
+              <label className="flex items-center gap-2 text-sm font-semibold text-blue-900">
+                <div className="p-1.5 bg-blue-100 rounded-lg">
+                  <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                </div>
+                Choose a date (current year only)
+              </label>
+              <div className="relative">
+                <input 
+                  type="date" 
+                  value={selectedDate} 
+                  onChange={(e)=>onDateChange(e.target.value)}
+                  className="w-full px-4 py-3 border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm text-gray-900 font-medium"
+                />
+              </div>
+              {error && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                  <p className="text-sm text-red-600 flex items-center gap-2">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    {error}
+                  </p>
+                </div>
+              )}
+            </section>
+
+            {/* Time grid */}
+            <section className="space-y-4">
+              <div className="flex items-center justify-between">
+                <label className="flex items-center gap-2 text-sm font-semibold text-blue-900">
+                  <div className="p-1.5 bg-blue-100 rounded-lg">
+                    <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  Available times for selected date
+                </label>
+                {selectedDate === todayKey() && (
+                  <div className="text-xs text-orange-700 bg-gradient-to-r from-orange-100 to-yellow-100 border border-orange-200 px-3 py-1.5 rounded-full font-medium">
+                    Current: {new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                  </div>
+                )}
+              </div>
+              
+              <div className="bg-white/70 border border-blue-200 rounded-lg p-4">
+                <div className="grid grid-cols-3 gap-3 md:grid-cols-4 lg:grid-cols-5">
+                  {times.map((t)=>{
+                    const active = pickedForDay.has(t);
+                    const isPastTime = isTimeInPast(t, selectedDate);
+                    return (
+                      <button
+                        key={t}
+                        type="button"
+                        onClick={()=>toggleTime(t)}
+                        disabled={isPastTime}
+                        className={`rounded-lg border px-3 py-2.5 text-sm text-center transition-all duration-200 font-medium ${
+                          isPastTime 
+                            ? "bg-gray-100 text-gray-400 cursor-not-allowed border-gray-200" 
+                            : active
+                              ? "border-blue-600 bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-md transform scale-105"
+                              : "border-gray-300 bg-white hover:bg-blue-50 hover:border-blue-300 hover:shadow-sm"
+                        }`}
+                      >
+                        {t}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                    <p className="text-sm text-blue-800 font-medium">
+                      {pickedForDay.size === 0 ? "No times selected" : `${pickedForDay.size} time(s) selected`}
+                    </p>
+                    {selectedDate === todayKey() && times.length === 0 && (
+                      <span className="ml-2 text-orange-600 text-xs bg-orange-100 px-2 py-0.5 rounded-full font-medium">
+                        No more slots today
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setPickedForDay(new Set())}
+                      className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm hover:bg-gray-50 transition font-medium text-gray-700"
+                    >
+                      Clear
+                    </button>
+                    <button
+                      onClick={submitDay}
+                      disabled={pickedForDay.size === 0}
+                      className="px-4 py-1.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg text-sm hover:from-blue-700 hover:to-blue-800 transition disabled:opacity-50 disabled:cursor-not-allowed font-medium shadow-sm"
+                    >
+                      Submit day
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </section>
+          </div>
+        </div>
+
+        {/* Right: committed list */}
+        <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
+          <div className="p-6 space-y-6">
+            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-5 shadow-sm">
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                <h2 className="text-lg font-semibold text-blue-900">Availability Preview</h2>
+              </div>
+              {Object.keys(availability).length === 0 ? (
+                <div className="text-center py-8">
+                  <svg className="w-12 h-12 text-blue-300 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                  <p className="text-blue-600 text-sm">No days added yet</p>
+                  <p className="text-blue-500 text-xs mt-1">Start by selecting a date and time slots</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {Object.entries(availability)
+                    .sort(([a],[b])=> a.localeCompare(b))
+                    .map(([dateKey, times])=> (
+                    <div key={dateKey} className="bg-white/70 backdrop-blur-sm border border-blue-200 rounded-lg p-4 shadow-sm">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <div className="w-1.5 h-1.5 bg-blue-500 rounded-full"></div>
+                          <div className="font-medium text-blue-900 text-sm">
+                            {formatHuman(dateKey)}
+                          </div>
+                          <span className="text-blue-600 text-xs bg-blue-100 px-2 py-0.5 rounded-full">
+                            {dateKey}
+                          </span>
+                        </div>
+                        <button 
+                          onClick={()=>removeDay(dateKey)}
+                          className="text-red-500 hover:text-red-700 transition text-sm p-1 rounded hover:bg-red-50"
+                          title="Remove this day"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-4">
+                        {times.map((t)=>(
+                          <div key={t} className="bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200 text-blue-800 px-3 py-2.5 text-sm text-center rounded-md font-medium shadow-sm hover:from-blue-100 hover:to-blue-150 transition-colors duration-200 flex items-center justify-center min-w-0">
+                            {t}
+                          </div>
+                        ))}
+                      </div>
+                      <div className="mt-2 text-right">
+                        <span className="text-blue-600 text-xs">
+                          {times.length} slot{times.length > 1 ? 's' : ''}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <h3 className="mb-2 font-medium text-blue-900 flex items-center gap-2">
+                <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                Rules enforced
+              </h3>
+              <ul className="list-disc pl-6 text-sm text-blue-800 space-y-1">
+                <li>Cannot select past dates.</li>
+                <li>Only dates in the <b>current year</b> are allowed.</li>
+                <li>For today's date, only <b>future time slots</b> are available.</li>
+                <li>Must select at least one time slot before submitting a day.</li>
+              </ul>
+            </div>
+
+            <div className="flex justify-end gap-3">
+              <button 
+                onClick={()=>{setAvailability({}); setPickedForDay(new Set());}}
+                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition text-sm"
+              >
+                Reset all
+              </button>
+              <button 
+                onClick={saveAll} 
+                disabled={Object.keys(availability).length === 0}
+                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {editingSchedule ? "Update Schedule" : "Save all"}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+import React, { useState, useEffect, useMemo } from "react";
 import { toast } from "react-toastify";
 import { FaUserCircle } from "react-icons/fa";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -338,6 +758,78 @@ const MentorProfile = () => {
   const [reviewSortBy, setReviewSortBy] = useState("latest");
   const [reviewCurrentPage, setReviewCurrentPage] = useState(1);
   const reviewsPerPage = 6;
+
+  // Schedule management state
+  const [scheduleMode, setScheduleMode] = useState("list"); // 'list' | 'builder' | 'review'
+  const [schedules, setSchedules] = useState([]);
+  const [selectedSchedule, setSelectedSchedule] = useState(null);
+  const [editingSchedule, setEditingSchedule] = useState(null); // Schedule being edited
+
+  // Function to handle editing a schedule
+  const handleEditSchedule = (schedule) => {
+    setEditingSchedule(schedule);
+    setScheduleMode("builder");
+  };
+
+  // Function to save edited schedule
+  const handleSaveEditedSchedule = (scheduleData) => {
+    if (editingSchedule) {
+      // Update existing schedule
+      setSchedules(prev => prev.map(s => 
+        s.id === editingSchedule.id 
+          ? {
+              ...s,
+              availability: scheduleData.slots,
+              totalDays: Object.keys(scheduleData.slots).length,
+              totalSlots: Object.values(scheduleData.slots).reduce((total, times) => total + times.length, 0),
+              updatedAt: new Date().toISOString()
+            }
+          : s
+      ));
+      setEditingSchedule(null);
+    } else {
+      // Create new schedule
+      const newSchedule = {
+        id: Date.now().toString(),
+        name: `Schedule ${Date.now().toString().slice(-6)}`,
+        availability: scheduleData.slots,
+        status: "active",
+        createdAt: scheduleData.createdAt,
+        totalDays: Object.keys(scheduleData.slots).length,
+        totalSlots: Object.values(scheduleData.slots).reduce((total, times) => total + times.length, 0)
+      };
+      setSchedules(prev => [...prev, newSchedule]);
+    }
+    setScheduleMode("list");
+  };
+
+  // Auto-cleanup expired schedules
+  useEffect(() => {
+    const cleanupExpiredSchedules = () => {
+      const today = todayKey();
+      setSchedules(prevSchedules => {
+        const activeSchedules = prevSchedules.filter(schedule => {
+          // Check if schedule has any future dates
+          const futureDates = Object.keys(schedule.availability).filter(date => !isPast(date));
+          return futureDates.length > 0;
+        });
+        
+        // Log if any schedules were removed
+        const removedCount = prevSchedules.length - activeSchedules.length;
+        if (removedCount > 0) {
+          console.log(`Automatically removed ${removedCount} expired schedule(s)`);
+        }
+        
+        return activeSchedules;
+      });
+    };
+
+    // Run cleanup on component mount and every minute
+    cleanupExpiredSchedules();
+    const interval = setInterval(cleanupExpiredSchedules, 60000); // Check every minute
+
+    return () => clearInterval(interval);
+  }, []);
 
   // Real courses data from MongoDB API
   // No mock data, empty courses array
@@ -761,6 +1253,16 @@ const MentorProfile = () => {
                 onClick={() => handleTabChange("reviews")}
               >
                 My Reviews
+              </li>
+              <li
+                className={`px-4 py-2.5 rounded-lg font-medium transition-all duration-200 cursor-pointer ${
+                  activeTab === "schedule"
+                    ? "bg-gray-200 hover:bg-gray-300 hover:shadow-sm"
+                    : "hover:bg-blue-50 hover:text-blue-600 hover:shadow-sm hover:scale-105"
+                }`}
+                onClick={() => handleTabChange("schedule")}
+              >
+                My Schedule
               </li>
             </ul>
           </nav>
@@ -1879,6 +2381,287 @@ const MentorProfile = () => {
             </div>
           )}
 
+          {activeTab === "schedule" && (
+            <div className="space-y-6">
+              {scheduleMode === "list" && (
+                <div className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100">
+                  {/* Header with create schedule button */}
+                  <div className="flex justify-between items-center mb-6">
+                    <h3 className="text-lg font-semibold text-gray-900">
+                      My Schedules ({schedules.length})
+                    </h3>
+                    <button
+                      onClick={() => setScheduleMode("builder")}
+                      className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition font-medium text-sm flex items-center gap-2"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                      </svg>
+                      Create Schedule
+                    </button>
+                  </div>
+
+                  {/* Schedules List */}
+                  <div className="space-y-4">
+                    {schedules.length > 0 ? (
+                      schedules.map((schedule) => (
+                        <div key={schedule.id} className={`border rounded-lg p-6 hover:shadow-md transition-shadow ${
+                          schedule.status === "inactive" ? "border-gray-300 bg-gray-50 opacity-75" : "border-gray-200"
+                        }`}>
+                          <div className="flex justify-between items-start mb-4">
+                            <div>
+                              <h4 className={`font-semibold text-lg mb-2 ${
+                                schedule.status === "inactive" ? "text-gray-500" : "text-gray-900"
+                              }`}>
+                                {schedule.name}
+                                {schedule.status === "inactive" && (
+                                  <span className="ml-2 text-xs bg-gray-200 text-gray-600 px-2 py-1 rounded-full">
+                                    DISABLED
+                                  </span>
+                                )}
+                              </h4>
+                              <div className="flex items-center gap-4 text-sm text-gray-600">
+                                <span>Created: {new Date(schedule.createdAt).toLocaleDateString()}</span>
+                                <span>•</span>
+                                <span>{schedule.totalDays} days</span>
+                                <span>•</span>
+                                <span>{schedule.totalSlots} time slots</span>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                schedule.status === "active" 
+                                  ? "bg-green-100 text-green-800" 
+                                  : "bg-gray-100 text-gray-800"
+                              }`}>
+                                {schedule.status}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Schedule Preview */}
+                          <div className="mb-4">
+                            <div className="flex items-center gap-2 mb-3">
+                              <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                              <h5 className="font-semibold text-blue-900">Availability Preview</h5>
+                            </div>
+                            <div className="space-y-3">
+                              {Object.entries(schedule.availability).slice(0, 3).map(([date, times]) => (
+                                <div key={date} className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4 shadow-sm">
+                                  <div className="flex items-center gap-2 mb-2">
+                                    <div className="w-1.5 h-1.5 bg-blue-500 rounded-full"></div>
+                                    <div className="font-semibold text-sm text-blue-900">
+                                      {new Date(date + "T00:00:00").toLocaleDateString("en-US", { 
+                                        weekday: "short", 
+                                        year: "numeric", 
+                                        month: "short", 
+                                        day: "2-digit" 
+                                      })}
+                                    </div>
+                                    <span className="text-blue-600 text-xs bg-blue-100 px-2 py-0.5 rounded-full">
+                                      {date}
+                                    </span>
+                                  </div>
+                                  <div className="grid grid-cols-5 gap-2">
+                                    {times.slice(0, 5).map((time) => (
+                                      <div key={time} className="bg-gradient-to-r from-blue-500 to-blue-600 text-white px-2 py-1.5 text-xs text-center rounded-md font-medium shadow-sm">
+                                        {time}
+                                      </div>
+                                    ))}
+                                    {times.length > 5 && (
+                                      <div className="bg-blue-100 border border-blue-300 text-blue-700 px-2 py-1.5 text-xs text-center rounded-md font-medium">
+                                        +{times.length - 5}
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
+                              {Object.keys(schedule.availability).length > 3 && (
+                                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-center">
+                                  <span className="text-sm text-blue-600 font-medium">
+                                    +{Object.keys(schedule.availability).length - 3} more days available
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Action Buttons */}
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => alert("Publishing schedule... (Connect to API)")}
+                              className="flex-1 bg-green-600 text-white py-2 px-3 rounded-lg hover:bg-green-700 transition text-sm font-medium flex items-center justify-center gap-2"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                              </svg>
+                              Publish
+                            </button>
+                            <button 
+                              onClick={() => handleEditSchedule(schedule)}
+                              className="px-3 py-2 border border-blue-300 text-blue-600 rounded-lg hover:bg-blue-50 transition text-sm flex items-center gap-2"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                              </svg>
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => {
+                                if (window.confirm("Are you sure you want to delete this schedule?")) {
+                                  setSchedules(prev => prev.filter(s => s.id !== schedule.id));
+                                }
+                              }}
+                              className="px-3 py-2 border border-red-300 text-red-600 rounded-lg hover:bg-red-50 transition text-sm flex items-center gap-2"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                              Delete
+                            </button>
+                            <button 
+                              onClick={() => {
+                                setSchedules(prev => prev.map(s => 
+                                  s.id === schedule.id 
+                                    ? { ...s, status: s.status === "active" ? "inactive" : "active" }
+                                    : s
+                                ));
+                              }}
+                              className={`px-3 py-2 border rounded-lg transition text-sm flex items-center gap-2 ${
+                                schedule.status === "active"
+                                  ? "border-orange-300 text-orange-600 hover:bg-orange-50"
+                                  : "border-green-300 text-green-600 hover:bg-green-50"
+                              }`}
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                {schedule.status === "active" ? (
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728L5.636 5.636m12.728 12.728L5.636 5.636" />
+                                ) : (
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                )}
+                              </svg>
+                              {schedule.status === "active" ? "Disable" : "Enable"}
+                            </button>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-center py-12">
+                        <div className="flex flex-col items-center gap-4">
+                          <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center">
+                            <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                          </div>
+                          <div>
+                            <p className="text-gray-500 text-lg mb-2">No schedules created yet</p>
+                            <p className="text-gray-400 mb-4">Create your first availability schedule to start accepting bookings</p>
+                            <button
+                              onClick={() => setScheduleMode("builder")}
+                              className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition font-medium"
+                            >
+                              Create Schedule
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {scheduleMode === "builder" && (
+                <MentorAvailabilityBuilder 
+                  onBack={() => {
+                    setScheduleMode("list");
+                    setEditingSchedule(null);
+                  }} 
+                  onSave={handleSaveEditedSchedule}
+                  editingSchedule={editingSchedule}
+                />
+              )}
+
+              {scheduleMode === "review" && selectedSchedule && (
+                <div className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100">
+                  <div className="flex items-center justify-between mb-6">
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={() => setScheduleMode("list")}
+                        className="p-2 hover:bg-gray-100 rounded-lg transition"
+                      >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                        </svg>
+                      </button>
+                      <h1 className="text-2xl font-semibold">{selectedSchedule.name}</h1>
+                    </div>
+                    <div className="flex gap-3">
+                      <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition font-medium flex items-center gap-2">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        </svg>
+                        Edit Schedule
+                      </button>
+                      <button className="border border-green-600 text-green-600 px-4 py-2 rounded-lg hover:bg-green-50 transition font-medium flex items-center gap-2">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        Publish
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4 mb-6">
+                    <div className="flex items-center justify-between bg-gray-50 rounded-lg p-4">
+                      <div>
+                        <p className="text-sm text-gray-600">Created at</p>
+                        <p className="font-medium">{new Date(selectedSchedule.createdAt).toLocaleString()}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm text-gray-600">{selectedSchedule.totalDays} day(s) • {selectedSchedule.totalSlots} slots</p>
+                        <span className={`inline-block mt-1 px-2 py-1 rounded-full text-xs font-medium ${
+                          selectedSchedule.status === "active" 
+                            ? "bg-green-100 text-green-800" 
+                            : "bg-gray-100 text-gray-800"
+                        }`}>
+                          {selectedSchedule.status}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    {Object.entries(selectedSchedule.availability)
+                      .sort(([a], [b]) => a.localeCompare(b))
+                      .map(([dateKey, timeSlots]) => (
+                        <div key={dateKey} className="rounded-lg border p-4">
+                          <div className="mb-3 font-medium">
+                            {new Date(dateKey + "T00:00:00").toLocaleDateString("en-US", { 
+                              weekday: "short", 
+                              year: "numeric", 
+                              month: "short", 
+                              day: "2-digit" 
+                            })} ({dateKey})
+                          </div>
+                          <div className="grid grid-cols-3 gap-2 md:grid-cols-4 lg:grid-cols-6">
+                            {timeSlots.map((time) => (
+                              <div key={time} className="rounded-lg border px-3 py-2 text-sm text-center bg-blue-50 border-blue-200">
+                                {time}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+
+                  <div className="mt-6 pt-6 border-t border-gray-200 text-sm text-gray-600">
+                    <p><strong>Tip:</strong> This schedule shows all your available time slots. Students can book these slots for mentoring sessions.</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {activeTab === "reviews" && (
             <div className="space-y-6">
               {/* Reviews Section - TODO: Connect to real API for fetching mentor's reviews */}
@@ -2159,6 +2942,10 @@ const MentorProfile = () => {
               </div>
             </div>
           )}
+
+          
+
+
         </div>
       </div>
     </div>
