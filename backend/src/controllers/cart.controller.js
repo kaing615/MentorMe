@@ -23,7 +23,6 @@ const getCart = async (req, res) => {
     if (!cart) {
       cart = await cartUtils.findOrCreateCart(userId);
     }
-
     // Cập nhật total price nếu cần
     await cartUtils.updateTotalPriceIfNeeded(cart);
 
