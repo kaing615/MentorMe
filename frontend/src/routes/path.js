@@ -28,6 +28,7 @@ export const MENTOR_PATH = {
 
 export const PLATFORM_PATH = {
 	HOMESCREEN: "homescreen",
+	HELP_REQUEST: "help-request",
 }
 
 

@@ -2,6 +2,7 @@ import { PATH, AUTH_PATH, ADMIN_PATH, MENTEE_PATH, MENTOR_PATH, PLATFORM_PATH } 
 import { useRoutes, Navigate } from "react-router-dom";
 import WelcomePage from "../pages/WelcomePage";
 import HomeScreen from "../pages/homeScreen";
+import SendHelpRequest from "../components/common/SendHelpRequest";
 import AllPagesLayout from "../components/layout/AllPagesLayout";
 import SignUp_SignIn_layout from "../components/layout/SignUp_SignIn_layout"; 
 import SignUp from "../pages/SignUp";
@@ -22,6 +23,20 @@ const useRouterElements = () => {
                 {
                     path: MENTEE_PATH.HOME,
                     element: <HomeScreen />
+                }
+            ]
+        },
+        {
+            path: PATH.PLATFORM,
+            element: <AllPagesLayout />,
+            children: [
+                {
+                    path: PLATFORM_PATH.HOMESCREEN,
+                    element: <HomeScreen />
+                },
+                {
+                    path: PLATFORM_PATH.HELP_REQUEST,
+                    element: <SendHelpRequest />
                 }
             ]
         },
