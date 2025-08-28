@@ -6,13 +6,13 @@ const NotificationSchema = mongoose.Schema(
         type: { type: String, required: true },
         title: String,
         body: String,
-        data: { type: mongoose.Types.Mixed, default: {}  },
+        data: { type: Schema.Types.Mixed, default: {}  },
         sourceType: { type: String },
         sourceId: { type: String },
         deliverAt: { type: Date, default: () => new Date() },
         seenAt: Date,
         readAt: Date,
-        deduplicationKey: { type: String, unique: true }
+        deduplicationKey: { type: String }
     },
     {
         versionKey: false,
