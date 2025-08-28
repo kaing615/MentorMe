@@ -1,6 +1,5 @@
 import Joi from "joi";
 
-// Base user validation
 const userBase = {
   firstName: Joi.string().min(1).max(50).required().messages({
     "string.empty": "Họ không được để trống",

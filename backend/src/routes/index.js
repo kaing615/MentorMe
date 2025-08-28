@@ -11,12 +11,9 @@ const router = express.Router();
 
 router.use("/user", userRoute);
 router.use("/profile", profileRoute);
-<<<<<<< HEAD
 router.use("/course", courseRoute);
 router.use("/purchased-courses", purchasedCourseRoute);
 router.use("/cart", cartRoute);
-=======
 router.use("/booking", bookingRoute);
->>>>>>> origin/feature/BE-appoint-booking
 
 export default router;

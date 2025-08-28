@@ -1,16 +1,14 @@
 import express from "express";
-import { createBooking, getBookings, updateBooking, deleteBooking } from "../controllers/booking.controller.js";
-import { verifyToken } from "../middlewares/auth.middleware.js";
+import bookingController from "../controllers/booking.controller.js";
+import tokenMiddleware from "../middlewares/token.middleware.js";
 
 const router = express.Router();
 
-// Đặt lịch hẹn
-router.post("/bookings", verifyToken, createBooking);
-// Lấy danh sách lịch hẹn (theo mentor/mentee/date)
-router.get("/bookings", verifyToken, getBookings);
-// Cập nhật trạng thái/ghi chú lịch hẹn
-router.patch("/bookings/:id", verifyToken, updateBooking);
-// Xóa lịch hẹn
-router.delete("/bookings/:id", verifyToken, deleteBooking);
+router.post("/mentor/:mentorId", tokenMiddleware.auth, bookingController.createBooking);
+router.get("/", tokenMiddleware.auth, bookingController.getBookings);
+router.post("/confirm/:id", tokenMiddleware.auth, bookingController.confirmBooking);
+router.post("/cancel/:id", tokenMiddleware.auth, bookingController.cancelBooking);
+router.patch("/:id", tokenMiddleware.auth, bookingController.updateBooking);
+router.delete("/:id", tokenMiddleware.auth, bookingController.deleteBooking);
 
 export default router;
