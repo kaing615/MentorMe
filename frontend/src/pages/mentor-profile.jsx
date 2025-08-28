@@ -1,4 +1,16 @@
 // Capitalize initials of each word
+import React, { useState, useEffect, useMemo } from "react";
+import { toast } from "react-toastify";
+import { FaUserCircle } from "react-icons/fa";
+import { useNavigate, useLocation } from "react-router-dom";
+import { PATH, MENTOR_PATH } from "../routes/path";
+import youtubeImg from "../assets/youtube.png";
+import profileApi from "../api/modules/profile.api";
+import facebookImg from "../assets/facebook.png";
+import linkedinImg from "../assets/linkedin.png";
+import twitterImg from "../assets/twitter.png";
+import googleImg from "../assets/google.png";
+import courseApi from "../api/modules/course.api";
 function capitalizeWords(str) {
   if (!str) return "";
   return str
@@ -425,19 +437,6 @@ function MentorAvailabilityBuilder({ onBack, onSave, editingSchedule }) {
     </div>
   );
 }
-
-import React, { useState, useEffect, useMemo } from "react";
-import { toast } from "react-toastify";
-import { FaUserCircle } from "react-icons/fa";
-import { useNavigate, useLocation } from "react-router-dom";
-import { PATH, MENTOR_PATH } from "../routes/path";
-import youtubeImg from "../assets/youtube.png";
-import profileApi from "../api/modules/profile.api";
-import facebookImg from "../assets/facebook.png";
-import linkedinImg from "../assets/linkedin.png";
-import twitterImg from "../assets/twitter.png";
-import googleImg from "../assets/google.png";
-import courseApi from "../api/modules/course.api";
 
 const MentorProfile = () => {
   // State lưu thông tin profile
