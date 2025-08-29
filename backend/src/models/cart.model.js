@@ -6,8 +6,9 @@ const CartSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
-      unique: true, // Mỗi user chỉ có 1 cart
+      unique: true,
     },
+
     courses: [
       {
         course: {
@@ -21,16 +22,17 @@ const CartSchema = new mongoose.Schema(
         },
       },
     ],
+
     totalPrice: {
       type: Number,
       default: 0,
+      min: 0,
     },
   },
   { timestamps: true }
 );
 
-// Index for better performance
-CartSchema.index({ user: 1 });
+CartSchema.index({ user: 1 }, { unique: true });
 CartSchema.index({ "courses.course": 1 });
 
 export default mongoose.model("Cart", CartSchema);

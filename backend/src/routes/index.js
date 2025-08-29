@@ -13,5 +13,6 @@ router.use("/profile", profileRoute);
 router.use("/course", courseRoute);
 router.use("/purchased-courses", purchasedCourseRoute);
 router.use("/cart", cartRoute);
+router.use("/courses", courseRoute);
 
 export default router;
