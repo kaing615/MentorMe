@@ -4,11 +4,16 @@ import {
   ADMIN_PATH,
   MENTEE_PATH,
   MENTOR_PATH,
+  PLATFORM_PATH,
 } from "./path";
 import { useRoutes, Navigate } from "react-router-dom";
 import WelcomePage from "../pages/WelcomePage";
 import HomeScreen from "../pages/homeScreen";
 import AllPagesLayout from "../components/layout/AllPagesLayout";
+import MenteeProfile from "../pages/mentee-profile";
+import AllCoursePage from "../pages/AllCoursepage";
+import AllMentors from "../pages/AllMentors";
+import OrderCompleteCourse from "../pages/order-complete-course";
 import SignUp_SignIn_layout from "../components/layout/SignUp_SignIn_layout";
 import SignUp from "../pages/SignUp";
 import Login from "../pages/Login";
@@ -29,15 +34,21 @@ const useRouterElements = () => {
           path: MENTEE_PATH.HOME,
           element: <HomeScreen />,
         },
-      ],
-    },
-    {
-      path: PATH.MENTOR,
-      element: <AllPagesLayout />,
-      children: [
         {
-          path: MENTOR_PATH.HOME,
-          element: <HomeScreen />,
+          path: MENTEE_PATH.PROFILE,
+          element: <MenteeProfile />,
+        },
+        {
+          path: MENTEE_PATH.ORDER_COMPLETE,
+          element: <OrderCompleteCourse />,
+        },
+        {
+          path: MENTEE_PATH.ALL_MENTORS,
+          element: <AllMentors />,
+        },
+        {
+          path: MENTEE_PATH.ALL_COURSES,
+          element: <AllCoursePage />,
         },
       ],
     },

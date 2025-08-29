@@ -16,7 +16,10 @@ export const AUTH_PATH = {
 
 export const MENTEE_PATH = {
   HOME: "home",
-  COURSE: "course",
+  PROFILE: "profile",
+  ORDER_COMPLETE: "order-complete-course",
+  ALL_MENTORS: "mentors",
+  ALL_COURSES: "courses",
 };
 
 export const ADMIN_PATH = {
@@ -25,4 +28,8 @@ export const ADMIN_PATH = {
 
 export const MENTOR_PATH = {
   HOME: "home",
+};
+
+export const PLATFORM_PATH = {
+  HOMESCREEN: "homescreen",
 };
