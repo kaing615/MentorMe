@@ -276,79 +276,31 @@ export const updateMenteeProfile = async (req, res) => {
 
 export const getProfile = async (req, res) => {
   try {
-    // Nếu có xác thực thì lấy user từ req.user, nếu không thì lấy user đầu tiên có role mentee
-    let userId;
-    if (req.user && req.user.id) {
-      userId = req.user.id;
-    } else {
-      const menteeUser = await User.findOne({ role: "mentee" });
-      if (!menteeUser) {
-        return responseHandler.error(res, "Không tìm thấy user mentee.");
-      }
-      userId = menteeUser._id;
+    const userId = req.user.id;
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return responseHandler.badRequest(res, "User không tồn tại");
     }
 
-    // Lấy profile đầy đủ với auto-create và populate
-    let profile = await profileUtils.getFullProfile(userId);
+    // Lấy thông tin profile
+    const profile = await Profile.findOne({ user: userId });
 
-    if (!profile) {
-      // Nếu không có profile, tạo profile mới
-      await profileUtils.findOrCreateProfile(userId);
-      profile = await profileUtils.getFullProfile(userId);
-      console.log("[getProfile] Created profile:", {
-        bio: profile.bio,
-        description: profile.description,
-        user: profile.user,
-      });
-      return responseHandler.ok(
-        res,
-        profile,
-        "Profile được tạo mới thành công."
-      );
-    }
+    // Làm sạch dữ liệu trả về
+    const userData = user.toObject();
+    delete userData.password;
+    delete userData.salt;
+    delete userData.verifyKey;
+    delete userData.resetToken;
+    delete userData.resetTokenExpires;
 
-    // Merge mentor fields from user into profile if they exist
-    if (profile.user) {
-      const userFields = [
-        "jobTitle",
-        "location",
-        "category",
-        "skills",
-        "mentorReason",
-        "greatestAchievement",
-        "headline",
-        "introVideo",
-        "bio",
-      ];
-      userFields.forEach((field) => {
-        if (
-          (profile[field] === undefined ||
-            profile[field] === "" ||
-            profile[field] == null) &&
-          profile.user[field] !== undefined
-        ) {
-          profile[field] = profile.user[field];
-        }
-      });
-      // Also sync avatarUrl if missing
-      if (
-        (!profile.avatarUrl || profile.avatarUrl === "") &&
-        profile.user.avatarUrl
-      ) {
-        profile.avatarUrl = profile.user.avatarUrl;
-      }
-    }
-
-    // Log giá trị bio khi trả về cho frontend
-    console.log("[getProfile] Fetched profile:", {
-      bio: profile.bio,
-      description: profile.description,
-      user: profile.user,
+    return responseHandler.ok(res, {
+      user: userData,
+      profile: profile,
     });
-    return responseHandler.ok(res, profile, "Lấy profile thành công.");
-  } catch (error) {
-    console.error("Error getting profile:", error);
-    return responseHandler.error(res, "Lỗi khi lấy profile: " + error.message);
+  } catch (err) {
+    console.error("Lỗi lấy thông tin profile:", err);
+    responseHandler.error(res, "Lỗi lấy thông tin profile!");
   }
 };
 

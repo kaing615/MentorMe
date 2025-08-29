@@ -21,7 +21,7 @@ import {
   addMentorSchema,
   addContentSchema,
   addReviewSchema,
-} from "../validation/course.validation.js";
+} from "../validations/course.validation.js";
 import { uploadImage } from "../utils/cloudinary.js";
 
 /**
@@ -987,17 +987,4 @@ export default {
   getCourseById,
   createCourse,
   getCoursesByMentor,
-  handlePurchaseSuccess,
-  getUserCourses,
-  getMyCourses,
-  addCourseReview,
-  getCourseReviews,
-  updateCourse,
-  deleteCourse,
-  addMentorToCourse,
-  removeMentorFromCourse,
-  addContentToCourse,
-  removeContentFromCourse,
-  getAllReviews,
-  getRelatedCourses,
 };
