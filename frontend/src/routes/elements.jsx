@@ -24,6 +24,9 @@ import SignUp from "../pages/SignUp";
 import Login from "../pages/Login";
 import ApplyAsMentor from "../pages/ApplyAsMentor";
 import VerifyEmailPage from "../pages/VerifyEmailPage";
+import Checkout from "../pages/checkout";
+import OrderComplete from "../pages/order_complete";
+import ShoppingCart from "../pages/shoppingcart";
 
 const useRouterElements = () => {
   const elements = useRoutes([
@@ -35,12 +38,10 @@ const useRouterElements = () => {
       path: PATH.MENTEE,
       element: <AllPagesLayout />,
       children: [
-        { path: MENTEE_PATH.HOME, element: <HomeScreen /> },
-        { path: MENTEE_PATH.PROFILE, element: <MenteeProfile /> },
-        { path: MENTEE_PATH.ORDER_COMPLETE, element: <OrderCompleteCourse /> },
-        { path: MENTEE_PATH.ALL_MENTORS, element: <AllMentors /> },
-        { path: MENTEE_PATH.ALL_COURSES, element: <AllCoursePage /> },
-        { path: "courses/:id", element: <CourseDetail /> },
+        {
+          path: MENTEE_PATH.HOME,
+          element: <HomeScreen />,
+        },
       ],
     },
 

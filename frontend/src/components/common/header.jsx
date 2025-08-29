@@ -13,7 +13,7 @@ const Header = () => {
   
   // Get user data from Redux store
   const user = useSelector((state) => state.user);
-  const isLoggedIn = user?.isLoggedIn || false;
+  setIsLoggedIn(user?.isLoggedIn || false);
 
   useEffect(() => {
     const currentPath = location.pathname;

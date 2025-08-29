@@ -442,4 +442,332 @@ paths:
         "200":
           description: Đặt lại mật khẩu thành công
         "400":
-          description: Token không hợp lệ hoặc lỗi validate
+          description: Token không hợp lệ hoặc đã hết hạn
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Không tìm thấy user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: Lỗi server
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  # Profile Management APIs
+  /profile:
+    get:
+      tags:
+        - Profile Management
+      summary: Lấy thông tin profile của user hiện tại
+      description: Lấy thông tin profile chi tiết của user đang đăng nhập (cả user và profile data)
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Lấy thông tin profile thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "success"
+                  data:
+                    type: object
+                    properties:
+                      user:
+                        $ref: "#/components/schemas/User"
+                      profile:
+                        $ref: "#/components/schemas/Profile"
+        "401":
+          description: Unauthorized - Token không hợp lệ
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Không tìm thấy profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /profile/mentor:
+    put:
+      tags:
+        - Profile Management
+      summary: Cập nhật profile Mentor
+      description: Cập nhật thông tin profile cho mentor. Có thể upload avatar mới cùng lúc.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - userName
+                - firstName
+                - lastName
+                - jobTitle
+                - category
+                - bio
+                - mentorReason
+              properties:
+                userName:
+                  type: string
+                  example: "mentor_updated"
+                firstName:
+                  type: string
+                  example: "Tran"
+                lastName:
+                  type: string
+                  example: "Van B Updated"
+                jobTitle:
+                  type: string
+                  example: "Tech Lead"
+                category:
+                  type: string
+                  example: "Technology"
+                bio:
+                  type: string
+                  example: "Updated bio with more experience"
+                mentorReason:
+                  type: string
+                  example: "Passionate about mentoring"
+                location:
+                  type: string
+                  example: "Ho Chi Minh City"
+                skills:
+                  type: array
+                  items:
+                    type: string
+                  example: ["JavaScript", "Node.js", "React"]
+                greatestAchievement:
+                  type: string
+                  example: "Led a team of 10 developers"
+                headline:
+                  type: string
+                  example: "Experienced Tech Lead"
+                experience:
+                  type: string
+                  example: "7+ years in software development"
+                introVideo:
+                  type: string
+                  example: "https://youtube.com/watch?v=abc123"
+                languages:
+                  type: array
+                  items:
+                    type: string
+                  example: ["Vietnamese", "English"]
+                timezone:
+                  type: string
+                  example: "GMT+7"
+                links:
+                  type: object
+                  properties:
+                    linkedin:
+                      type: string
+                    github:
+                      type: string
+                    website:
+                      type: string
+                  example:
+                    linkedin: "https://linkedin.com/in/mentor"
+                    github: "https://github.com/mentor"
+      responses:
+        "200":
+          description: Cập nhật profile mentor thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "success"
+                  message:
+                    type: string
+                    example: "Cập nhật profile mentor thành công!"
+                  data:
+                    type: object
+                    properties:
+                      user:
+                        $ref: "#/components/schemas/User"
+                      profile:
+                        $ref: "#/components/schemas/Profile"
+        "400":
+          description: Lỗi validation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Forbidden - Chỉ mentor mới được cập nhật mentor profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /profile/mentee:
+    put:
+      tags:
+        - Profile Management
+      summary: Cập nhật profile Mentee
+      description: Cập nhật thông tin profile cho mentee
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - userName
+                - firstName
+                - lastName
+              properties:
+                userName:
+                  type: string
+                  example: "mentee_updated"
+                firstName:
+                  type: string
+                  example: "Nguyen"
+                lastName:
+                  type: string
+                  example: "Van A Updated"
+                bio:
+                  type: string
+                  example: "Aspiring developer"
+                location:
+                  type: string
+                  example: "Hanoi"
+                description:
+                  type: string
+                  example: "Looking to learn new technologies"
+                goal:
+                  type: string
+                  example: "Become a full-stack developer"
+                education:
+                  type: string
+                  example: "Computer Science Graduate"
+                languages:
+                  type: array
+                  items:
+                    type: string
+                  example: ["Vietnamese", "English"]
+                timezone:
+                  type: string
+                  example: "GMT+7"
+                links:
+                  type: object
+                  properties:
+                    linkedin:
+                      type: string
+                    github:
+                      type: string
+                  example:
+                    linkedin: "https://linkedin.com/in/mentee"
+      responses:
+        "200":
+          description: Cập nhật profile mentee thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "success"
+                  message:
+                    type: string
+                    example: "Cập nhật profile mentee thành công!"
+                  data:
+                    type: object
+                    properties:
+                      user:
+                        $ref: "#/components/schemas/User"
+                      profile:
+                        $ref: "#/components/schemas/Profile"
+        "400":
+          description: Lỗi validation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /profile/avatar:
+    put:
+      tags:
+        - Profile Management
+      summary: Cập nhật avatar
+      description: Upload và cập nhật avatar mới cho user (cả mentor và mentee)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - avatar
+              properties:
+                avatar:
+                  type: string
+                  format: binary
+                  description: File ảnh đại diện (jpg, png, jpeg)
+      responses:
+        "200":
+          description: Cập nhật avatar thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "success"
+                  message:
+                    type: string
+                    example: "Cập nhật avatar thành công!"
+                  data:
+                    type: object
+                    properties:
+                      avatarUrl:
+                        type: string
+                        example: "https://cloudinary.com/image/abc123.jpg"
+        "400":
+          description: Lỗi upload file (file không hợp lệ hoặc quá lớn)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"

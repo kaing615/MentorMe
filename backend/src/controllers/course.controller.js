@@ -1,58 +1,25 @@
-<<<<<<< HEAD
-/**
- * @desc Lấy các khóa học liên quan theo category
- * @route GET /api/course/related
- * @access Public
- */
-// ...existing code...
-// ...existing code...
+import path from "path";
+import fs from "fs";
+
 import responseHandler from "../handlers/response.handler.js";
+
 import Course from "../models/course.model.js";
 import Order from "../models/order.model.js";
 import User from "../models/user.model.js";
 import Lesson from "../models/lesson.model.js";
 import Review from "../models/review.model.js";
-import mongoose from "mongoose";
-import path from "path";
-import fs from "fs";
+
+import { uploadImage } from "../utils/cloudinary.js";
 import {
-  // ...existing code...
-  createCourseSchema,
-  updateCourseSchema,
   addMentorSchema,
   addContentSchema,
   addReviewSchema,
 } from "../validations/course.validation.js";
-import { uploadImage } from "../utils/cloudinary.js";
 
-/**
- * @desc Lấy các khóa học liên quan theo category
- * @route GET /api/course/related
- * @access Public
- */
-export const getRelatedCourses = async (req, res) => {
-  try {
-    const { courseId, category, limit = 6 } = req.query;
-    const courses = await Course.find({
-      category,
-      _id: { $ne: courseId },
-    }).limit(Number(limit));
-    return responseHandler.ok(res, { courses });
-  } catch (err) {
-    responseHandler.error(res, err.message);
-  }
-};
+const getParamId = (req) => req.params.courseId || req.params.id;
+const isMentorOfCourse = (course, userId) =>
+  course.mentor && course.mentor.toString() === userId.toString();
 
-// Helper
-const isMentorOfCourse = (course, userId) => {
-  return course.mentor && course.mentor.toString() === userId.toString();
-};
-
-/**
- * @desc Lấy tất cả khóa học
- * @route GET /api/course
- * @access Public
- */
 export const getCourses = async (req, res) => {
   try {
     const {
@@ -65,7 +32,12 @@ export const getCourses = async (req, res) => {
       sortBy,
       filterBy,
     } = req.query;
-    let query = {};
+
+    const pageNum = Number(page) || 1;
+    const limitNum = Math.min(Number(limit) || 10, 100);
+    const skip = (pageNum - 1) * limitNum;
+
+    const query = {};
     if (category) query.category = category;
     if (mentor) query.mentor = mentor;
     if (rate) query.rate = { $gte: Number(rate) };
@@ -75,47 +47,54 @@ export const getCourses = async (req, res) => {
         { description: { $regex: search, $options: "i" } },
       ];
     }
-    // Thêm filterBy (JSON)
     if (filterBy) {
       try {
         const filters = JSON.parse(filterBy);
         if (filters.category) query.category = filters.category;
         if (filters.priceMin || filters.priceMax) {
           query.price = {};
-          if (filters.priceMin) query.price.$gte = filters.priceMin;
-          if (filters.priceMax) query.price.$lte = filters.priceMax;
+          if (filters.priceMin != null) query.price.$gte = Number(filters.priceMin);
+          if (filters.priceMax != null) query.price.$lte = Number(filters.priceMax);
         }
-      } catch (parseError) {
-        console.error("Error parsing filterBy JSON:", parseError);
+        if (filters.level) query.level = filters.level;
+        if (filters.language) query.language = filters.language;
+      } catch (e) {
+        console.error("Error parsing filterBy JSON:", e);
         return responseHandler.badRequest(res, "Invalid filterBy format.");
       }
     }
-    // Sort
-    let sortOptions = {};
+
+    let sortOptions = { createdAt: -1 };
     if (sortBy === "newest") sortOptions = { createdAt: -1 };
     else if (sortBy === "oldest") sortOptions = { createdAt: 1 };
-    else if (sortBy === "rating") sortOptions = { rate: -1 };
-    else if (sortBy === "priceAsc") sortOptions = { price: 1 };
-    else if (sortBy === "priceDesc") sortOptions = { price: -1 };
-    else sortOptions = { createdAt: -1 };
+    else if (sortBy === "rating") sortOptions = { rate: -1, createdAt: -1 };
+    else if (sortBy === "priceAsc") sortOptions = { price: 1, createdAt: -1 };
+    else if (sortBy === "priceDesc") sortOptions = { price: -1, createdAt: -1 };
 
-    const skip = (page - 1) * limit;
     const courses = await Course.find(query)
       .populate("mentor", "userName avatarUrl jobTitle")
-      .limit(Number(limit))
       .skip(skip)
+      .limit(limitNum)
       .sort(sortOptions);
+
     const total = await Course.countDocuments(query);
-    const totalPages = Math.ceil(total / limit);
+    const totalPages = Math.ceil(total / limitNum);
+
+    const coursesWithId = courses.map((c) => {
+      const obj = c.toObject();
+      obj.courseId = obj._id;
+      delete obj.__v;
+      return obj;
+    });
 
     return responseHandler.ok(res, {
       message: "Lấy danh sách khóa học thành công!",
       total,
       totalPages,
-      currentPage: parseInt(page),
+      currentPage: pageNum,
       skip,
-      limit: Number(limit),
-      courses,
+      limit: limitNum,
+      courses: coursesWithId,
     });
   } catch (err) {
     console.error("Lỗi lấy danh sách khóa học:", err);
@@ -123,23 +102,21 @@ export const getCourses = async (req, res) => {
   }
 };
 
-/**
- * @desc Lấy chi tiết khóa học
- * @route GET /api/course/:id
- * @access Public
- */
 export const getCourseById = async (req, res) => {
   try {
-    const course = await Course.findById(req.params.id)
+    const id = getParamId(req);
+    const course = await Course.findById(id)
       .populate("mentor", "userName avatarUrl jobTitle bio location")
       .populate("mentees", "userName avatarUrl")
       .populate("lessons");
-    if (!course) {
-      return responseHandler.notFound(res, "Khóa học không tồn tại!");
-    }
+    if (!course) return responseHandler.notFound(res, "Khóa học không tồn tại!");
+
+    const obj = course.toObject();
+    obj.courseId = obj._id;
+    delete obj.__v;
     return responseHandler.ok(res, {
       message: "Lấy thông tin khóa học thành công!",
-      course,
+      course: obj,
     });
   } catch (err) {
     console.error("Lỗi lấy khóa học:", err);
@@ -147,11 +124,136 @@ export const getCourseById = async (req, res) => {
   }
 };
 
-/**
- * @desc Tạo khóa học mới (chỉ mentor)
- * @route POST /api/course
- * @access Private (Mentor only)
- */
+export const getRelatedCourses = async (req, res) => {
+  try {
+    const { courseId, category, limit } = req.query;
+
+    let categories = [];
+    if (Array.isArray(category)) {
+      categories = category.filter(Boolean);
+    } else if (typeof category === "string") {
+      categories = category.split(",").map((c) => c.trim()).filter(Boolean);
+    }
+
+    if ((!categories || categories.length === 0) && courseId) {
+      const current = await Course.findById(courseId).select("category");
+      if (current && Array.isArray(current.category)) categories = current.category;
+      else if (current && current.category) categories = [current.category];
+    }
+
+    const max = Math.min(parseInt(limit) || 6, 50);
+    const filter = {
+      ...(courseId ? { _id: { $ne: courseId } } : {}),
+      ...(categories && categories.length > 0 ? { category: { $in: categories } } : {}),
+    };
+
+    const courses = await Course.find(filter)
+      .populate("mentor", "userName email avatarUrl")
+      .sort({ rate: -1, createdAt: -1 })
+      .limit(max);
+
+    const coursesWithId = courses.map((c) => {
+      const obj = c.toObject();
+      obj.courseId = obj._id;
+      delete obj.__v;
+      return obj;
+    });
+
+    return responseHandler.ok(res, {
+      message: "Lấy khoá học liên quan thành công!",
+      total: coursesWithId.length,
+      courses: coursesWithId,
+    });
+  } catch (err) {
+    console.error("Lỗi lấy khoá học liên quan:", err);
+    return responseHandler.error(res, err.message || "Đã xảy ra lỗi");
+  }
+};
+
+export const getCoursesByMentor = async (req, res) => {
+  try {
+    const { mentorId } = req.params;
+    const page = Number(req.query.page) || 1;
+    const limit = Math.min(Number(req.query.limit) || 10, 100);
+
+    const courses = await Course.find({ mentor: mentorId })
+      .populate("mentor", "firstName lastName avatarUrl jobTitle")
+      .limit(limit)
+      .skip((page - 1) * limit)
+      .sort({ createdAt: -1 });
+
+    const total = await Course.countDocuments({ mentor: mentorId });
+
+    return responseHandler.ok(res, {
+      message: "Lấy khóa học theo mentor thành công.",
+      data: { courses, totalPages: Math.ceil(total / limit), currentPage: page, total },
+    });
+  } catch (err) {
+    console.error("Lỗi lấy khóa học theo mentor:", err);
+    responseHandler.error(res, err.message);
+  }
+};
+
+export const getMyCourses = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { search, sortBy, filterBy, page = 1, limit = 10 } = req.query;
+
+    const user = await User.findById(userId);
+    if (!user) return responseHandler.notFound(res, "User not found.");
+    if (user.role !== "mentor") {
+      return responseHandler.unauthorized(res, "Only mentors can access their courses.");
+    }
+
+    const pageNum = Number(page) || 1;
+    const limitNum = Math.min(Number(limit) || 10, 100);
+    const skip = (pageNum - 1) * limitNum;
+
+    const query = { mentor: userId };
+    if (search) query.title = { $regex: search, $options: "i" };
+
+    let sortOptions = { createdAt: -1 };
+    if (sortBy === "oldest") sortOptions = { createdAt: 1 };
+    else if (sortBy === "rating") sortOptions = { rate: -1 };
+    else if (sortBy === "priceAsc") sortOptions = { price: 1 };
+    else if (sortBy === "priceDesc") sortOptions = { price: -1 };
+
+    if (filterBy) {
+      try {
+        const filters = JSON.parse(filterBy);
+        if (filters.category) query.category = filters.category;
+        if (filters.status) query.status = filters.status;
+        if (filters.priceMin != null)
+          query.price = { ...(query.price || {}), $gte: Number(filters.priceMin) };
+        if (filters.priceMax != null)
+          query.price = { ...(query.price || {}), $lte: Number(filters.priceMax) };
+      } catch (e) {
+        console.error("Error parsing filterBy JSON:", e);
+        return responseHandler.badRequest(res, "Invalid filterBy format.");
+      }
+    }
+
+    const courses = await Course.find(query)
+      .populate("mentor", "userName avatar")
+      .skip(skip)
+      .limit(limitNum)
+      .sort(sortOptions);
+
+    const totalCourses = await Course.countDocuments(query);
+    const totalPages = Math.ceil(totalCourses / limitNum);
+
+    return responseHandler.ok(res, {
+      courses,
+      totalCourses,
+      totalPages,
+      currentPage: pageNum,
+    });
+  } catch (err) {
+    console.error("Error getting my courses:", err);
+    responseHandler.error(res);
+  }
+};
+
 export const createCourse = async (req, res) => {
   try {
     const { id: userId } = req.user;
@@ -168,59 +270,47 @@ export const createCourse = async (req, res) => {
       lectures,
       level,
     } = req.body;
+
     // Parse tags
     if (typeof tags === "string") {
       if (tags.trim().startsWith("[")) {
         try {
           const parsed = JSON.parse(tags);
           if (Array.isArray(parsed)) tags = parsed;
-        } catch (e) {
-          tags = tags
-            .split(",")
-            .map((t) => t.trim())
-            .filter(Boolean);
+        } catch {
+          tags = tags.split(",").map((t) => t.trim()).filter(Boolean);
         }
       } else {
-        tags = tags
-          .split(",")
-          .map((t) => t.trim())
-          .filter(Boolean);
+        tags = tags.split(",").map((t) => t.trim()).filter(Boolean);
       }
     }
     if (!Array.isArray(tags)) tags = [];
+
     // Parse language
     if (typeof language === "string") {
       if (language.trim().startsWith("[")) {
         try {
           const parsed = JSON.parse(language);
           if (Array.isArray(parsed)) language = parsed;
-        } catch (e) {
-          language = language
-            .split(",")
-            .map((l) => l.trim())
-            .filter(Boolean);
+        } catch {
+          language = language.split(",").map((l) => l.trim()).filter(Boolean);
         }
       } else {
-        language = language
-          .split(",")
-          .map((l) => l.trim())
-          .filter(Boolean);
+        language = language.split(",").map((l) => l.trim()).filter(Boolean);
       }
     }
     if (!Array.isArray(language)) language = [];
+
     const user = await User.findById(userId);
     if (!user || user.role !== "mentor") {
-      return responseHandler.forbidden(
-        res,
-        "Chỉ mentor mới có thể tạo khóa học."
-      );
+      return responseHandler.forbidden(res, "Chỉ mentor mới có thể tạo khóa học.");
     }
+
+    // Upload thumbnail (nếu có)
     let thumbnailUrl = "";
     let thumbnailPublicId = "";
     if (req.file) {
-      const base64 = `data:${
-        req.file.mimetype
-      };base64,${req.file.buffer.toString("base64")}`;
+      const base64 = `data:${req.file.mimetype};base64,${req.file.buffer.toString("base64")}`;
       const result = await uploadImage(base64, {
         public_id: `course_thumbnail_${userId}_${Date.now()}`,
         folder: "course_thumbnails",
@@ -229,6 +319,7 @@ export const createCourse = async (req, res) => {
       thumbnailUrl = result.secure_url;
       thumbnailPublicId = result.public_id;
     }
+
     const newCourse = new Course({
       title,
       description: courseOverview,
@@ -245,11 +336,14 @@ export const createCourse = async (req, res) => {
       thumbnail: thumbnailUrl,
       thumbnailPublicId,
     });
+
     await newCourse.save();
+
     const populatedCourse = await Course.findById(newCourse._id).populate(
       "mentor",
       "userName firstName lastName avatarUrl jobTitle"
     );
+
     return responseHandler.created(res, {
       message: "Tạo khóa học thành công.",
       data: populatedCourse,
@@ -260,35 +354,27 @@ export const createCourse = async (req, res) => {
   }
 };
 
-/**
- * @desc Xử lý khi user mua khóa học thành công
- * @route POST /api/course/purchase-success
- * @access Private
- */
 export const handlePurchaseSuccess = async (req, res) => {
   try {
     const { orderId } = req.body;
-    const order = await Order.findById(orderId)
-      .populate("mentee")
-      .populate("courses");
-    if (!order) {
-      return responseHandler.notfound(res, "Không tìm thấy đơn hàng.");
-    }
+    const order = await Order.findById(orderId).populate("mentee").populate("courses");
+    if (!order) return responseHandler.notFound(res, "Không tìm thấy đơn hàng.");
     if (order.status !== "paid") {
-      return responseHandler.badrequest(res, "Đơn hàng chưa được thanh toán.");
+      return responseHandler.badRequest(res, "Đơn hàng chưa được thanh toán.");
     }
+
     const user = await User.findById(order.mentee._id);
-    if (!user) {
-      return responseHandler.notfound(res, "Không tìm thấy user.");
-    }
+    if (!user) return responseHandler.notFound(res, "Không tìm thấy user.");
+
     for (const course of order.courses) {
-      const existingPurchase = user.purchasedCourses.find(
+      const existingPurchase = user.purchasedCourses?.find(
         (item) => item.course.toString() === course._id.toString()
       );
       if (!existingPurchase) {
+        user.purchasedCourses = user.purchasedCourses || [];
         user.purchasedCourses.push({
           course: course._id,
-          orderId: orderId,
+          orderId,
           purchaseDate: new Date(),
           progress: 0,
           lastAccessDate: new Date(),
@@ -301,12 +387,10 @@ export const handlePurchaseSuccess = async (req, res) => {
       }
     }
     await user.save();
+
     return responseHandler.ok(res, {
       message: "Xử lý mua khóa học thành công.",
-      data: {
-        orderId,
-        coursesAdded: order.courses.length,
-      },
+      data: { orderId, coursesAdded: order.courses.length },
     });
   } catch (err) {
     console.error("Lỗi xử lý mua khóa học:", err);
@@ -314,287 +398,11 @@ export const handlePurchaseSuccess = async (req, res) => {
   }
 };
 
-/**
- * @desc Lấy khóa học theo mentor
- * @route GET /api/course/mentor/:mentorId
- * @access Public
- */
-export const getCoursesByMentor = async (req, res) => {
-  try {
-    const { mentorId } = req.params;
-    const { page = 1, limit = 10 } = req.query;
-    const courses = await Course.find({ mentor: mentorId })
-      .populate("mentor", "firstName lastName avatarUrl jobTitle")
-      .limit(limit * 1)
-      .skip((page - 1) * limit)
-      .sort({ createdAt: -1 });
-    const total = await Course.countDocuments({ mentor: mentorId });
-    return responseHandler.ok(res, {
-      message: "Lấy khóa học theo mentor thành công.",
-      data: {
-        courses,
-        totalPages: Math.ceil(total / limit),
-        currentPage: page,
-        total,
-      },
-    });
-  } catch (err) {
-    console.error("Lỗi lấy khóa học theo mentor:", err);
-    responseHandler.error(res, err.message);
-  }
-};
-
-export const getUserCourses = async (req, res) => {
-  try {
-    const { userId } = req.params;
-    const { role, search, sortBy, filterBy, page = 1, limit = 10 } = req.query;
-
-    const user = await User.findById(userId);
-    if (!user) {
-      return responseHandler.notFound(res, "User not found.");
-    }
-
-    let query = {};
-
-    if (role === "mentee") {
-      query = { mentees: userId };
-    } else if (role === "mentor") {
-      query = { mentor: userId }; // Fix: use singular mentor field
-    } else {
-      return responseHandler.badRequest(res, "Invalid role specified.");
-    }
-
-    if (search) {
-      query.title = { $regex: search, $options: "i" };
-    }
-
-    let sortOptions = {};
-    if (sortBy === "newest") {
-      sortOptions = { createdAt: -1 };
-    } else if (sortBy === "oldest") {
-      sortOptions = { createdAt: 1 };
-    } else if (sortBy === "rating") {
-      sortOptions = { rate: -1 };
-    } else if (sortBy === "priceAsc") {
-      sortOptions = { price: 1 };
-    } else if (sortBy === "priceDesc") {
-      sortOptions = { price: -1 };
-    } else {
-      // Mặc định
-    }
-
-    // Add filter logic based on filterBy
-    if (filterBy) {
-      try {
-        const filters = JSON.parse(filterBy);
-        if (filters.category) {
-          query.category = filters.category;
-        }
-        if (filters.priceMin) {
-          query.price = { ...query.price, $gte: filters.priceMin };
-        }
-        if (filters.priceMax) {
-          query.price = { ...query.price, $lte: filters.priceMax };
-        }
-        // Thêm các điều kiện lọc khác
-      } catch (parseError) {
-        console.error("Error parsing filterBy JSON:", parseError);
-        return responseHandler.badRequest(res, "Invalid filterBy format.");
-      }
-    }
-
-    const skip = (page - 1) * limit;
-
-    const courses = await Course.find(query)
-      .populate("mentor", "userName avatar")
-      .skip(skip)
-      .limit(limit)
-      .sort(sortOptions);
-
-    const totalCourses = await Course.countDocuments(query);
-    const totalPages = Math.ceil(totalCourses / limit);
-
-    return responseHandler.ok(res, {
-      courses,
-      totalCourses,
-      totalPages,
-      currentPage: parseInt(page),
-    });
-  } catch (err) {
-    console.error("Error getting user courses:", err);
-    responseHandler.error(res);
-  }
-};
-export const getMyCourses = async (req, res) => {
-  try {
-    const userId = req.user.id;
-    const { search, sortBy, filterBy, page = 1, limit = 10 } = req.query;
-
-    // Verify user exists and is a mentor
-    const user = await User.findById(userId);
-    if (!user) {
-      return responseHandler.notFound(res, "User not found.");
-    }
-
-    if (user.role !== "mentor") {
-      return responseHandler.unauthorized(
-        res,
-        "Only mentors can access their courses."
-      );
-    }
-
-    let query = { mentor: userId };
-
-    if (search) {
-      query.title = { $regex: search, $options: "i" };
-    }
-
-    let sortOptions = {};
-    if (sortBy === "newest") {
-      sortOptions = { createdAt: -1 };
-    } else if (sortBy === "oldest") {
-      sortOptions = { createdAt: 1 };
-    } else if (sortBy === "rating") {
-      sortOptions = { rate: -1 };
-    } else if (sortBy === "priceAsc") {
-      sortOptions = { price: 1 };
-    } else if (sortBy === "priceDesc") {
-      sortOptions = { price: -1 };
-    } else {
-      sortOptions = { createdAt: -1 };
-    }
-
-    // Add filter logic
-    if (filterBy) {
-      try {
-        const filters = JSON.parse(filterBy);
-        if (filters.category) {
-          query.category = filters.category;
-        }
-        if (filters.status) {
-          query.status = filters.status;
-        }
-        if (filters.priceMin) {
-          query.price = { ...query.price, $gte: filters.priceMin };
-        }
-        if (filters.priceMax) {
-          query.price = { ...query.price, $lte: filters.priceMax };
-        }
-      } catch (parseError) {
-        console.error("Error parsing filterBy JSON:", parseError);
-        return responseHandler.badRequest(res, "Invalid filterBy format.");
-      }
-    }
-
-    const skip = (page - 1) * limit;
-
-    const courses = await Course.find(query)
-      .populate("mentor", "userName avatar")
-      .skip(skip)
-      .limit(limit)
-      .sort(sortOptions);
-
-    const totalCourses = await Course.countDocuments(query);
-    const totalPages = Math.ceil(totalCourses / limit);
-
-    return responseHandler.ok(res, {
-      courses,
-      totalCourses,
-      totalPages,
-      currentPage: parseInt(page),
-    });
-  } catch (err) {
-    console.error("Error getting my courses:", err);
-    responseHandler.error(res);
-  }
-};
-// Đã hợp nhất logic getCourseDetails vào getCourseById, không cần hàm này nữa
-export const addCourseReview = async (req, res) => {
-  try {
-    // Validate dữ liệu đầu vào
-    const { error } = addReviewSchema.validate(req.body);
-    if (error) {
-      return responseHandler.badRequest(res, error.details[0].message);
-    }
-
-    const { courseId } = req.params;
-    const authorId = req.user.id;
-    const { rating, comment } = req.body;
-
-    const course = await Course.findById(courseId);
-    if (!course) {
-      return responseHandler.notFound(res, "Course not found.");
-    }
-
-    const isMenteeOfCourse = course.mentees.includes(authorId);
-    if (!isMenteeOfCourse) {
-      return responseHandler.forbidden(
-        res,
-        "You can only review courses you are enrolled in."
-      );
-    }
-
-    const existingReview = await Review.findOne({
-      author: authorId,
-      target: courseId,
-      targetType: "Course",
-    });
-    if (existingReview) {
-      return responseHandler.badRequest(
-        res,
-        "You have already reviewed this course."
-      );
-    }
-
-    const newReview = new Review({
-      author: authorId,
-      targetType: "Course",
-      target: courseId,
-      content: comment,
-      rate: rating,
-    });
-
-    await newReview.save();
-
-    const reviews = await Review.find({
-      target: courseId,
-      targetType: "Course",
-    });
-    const totalRatings = reviews.reduce((sum, review) => sum + review.rate, 0);
-    course.rate = totalRatings / reviews.length;
-    course.numberOfRatings = reviews.length;
-
-    await course.save();
-
-    return responseHandler.created(res, newReview);
-  } catch (err) {
-    console.error("Error adding course review:", err);
-    responseHandler.error(res);
-  }
-};
-export const getCourseReviews = async (req, res) => {
-  try {
-    const { courseId } = req.params;
-
-    const reviews = await Review.find({
-      target: courseId,
-      targetType: "Course",
-    }).populate("author", "userName avatar");
-
-    return responseHandler.ok(res, reviews);
-  } catch (err) {
-    console.error("Error getting course reviews:", err);
-    responseHandler.error(res);
-  }
-};
 export const updateCourse = async (req, res) => {
-  // Log dữ liệu nhận từ FE để debug
   console.log("[updateCourse] req.body:", req.body);
-  if (req.file) {
-    console.log("[updateCourse] req.file:", req.file);
-  }
+  if (req.file) console.log("[updateCourse] req.file:", req.file);
+
   try {
-    // Map các trường FE gửi về sang đúng trường BE
     const {
       title,
       price,
@@ -607,34 +415,27 @@ export const updateCourse = async (req, res) => {
       driveLink,
     } = req.body;
 
-    // Validate dữ liệu đầu vào (cho phép optional)
-    // Không validate bằng Joi vì FE gửi field khác, tự validate đơn giản
-
-    const { courseId } = req.params;
+    const courseId = getParamId(req);
     const userId = req.user.id;
+
     const course = await Course.findById(courseId);
-    if (!course) {
-      return responseHandler.notFound(res, "Course not found.");
-    }
+    if (!course) return responseHandler.notFound(res, "Course not found.");
+
     const user = await User.findById(userId);
     if (user.role !== "admin" && !isMentorOfCourse(course, userId)) {
-      return responseHandler.forbidden(
-        res,
-        "You do not have permission to update this course."
-      );
+      return responseHandler.forbidden(res, "You do not have permission to update this course.");
     }
 
-    // Map lại các trường
     if (title !== undefined) course.title = title;
     if (price !== undefined) course.price = parseFloat(price);
     if (courseOverview !== undefined) course.description = courseOverview;
-    if (keyLearningObjectives !== undefined)
-      course.keyLearningObjectives = keyLearningObjectives;
+    if (keyLearningObjectives !== undefined) course.keyLearningObjectives = keyLearningObjectives;
     if (category !== undefined) course.category = category;
     if (level !== undefined) course.level = level;
     if (lectures !== undefined) course.lectures = parseInt(lectures);
     if (duration !== undefined) course.duration = parseInt(duration);
     if (driveLink !== undefined) course.link = driveLink;
+
     if (req.body.tags !== undefined) {
       let tags = req.body.tags;
       if (typeof tags === "string") {
@@ -642,22 +443,17 @@ export const updateCourse = async (req, res) => {
           try {
             const parsed = JSON.parse(tags);
             if (Array.isArray(parsed)) tags = parsed;
-          } catch (e) {
-            tags = tags
-              .split(",")
-              .map((t) => t.trim())
-              .filter(Boolean);
+          } catch {
+            tags = tags.split(",").map((t) => t.trim()).filter(Boolean);
           }
         } else {
-          tags = tags
-            .split(",")
-            .map((t) => t.trim())
-            .filter(Boolean);
+          tags = tags.split(",").map((t) => t.trim()).filter(Boolean);
         }
       }
       if (!Array.isArray(tags)) tags = [];
       course.tags = tags;
     }
+
     if (req.body.language !== undefined) {
       let language = req.body.language;
       if (typeof language === "string") {
@@ -665,23 +461,17 @@ export const updateCourse = async (req, res) => {
           try {
             const parsed = JSON.parse(language);
             if (Array.isArray(parsed)) language = parsed;
-          } catch (e) {
-            language = language
-              .split(",")
-              .map((l) => l.trim())
-              .filter(Boolean);
+          } catch {
+            language = language.split(",").map((l) => l.trim()).filter(Boolean);
           }
         } else {
-          language = language
-            .split(",")
-            .map((l) => l.trim())
-            .filter(Boolean);
+          language = language.split(",").map((l) => l.trim()).filter(Boolean);
         }
       }
       if (!Array.isArray(language)) language = [];
       course.language = language;
     }
-    // Nếu có file mới thì cập nhật thumbnail
+
     if (req.file && req.file.path) {
       course.thumbnail = req.file.path;
     }
@@ -696,35 +486,26 @@ export const updateCourse = async (req, res) => {
 
 export const deleteCourse = async (req, res) => {
   try {
-    const { courseId } = req.params;
+    const courseId = getParamId(req);
     const userId = req.user.id;
 
     const course = await Course.findById(courseId);
-    if (!course) {
-      return responseHandler.notFound(res, "Course not found.");
-    }
+    if (!course) return responseHandler.notFound(res, "Course not found.");
 
     const user = await User.findById(userId);
     if (user.role !== "admin" && !isMentorOfCourse(course, userId)) {
-      return responseHandler.forbidden(
-        res,
-        "You do not have permission to delete this course."
-      );
+      return responseHandler.forbidden(res, "You do not have permission to delete this course.");
     }
 
     const mentorOfCourse = course.mentor;
     const menteesOfCourse = course.mentees;
 
-    // Xoá file thumbnail nếu có
+    // Xoá file thumbnail (local) nếu có
     if (course.thumbnail) {
-      let thumbnailPath = course.thumbnail;
-      // Normalize path separators for cross-platform
-      thumbnailPath = thumbnailPath.replace(/\\/g, "/");
-      // Nếu có tiền tố uploads/ thì giữ nguyên, nếu không thì thêm vào
+      let thumbnailPath = course.thumbnail.replace(/\\/g, "/");
       if (!thumbnailPath.startsWith("uploads/")) {
         thumbnailPath = path.join("uploads", thumbnailPath);
       }
-      // Đảm bảo dùng path.resolve để lấy đúng đường dẫn tuyệt đối
       const fullPath = path.resolve(process.cwd(), thumbnailPath);
       fs.unlink(fullPath, (err) => {
         if (err && err.code !== "ENOENT") {
@@ -738,16 +519,10 @@ export const deleteCourse = async (req, res) => {
     await Review.deleteMany({ target: courseId, targetType: "Course" });
 
     if (mentorOfCourse) {
-      await User.findByIdAndUpdate(mentorOfCourse, {
-        $pull: { courses: courseId },
-      });
+      await User.findByIdAndUpdate(mentorOfCourse, { $pull: { courses: courseId } });
     }
-
     if (menteesOfCourse && menteesOfCourse.length > 0) {
-      await User.updateMany(
-        { _id: { $in: menteesOfCourse } },
-        { $pull: { courses: courseId } }
-      );
+      await User.updateMany({ _id: { $in: menteesOfCourse } }, { $pull: { courses: courseId } });
     }
 
     return responseHandler.ok(res, { message: "Course deleted successfully." });
@@ -756,74 +531,148 @@ export const deleteCourse = async (req, res) => {
     responseHandler.error(res, err);
   }
 };
-export const addMentorToCourse = async (req, res) => {
+
+/* =============== Reviews =============== */
+export const addCourseReview = async (req, res) => {
   try {
-    // Validate dữ liệu đầu vào
-    const { error } = addMentorSchema.validate(req.body);
-    if (error) {
-      return responseHandler.badRequest(res, error.details[0].message);
+    const { error } = addReviewSchema.validate(req.body);
+    if (error) return responseHandler.badRequest(res, error.details[0].message);
+
+    const courseId = getParamId(req);
+    const authorId = req.user.id;
+    const { rating, comment } = req.body;
+
+    const course = await Course.findById(courseId);
+    if (!course) return responseHandler.notFound(res, "Course not found.");
+
+    const isMenteeOfCourse = course.mentees.includes(authorId);
+    if (!isMenteeOfCourse) {
+      return responseHandler.forbidden(res, "You can only review courses you are enrolled in.");
     }
 
-    const { courseId } = req.params;
+    const existingReview = await Review.findOne({
+      author: authorId,
+      target: courseId,
+      targetType: "Course",
+    });
+    if (existingReview) {
+      return responseHandler.badRequest(res, "You have already reviewed this course.");
+    }
+
+    const newReview = new Review({
+      author: authorId,
+      targetType: "Course",
+      target: courseId,
+      content: comment,
+      rate: rating,
+    });
+    await newReview.save();
+
+    const reviews = await Review.find({ target: courseId, targetType: "Course" });
+    const totalRatings = reviews.reduce((sum, r) => sum + r.rate, 0);
+    course.rate = reviews.length ? totalRatings / reviews.length : 0;
+    course.numberOfRatings = reviews.length;
+    await course.save();
+
+    return responseHandler.created(res, newReview);
+  } catch (err) {
+    console.error("Error adding course review:", err);
+    responseHandler.error(res);
+  }
+};
+
+export const getCourseReviews = async (req, res) => {
+  try {
+    const courseId = getParamId(req);
+    const reviews = await Review.find({ target: courseId, targetType: "Course" })
+      .populate("author", "userName avatar");
+    return responseHandler.ok(res, reviews);
+  } catch (err) {
+    console.error("Error getting course reviews:", err);
+    responseHandler.error(res);
+  }
+};
+
+export const getAllReviews = async (req, res) => {
+  try {
+    const { page = 1, limit = 10, sortBy = "latest" } = req.query;
+    const pageNum = Number(page) || 1;
+    const limitNum = Math.min(Number(limit) || 10, 100);
+    const skip = (pageNum - 1) * limitNum;
+
+    let sortOptions = { createdAt: -1 };
+    if (sortBy === "oldest") sortOptions = { createdAt: 1 };
+    else if (sortBy === "highest-rating") sortOptions = { rate: -1 };
+    else if (sortBy === "lowest-rating") sortOptions = { rate: 1 };
+
+    const reviews = await Review.find({})
+      .populate("author", "userName firstName lastName avatarUrl")
+      .populate("target", "title")
+      .sort(sortOptions)
+      .skip(skip)
+      .limit(limitNum);
+
+    const totalReviews = await Review.countDocuments({});
+    const totalPages = Math.ceil(totalReviews / limitNum);
+
+    return responseHandler.ok(res, {
+      reviews,
+      totalReviews,
+      totalPages,
+      currentPage: pageNum,
+    });
+  } catch (error) {
+    console.error("getAllReviews error:", error);
+    return responseHandler.error(res);
+  }
+};
+
+export const addMentorToCourse = async (req, res) => {
+  try {
+    const { error } = addMentorSchema.validate(req.body);
+    if (error) return responseHandler.badRequest(res, error.details[0].message);
+
+    const courseId = getParamId(req);
     const userId = req.user.id;
     const { mentorId } = req.body;
 
     const course = await Course.findById(courseId);
-    if (!course) {
-      return responseHandler.notFound(res, "Course not found.");
-    }
+    if (!course) return responseHandler.notFound(res, "Course not found.");
 
     const user = await User.findById(userId);
     if (user.role !== "admin" && !isMentorOfCourse(course, userId)) {
-      return responseHandler.forbidden(
-        res,
-        "You do not have permission to add mentors to this course."
-      );
+      return responseHandler.forbidden(res, "You do not have permission to add mentors to this course.");
     }
 
     const mentorToAdd = await User.findById(mentorId);
-    if (!mentorToAdd || !mentorToAdd.roles.includes("mentor")) {
-      return responseHandler.badRequest(
-        res,
-        "Invalid mentor ID or user is not a mentor."
-      );
+    if (!mentorToAdd || mentorToAdd.role !== "mentor") {
+      return responseHandler.badRequest(res, "Invalid mentor ID or user is not a mentor.");
     }
 
-    if (course.mentors.includes(mentorId)) {
-      return responseHandler.badRequest(
-        res,
-        "Mentor is already assigned to this course."
-      );
+    if (!Array.isArray(course.mentors)) course.mentors = [];
+    if (course.mentors.find((m) => m.toString() === mentorId.toString())) {
+      return responseHandler.badRequest(res, "Mentor is already assigned to this course.");
     }
 
     course.mentors.push(mentorId);
     await course.save();
+    await User.findByIdAndUpdate(mentorId, { $addToSet: { courses: courseId } });
 
-    // Thêm ID khóa học vào model User của mentor mới
-    await User.findByIdAndUpdate(mentorId, { $push: { courses: courseId } });
-
-    const updatedCourse = await Course.findById(courseId).populate(
-      "mentors",
-      "userName avatar"
-    );
-
+    const updatedCourse = await Course.findById(courseId).populate("mentors", "userName avatar");
     return responseHandler.ok(res, updatedCourse);
   } catch (err) {
     console.error("Error adding mentor to course:", err);
     responseHandler.error(res);
   }
 };
+
 export const removeMentorFromCourse = async (req, res) => {
   try {
-    // Không cần validate body ở đây vì mentorId nằm trong params
-
     const { courseId, mentorId } = req.params;
     const userId = req.user.id;
 
     const course = await Course.findById(courseId);
-    if (!course) {
-      return responseHandler.notFound(res, "Course not found.");
-    }
+    if (!course) return responseHandler.notFound(res, "Course not found.");
 
     const user = await User.findById(userId);
     if (user.role !== "admin" && !isMentorOfCourse(course, userId)) {
@@ -833,47 +682,35 @@ export const removeMentorFromCourse = async (req, res) => {
       );
     }
 
-    const mentorIndex = course.mentors.indexOf(mentorId);
-    if (mentorIndex === -1) {
-      return responseHandler.badRequest(
-        res,
-        "Mentor is not assigned to this course."
-      );
+    if (!Array.isArray(course.mentors)) course.mentors = [];
+    const before = course.mentors.length;
+    course.mentors = course.mentors.filter((m) => m.toString() !== mentorId.toString());
+    if (course.mentors.length === before) {
+      return responseHandler.badRequest(res, "Mentor is not assigned to this course.");
     }
 
-    course.mentors.splice(mentorIndex, 1);
     await course.save();
-
-    // Xóa ID khóa học khỏi model User của mentor bị xóa
     await User.findByIdAndUpdate(mentorId, { $pull: { courses: courseId } });
 
-    const updatedCourse = await Course.findById(courseId).populate(
-      "mentors",
-      "userName avatar"
-    );
-
+    const updatedCourse = await Course.findById(courseId).populate("mentors", "userName avatar");
     return responseHandler.ok(res, updatedCourse);
   } catch (err) {
     console.error("Error removing mentor from course:", err);
     responseHandler.error(res);
   }
 };
+
 export const addContentToCourse = async (req, res) => {
   try {
-    // Validate dữ liệu đầu vào
     const { error } = addContentSchema.validate(req.body);
-    if (error) {
-      return responseHandler.badRequest(res, error.details[0].message);
-    }
+    if (error) return responseHandler.badRequest(res, error.details[0].message);
 
-    const { courseId } = req.params;
+    const courseId = getParamId(req);
     const userId = req.user.id;
     const contentData = req.body;
 
     const course = await Course.findById(courseId);
-    if (!course) {
-      return responseHandler.notFound(res, "Course not found.");
-    }
+    if (!course) return responseHandler.notFound(res, "Course not found.");
 
     const user = await User.findById(userId);
     if (user.role !== "admin" && !isMentorOfCourse(course, userId)) {
@@ -883,35 +720,27 @@ export const addContentToCourse = async (req, res) => {
       );
     }
 
-    const newLesson = new Lesson({
-      ...contentData,
-      course: courseId,
-    });
-
+    const newLesson = new Lesson({ ...contentData, course: courseId });
     await newLesson.save();
 
     course.lessons.push(newLesson._id);
     await course.save();
 
     const updatedCourse = await Course.findById(courseId).populate("lessons");
-
     return responseHandler.created(res, updatedCourse);
   } catch (err) {
     console.error("Error adding content to course:", err);
     responseHandler.error(res);
   }
 };
+
 export const removeContentFromCourse = async (req, res) => {
   try {
-    // Không cần validate body ở đây vì contentId nằm trong params
-
     const { courseId, contentId } = req.params;
     const userId = req.user.id;
 
     const course = await Course.findById(courseId);
-    if (!course) {
-      return responseHandler.notFound(res, "Course not found.");
-    }
+    if (!course) return responseHandler.notFound(res, "Course not found.");
 
     const user = await User.findById(userId);
     if (user.role !== "admin" && !isMentorOfCourse(course, userId)) {
@@ -922,223 +751,100 @@ export const removeContentFromCourse = async (req, res) => {
     }
 
     const lesson = await Lesson.findOne({ _id: contentId, course: courseId });
-    if (!lesson) {
-      return responseHandler.notFound(res, "Content not found in this course.");
-    }
+    if (!lesson) return responseHandler.notFound(res, "Content not found in this course.");
 
     await Lesson.findByIdAndDelete(contentId);
 
-    course.lessons = course.lessons.filter(
+    course.lessons = (course.lessons || []).filter(
       (lessonId) => lessonId.toString() !== contentId.toString()
     );
     await course.save();
 
     const updatedCourse = await Course.findById(courseId).populate("lessons");
-
     return responseHandler.ok(res, updatedCourse);
   } catch (err) {
     console.error("Error removing content from course:", err);
     responseHandler.error(res);
   }
 };
-export const getAllReviews = async (req, res) => {
+
+export const getUserCourses = async (req, res) => {
   try {
-    const { page = 1, limit = 10, sortBy = "latest" } = req.query;
+    const { userId } = req.params;
+    const { role, search, sortBy, filterBy, page = 1, limit = 10 } = req.query;
+
+    const user = await User.findById(userId);
+    if (!user) return responseHandler.notFound(res, "User not found.");
+
+    let query = {};
+    if (role === "mentee") query = { mentees: userId };
+    else if (role === "mentor") query = { mentor: userId };
+    else return responseHandler.badRequest(res, "Invalid role specified.");
+
+    if (search) query.title = { $regex: search, $options: "i" };
 
     let sortOptions = {};
-    if (sortBy === "latest") {
-      sortOptions = { createdAt: -1 };
-    } else if (sortBy === "oldest") {
-      sortOptions = { createdAt: 1 };
-    } else if (sortBy === "highest-rating") {
-      sortOptions = { rate: -1 };
-    } else if (sortBy === "lowest-rating") {
-      sortOptions = { rate: 1 };
-    } else {
-      sortOptions = { createdAt: -1 };
+    if (sortBy === "newest") sortOptions = { createdAt: -1 };
+    else if (sortBy === "oldest") sortOptions = { createdAt: 1 };
+    else if (sortBy === "rating") sortOptions = { rate: -1 };
+    else if (sortBy === "priceAsc") sortOptions = { price: 1 };
+    else if (sortBy === "priceDesc") sortOptions = { price: -1 };
+
+    if (filterBy) {
+      try {
+        const filters = JSON.parse(filterBy);
+        if (filters.category) query.category = filters.category;
+        if (filters.priceMin != null)
+          query.price = { ...(query.price || {}), $gte: Number(filters.priceMin) };
+        if (filters.priceMax != null)
+          query.price = { ...(query.price || {}), $lte: Number(filters.priceMax) };
+      } catch (e) {
+        console.error("Error parsing filterBy JSON:", e);
+        return responseHandler.badRequest(res, "Invalid filterBy format.");
+      }
     }
 
-    const skip = (page - 1) * limit;
+    const pageNum = Number(page) || 1;
+    const limitNum = Math.min(Number(limit) || 10, 100);
+    const skip = (pageNum - 1) * limitNum;
 
-    const reviews = await Review.find({})
-      .populate("author", "userName firstName lastName avatarUrl")
-      .populate("target", "title")
-      .sort(sortOptions)
+    const courses = await Course.find(query)
+      .populate("mentor", "userName avatar")
       .skip(skip)
-      .limit(parseInt(limit));
+      .limit(limitNum)
+      .sort(sortOptions);
 
-    const totalReviews = await Review.countDocuments({});
-    const totalPages = Math.ceil(totalReviews / limit);
+    const totalCourses = await Course.countDocuments(query);
+    const totalPages = Math.ceil(totalCourses / limitNum);
 
     return responseHandler.ok(res, {
-      reviews,
-      totalReviews,
+      courses,
+      totalCourses,
       totalPages,
-      currentPage: parseInt(page),
+      currentPage: pageNum,
     });
-  } catch (error) {
-    console.error("getAllReviews error:", error);
-    return responseHandler.error(res);
+  } catch (err) {
+    console.error("Error getting user courses:", err);
+    responseHandler.error(res);
   }
 };
 
-// Export default object
 export default {
   getCourses,
   getCourseById,
-  createCourse,
+  getRelatedCourses,
   getCoursesByMentor,
+  getMyCourses,
+  createCourse,
+  updateCourse,
+  deleteCourse,
+  addCourseReview,
+  getCourseReviews,
+  getAllReviews,
+  addMentorToCourse,
+  removeMentorFromCourse,
+  addContentToCourse,
+  removeContentFromCourse,
+  handlePurchaseSuccess,
+  getUserCourses,
 };
-=======
-import Course from "../models/course.model.js"
-import responseHandler from "../handlers/response.handler.js";
-
-export const getCourses = async(req, res) => {
-    try {
-        const { category, rate, sort } = req.query;
-        let filter = {};
-        let sortOptions = {};
-
-        // Filter conditions
-        if (category) filter.category = category;
-        if (rate) filter.rate = { $gte: Number(rate) };
-
-        // Sort options
-        if (sort) {
-            if (sort === '-rate') {
-                sortOptions.rate = -1; // Descending (cao nhất trước)
-            } else if (sort === 'rate') {
-                sortOptions.rate = 1; // Ascending
-            }
-            // Secondary sort for consistency
-            sortOptions.createdAt = -1;
-        } else {
-            // Default sort
-            sortOptions.createdAt = -1;
-        }
-
-        const page = parseInt(req.query.page) || 1;
-		const limit = parseInt(req.query.limit) || 10;
-		const skip = (page - 1) * limit;
-
-        const courses = await Course
-            .find(filter)
-            .populate('mentor')
-            .sort(sortOptions) // Thêm sort
-            .skip(skip)
-            .limit(limit);
-
-        const total = await Course.countDocuments(filter);
-
-        const coursesWithId = courses.map((course) => {
-            const obj = course.toObject();
-            obj.courseId = obj._id;
-            delete obj._id;
-            delete obj.__v;
-            return obj;
-        })
-
-        return responseHandler.ok(res, {
-            message: "Lấy danh sách khoá học thành công!",
-            total,
-            skip,
-            limit,
-            courses: coursesWithId,
-        })
-    } catch (err) {
-        console.error("Lỗi lấy danh sách khoá học: ", err);
-        responseHandler.error(res, err.message);
-    }
-}
-
-export const getCourseById = async (req, res) => {
-    try {
-        console.log('Searching for course with ID:', req.params.id); // Debug log
-        const course = await Course.findById(req.params.id).populate('mentor');
-        
-        if (!course) {
-            return responseHandler.notFound(res, "Khoá học không tồn tại!");
-        }
-        
-        console.log('Course found:', course.title); // Debug log
-        const courseWithId = course.toObject();
-        courseWithId.courseId = courseWithId._id;
-        delete courseWithId._id;
-        delete courseWithId.__v;
-        
-        responseHandler.ok(res, {
-            message: "Lấy thông tin khoá học thành công!",
-            course: courseWithId,
-        })
-    } catch (err) {
-        console.error("Lỗi lấy khoá học: ", err);
-        responseHandler.error(res, err.message);
-    }
-}
-
-// Lấy các khoá học liên quan theo category, loại trừ khoá học hiện tại
-export const getRelatedCourses = async (req, res) => {
-    try {
-        const { courseId, category, limit } = req.query;
-
-        // Parse categories: accept CSV, array, or single string
-        let categories = [];
-        if (Array.isArray(category)) {
-            categories = category.filter(Boolean);
-        } else if (typeof category === 'string') {
-            categories = category
-                .split(',')
-                .map(c => c.trim())
-                .filter(Boolean);
-        }
-
-        // Fallback: if no category passed, derive from the courseId
-        if ((!categories || categories.length === 0) && courseId) {
-            const current = await Course.findById(courseId).select('category');
-            if (current && Array.isArray(current.category)) {
-                categories = current.category;
-            }
-        }
-
-        const max = Math.min(parseInt(limit) || 6, 50); // cap to 50
-
-        const filter = {
-            ...(courseId ? { _id: { $ne: courseId } } : {}),
-            ...(categories && categories.length > 0
-                ? { category: { $in: categories } }
-                : {}),
-        };
-
-        const courses = await Course
-            .find(filter)
-            .populate('mentor', 'userName email avatarUrl')
-            .sort({ rate: -1, createdAt: -1 })
-            .limit(max);
-
-        const coursesWithId = courses.map((course) => {
-            const obj = course.toObject();
-            obj.courseId = obj._id;
-            delete obj._id;
-            delete obj.__v;
-            return obj;
-        });
-
-        return responseHandler.ok(res, {
-            message: "Lấy khoá học liên quan thành công!",
-            total: coursesWithId.length,
-            courses: coursesWithId,
-        });
-    } catch (err) {
-        console.error('Lỗi lấy khoá học liên quan:', err);
-        return responseHandler.error(res, err.message || 'Đã xảy ra lỗi');
-    }
-}
-
-
-
-export default {
-    getCourses,
-    getCourseById,
-    getRelatedCourses,
-}
->>>>>>> adc98f8ca68377b9d5dec2a4335bcca588d1c7ac

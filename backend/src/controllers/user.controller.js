@@ -7,7 +7,6 @@ import nodemailer from "nodemailer";
 import responseHandler from "../handlers/response.handler.js";
 import User from "../models/user.model.js";
 import { uploadImage } from "../utils/cloudinary.js";
-import { v2 as cloudinary } from "cloudinary";
 
 dotenv.config();
 

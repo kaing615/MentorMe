@@ -16,7 +16,7 @@ const getPurchasedCourses = async (req, res) => {
     } else {
       const firstUser = await User.findOne();
       if (!firstUser) {
-        return responseHandler.notfound(res, "Không tìm thấy user.");
+        return responseHandler.notFound(res, "Không tìm thấy user.");
       }
       userId = firstUser._id;
     }
@@ -37,7 +37,7 @@ const getPurchasedCourses = async (req, res) => {
       );
 
     if (!user) {
-      return responseHandler.notfound(res, "Không tìm thấy user.");
+      return responseHandler.notFound(res, "Không tìm thấy user.");
     }
 
     const purchasedCourses = user.purchasedCourses.map((item) => ({
@@ -80,7 +80,7 @@ const updateCourseProgress = async (req, res) => {
 
     const user = await User.findById(userId);
     if (!user) {
-      return responseHandler.notfound(res, "Không tìm thấy user.");
+      return responseHandler.notFound(res, "Không tìm thấy user.");
     }
 
     const courseIndex = user.purchasedCourses.findIndex(
@@ -123,7 +123,7 @@ const checkCoursePurchase = async (req, res) => {
 
     const user = await User.findById(userId);
     if (!user) {
-      return responseHandler.notfound(res, "Không tìm thấy user.");
+      return responseHandler.notFound(res, "Không tìm thấy user.");
     }
 
     const purchasedCourse = user.purchasedCourses.find(
@@ -165,7 +165,7 @@ const handlePurchaseSuccess = async (req, res) => {
       .populate("courses");
 
     if (!order) {
-      return responseHandler.notfound(res, "Không tìm thấy đơn hàng.");
+      return responseHandler.notFound(res, "Không tìm thấy đơn hàng.");
     }
 
     if (order.status !== "paid") {
@@ -179,7 +179,7 @@ const handlePurchaseSuccess = async (req, res) => {
 
     const user = await User.findById(userId);
     if (!user) {
-      return responseHandler.notfound(res, "Không tìm thấy user.");
+      return responseHandler.notFound(res, "Không tìm thấy user.");
     }
 
     let coursesAdded = 0;
@@ -238,7 +238,7 @@ const getLearningStats = async (req, res) => {
 
     const user = await User.findById(userId);
     if (!user) {
-      return responseHandler.notfound(res, "Không tìm thấy user.");
+      return responseHandler.notFound(res, "Không tìm thấy user.");
     }
 
     const totalCourses = user.purchasedCourses.length;
