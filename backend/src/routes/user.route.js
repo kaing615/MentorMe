@@ -4,7 +4,8 @@ import upload from "../utils/multer.js";
 import * as userValidation from "../validations/user.validation.js";
 
 import userController from "../controllers/user.controller.js";
-import parseFieldsMiddleware from "../middlewares/parseFields.middleware.js";
+import requestHandler from "../handlers/request.handler.js";
+import parseSkillsMiddleware from "../middlewares/parseSkills.middleware.js";
 
 const router = express.Router();
 
@@ -52,22 +53,14 @@ router.post(
  * @returns {Object} message, id, avatarUrl - Thông tin đăng ký thành công
  */
 router.post(
-  "/signupMentor",
-  upload.single("avatar"),
-  parseFieldsMiddleware,
-  validateBody(userValidation.signUpMentorSchema),
-  userController.signUpMentor
-);
+    "/signupMentor",
+    upload.single('avatar'),
+    parseSkillsMiddleware,
+    userValidator.signUpMentorValidator,
+    requestHandler.validate,
+    userController.signUpMentor
+)
 
-/**
- * @route   POST /api/user/signin
- * @desc    Đăng nhập vào hệ thống
- * @access  Public
- * @middleware validateBody(signInSchema) - Joi validation cho signin
- * @body {String} email - Email (required)
- * @body {String} password - Mật khẩu (required)
- * @returns {Object} token, user - JWT token và thông tin user
- */
 router.post(
   "/signin",
   validateBody(userValidation.signInSchema),

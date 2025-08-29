@@ -8,13 +8,14 @@ const CourseSchema = new mongoose.Schema(
     thumbnail: { type: String, default: "" }, // Ảnh khóa học
     keyLearningObjectives: { type: String }, // Thêm keyLearningObjectives
     price: { type: Number, required: true },
+    thumbnailUrl: { type: String, required: true },
     mentor: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
     },
     mentees: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
-    category: { type: String, required: true },
+    category: [{ type: String, required: true }],
     tags: [{ type: String }],
     language: [{ type: String }],
     duration: { type: Number, required: true },
@@ -22,9 +23,6 @@ const CourseSchema = new mongoose.Schema(
     numberOfRatings: { type: Number, default: 0 }, // Thêm numberOfRatings
     link: { type: String, required: true },
     lectures: { type: Number, required: true },
-    lessons: [{ type: mongoose.Schema.Types.ObjectId, ref: "Lesson" }], // Thêm lessons
-    level: { type: String }, // Thêm level
-    status: { type: String, default: "published" }, // Thêm status
   },
   { timestamps: true }
 );

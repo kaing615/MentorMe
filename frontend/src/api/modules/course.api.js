@@ -33,10 +33,9 @@ const courseEndpoints = {
 };
 
 const courseApi = {
-  // Lấy danh sách tất cả courses
   getList: async ({ page = 1, limit = 10, category, mentor, tags } = {}) => {
     try {
-      let queryParams = new URLSearchParams({
+      const queryParams = new URLSearchParams({
         page: page.toString(),
         limit: limit.toString(),
         populate: "mentor",
@@ -56,7 +55,24 @@ const courseApi = {
     }
   },
 
-  // Lấy course theo ID
+  getTopCourses: async ({ limit = 6, minRate = 4.0 } = {}) => {
+    try {
+      const queryParams = new URLSearchParams({
+        limit: limit.toString(),
+        sort: "-rate",        
+        populate: "mentor",
+        rate: minRate.toString() 
+      });
+
+      const response = await publicClient.get(
+        `${courseEndpoints.list}?${queryParams}`
+      );
+      return { response };
+    } catch (err) {
+      return { err };
+    }
+  },
+
   getDetail: async ({ courseId }) => {
     try {
       const response = await publicClient.get(
@@ -68,7 +84,6 @@ const courseApi = {
     }
   },
 
-  // Lấy tất cả courses với filtering và pagination
   getAllCourses: async (params = {}) => {
     try {
       const response = await publicClient.get(courseEndpoints.getAllCourses, {
@@ -82,10 +97,10 @@ const courseApi = {
 
   getRelatedCourses: async ({ courseId, category, limit }) => {
     try {
-      // Normalize category to CSV string if it's an array
       const categoryParam = Array.isArray(category)
         ? category.join(",")
         : category;
+
       const response = await publicClient.get(
         `${courseEndpoints.related()}?courseId=${courseId}&category=${encodeURIComponent(
           categoryParam || ""
@@ -97,7 +112,6 @@ const courseApi = {
     }
   },
 
-  // Lấy chi tiết course
   getCourseDetails: async ({ courseId }) => {
     try {
       const response = await publicClient.get(
@@ -109,10 +123,8 @@ const courseApi = {
     }
   },
 
-  // Tạo course mới (hỗ trợ cả JSON và FormData cho file upload)
   createCourse: async (courseData) => {
     try {
-      // Nếu là FormData (gửi file), không set headers, axios sẽ tự động xử lý
       if (courseData instanceof FormData) {
         const response = await privateClient.post(
           courseEndpoints.createCourse,
@@ -120,13 +132,10 @@ const courseApi = {
         );
         return { response };
       } else {
-        // Nếu không phải FormData, gửi JSON
         const response = await privateClient.post(
           courseEndpoints.createCourse,
           courseData,
-          {
-            headers: { "Content-Type": "application/json" },
-          }
+          { headers: { "Content-Type": "application/json" } }
         );
         return { response };
       }
@@ -135,45 +144,36 @@ const courseApi = {
     }
   },
 
-  // Cập nhật course (hỗ trợ cả JSON và FormData)
   updateCourse: async ({ courseId, courseData }) => {
     try {
       const hasFile =
-        courseData instanceof FormData || courseData.thumbnail instanceof File;
+        courseData instanceof FormData ||
+        (courseData?.thumbnail instanceof File);
 
       let requestData;
-      let config = {};
+      const config = { headers: {} };
 
       if (hasFile && !(courseData instanceof FormData)) {
         requestData = new FormData();
-
         Object.keys(courseData).forEach((key) => {
-          if (
-            courseData[key] !== undefined &&
-            courseData[key] !== null &&
-            courseData[key] !== ""
-          ) {
-            if (key === "thumbnail" && courseData[key] instanceof File) {
-              requestData.append(key, courseData[key]);
+          const val = courseData[key];
+          if (val !== undefined && val !== null && val !== "") {
+            if (key === "thumbnail" && val instanceof File) {
+              requestData.append(key, val);
+            } else if (typeof val === "object" && !(val instanceof File)) {
+              requestData.append(key, JSON.stringify(val));
             } else {
-              requestData.append(key, courseData[key].toString());
+              requestData.append(key, String(val));
             }
           }
         });
-
-        config.headers = {
-          "Content-Type": "multipart/form-data",
-        };
+        config.headers["Content-Type"] = "multipart/form-data";
       } else if (courseData instanceof FormData) {
         requestData = courseData;
-        config.headers = {
-          "Content-Type": "multipart/form-data",
-        };
+        config.headers["Content-Type"] = "multipart/form-data";
       } else {
         requestData = courseData;
-        config.headers = {
-          "Content-Type": "application/json",
-        };
+        config.headers["Content-Type"] = "application/json";
       }
 
       const response = await privateClient.put(
@@ -187,10 +187,8 @@ const courseApi = {
     }
   },
 
-  // Xóa course
   deleteCourse: async ({ courseId }) => {
     try {
-      // Sử dụng privateClient thay vì publicClient vì delete course cần authentication
       const response = await privateClient.delete(
         courseEndpoints.deleteCourse({ courseId })
       );
@@ -201,7 +199,6 @@ const courseApi = {
     }
   },
 
-  // Lấy courses của mentor hiện tại
   getMyCourses: async (params = {}) => {
     try {
       const response = await privateClient.get(courseEndpoints.getMyCourses, {
@@ -213,7 +210,6 @@ const courseApi = {
     }
   },
 
-  // Lấy courses của user cụ thể
   getUserCourses: async ({ userId, params = {} }) => {
     try {
       const response = await publicClient.get(
@@ -226,7 +222,6 @@ const courseApi = {
     }
   },
 
-  // Đăng ký khóa học
   enrollInCourse: async ({ courseId }) => {
     try {
       const response = await privateClient.post(
@@ -237,8 +232,6 @@ const courseApi = {
       return { error };
     }
   },
-
-  // Hủy đăng ký khóa học
   unenrollFromCourse: async ({ courseId }) => {
     try {
       const response = await privateClient.delete(
@@ -250,7 +243,6 @@ const courseApi = {
     }
   },
 
-  // Lấy reviews của course với pagination và filtering
   getCourseReviews: async ({ courseId, params = {} }) => {
     try {
       const response = await publicClient.get(
@@ -262,8 +254,6 @@ const courseApi = {
       return { error };
     }
   },
-
-  // Thêm review cho course (cần authentication và enrollment)
   addCourseReview: async ({ courseId, reviewData }) => {
     try {
       const response = await privateClient.post(
@@ -275,8 +265,6 @@ const courseApi = {
       return { error };
     }
   },
-
-  // Cập nhật review của mình
   updateCourseReview: async ({ courseId, reviewId, reviewData }) => {
     try {
       const response = await privateClient.put(
@@ -288,8 +276,6 @@ const courseApi = {
       return { error };
     }
   },
-
-  // Xóa review của mình
   deleteCourseReview: async ({ courseId, reviewId }) => {
     try {
       const response = await privateClient.delete(
@@ -301,7 +287,6 @@ const courseApi = {
     }
   },
 
-  // Thêm mentor vào course (cần authentication - admin only)
   addMentorToCourse: async ({ courseId, mentorId }) => {
     try {
       const response = await privateClient.post(
@@ -313,8 +298,6 @@ const courseApi = {
       return { error };
     }
   },
-
-  // Xóa mentor khỏi course (cần authentication - admin only)
   removeMentorFromCourse: async ({ courseId, mentorId }) => {
     try {
       const response = await privateClient.delete(
@@ -326,7 +309,6 @@ const courseApi = {
     }
   },
 
-  // Thêm content vào course (cần authentication - mentor only)
   addContentToCourse: async ({ courseId, contentData }) => {
     try {
       const response = await privateClient.post(
@@ -338,8 +320,6 @@ const courseApi = {
       return { error };
     }
   },
-
-  // Xóa content khỏi course (cần authentication - mentor only)
   removeContentFromCourse: async ({ courseId, contentId }) => {
     try {
       const response = await privateClient.delete(
@@ -351,7 +331,6 @@ const courseApi = {
     }
   },
 
-  // Lấy tất cả reviews từ database (có thể deprecated)
   getAllReviews: async (params = {}) => {
     try {
       const response = await publicClient.get(courseEndpoints.getAllReviews, {
@@ -363,11 +342,9 @@ const courseApi = {
     }
   },
 
-  // Helper function để tạo FormData từ course object
   createCourseFormData: (courseData) => {
     const formData = new FormData();
 
-    // Mapping frontend field names to backend expected names
     const fieldMapping = {
       title: "title",
       price: "price",
@@ -396,8 +373,6 @@ const courseApi = {
       }
     });
 
-    // Đảm bảo luôn có trường description và link đúng chuẩn backend
-    // Gộp courseOverview + keyLearningObjectives cho description
     const description = `${courseData.courseOverview || ""}\n${
       courseData.keyLearningObjectives || ""
     }`;
@@ -407,7 +382,6 @@ const courseApi = {
     return formData;
   },
 
-  // Helper function để validate course data trước khi submit
   validateCourseData: (courseData) => {
     const required = [
       "title",
@@ -435,29 +409,20 @@ const courseApi = {
       };
     }
 
-    // Validate price
-    if (
-      isNaN(parseFloat(courseData.price)) ||
-      parseFloat(courseData.price) < 0
-    ) {
+    if (isNaN(parseFloat(courseData.price)) || parseFloat(courseData.price) < 0) {
       return {
         isValid: false,
         message: "Price must be a valid positive number",
       };
     }
 
-    // Validate lectures
-    if (
-      isNaN(parseInt(courseData.lectures)) ||
-      parseInt(courseData.lectures) < 1
-    ) {
+    if (isNaN(parseInt(courseData.lectures)) || parseInt(courseData.lectures) < 1) {
       return {
         isValid: false,
         message: "Number of lectures must be a positive integer",
       };
     }
 
-    // Validate level
     const validLevels = ["Beginner", "Intermediate", "Advanced", "Expert"];
     if (!validLevels.includes(courseData.level)) {
       return {
@@ -466,7 +431,6 @@ const courseApi = {
       };
     }
 
-    // Validate driveLink URL
     try {
       new URL(courseData.driveLink);
     } catch (e) {
@@ -476,13 +440,9 @@ const courseApi = {
       };
     }
 
-    return {
-      isValid: true,
-      message: "Validation passed",
-    };
+    return { isValid: true, message: "Validation passed" };
   },
 
-  // Lấy danh sách khóa học của mentor
   getCoursesByMentor: async (mentorId, params = {}) => {
     try {
       const response = await publicClient.get(`/course/mentor/${mentorId}`, {

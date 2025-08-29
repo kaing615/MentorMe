@@ -63,6 +63,7 @@ export const signUpMentorSchema = Joi.object({
     "string.empty": "Category không được để trống",
     "any.required": "Category là bắt buộc",
   }),
+<<<<<<< HEAD
   skills: Joi.alternatives()
     .try(Joi.array().items(Joi.string()).min(1), Joi.string().min(1))
     .required()
@@ -71,6 +72,12 @@ export const signUpMentorSchema = Joi.object({
       "any.required": "Skills là bắt buộc",
       "string.min": "Skills phải có ít nhất 1 kỹ năng",
     }),
+=======
+  skills: Joi.array().items(Joi.string()).min(1).required().messages({
+    "array.min": "Skills phải có ít nhất 1 kỹ năng",
+    "any.required": "Skills là bắt buộc",
+  }),
+>>>>>>> adc98f8ca68377b9d5dec2a4335bcca588d1c7ac
   bio: Joi.string().min(50).max(500).required().messages({
     "string.empty": "Bio không được để trống",
     "string.min": "Bio phải từ 50-500 ký tự",
@@ -154,6 +161,7 @@ export const resendEmailSchema = Joi.object({
     "any.required": "Email là bắt buộc",
   }),
 });
+<<<<<<< HEAD
 
 // Course progress validation
 export const courseProgressSchema = Joi.object({
@@ -193,3 +201,5 @@ export const purchaseSuccessSchema = Joi.object({
       "any.required": "Order ID là bắt buộc",
     }),
 });
+=======
+>>>>>>> adc98f8ca68377b9d5dec2a4335bcca588d1c7ac

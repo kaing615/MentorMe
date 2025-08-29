@@ -77,6 +77,7 @@ export const updateMentorProfileSchema = Joi.object({
     "string.min": "Experience phải từ 10-1000 ký tự",
     "string.max": "Experience phải từ 10-1000 ký tự",
   }),
+<<<<<<< HEAD
   introVideo: Joi.string()
     .uri()
     .optional()
@@ -84,6 +85,11 @@ export const updateMentorProfileSchema = Joi.object({
       "string.uri": "Intro Video phải là URL hợp lệ",
     })
     .allow(""),
+=======
+  introVideo: Joi.string().uri().optional().messages({
+    "string.uri": "Intro Video phải là URL hợp lệ",
+  }),
+>>>>>>> adc98f8ca68377b9d5dec2a4335bcca588d1c7ac
   languages: Joi.array().items(Joi.string()).optional().messages({
     "array.base": "Languages phải là mảng",
   }),
@@ -162,4 +168,8 @@ export const updateMenteeProfileSchema = Joi.object({
   }).optional(),
 });
 
+<<<<<<< HEAD
 // Change avatar validation (no body validation needed - just file)
+=======
+// Change avatar validation (no body validation needed - just file)
+>>>>>>> adc98f8ca68377b9d5dec2a4335bcca588d1c7ac

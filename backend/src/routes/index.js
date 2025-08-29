@@ -15,10 +15,4 @@ router.use("/purchased-courses", purchasedCourseRoute);
 router.use("/cart", cartRoute);
 router.use("/courses", courseRoute);
 
-// Add reviews endpoint
-router.get("/reviews", async (req, res) => {
-  const { getAllReviews } = await import("../controllers/course.controller.js");
-  return getAllReviews(req, res);
-});
-
 export default router;

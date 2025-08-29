@@ -3,11 +3,16 @@ import responseHandler from "../handlers/response.handler.js";
 import Profile from "../models/profile.model.js";
 import User from "../models/user.model.js";
 import { uploadImage } from "../utils/cloudinary.js";
+<<<<<<< HEAD
 import profileUtils from "../utils/profile.utils.js";
 
 export const updateMentorProfile = async (req, res) => {
   // Log dữ liệu nhận từ FE để debug lỗi 400
   console.log("[updateMentorProfile] req.body:", req.body);
+=======
+
+export const updateMentorProfile = async (req, res) => {
+>>>>>>> adc98f8ca68377b9d5dec2a4335bcca588d1c7ac
   try {
     const userId = req.user.id;
 
@@ -70,6 +75,7 @@ export const updateMentorProfile = async (req, res) => {
       avatarPublicId = result.public_id;
     }
 
+<<<<<<< HEAD
     // Xử lý skills: nếu là chuỗi (từ FormData) thì chuyển thành mảng, nếu là mảng thì giữ nguyên
     let skillsArray = skills;
     if (typeof skills === "string") {
@@ -81,12 +87,34 @@ export const updateMentorProfile = async (req, res) => {
       skillsArray = [];
     }
 
+=======
+    // Xử lý skills array
+    let skillsArray = skills;
+    if (typeof skills === "string") {
+      skillsArray = skills.split(",").map((skill) => skill.trim());
+    }
+
+    // Cập nhật User Model (only authentication + basic info)
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      {
+        userName,
+        firstName,
+        lastName,
+        avatarUrl,
+        avatarPublicId,
+      },
+      { new: true, runValidators: true }
+    );
+
+>>>>>>> adc98f8ca68377b9d5dec2a4335bcca588d1c7ac
     // Tìm hoặc tạo Profile
     let profile = await Profile.findOne({ user: userId });
     if (!profile) {
       profile = new Profile({ user: userId });
     }
 
+<<<<<<< HEAD
     // Update both Profile and User models for all mentor fields
     if (userName !== undefined) user.userName = userName;
     const capitalize = (str) =>
@@ -132,6 +160,20 @@ export const updateMentorProfile = async (req, res) => {
       profile.introVideo = introVideo;
       user.introVideo = introVideo;
     }
+=======
+    // Cập nhật Profile Model (all business logic)
+    if (jobTitle !== undefined) profile.jobTitle = jobTitle;
+    if (location !== undefined) profile.location = location;
+    if (category !== undefined) profile.category = category;
+    if (skillsArray !== undefined) profile.skills = skillsArray;
+    if (bio !== undefined) profile.bio = bio;
+    if (mentorReason !== undefined) profile.mentorReason = mentorReason;
+    if (greatestAchievement !== undefined)
+      profile.greatestAchievement = greatestAchievement;
+    if (headline !== undefined) profile.headline = headline;
+    if (experience !== undefined) profile.experience = experience;
+    if (introVideo !== undefined) profile.introVideo = introVideo;
+>>>>>>> adc98f8ca68377b9d5dec2a4335bcca588d1c7ac
     if (languages !== undefined) profile.languages = languages;
     if (timezone !== undefined) profile.timezone = timezone;
 
@@ -140,11 +182,18 @@ export const updateMentorProfile = async (req, res) => {
       profile.links = { ...profile.links, ...links };
     }
 
+<<<<<<< HEAD
     await user.save();
     await profile.save();
 
     // Làm sạch dữ liệu trả về
     const userData = user.toObject();
+=======
+    await profile.save();
+
+    // Làm sạch dữ liệu trả về
+    const userData = updatedUser.toObject();
+>>>>>>> adc98f8ca68377b9d5dec2a4335bcca588d1c7ac
     delete userData.password;
     delete userData.salt;
     delete userData.verifyKey;
@@ -154,7 +203,10 @@ export const updateMentorProfile = async (req, res) => {
     return responseHandler.ok(res, {
       message: "Cập nhật thông tin mentor thành công!",
       user: userData,
+<<<<<<< HEAD
       bio: profile.bio,
+=======
+>>>>>>> adc98f8ca68377b9d5dec2a4335bcca588d1c7ac
       profile: profile,
     });
   } catch (err) {
@@ -265,7 +317,10 @@ export const updateMenteeProfile = async (req, res) => {
     return responseHandler.ok(res, {
       message: "Cập nhật thông tin mentee thành công!",
       user: userData,
+<<<<<<< HEAD
       bio: profile.bio,
+=======
+>>>>>>> adc98f8ca68377b9d5dec2a4335bcca588d1c7ac
       profile: profile,
     });
   } catch (err) {
@@ -344,8 +399,14 @@ export const changeAvatar = async (req, res) => {
 };
 
 export default {
+<<<<<<< HEAD
   getProfile,
   updateMentorProfile,
   updateMenteeProfile,
+=======
+  updateMentorProfile,
+  updateMenteeProfile,
+  getProfile,
+>>>>>>> adc98f8ca68377b9d5dec2a4335bcca588d1c7ac
   changeAvatar,
 };

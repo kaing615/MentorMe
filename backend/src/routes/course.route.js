@@ -62,6 +62,7 @@ router.get("/mentor/:mentorId", C.getCoursesByMentor);
 router.get("/", C.getCourses);
 router.get("/:courseId", C.getCourseById);
 router.get("/reviews", C.getAllReviews);
+router.get("/related", C.getRelatedCourses);
 
 /** ========= AUTHED / ROLE ========= */
 // Danh sách khoá học của chính mentor đang đăng nhập
