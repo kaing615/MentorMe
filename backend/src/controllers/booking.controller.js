@@ -22,6 +22,22 @@ function isValidHHMM(s) {
   return /^\d{2}:\d{2}$/.test(s);
 }
 
+const normalizeHHMM = (s) => {
+  const [h, m] = String(s).split(":");
+  const hh = String(parseInt(h, 10)).padStart(2, "0");
+  const mm = String(parseInt(m, 10)).padStart(2, "0");
+  return `${hh}:${mm}`;
+};
+
+const toStatusCond = (status) => {
+  if (!status) return undefined;
+  let list = status;
+  if (typeof status === "string") {
+    list = status.includes(",") ? status.split(",").map(s => s.trim()) : [status];
+  }
+  return list.length === 1 ? list[0] : { $in: list };
+};
+
 function combineDateAndTime(date, hhmm) {
   const [h = 0, m = 0] = String(hhmm).split(":").map(Number);
   const d = new Date(date);
@@ -151,12 +167,13 @@ export const getBookingsOfMentor = async (req, res) => {
 
     if (date) {
       const day = new Date(date);
+      if (isNaN(day.getTime()))
+        return responseHandler.badRequest(res, "Invalid date");
       query.date = { $gte: startOfDay(day), $lte: endOfDay(day) };
     }
 
-    if (status) {
-      query.status = Array.isArray(status) ? { $in: status } : status;
-    }
+    const s = toStatusCond(status);
+    if (s) query.status = s;
 
     const lim = Math.min(Number(limit) || 10, 100);
 
@@ -186,6 +203,8 @@ export const getBookingsOfMentee = async (req, res) => {
 
     if (date) {
       const day = new Date(date);
+      if (isNaN(day.getTime()))
+        return responseHandler.badRequest(res, "Invalid date");
       query.date = { $gte: startOfDay(day), $lte: endOfDay(day) };
     }
 
@@ -247,7 +266,7 @@ export const createBooking = async (req, res) => {
         "Missing required fields (mentor, date, start, end)"
       );
     }
-    if (!isValidHHMM(start) || !isValidHHMM(end) || start >= end) {
+    if (!normalizeHHMM(start) || !normalizeHHMM(end) || start >= end) {
       return responseHandler.badRequest(
         res,
         "Invalid time range (start/end must be HH:mm and start < end)"
@@ -390,13 +409,18 @@ export const createBooking = async (req, res) => {
 
 export const confirmBooking = async (req, res) => {
   try {
-    const userId = req.user?.id || req.user?._id;
+    const user = req.user;
+    const userId = String(user?.id || user?._id || "");
     const { id } = req.params;
+
     if (!userId)
       return (
         responseHandler.unauthorized?.(res) ||
         responseHandler.badRequest(res, "Unauthorized")
       );
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return responseHandler.badRequest(res, "Invalid booking id");
+    }
 
     const existing = await Booking.findById(id);
     if (!existing) return responseHandler.notFound(res, "Booking not found");
@@ -423,30 +447,46 @@ export const confirmBooking = async (req, res) => {
       );
     }
 
+    if (
+      !existing.start ||
+      !existing.end ||
+      !/^\d{1,2}:\d{2}$/.test(existing.start) ||
+      !/^\d{1,2}:\d{2}$/.test(existing.end)
+    ) {
+      return responseHandler.badRequest(res, "Invalid time window");
+    }
+
+    const startAt = new Date(existing.date);
+    const [hhS, mmS] = String(existing.start).split(":").map(Number);
+    startAt.setHours(hhS || 0, mmS || 0, 0, 0);
+    if (startAt <= new Date()) {
+      return responseHandler.badRequest(res, "Cannot confirm past session");
+    }
+    const endAt = new Date(existing.date);
+    const [hhE, mmE] = String(existing.end).split(":").map(Number);
+    endAt.setHours(hhE || 0, mmE || 0, 0, 0);
+
     const booking = await Booking.findOneAndUpdate(
       { _id: id, status: "pending" },
       { $set: { status: "active" } },
       { new: true }
     );
 
-    const startAt = new Date(booking.date);
-    const [hhS, mmS] = String(booking.start).split(":").map(Number);
-    startAt.setHours(hhS || 0, mmS || 0, 0, 0);
-    if (startAt <= new Date()) {
-      return responseHandler.badRequest(res, "Cannot confirm past session");
+    if (!booking) {
+      return responseHandler.badRequest(
+        res,
+        "Booking was updated by someone else"
+      );
     }
-    const endAt = new Date(booking.date);
-    const [hhE, mmE] = String(booking.end).split(":").map(Number);
-    endAt.setHours(hhE || 0, mmE || 0, 0, 0);
+
     const dateLabel = booking.date.toLocaleDateString("vi-VN");
 
-    const mentor = await User.findById(booking.mentor)
+    const mentor = await User.findById(existing.mentor)
       .lean()
       .select("firstName lastName");
     const mentorName = mentor
-      ? `${mentor.firstName} ${mentor.lastName}`.trim()
+      ? `${mentor.firstName ?? ""} ${mentor.lastName ?? ""}`.trim() || "Mentor"
       : "Mentor";
-
     await Notification.updateOne(
       {
         userId: booking.mentee,
