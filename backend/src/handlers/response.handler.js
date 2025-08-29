@@ -41,10 +41,10 @@ const forbidden = (res, message) =>
 
 export default {
   error,
-  badrequest: badRequest,
+  badRequest,
   ok,
   created,
   unauthorized,
-  notfound: notFound,
+  notFound,
   forbidden,
 };

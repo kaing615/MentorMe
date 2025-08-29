@@ -7,6 +7,12 @@ import nodemailer from "nodemailer";
 import responseHandler from "../handlers/response.handler.js";
 import User from "../models/user.model.js";
 import { uploadImage } from "../utils/cloudinary.js";
+import profileUtils from "../utils/profile.utils.js";
+
+// Helper function để check test environment (chỉ true khi test thực sự)
+const isTestEnvironment = () => {
+  return process.env.NODE_ENV === "test"; // Chỉ skip khi NODE_ENV=test
+};
 
 dotenv.config();
 
@@ -191,8 +197,9 @@ export const signUp = async (req, res) => {
 
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
-    const verifyKey = generateToken();
-    const verifyKeyExpires = Date.now() + 24 * 60 * 60 * 1000;
+
+    // Skip email verification in development/test environment
+    const isTestEnv = isTestEnvironment();
 
     const user = new User({
       email,
@@ -202,16 +209,26 @@ export const signUp = async (req, res) => {
       password: hashedPassword,
       salt,
       role: "mentee",
-      isVerified: false,
+      isVerified: isTestEnv, // Auto-verify in test environment
       isDeleted: false,
-      verifyKey,
-      verifyKeyExpires,
+      verifyKey: isTestEnv ? "" : generateToken(),
+      verifyKeyExpires: isTestEnv
+        ? undefined
+        : Date.now() + 24 * 60 * 60 * 1000,
     });
 
-    await sendVerificationEmail(user.email, user.verifyKey, user.userName);
+    // Only send email in production
+    if (!isTestEnv) {
+      await sendVerificationEmail(user.email, user.verifyKey, user.userName);
+    }
+
     await user.save();
 
-    if (user.isVerified) {
+    // Tự động tạo Profile cho user mới
+    await profileUtils.createProfileForNewUser(user._id, {}, "mentee");
+
+    // In test environment, return token immediately for better testing UX
+    if (isTestEnv) {
       const token = jwt.sign(
         { id: user._id, role: user.role },
         process.env.JWT_SECRET,
@@ -222,15 +239,18 @@ export const signUp = async (req, res) => {
       delete userData.salt;
       delete userData.verifyKey;
       return responseHandler.created(res, {
-        token,
+        message: "Đăng ký thành công! Tài khoản đã được kích hoạt.",
+        token, // Token chỉ cho test environment - giúp testing dễ dàng
         user: userData,
       });
     }
 
+    // Production environment - standard approach: no token, require separate login
     return responseHandler.created(res, {
       message:
         "Đăng ký thành công! Vui lòng kiểm tra email để xác thực tài khoản.",
       id: user._id,
+      // Không có token - user phải login riêng sau khi verify email
     });
   } catch (err) {
     console.error("Lỗi đăng ký:", err);
@@ -278,7 +298,27 @@ export const changeAvatar = async (req, res) => {
 
 export const signUpMentor = async (req, res) => {
   try {
-    const { userName, email, password, ...rest } = req.body;
+    // Check test environment once
+    const isTestEnv = isTestEnvironment();
+
+    const {
+      userName,
+      email,
+      password,
+      firstName,
+      lastName,
+      // Profile fields
+      jobTitle,
+      location,
+      category,
+      skills,
+      bio,
+      mentorReason,
+      greatestAchievement,
+      links,
+      introVideo,
+      ...rest
+    } = req.body;
 
     const checkUser = await User.findOne({ email });
     if (checkUser)
@@ -287,41 +327,101 @@ export const signUpMentor = async (req, res) => {
     let avatarUrl = "";
     let avatarPublicId = "";
 
-    if (!req.file) {
+    if (!req.file && !isTestEnv) {
       return responseHandler.badRequest(res, "Vui lòng upload ảnh đại diện.");
     }
 
     if (req.file) {
-      const base64 = `data:${
-        req.file.mimetype
-      };base64,${req.file.buffer.toString("base64")}`;
-      const uploadResult = await uploadImage(base64, {
-        public_id: `avatar_mentor_${Date.now()}`,
-        folder: "user_avatars",
-        overwrite: true,
-      });
-      avatarUrl = uploadResult.secure_url;
-      avatarPublicId = uploadResult.public_id;
+      if (isTestEnv) {
+        // Trong test environment, fake avatar URL
+        avatarUrl = `https://fake-avatar-url.com/mentor_${Date.now()}.jpg`;
+        avatarPublicId = `fake_avatar_mentor_${Date.now()}`;
+        // console.log("Test mode: Using fake avatar URL:", avatarUrl);
+      } else {
+        // Production: Upload thật lên Cloudinary
+        const base64 = `data:${
+          req.file.mimetype
+        };base64,${req.file.buffer.toString("base64")}`;
+        const uploadResult = await uploadImage(base64, {
+          public_id: `avatar_mentor_${Date.now()}`,
+          folder: "user_avatars",
+          overwrite: true,
+        });
+        avatarUrl = uploadResult.secure_url;
+        avatarPublicId = uploadResult.public_id;
+      }
+    } else if (isTestEnv) {
+      // Test mode: Cho phép không có file, dùng default avatar
+      avatarUrl = "https://fake-avatar-url.com/default-mentor-avatar.jpg";
+      avatarPublicId = "fake_default_mentor_avatar";
     }
 
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
+    // Tạo User với chỉ authentication fields
     const user = new User({
       userName,
       email,
+      firstName,
+      lastName,
       password: hashedPassword,
       salt,
       avatarUrl,
       avatarPublicId,
       role: "mentor",
-      isVerified: false,
-      // ... các trường còn lại
-      ...rest,
+      isVerified: isTestEnv, // Auto-verify in test environment
+      isDeleted: false,
+      verifyKey: isTestEnv ? "" : generateToken(),
+      verifyKeyExpires: isTestEnv
+        ? undefined
+        : Date.now() + 24 * 60 * 60 * 1000,
     });
+
+    // Only send email in production
+    if (!isTestEnv) {
+      await sendVerificationEmail(user.email, user.verifyKey, user.userName);
+    }
 
     await user.save();
 
+    // Tự động tạo Profile với thông tin mentor
+    await profileUtils.createProfileForNewUser(
+      user._id,
+      {
+        jobTitle,
+        location,
+        category,
+        skills,
+        bio,
+        mentorReason,
+        greatestAchievement,
+        links,
+        introVideo,
+      },
+      "mentor"
+    );
+
+    // In test environment, return token immediately
+    if (isTestEnv) {
+      const token = jwt.sign(
+        { id: user._id, role: user.role },
+        process.env.JWT_SECRET,
+        { expiresIn: "7d" }
+      );
+      const userData = user.toObject();
+      delete userData.password;
+      delete userData.salt;
+      delete userData.verifyKey;
+      return responseHandler.created(res, {
+        message: "Đăng ký mentor thành công! Tài khoản đã được kích hoạt.",
+        token,
+        user: userData,
+        avatarUrl: user.avatarUrl,
+      });
+    }
+
+    // Production environment - require email verification
     return responseHandler.created(res, {
       message: "Đăng ký mentor thành công!",
       id: user._id,
@@ -477,4 +577,5 @@ export default {
   resendVerificationEmail,
   forgotPassword,
   resetPassword,
+  changeAvatar,
 };

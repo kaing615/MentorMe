@@ -79,7 +79,7 @@ export const getCourseById = async (req, res) => {
       .populate("mentees", "firstName lastName avatarUrl");
 
     if (!course) {
-      return responseHandler.notfound(res, "Khóa học không tồn tại!");
+      return responseHandler.notFound(res, "Khóa học không tồn tại!");
     }
 
     return responseHandler.ok(res, {
@@ -164,16 +164,16 @@ export const handlePurchaseSuccess = async (req, res) => {
       .populate("courses");
 
     if (!order) {
-      return responseHandler.notfound(res, "Không tìm thấy đơn hàng.");
+      return responseHandler.notFound(res, "Không tìm thấy đơn hàng.");
     }
 
     if (order.status !== "paid") {
-      return responseHandler.badrequest(res, "Đơn hàng chưa được thanh toán.");
+      return responseHandler.badRequest(res, "Đơn hàng chưa được thanh toán.");
     }
 
     const user = await User.findById(order.mentee._id);
     if (!user) {
-      return responseHandler.notfound(res, "Không tìm thấy user.");
+      return responseHandler.notFound(res, "Không tìm thấy user.");
     }
 
     // Thêm từng khóa học vào danh sách đã mua

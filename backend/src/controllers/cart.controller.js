@@ -52,13 +52,13 @@ const addToCart = async (req, res) => {
     // Kiểm tra khóa học có tồn tại không
     const course = await Course.findById(courseId);
     if (!course) {
-      return responseHandler.notfound(res, "Không tìm thấy khóa học.");
+      return responseHandler.notFound(res, "Không tìm thấy khóa học.");
     }
 
     // Kiểm tra user đã mua khóa học này chưa
     const user = await User.findById(userId);
     if (!user) {
-      return responseHandler.notfound(res, "Không tìm thấy người dùng.");
+      return responseHandler.notFound(res, "Không tìm thấy người dùng.");
     }
 
     const alreadyPurchased = user.purchasedCourses.some(
@@ -67,7 +67,7 @@ const addToCart = async (req, res) => {
 
     if (alreadyPurchased) {
       // console.log(`[addToCart] Course already purchased`);
-      return responseHandler.badrequest(res, "Bạn đã mua khóa học này rồi.");
+      return responseHandler.badRequest(res, "Bạn đã mua khóa học này rồi.");
     }
 
     // Tìm hoặc tạo cart
@@ -79,7 +79,7 @@ const addToCart = async (req, res) => {
     );
 
     if (existingCourse) {
-      return responseHandler.badrequest(res, "Khóa học đã có trong giỏ hàng.");
+      return responseHandler.badRequest(res, "Khóa học đã có trong giỏ hàng.");
     }
 
     // Thêm khóa học vào giỏ hàng
@@ -130,7 +130,7 @@ const removeFromCart = async (req, res) => {
     // Kiểm tra khóa học có tồn tại không
     const course = await Course.findById(courseId);
     if (!course) {
-      return responseHandler.notfound(res, "Không tìm thấy khóa học.");
+      return responseHandler.notFound(res, "Không tìm thấy khóa học.");
     }
 
     // Tìm hoặc tạo cart
@@ -142,7 +142,7 @@ const removeFromCart = async (req, res) => {
     );
 
     if (courseIndex === -1) {
-      return responseHandler.notfound(res, "Khóa học không có trong giỏ hàng.");
+      return responseHandler.notFound(res, "Khóa học không có trong giỏ hàng.");
     }
 
     // Lấy thông tin course để trừ price
@@ -210,7 +210,7 @@ const checkInCart = async (req, res) => {
     // Kiểm tra khóa học có tồn tại không
     const course = await Course.findById(courseId);
     if (!course) {
-      return responseHandler.notfound(res, "Không tìm thấy khóa học.");
+      return responseHandler.notFound(res, "Không tìm thấy khóa học.");
     }
 
     // Tìm hoặc tạo cart (mỗi user luôn có cart)

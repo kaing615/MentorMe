@@ -27,7 +27,7 @@ const getPurchasedCourses = async (req, res) => {
       );
 
     if (!user) {
-      return responseHandler.notfound(res, "Không tìm thấy user.");
+      return responseHandler.notFound(res, "Không tìm thấy user.");
     }
 
     const purchasedCourses = user.purchasedCourses.map((item) => ({
@@ -65,12 +65,12 @@ const updateCourseProgress = async (req, res) => {
     const { progress } = req.body;
 
     if (progress < 0 || progress > 100) {
-      return responseHandler.badrequest(res, "Tiến độ phải từ 0 đến 100%.");
+      return responseHandler.badRequest(res, "Tiến độ phải từ 0 đến 100%.");
     }
 
     const user = await User.findById(userId);
     if (!user) {
-      return responseHandler.notfound(res, "Không tìm thấy user.");
+      return responseHandler.notFound(res, "Không tìm thấy user.");
     }
 
     const courseIndex = user.purchasedCourses.findIndex(
@@ -78,7 +78,7 @@ const updateCourseProgress = async (req, res) => {
     );
 
     if (courseIndex === -1) {
-      return responseHandler.badrequest(res, "Bạn chưa mua khóa học này.");
+      return responseHandler.badRequest(res, "Bạn chưa mua khóa học này.");
     }
 
     user.purchasedCourses[courseIndex].progress = progress;
@@ -113,7 +113,7 @@ const checkCoursePurchase = async (req, res) => {
 
     const user = await User.findById(userId);
     if (!user) {
-      return responseHandler.notfound(res, "Không tìm thấy user.");
+      return responseHandler.notFound(res, "Không tìm thấy user.");
     }
 
     const purchasedCourse = user.purchasedCourses.find(
@@ -155,11 +155,11 @@ const handlePurchaseSuccess = async (req, res) => {
       .populate("courses");
 
     if (!order) {
-      return responseHandler.notfound(res, "Không tìm thấy đơn hàng.");
+      return responseHandler.notFound(res, "Không tìm thấy đơn hàng.");
     }
 
     if (order.status !== "paid") {
-      return responseHandler.badrequest(res, "Đơn hàng chưa được thanh toán.");
+      return responseHandler.badRequest(res, "Đơn hàng chưa được thanh toán.");
     }
 
     // Kiểm tra order có thuộc về user này không
@@ -169,7 +169,7 @@ const handlePurchaseSuccess = async (req, res) => {
 
     const user = await User.findById(userId);
     if (!user) {
-      return responseHandler.notfound(res, "Không tìm thấy user.");
+      return responseHandler.notFound(res, "Không tìm thấy user.");
     }
 
     let coursesAdded = 0;
@@ -228,7 +228,7 @@ const getLearningStats = async (req, res) => {
 
     const user = await User.findById(userId);
     if (!user) {
-      return responseHandler.notfound(res, "Không tìm thấy user.");
+      return responseHandler.notFound(res, "Không tìm thấy user.");
     }
 
     const totalCourses = user.purchasedCourses.length;

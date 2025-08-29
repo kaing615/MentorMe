@@ -33,7 +33,7 @@ const handleValidationErrors = (req, res, next) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
     const errorMessages = errors.array().map((error) => error.msg);
-    return responseHandler.badrequest(res, errorMessages.join(", "));
+    return responseHandler.badRequest(res, errorMessages.join(", "));
   }
   next();
 };
