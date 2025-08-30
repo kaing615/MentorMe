@@ -830,6 +830,71 @@ const MentorProfile = () => {
     return () => clearInterval(interval);
   }, []);
 
+  // Response/Booking management state
+  const [bookings, setBookings] = useState([
+    // Mock data for demonstration
+    {
+      id: "1",
+      menteeName: "Alice Johnson",
+      menteeEmail: "alice@example.com",
+      date: "2025-08-31",
+      time: "14:00",
+      status: "pending",
+      message: "I would like to discuss career development in web development.",
+      createdAt: "2025-08-30T10:00:00Z"
+    },
+    {
+      id: "2", 
+      menteeName: "Bob Smith",
+      menteeEmail: "bob@example.com",
+      date: "2025-09-01",
+      time: "16:30",
+      status: "pending",
+      message: "Need guidance on transitioning to a senior role.",
+      createdAt: "2025-08-30T11:30:00Z"
+    },
+    {
+      id: "3",
+      menteeName: "Carol Davis",
+      menteeEmail: "carol@example.com", 
+      date: "2025-09-02",
+      time: "10:00",
+      status: "pending",
+      message: "Looking for advice on freelancing best practices.",
+      createdAt: "2025-08-30T09:15:00Z"
+    }
+  ]);
+
+  // Booking filter state
+  const [bookingFilter, setBookingFilter] = useState("all"); // 'all', 'pending', 'accepted', 'declined'
+
+  // Function to filter bookings based on current filter
+  const getFilteredBookings = () => {
+    if (bookingFilter === "all") return bookings;
+    return bookings.filter(booking => booking.status === bookingFilter);
+  };
+
+  // Booking response handlers
+  const handleAcceptBooking = (bookingId) => {
+    setBookings(prev => prev.map(booking => 
+      booking.id === bookingId 
+        ? { ...booking, status: "accepted", respondedAt: new Date().toISOString() }
+        : booking
+    ));
+    console.log("Booking accepted:", bookingId);
+    // TODO: Call API to update booking status
+  };
+
+  const handleDeclineBooking = (bookingId) => {
+    setBookings(prev => prev.map(booking => 
+      booking.id === bookingId 
+        ? { ...booking, status: "declined", respondedAt: new Date().toISOString() }
+        : booking
+    ));
+    console.log("Booking declined:", bookingId);
+    // TODO: Call API to update booking status
+  };
+
   // Real courses data from MongoDB API
   // No mock data, empty courses array
   const [allCourses, setAllCourses] = useState([]);
@@ -1262,6 +1327,16 @@ const MentorProfile = () => {
                 onClick={() => handleTabChange("schedule")}
               >
                 My Schedule
+              </li>
+              <li
+                className={`px-4 py-2.5 rounded-lg font-medium transition-all duration-200 cursor-pointer ${
+                  activeTab === "response"
+                    ? "bg-gray-200 hover:bg-gray-300 hover:shadow-sm"
+                    : "hover:bg-blue-50 hover:text-blue-600 hover:shadow-sm hover:scale-105"
+                }`}
+                onClick={() => handleTabChange("response")}
+              >
+                Response
               </li>
             </ul>
           </nav>
@@ -2661,6 +2736,208 @@ const MentorProfile = () => {
             </div>
           )}
 
+          {activeTab === "response" && (
+            <div className="space-y-6">
+              {/* Booking Response Section */}
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+                <div className="space-y-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h1 className="text-2xl font-semibold text-gray-900">Booking Requests</h1>
+                      <p className="text-gray-600 mt-1">Manage mentee booking requests for your available time slots</p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm text-gray-500">
+                        {bookings.filter(b => b.status === "pending").length} pending requests
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Filters */}
+                  <div className="flex gap-4 border-b border-gray-200 pb-4">
+                    <button 
+                      onClick={() => setBookingFilter("all")}
+                      className={`px-4 py-2 rounded-lg font-medium text-sm transition ${
+                        bookingFilter === "all" 
+                          ? "bg-blue-100 text-blue-700" 
+                          : "text-gray-600 hover:bg-gray-100"
+                      }`}
+                    >
+                      All ({bookings.length})
+                    </button>
+                    <button 
+                      onClick={() => setBookingFilter("pending")}
+                      className={`px-4 py-2 rounded-lg font-medium text-sm transition ${
+                        bookingFilter === "pending" 
+                          ? "bg-orange-100 text-orange-700" 
+                          : "text-gray-600 hover:bg-gray-100"
+                      }`}
+                    >
+                      Pending ({bookings.filter(b => b.status === "pending").length})
+                    </button>
+                    <button 
+                      onClick={() => setBookingFilter("accepted")}
+                      className={`px-4 py-2 rounded-lg font-medium text-sm transition ${
+                        bookingFilter === "accepted" 
+                          ? "bg-green-100 text-green-700" 
+                          : "text-gray-600 hover:bg-gray-100"
+                      }`}
+                    >
+                      Accepted ({bookings.filter(b => b.status === "accepted").length})
+                    </button>
+                    <button 
+                      onClick={() => setBookingFilter("declined")}
+                      className={`px-4 py-2 rounded-lg font-medium text-sm transition ${
+                        bookingFilter === "declined" 
+                          ? "bg-red-100 text-red-700" 
+                          : "text-gray-600 hover:bg-gray-100"
+                      }`}
+                    >
+                      Declined ({bookings.filter(b => b.status === "declined").length})
+                    </button>
+                  </div>
+
+                  {/* Booking List */}
+                  <div className="space-y-4">
+                    {(() => {
+                      const filteredBookings = getFilteredBookings();
+                      return filteredBookings.length === 0 ? (
+                        <div className="text-center py-12">
+                          <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                          </div>
+                          <h3 className="text-lg font-medium text-gray-900 mb-2">
+                            {bookingFilter === "all" 
+                              ? "No booking requests yet" 
+                              : `No ${bookingFilter} booking requests`
+                            }
+                          </h3>
+                          <p className="text-gray-600">
+                            {bookingFilter === "all" 
+                              ? "When mentees book your available time slots, they will appear here for your review."
+                              : `No booking requests with ${bookingFilter} status found.`
+                            }
+                          </p>
+                        </div>
+                      ) : (
+                        filteredBookings.map((booking) => (
+                        <div
+                          key={booking.id}
+                          className={`border rounded-xl p-6 transition-all duration-200 ${
+                            booking.status === "pending" 
+                              ? "border-orange-200 bg-orange-50/50" 
+                              : booking.status === "accepted"
+                              ? "border-green-200 bg-green-50/50"
+                              : "border-red-200 bg-red-50/50"
+                          }`}
+                        >
+                          <div className="flex items-start justify-between mb-4">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-3 mb-2">
+                                <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                                  <span className="text-blue-700 font-medium text-sm">
+                                    {booking.menteeName.split(' ').map(n => n[0]).join('')}
+                                  </span>
+                                </div>
+                                <div>
+                                  <h4 className="font-semibold text-gray-900">{booking.menteeName}</h4>
+                                  <p className="text-sm text-gray-600">{booking.menteeEmail}</p>
+                                </div>
+                              </div>
+
+                              <div className="grid grid-cols-2 gap-4 mb-3">
+                                <div className="flex items-center gap-2 text-sm text-gray-600">
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                  </svg>
+                                  <span className="font-medium">
+                                    {new Date(booking.date).toLocaleDateString("en-US", { 
+                                      weekday: "long", 
+                                      year: "numeric", 
+                                      month: "long", 
+                                      day: "numeric" 
+                                    })}
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-2 text-sm text-gray-600">
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                  </svg>
+                                  <span className="font-medium">{booking.time}</span>
+                                </div>
+                              </div>
+
+                              <div className="text-xs text-gray-500">
+                                Requested {new Date(booking.createdAt).toLocaleDateString()} at {new Date(booking.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-2 ml-4">
+                              <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                                booking.status === "pending" 
+                                  ? "bg-orange-100 text-orange-800" 
+                                  : booking.status === "accepted"
+                                  ? "bg-green-100 text-green-800"
+                                  : "bg-red-100 text-red-800"
+                              }`}>
+                                {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Action Buttons */}
+                          {booking.status === "pending" && (
+                            <div className="flex gap-3 pt-4 border-t border-gray-200">
+                              <button
+                                onClick={() => handleAcceptBooking(booking.id)}
+                                className="flex-1 bg-green-600 text-white py-2.5 px-4 rounded-lg hover:bg-green-700 transition font-medium flex items-center justify-center gap-2"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                </svg>
+                                Accept
+                              </button>
+                              <button
+                                onClick={() => handleDeclineBooking(booking.id)}
+                                className="flex-1 bg-red-600 text-white py-2.5 px-4 rounded-lg hover:bg-red-700 transition font-medium flex items-center justify-center gap-2"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                                Decline
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      ))
+                    );
+                    })()}
+                  </div>
+
+                  {/* Information */}
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <div className="flex items-start gap-3">
+                      <svg className="w-5 h-5 text-blue-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <div className="text-sm text-blue-800">
+                        <p className="font-medium mb-1">How booking requests work:</p>
+                        <ul className="list-disc list-inside space-y-1 text-blue-700">
+                          <li>Mentees can book your available time slots from your published schedule</li>
+                          <li>You will receive notifications for new booking requests</li>
+                          <li>Accept or decline requests based on your availability</li>
+                          <li>Accepted bookings will be added to your calendar</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {activeTab === "reviews" && (
             <div className="space-y-6">
               {/* Reviews Section - TODO: Connect to real API for fetching mentor's reviews */}
@@ -2941,9 +3218,6 @@ const MentorProfile = () => {
               </div>
             </div>
           )}
-
-          
-
 
         </div>
       </div>
