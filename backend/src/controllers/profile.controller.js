@@ -3,21 +3,53 @@ import responseHandler from "../handlers/response.handler.js";
 import Profile from "../models/profile.model.js";
 import User from "../models/user.model.js";
 import { uploadImage } from "../utils/cloudinary.js";
-import profileUtils from "../utils/profile.utils.js";
+
+const sanitizeUser = (userDoc) => {
+  const obj = userDoc?.toObject ? userDoc.toObject() : { ...userDoc };
+  delete obj.password;
+  delete obj.salt;
+  delete obj.verifyKey;
+  delete obj.resetToken;
+  delete obj.resetTokenExpires;
+  return obj;
+};
+
+const capitalize = (str) => (str ? str.charAt(0).toUpperCase() + str.slice(1) : "");
+
+const parseArrayish = (val) => {
+  if (Array.isArray(val)) return val;
+  if (typeof val === "string") {
+    const trimmed = val.trim();
+    if (!trimmed) return [];
+    if (trimmed.startsWith("[")) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch {
+        // fallthrough
+      }
+    }
+    return trimmed
+      .split(",")
+      .map((x) => x.trim())
+      .filter(Boolean);
+  }
+  return [];
+};
+
+// Lấy userId an toàn từ middleware (hỗ trợ nhiều tên field khác nhau)
+const getAuthedUserId = (req) =>
+  req?.user?.id || req?.user?._id?.toString?.() || req?.user?.userId || null;
 
 export const updateMentorProfile = async (req, res) => {
-  // Log dữ liệu nhận từ FE để debug lỗi 400
-  console.log("[updateMentorProfile] req.body:", req.body);
   try {
-    const userId = req.user.id;
+    const userId = getAuthedUserId(req);
+    if (!userId) return responseHandler.unauthorized(res, "Unauthorized");
 
-    // Phân tách data cho User và Profile
     const {
-      // User Model fields (authentication + basic)
       userName,
       firstName,
       lastName,
-      // Profile Model fields (business logic)
       jobTitle,
       location,
       category,
@@ -33,145 +65,88 @@ export const updateMentorProfile = async (req, res) => {
       links = {},
     } = req.body;
 
-    // Tìm user và kiểm tra role mentor
     const user = await User.findById(userId);
-    if (!user) {
-      return responseHandler.badRequest(res, "User không tồn tại");
+    if (!user) return responseHandler.badRequest(res, "User không tồn tại");
+    if (user.role !== "mentor") {
+      return responseHandler.forbidden(res, "Chỉ mentor mới có thể cập nhật thông tin này");
     }
 
-    if (!user.role.includes("mentor")) {
-      return responseHandler.forbidden(
-        res,
-        "Chỉ mentor mới có thể cập nhật thông tin này"
-      );
-    }
-
-    // Xử lý avatar nếu có upload
     let avatarUrl = user.avatarUrl;
     let avatarPublicId = user.avatarPublicId;
 
     if (req.file) {
-      // Xóa avatar cũ nếu có
       if (user.avatarPublicId) {
         await cloudinary.uploader.destroy(user.avatarPublicId);
       }
-
-      // Upload avatar mới
-      const base64 = `data:${
-        req.file.mimetype
-      };base64,${req.file.buffer.toString("base64")}`;
+      const base64 = `data:${req.file.mimetype};base64,${req.file.buffer.toString("base64")}`;
       const result = await uploadImage(base64, {
         public_id: `avatar_mentor_${userId}_${Date.now()}`,
         folder: "user_avatars",
         overwrite: true,
       });
-
       avatarUrl = result.secure_url;
       avatarPublicId = result.public_id;
     }
 
-    // Xử lý skills: nếu là chuỗi (từ FormData) thì chuyển thành mảng, nếu là mảng thì giữ nguyên
-    let skillsArray = skills;
-    if (typeof skills === "string") {
-      skillsArray = skills
-        .split(",")
-        .map((skill) => skill.trim())
-        .filter(Boolean);
-    } else if (!Array.isArray(skillsArray)) {
-      skillsArray = [];
-    }
+    const skillsArray = parseArrayish(skills);
+    const languagesArray = parseArrayish(languages);
 
-    // Tìm hoặc tạo Profile
     let profile = await Profile.findOne({ user: userId });
-    if (!profile) {
-      profile = new Profile({ user: userId });
-    }
+    if (!profile) profile = new Profile({ user: userId });
 
-    // Update both Profile and User models for all mentor fields
     if (userName !== undefined) user.userName = userName;
-    const capitalize = (str) =>
-      str ? str.charAt(0).toUpperCase() + str.slice(1) : "";
     if (firstName !== undefined) user.firstName = capitalize(firstName);
     if (lastName !== undefined) user.lastName = capitalize(lastName);
     if (avatarUrl !== undefined) user.avatarUrl = avatarUrl;
     if (avatarPublicId !== undefined) user.avatarPublicId = avatarPublicId;
-    if (bio !== undefined) {
-      profile.bio = bio;
-      user.bio = bio;
-    }
-    if (jobTitle !== undefined) {
-      profile.jobTitle = jobTitle;
-      user.jobTitle = jobTitle;
-    }
-    if (location !== undefined) {
-      profile.location = location;
-      user.location = location;
-    }
-    if (category !== undefined) {
-      profile.category = category;
-      user.category = category;
-    }
-    if (skillsArray !== undefined) {
-      profile.skills = skillsArray;
-      user.skills = skillsArray;
-    }
-    if (mentorReason !== undefined) {
-      profile.mentorReason = mentorReason;
-      user.mentorReason = mentorReason;
-    }
-    if (greatestAchievement !== undefined) {
-      profile.greatestAchievement = greatestAchievement;
-      user.greatestAchievement = greatestAchievement;
-    }
-    if (headline !== undefined) {
-      profile.headline = headline;
-      user.headline = headline;
-    }
+    if (bio !== undefined) user.bio = bio;
+    if (jobTitle !== undefined) user.jobTitle = jobTitle;
+    if (location !== undefined) user.location = location;
+    if (category !== undefined) user.category = category;
+    if (headline !== undefined) user.headline = headline;
+    if (introVideo !== undefined) user.introVideo = introVideo;
+    if (skillsArray?.length) user.skills = skillsArray;
+
+    if (jobTitle !== undefined) profile.jobTitle = jobTitle;
+    if (location !== undefined) profile.location = location;
+    if (category !== undefined) profile.category = category;
+    if (skillsArray !== undefined) profile.skills = skillsArray;
+    if (bio !== undefined) profile.bio = bio;
+    if (mentorReason !== undefined) profile.mentorReason = mentorReason;
+    if (greatestAchievement !== undefined) profile.greatestAchievement = greatestAchievement;
+    if (headline !== undefined) profile.headline = headline;
     if (experience !== undefined) profile.experience = experience;
-    if (introVideo !== undefined) {
-      profile.introVideo = introVideo;
-      user.introVideo = introVideo;
-    }
-    if (languages !== undefined) profile.languages = languages;
+    if (introVideo !== undefined) profile.introVideo = introVideo;
+    if (languagesArray !== undefined) profile.languages = languagesArray;
     if (timezone !== undefined) profile.timezone = timezone;
 
-    // Cập nhật links object
     if (links && Object.keys(links).length > 0) {
-      profile.links = { ...profile.links, ...links };
+      profile.links = { ...(profile.links || {}), ...links };
     }
 
     await user.save();
     await profile.save();
 
-    // Làm sạch dữ liệu trả về
-    const userData = user.toObject();
-    delete userData.password;
-    delete userData.salt;
-    delete userData.verifyKey;
-    delete userData.resetToken;
-    delete userData.resetTokenExpires;
-
     return responseHandler.ok(res, {
       message: "Cập nhật thông tin mentor thành công!",
-      user: userData,
-      bio: profile.bio,
-      profile: profile,
+      user: sanitizeUser(user),
+      profile,
     });
   } catch (err) {
     console.error("Lỗi cập nhật thông tin mentor:", err);
-    responseHandler.error(res, err.message || "Lỗi cập nhật thông tin mentor!");
+    return responseHandler.error(res, err.message || "Lỗi cập nhật thông tin mentor!");
   }
 };
 
 export const updateMenteeProfile = async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = getAuthedUserId(req);
+    if (!userId) return responseHandler.unauthorized(res, "Unauthorized");
+
     const {
-      // User Model fields (authentication + basic)
       userName,
       firstName,
       lastName,
-      // Profile Model fields cho mentee
       bio,
       location,
       description,
@@ -182,185 +157,105 @@ export const updateMenteeProfile = async (req, res) => {
       links = {},
     } = req.body;
 
-    // Tìm user và kiểm tra role mentee
     const user = await User.findById(userId);
-    if (!user) {
-      return responseHandler.badRequest(res, "User không tồn tại");
+    if (!user) return responseHandler.badRequest(res, "User không tồn tại");
+    if (user.role !== "mentee") {
+      return responseHandler.forbidden(res, "Chỉ mentee mới có thể cập nhật thông tin này");
     }
 
-    if (!user.role.includes("mentee")) {
-      return responseHandler.forbidden(
-        res,
-        "Chỉ mentee mới có thể cập nhật thông tin này"
-      );
-    }
-
-    // Xử lý avatar nếu có upload
     let avatarUrl = user.avatarUrl;
     let avatarPublicId = user.avatarPublicId;
-
     if (req.file) {
-      // Xóa avatar cũ nếu có
       if (user.avatarPublicId) {
         await cloudinary.uploader.destroy(user.avatarPublicId);
       }
-
-      // Upload avatar mới
-      const base64 = `data:${
-        req.file.mimetype
-      };base64,${req.file.buffer.toString("base64")}`;
+      const base64 = `data:${req.file.mimetype};base64,${req.file.buffer.toString("base64")}`;
       const result = await uploadImage(base64, {
         public_id: `avatar_mentee_${userId}_${Date.now()}`,
         folder: "user_avatars",
         overwrite: true,
       });
-
       avatarUrl = result.secure_url;
       avatarPublicId = result.public_id;
     }
 
-    // Cập nhật User Model (only authentication + basic info)
     const updatedUser = await User.findByIdAndUpdate(
       userId,
       {
         userName,
-        firstName,
-        lastName,
+        firstName: firstName !== undefined ? capitalize(firstName) : undefined,
+        lastName: lastName !== undefined ? capitalize(lastName) : undefined,
         avatarUrl,
         avatarPublicId,
+        bio,
+        location,
       },
       { new: true, runValidators: true }
     );
 
-    // Tìm hoặc tạo Profile
     let profile = await Profile.findOne({ user: userId });
-    if (!profile) {
-      profile = new Profile({ user: userId });
-    }
+    if (!profile) profile = new Profile({ user: userId });
 
-    // Cập nhật Profile Model (fields cho mentee)
     if (bio !== undefined) profile.bio = bio;
     if (location !== undefined) profile.location = location;
     if (description !== undefined) profile.description = description;
     if (goal !== undefined) profile.goal = goal;
     if (education !== undefined) profile.education = education;
-    if (languages !== undefined) profile.languages = languages;
+    const languagesArray = parseArrayish(languages);
+    if (languages !== undefined) profile.languages = languagesArray;
     if (timezone !== undefined) profile.timezone = timezone;
 
-    // Cập nhật links
     if (links && Object.keys(links).length > 0) {
-      profile.links = { ...profile.links, ...links };
+      profile.links = { ...(profile.links || {}), ...links };
     }
 
     await profile.save();
 
-    // Làm sạch dữ liệu trả về
-    const userData = updatedUser.toObject();
-    delete userData.password;
-    delete userData.salt;
-    delete userData.verifyKey;
-    delete userData.resetToken;
-    delete userData.resetTokenExpires;
-
     return responseHandler.ok(res, {
       message: "Cập nhật thông tin mentee thành công!",
-      user: userData,
-      bio: profile.bio,
-      profile: profile,
+      user: sanitizeUser(updatedUser),
+      profile,
     });
   } catch (err) {
     console.error("Lỗi cập nhật thông tin mentee:", err);
-    responseHandler.error(res, err.message || "Lỗi cập nhật thông tin mentee!");
+    return responseHandler.error(res, err.message || "Lỗi cập nhật thông tin mentee!");
   }
 };
 
 export const getProfile = async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = getAuthedUserId(req);
+    if (!userId) return responseHandler.unauthorized(res, "Unauthorized");
 
-    // Lấy profile đầy đủ với auto-create và populate
-    let profile = await profileUtils.getFullProfile(userId);
+    const user = await User.findById(userId);
+    if (!user) return responseHandler.badRequest(res, "User không tồn tại");
 
-    if (!profile) {
-      // Nếu không có profile, tạo profile mới
-      await profileUtils.findOrCreateProfile(userId);
-      profile = await profileUtils.getFullProfile(userId);
-      console.log("[getProfile] Created profile:", {
-        bio: profile.bio,
-        description: profile.description,
-        user: profile.user,
-      });
-      return responseHandler.ok(
-        res,
-        profile,
-        "Profile được tạo mới thành công."
-      );
-    }
+    const profile = await Profile.findOne({ user: userId });
 
-    // Merge mentor fields from user into profile if they exist
-    if (profile.user) {
-      const userFields = [
-        "jobTitle",
-        "location",
-        "category",
-        "skills",
-        "mentorReason",
-        "greatestAchievement",
-        "headline",
-        "introVideo",
-        "bio",
-      ];
-      userFields.forEach((field) => {
-        if (
-          (profile[field] === undefined ||
-            profile[field] === "" ||
-            profile[field] == null) &&
-          profile.user[field] !== undefined
-        ) {
-          profile[field] = profile.user[field];
-        }
-      });
-      // Also sync avatarUrl if missing
-      if (
-        (!profile.avatarUrl || profile.avatarUrl === "") &&
-        profile.user.avatarUrl
-      ) {
-        profile.avatarUrl = profile.user.avatarUrl;
-      }
-    }
-
-    // Log giá trị bio khi trả về cho frontend
-    console.log("[getProfile] Fetched profile:", {
-      bio: profile.bio,
-      description: profile.description,
-      user: profile.user,
+    return responseHandler.ok(res, {
+      user: sanitizeUser(user),
+      profile,
     });
-    return responseHandler.ok(res, profile, "Lấy profile thành công.");
-  } catch (error) {
-    console.error("Error getting profile:", error);
-    return responseHandler.error(res, "Lỗi khi lấy profile: " + error.message);
+  } catch (err) {
+    console.error("Lỗi lấy thông tin profile:", err);
+    return responseHandler.error(res, "Lỗi lấy thông tin profile!");
   }
 };
 
 export const changeAvatar = async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = getAuthedUserId(req);
+    if (!userId) return responseHandler.unauthorized(res, "Unauthorized");
 
     const user = await User.findById(userId);
     if (!user) return responseHandler.badRequest(res, "User không tồn tại");
+    if (!req.file) return responseHandler.badRequest(res, "Chưa có file avatar gửi lên!");
 
-    if (!req.file) {
-      return responseHandler.badRequest(res, "Chưa có file avatar gửi lên!");
-    }
-
-    // Xóa avatar cũ nếu có
     if (user.avatarPublicId) {
       await cloudinary.uploader.destroy(user.avatarPublicId);
     }
 
-    const base64 = `data:${req.file.mimetype};base64,${req.file.buffer.toString(
-      "base64"
-    )}`;
+    const base64 = `data:${req.file.mimetype};base64,${req.file.buffer.toString("base64")}`;
     const result = await uploadImage(base64, {
       public_id: `avatar_${userId}_${Date.now()}`,
       folder: "user_avatars",
@@ -377,13 +272,13 @@ export const changeAvatar = async (req, res) => {
     });
   } catch (err) {
     console.error("Lỗi đổi avatar:", err);
-    responseHandler.error(res, "Đổi avatar thất bại!");
+    return responseHandler.error(res, "Đổi avatar thất bại!");
   }
 };
 
 export default {
-  getProfile,
   updateMentorProfile,
   updateMenteeProfile,
+  getProfile,
   changeAvatar,
 };

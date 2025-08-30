@@ -7,12 +7,6 @@ import nodemailer from "nodemailer";
 import responseHandler from "../handlers/response.handler.js";
 import User from "../models/user.model.js";
 import { uploadImage } from "../utils/cloudinary.js";
-import profileUtils from "../utils/profile.utils.js";
-
-// Helper function để check test environment (chỉ true khi test thực sự)
-const isTestEnvironment = () => {
-  return process.env.NODE_ENV === "test"; // Chỉ skip khi NODE_ENV=test
-};
 
 dotenv.config();
 
@@ -208,8 +202,7 @@ export const signUp = async (req, res) => {
       userName,
       password: hashedPassword,
       salt,
-      role: "mentee",
-      isVerified: isTestEnv, // Auto-verify in test environment
+      isVerified: false,
       isDeleted: false,
       verifyKey: isTestEnv ? "" : generateToken(),
       verifyKeyExpires: isTestEnv
@@ -373,19 +366,11 @@ export const signUpMentor = async (req, res) => {
       salt,
       avatarUrl,
       avatarPublicId,
-      role: "mentor",
-      isVerified: isTestEnv, // Auto-verify in test environment
-      isDeleted: false,
-      verifyKey: isTestEnv ? "" : generateToken(),
-      verifyKeyExpires: isTestEnv
-        ? undefined
-        : Date.now() + 24 * 60 * 60 * 1000,
+      role: ["mentor"],
+      isVerified: false,
+      // ... các trường còn lại
+      ...rest,
     });
-
-    // Only send email in production
-    if (!isTestEnv) {
-      await sendVerificationEmail(user.email, user.verifyKey, user.userName);
-    }
 
     await user.save();
 

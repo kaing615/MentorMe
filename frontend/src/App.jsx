@@ -1,4 +1,5 @@
 import useRouterElements from "./routes/elements";
+import { CartProvider } from "./contexts/CartContext";
 import LoadingPage from "./components/common/loadingPage";
 import { useSelector, useDispatch } from "react-redux";
 import { useEffect } from "react";
@@ -11,7 +12,7 @@ function App() {
   const isLoading = useSelector(state => state.loading.isLoading);
   const dispatch = useDispatch();
 
-  // Check and restore user session on app load (only if previously logged in)
+  // Restore user state from localStorage on app load
   useEffect(() => {
     // Only attempt to restore if there's evidence of a previous login session in current tab
     const hasLoginData = sessionStorage.getItem('user') && 
@@ -24,7 +25,7 @@ function App() {
   }, [dispatch]);
 
   return (
-    <>
+    <CartProvider>
       <LoadingPage loading={isLoading} />
       {elements}
       <ToastContainer
@@ -38,7 +39,7 @@ function App() {
         draggable
         pauseOnHover
       />
-    </>
+    </CartProvider>
   );
 }
 

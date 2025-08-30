@@ -1,6 +1,5 @@
 import Joi from "joi";
 
-// Base profile validation
 const profileBase = {
   firstName: Joi.string().min(1).max(50).required().messages({
     "string.empty": "Họ không được để trống",
@@ -28,12 +27,9 @@ const profileBase = {
     }),
 };
 
-// Update mentor profile validation
 export const updateMentorProfileSchema = Joi.object({
-  // User Model fields
   ...profileBase,
 
-  // Profile Model fields - bắt buộc cho mentor
   jobTitle: Joi.string().min(2).max(100).required().messages({
     "string.empty": "Job title không được để trống",
     "string.min": "Job title phải từ 2-100 ký tự",
@@ -57,18 +53,21 @@ export const updateMentorProfileSchema = Joi.object({
     "any.required": "Lý do làm mentor là bắt buộc",
   }),
 
-  // Optional fields
   location: Joi.string().min(1).optional().messages({
     "string.empty": "Location không được để trống",
   }),
-  skills: Joi.array().items(Joi.string()).min(1).optional().messages({
-    "array.min": "Skills phải có ít nhất 1 kỹ năng",
-  }),
+
+  skills: Joi.alternatives()
+    .try(Joi.array().items(Joi.string()), Joi.string())
+    .optional()
+    .messages({
+      "array.base": "Skills phải là mảng hoặc chuỗi",
+    }),
+
   greatestAchievement: Joi.string().min(1).optional().messages({
     "string.empty": "Greatest Achievement không được để trống",
   }),
 
-  // Profile Model fields - detailed info
   headline: Joi.string().min(5).max(100).optional().messages({
     "string.min": "Headline phải từ 5-100 ký tự",
     "string.max": "Headline phải từ 5-100 ký tự",
@@ -77,49 +76,34 @@ export const updateMentorProfileSchema = Joi.object({
     "string.min": "Experience phải từ 10-1000 ký tự",
     "string.max": "Experience phải từ 10-1000 ký tự",
   }),
-  introVideo: Joi.string()
-    .uri()
+  introVideo: Joi.string().uri().optional().allow("").messages({
+    "string.uri": "Intro Video phải là URL hợp lệ",
+  }),
+
+  languages: Joi.alternatives()
+    .try(Joi.array().items(Joi.string()), Joi.string())
     .optional()
     .messages({
-      "string.uri": "Intro Video phải là URL hợp lệ",
-    })
-    .allow(""),
-  languages: Joi.array().items(Joi.string()).optional().messages({
-    "array.base": "Languages phải là mảng",
-  }),
+      "array.base": "Languages phải là mảng hoặc chuỗi",
+    }),
+
   timezone: Joi.string().min(1).optional().messages({
     "string.empty": "Timezone không được để trống",
   }),
 
-  // Links object
   links: Joi.object({
-    website: Joi.string().uri().optional().messages({
-      "string.uri": "Website URL không hợp lệ",
-    }),
-    linkedin: Joi.string().uri().optional().messages({
-      "string.uri": "LinkedIn URL không hợp lệ",
-    }),
-    github: Joi.string().uri().optional().messages({
-      "string.uri": "Github URL không hợp lệ",
-    }),
-    X: Joi.string().uri().optional().messages({
-      "string.uri": "X URL không hợp lệ",
-    }),
-    youtube: Joi.string().uri().optional().messages({
-      "string.uri": "Youtube URL không hợp lệ",
-    }),
-    facebook: Joi.string().uri().optional().messages({
-      "string.uri": "Facebook URL không hợp lệ",
-    }),
+    website: Joi.string().uri().optional().messages({ "string.uri": "Website URL không hợp lệ" }),
+    linkedin: Joi.string().uri().optional().messages({ "string.uri": "LinkedIn URL không hợp lệ" }),
+    github: Joi.string().uri().optional().messages({ "string.uri": "Github URL không hợp lệ" }),
+    X: Joi.string().uri().optional().messages({ "string.uri": "X URL không hợp lệ" }),
+    youtube: Joi.string().uri().optional().messages({ "string.uri": "Youtube URL không hợp lệ" }),
+    facebook: Joi.string().uri().optional().messages({ "string.uri": "Facebook URL không hợp lệ" }),
   }).optional(),
 });
 
-// Update mentee profile validation
 export const updateMenteeProfileSchema = Joi.object({
-  // User Model fields
   ...profileBase,
 
-  // Profile Model fields - optional cho mentee
   bio: Joi.string().min(10).max(300).optional().messages({
     "string.min": "Bio phải từ 10-300 ký tự",
     "string.max": "Bio phải từ 10-300 ký tự",
@@ -128,7 +112,6 @@ export const updateMenteeProfileSchema = Joi.object({
     "string.empty": "Location không được để trống",
   }),
 
-  // Profile Model fields cho mentee
   description: Joi.string().min(10).max(500).optional().messages({
     "string.min": "Description phải từ 10-500 ký tự",
     "string.max": "Description phải từ 10-500 ký tự",
@@ -141,25 +124,23 @@ export const updateMenteeProfileSchema = Joi.object({
     "string.min": "Education phải từ 5-200 ký tự",
     "string.max": "Education phải từ 5-200 ký tự",
   }),
-  languages: Joi.array().items(Joi.string()).optional().messages({
-    "array.base": "Languages phải là mảng",
-  }),
+
+  languages: Joi.alternatives()
+    .try(Joi.array().items(Joi.string()), Joi.string())
+    .optional()
+    .messages({
+      "array.base": "Languages phải là mảng hoặc chuỗi",
+    }),
+
   timezone: Joi.string().min(1).optional().messages({
     "string.empty": "Timezone không được để trống",
   }),
 
-  // Links object
   links: Joi.object({
-    linkedin: Joi.string().uri().optional().messages({
-      "string.uri": "LinkedIn URL không hợp lệ",
-    }),
-    github: Joi.string().uri().optional().messages({
-      "string.uri": "Github URL không hợp lệ",
-    }),
-    website: Joi.string().uri().optional().messages({
-      "string.uri": "Website URL không hợp lệ",
-    }),
+    linkedin: Joi.string().uri().optional().messages({ "string.uri": "LinkedIn URL không hợp lệ" }),
+    github: Joi.string().uri().optional().messages({ "string.uri": "Github URL không hợp lệ" }),
+    website: Joi.string().uri().optional().messages({ "string.uri": "Website URL không hợp lệ" }),
   }).optional(),
 });
 
-// Change avatar validation (no body validation needed - just file)
+export const changeAvatarSchema = Joi.object({}).unknown(true);
