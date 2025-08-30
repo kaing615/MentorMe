@@ -3,58 +3,53 @@ import responseHandler from "../handlers/response.handler.js";
 import User from "../models/user.model.js";
 
 const tokenDecode = (req) => {
+  const auth = req.headers?.authorization || "";
   try {
-    const bearerHeader = req.headers.authorization;
-    if (bearerHeader) {
-      const token = bearerHeader.split(" ")[1];
-      return jwt.verify(token, process.env.JWT_SECRET);
-    }
-    return false;
+    const token = auth.toLowerCase().startsWith("bearer ")
+      ? auth.split(" ")[1]
+      : auth;
+    if (!token) return null;
+    return jwt.verify(token, process.env.JWT_SECRET);
   } catch {
-    return false;
+    return null;
   }
 };
 
-// Middleware xác thực token
 export const verifyToken = async (req, res, next) => {
-  const tokenDecoded = tokenDecode(req);
+  const payload = tokenDecode(req);
+  if (!payload) return responseHandler.unauthorized(res);
 
-  if (!tokenDecoded) {
+  const userId = payload?.data || payload?.sub || payload?.id;
+  if (!userId) return responseHandler.unauthorized(res);
+
+  try {
+    const user = await User.findById(userId).select("-password -__v");
+    if (!user) return responseHandler.unauthorized(res);
+    req.user = user;
+    next();
+  } catch {
     return responseHandler.unauthorized(res);
   }
-
-  const user = await User.findById(tokenDecoded.data);
-
-  if (!user) {
-    return responseHandler.unauthorized(res);
-  }
-
-  req.user = user;
-  next();
 };
 
 export const authorizeRoles = (...allowedRoles) => {
+  const allowed = new Set(allowedRoles);
   return (req, res, next) => {
-    // Assuming user information (including roles) is available in req.user
-    const user = req.user; 
+    const user = req.user;
+    if (!user) return responseHandler.unauthorized(res, "Authentication required.");
 
-    if (!user) {
-      return responseHandler.unauthorized(res, "Authentication required.");
-    }
+    const roles = Array.isArray(user.roles)
+      ? user.roles
+      : [user.roles].filter(Boolean);
 
-    // Check if user has any of the allowed roles
-    const hasAllowedRole = allowedRoles.some(role => user.roles.includes(role)); // Assuming user.roles is an array of strings
+    const hasAllowedRole = roles.some((r) => allowed.has(r));
+    if (hasAllowedRole) return next();
 
-    if (hasAllowedRole) {
-      next(); // User has the required role, proceed to the next middleware/controller
-    } else {
-      responseHandler.forbidden(res, "You do not have permission to access this resource.");
-    }
+    return responseHandler.forbidden(
+      res,
+      "You do not have permission to access this resource."
+    );
   };
 };
 
-export default {
-  verifyToken,
-  authorizeRoles,
-  tokenDecode,
-};
+export default { verifyToken, authorizeRoles, tokenDecode };

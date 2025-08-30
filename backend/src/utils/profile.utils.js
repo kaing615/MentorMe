@@ -3,7 +3,7 @@ import Profile from "../models/profile.model.js";
 /**
  * Tìm hoặc tạo profile cho user
  * @param {String} userId - ID của user
- * @returns {Object} profile - Profile object
+ * @returns {Object} profile
  */
 const findOrCreateProfile = async (userId) => {
   try {
@@ -12,7 +12,7 @@ const findOrCreateProfile = async (userId) => {
     if (!profile) {
       profile = new Profile({
         user: userId,
-        // Default values
+        // Defaults
         jobTitle: "",
         location: "",
         category: "",
@@ -52,10 +52,9 @@ const findOrCreateProfile = async (userId) => {
 
 /**
  * Tạo profile cho user mới với dữ liệu cụ thể
- * @param {String} userId - ID của user
- * @param {Object} profileData - Dữ liệu profile
- * @param {String} userRole - Role của user (mentor/mentee)
- * @returns {Object} profile - Profile object được tạo
+ * @param {String} userId
+ * @param {Object} profileData
+ * @param {String} userRole - 'mentor' | 'mentee'
  */
 const createProfileForNewUser = async (
   userId,
@@ -87,7 +86,6 @@ const createProfileForNewUser = async (
       },
     };
 
-    // Thêm fields cụ thể cho mentor
     if (userRole === "mentor") {
       defaultProfile.headline = profileData.headline || "";
       defaultProfile.mentorReason = profileData.mentorReason || "";
@@ -96,7 +94,6 @@ const createProfileForNewUser = async (
       defaultProfile.introVideo = profileData.introVideo || "";
     }
 
-    // Thêm fields cụ thể cho mentee
     if (userRole === "mentee") {
       defaultProfile.description = profileData.description || "";
       defaultProfile.goal = profileData.goal || "";
@@ -114,9 +111,8 @@ const createProfileForNewUser = async (
 };
 
 /**
- * Lấy profile đầy đủ của user với populate
- * @param {String} userId - ID của user
- * @returns {Object} profile - Profile object với thông tin đầy đủ
+ * Lấy profile đầy đủ (populate)
+ * @param {String} userId
  */
 const getFullProfile = async (userId) => {
   try {
@@ -133,15 +129,14 @@ const getFullProfile = async (userId) => {
           select: "firstName lastName avatarUrl",
         },
         options: {
-          sort: { createdAt: -1 }, // Reviews mới nhất trước
-          limit: 10, // Giới hạn 10 reviews gần nhất
+          sort: { createdAt: -1 },
+          limit: 10,
         },
       });
 
     return profile;
   } catch (error) {
     console.error("Error in getFullProfile:", error);
-    // Nếu populate reviews lỗi, thử get profile không reviews
     try {
       const profileWithoutReviews = await Profile.findOne({
         user: userId,
