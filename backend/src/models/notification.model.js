@@ -1,38 +1,36 @@
-<<<<<<< HEAD
-import mongoose, { Schema, version } from "mongoose";
-=======
-import mongoose, { version } from "mongoose";
->>>>>>> 320758f58565f1339e2012aa3e2883b8adb53cc1
+import mongoose from "mongoose";
 
-const NotificationSchema = mongoose.Schema(
-    {
-        userId: { type: mongoose.Types.ObjectId, ref: "User", required: true, index: true },
-        type: { type: String, required: true },
-        title: String,
-        body: String,
-        data: { type: Schema.Types.Mixed, default: {}  },
-        sourceType: { type: String },
-        sourceId: { type: String },
-        deliverAt: { type: Date, default: () => new Date() },
-        seenAt: Date,
-        readAt: Date,
-        deduplicationKey: { type: String }
-    },
-    {
-        versionKey: false,
-        timestamps: { createdAt: true, updatedAt: false },
-    }
-)
+const { Schema } = mongoose;
 
-NotificationSchema.index(
-    { userId: 1, deduplicationKey: 1 },
-    { unique: true, partialFilterExpression: { deduplicationKey: { $exists: true } } }
+const NotificationSchema = new Schema(
+  {
+    userId: { type: Schema.Types.ObjectId, ref: "User", required: true },
+    type: { type: String, required: true },
+    title: String,
+    body: String,
+    data: { type: Schema.Types.Mixed, default: {} },
+    sourceType: String,
+    sourceId: String,
+    deliverAt: { type: Date, default: () => new Date(), index: true },
+    seenAt: Date,
+    readAt: Date,
+    deduplicationKey: String,
+  },
+  {
+    versionKey: false,
+    timestamps: { createdAt: true, updatedAt: false },
+  }
 );
 
-const Notification = mongoose.model("Notification", NotificationSchema);
+NotificationSchema.index(
+  { userId: 1, deduplicationKey: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { deduplicationKey: { $exists: true } },
+  }
+);
 
-<<<<<<< HEAD
-export default Notification;
-=======
-export default Notification;
->>>>>>> 320758f58565f1339e2012aa3e2883b8adb53cc1
+NotificationSchema.index({ userId: 1, deliverAt: -1, _id: -1 });
+NotificationSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+
+export default mongoose.model("Notification", NotificationSchema);
