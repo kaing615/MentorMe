@@ -1,13 +1,13 @@
 import { Router } from "express";
-import * as msg from "../controllers/message.controller.js";
-import auth from "../middlewares/token.middleware.js";
+import { sendMessage, listConversations, listMessages, markMessageAsDelivered, markMessagesAsRead } from "../controllers/message.controller.js";
+import tokenMiddleware from "../middlewares/token.middleware.js";
 
 const router = Router();
 
-router.post("/", auth, msg.sendMessage);
-router.get("/", auth, msg.listMessages);
-router.post("/mark-delivered", auth, msg.markMessageAsDelivered);
-router.post("/mark-read", auth, msg.markMessagesAsRead);
-router.get("/conversations", auth, msg.listConversations);
+router.post("/", tokenMiddleware.auth, sendMessage);
+router.get("/", tokenMiddleware.auth, listMessages);
+router.post("/mark-delivered", tokenMiddleware.auth, markMessageAsDelivered);
+router.post("/mark-read", tokenMiddleware.auth, markMessagesAsRead);
+router.get("/conversations", tokenMiddleware.auth, listConversations);
 
 export default router;
