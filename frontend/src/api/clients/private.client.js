@@ -24,8 +24,11 @@ const createPrivateClient = (dispatch) => {
     // Làm sạch nếu lỡ lưu kèm "Bearer " hoặc có dấu "
     const token = raw?.replace(/^Bearer\s+/i, "")?.replace(/^"|"$/g, "");
 
-    if (token) config.headers.Authorization = `Bearer ${token}`;
-    else delete config.headers.Authorization;
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    } else {
+      delete config.headers.Authorization;
+    }
 
     return config;
   });

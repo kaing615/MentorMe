@@ -9,7 +9,6 @@ import User from "../models/user.model.js";
  */
 const getPurchasedCourses = async (req, res) => {
   try {
-    // Nếu không có req.user, lấy user đầu tiên trong DB (dev mode)
     let userId;
     if (req.user && req.user.id) {
       userId = req.user.id;
@@ -21,34 +20,33 @@ const getPurchasedCourses = async (req, res) => {
       userId = firstUser._id;
     }
 
-    const user = await User.findById(userId)
-      .populate({
-        path: "purchasedCourses.course",
-        select:
-          "title description price mentor category duration rate link lectures",
-        populate: {
-          path: "mentor",
-          select: "firstName lastName avatarUrl jobTitle",
-        },
-      })
-      .populate(
-        "purchasedCourses.orderId",
-        "transactionId paymentMethod createdAt"
-      );
+    // Tìm tất cả các order mà user là mentee
+    const orders = await Order.find({ mentee: userId }).populate({
+      path: "courses",
+      select:
+        "title description price mentor category duration rate link lectures",
+      populate: {
+        path: "mentor",
+        select: "firstName lastName avatarUrl jobTitle",
+      },
+    });
 
-    if (!user) {
-      return responseHandler.notFound(res, "Không tìm thấy user.");
-    }
-
-    const purchasedCourses = user.purchasedCourses.map((item) => ({
-      courseId: item.course._id,
-      courseInfo: item.course,
-      purchaseDate: item.purchaseDate,
-      progress: item.progress,
-      lastAccessDate: item.lastAccessDate,
-      isCompleted: item.isCompleted,
-      orderInfo: item.orderId,
-    }));
+    // Gom tất cả các khóa học đã mua từ các order
+    const purchasedCourses = [];
+    orders.forEach((order) => {
+      order.courses.forEach((course) => {
+        purchasedCourses.push({
+          courseId: course._id,
+          courseInfo: course,
+          purchaseDate: order.createdAt,
+          orderInfo: {
+            transactionId: order.transactionId,
+            paymentMethod: order.paymentMethod,
+            createdAt: order.createdAt,
+          },
+        });
+      });
+    });
 
     return responseHandler.ok(res, {
       message: "Lấy danh sách khóa học đã mua thành công.",

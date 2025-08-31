@@ -59,9 +59,9 @@ const courseApi = {
     try {
       const queryParams = new URLSearchParams({
         limit: limit.toString(),
-        sort: "-rate",        
+        sort: "-rate",
         populate: "mentor",
-        rate: minRate.toString() 
+        rate: minRate.toString(),
       });
 
       const response = await publicClient.get(
@@ -74,6 +74,9 @@ const courseApi = {
   },
 
   getDetail: async ({ courseId }) => {
+    if (!courseId || typeof courseId !== "string" || courseId.length < 8) {
+      return { err: "Invalid courseId" };
+    }
     try {
       const response = await publicClient.get(
         `${courseEndpoints.detail({ id: courseId })}?populate=mentor`
@@ -96,6 +99,9 @@ const courseApi = {
   },
 
   getRelatedCourses: async ({ courseId, category, limit }) => {
+    if (!courseId || typeof courseId !== "string" || courseId.length < 8) {
+      return { err: "Invalid courseId" };
+    }
     try {
       const categoryParam = Array.isArray(category)
         ? category.join(",")
@@ -113,6 +119,9 @@ const courseApi = {
   },
 
   getCourseDetails: async ({ courseId }) => {
+    if (!courseId || typeof courseId !== "string" || courseId.length < 8) {
+      return { error: "Invalid courseId" };
+    }
     try {
       const response = await publicClient.get(
         courseEndpoints.getCourseDetails({ courseId })
@@ -147,8 +156,7 @@ const courseApi = {
   updateCourse: async ({ courseId, courseData }) => {
     try {
       const hasFile =
-        courseData instanceof FormData ||
-        (courseData?.thumbnail instanceof File);
+        courseData instanceof FormData || courseData?.thumbnail instanceof File;
 
       let requestData;
       const config = { headers: {} };
@@ -244,6 +252,9 @@ const courseApi = {
   },
 
   getCourseReviews: async ({ courseId, params = {} }) => {
+    if (!courseId || typeof courseId !== "string" || courseId.length < 8) {
+      return { error: "Invalid courseId" };
+    }
     try {
       const response = await publicClient.get(
         courseEndpoints.getCourseReviews({ courseId }),
@@ -409,14 +420,20 @@ const courseApi = {
       };
     }
 
-    if (isNaN(parseFloat(courseData.price)) || parseFloat(courseData.price) < 0) {
+    if (
+      isNaN(parseFloat(courseData.price)) ||
+      parseFloat(courseData.price) < 0
+    ) {
       return {
         isValid: false,
         message: "Price must be a valid positive number",
       };
     }
 
-    if (isNaN(parseInt(courseData.lectures)) || parseInt(courseData.lectures) < 1) {
+    if (
+      isNaN(parseInt(courseData.lectures)) ||
+      parseInt(courseData.lectures) < 1
+    ) {
       return {
         isValid: false,
         message: "Number of lectures must be a positive integer",

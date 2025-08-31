@@ -114,7 +114,7 @@ const ShoppingCart = () => {
   // Handle remove course
   const handleRemoveCourse = async (courseId) => {
     try {
-      const token = localStorage.getItem("token");
+      const token = localStorage.getItem("actkn") || localStorage.getItem("token");
       await axios.delete(`/api/cart/remove/${courseId}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
