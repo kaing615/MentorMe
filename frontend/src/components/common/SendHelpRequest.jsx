@@ -2,6 +2,8 @@ import React, { useState } from "react";
 import { toast } from "react-toastify";
 
 const SendHelpRequest = () => {
+  console.log("SendHelpRequest component rendered");
+  
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -55,7 +57,7 @@ const SendHelpRequest = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">
@@ -88,7 +90,7 @@ const SendHelpRequest = () => {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Email <span className="text-red-500">*</span>
+                      Email for Response <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="email"
@@ -236,27 +238,6 @@ const SendHelpRequest = () => {
               </div>
             </div>
 
-            {/* FAQ Quick Links */}
-            <div className="bg-blue-50 rounded-lg border border-blue-200 p-6">
-              <h3 className="text-lg font-semibold text-blue-900 mb-4">
-                Frequently Asked Questions
-              </h3>
-              <div className="space-y-2 text-sm">
-                <a href="#" className="block text-blue-700 hover:text-blue-900 hover:underline">
-                  • How to book a session with a mentor?
-                </a>
-                <a href="#" className="block text-blue-700 hover:text-blue-900 hover:underline">
-                  • What is the refund policy?
-                </a>
-                <a href="#" className="block text-blue-700 hover:text-blue-900 hover:underline">
-                  • How to update account information
-                </a>
-                <a href="#" className="block text-blue-700 hover:text-blue-900 hover:underline">
-                  • Payment process guide
-                </a>
-              </div>
-            </div>
-
             {/* Response Time */}
             <div className="bg-green-50 rounded-lg border border-green-200 p-6">
               <h3 className="text-lg font-semibold text-green-900 mb-2">
@@ -267,6 +248,33 @@ const SendHelpRequest = () => {
                 <p>• <strong>High:</strong> Within 8 hours</p>
                 <p>• <strong>Medium:</strong> Within 24 hours</p>
                 <p>• <strong>Low:</strong> Within 48 hours</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* FAQ Section - Full Width */}
+        <div className="w-full px-4 sm:px-6 lg:px-8 mt-8">
+          <div className="max-w-7xl mx-auto">
+            <div className="bg-blue-50 rounded-lg border border-blue-200 p-6">
+              <h3 className="text-2xl font-semibold text-blue-900 mb-6">
+                Frequently Asked Questions
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <h4 className="font-medium text-blue-800 mb-2">• How to book a session with a mentor?</h4>
+                  <p className="text-blue-700 ml-3 mb-4">Browse mentors, select your preferred mentor, choose available time slot, and complete the booking process through our platform.</p>
+                  
+                  <h4 className="font-medium text-blue-800 mb-2">• What is the refund policy?</h4>
+                  <p className="text-blue-700 ml-3">Full refund available if cancelled 24+ hours before session. 50% refund for cancellations within 24 hours. No refund for no-shows.</p>
+                </div>
+                <div>
+                  <h4 className="font-medium text-blue-800 mb-2">• How to update account information?</h4>
+                  <p className="text-blue-700 ml-3 mb-4">Go to Profile Settings in your account dashboard. You can update personal info, photo, bio, and preferences anytime.</p>
+                  
+                  <h4 className="font-medium text-blue-800 mb-2">• Payment process guide</h4>
+                  <p className="text-blue-700 ml-3">We accept credit cards, PayPal, and bank transfers. Payment is secured through Stripe. You'll receive receipt via email after successful payment.</p>
+                </div>
               </div>
             </div>
           </div>

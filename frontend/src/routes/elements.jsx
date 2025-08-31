@@ -3,6 +3,7 @@ import { useRoutes, Navigate } from "react-router-dom";
 import WelcomePage from "../pages/WelcomePage";
 import HomeScreen from "../pages/homeScreen";
 import SendHelpRequest from "../components/common/SendHelpRequest";
+import ProtectedRoute from "../components/common/ProtectedRoute";
 import AllPagesLayout from "../components/layout/AllPagesLayout";
 import SignUp_SignIn_layout from "../components/layout/SignUp_SignIn_layout"; 
 import SignUp from "../pages/SignUp";
@@ -36,7 +37,7 @@ const useRouterElements = () => {
                 },
                 {
                     path: PLATFORM_PATH.HELP_REQUEST,
-                    element: <SendHelpRequest />
+                    element: <ProtectedRoute><SendHelpRequest /></ProtectedRoute>
                 }
             ]
         },

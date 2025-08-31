@@ -33,21 +33,11 @@ const Footer = () => {
           <div className="font-bold mb-2">Get Help</div>
           <ul className="text-sm text-gray-300 space-y-1">
             <li>
-              <a href="#contact" className="hover:underline">
-                Contact Us
-              </a>
-            </li>
-            <li>
-              <a href="#articles" className="hover:underline">
-                Latest Articles
-              </a>
-            </li>
-            <li>
               <Link 
                 to={`${PATH.PLATFORM}/${PLATFORM_PATH.HELP_REQUEST}`} 
                 className="hover:underline"
               >
-                FAQ
+                Help Request
               </Link>
             </li>
           </ul>
