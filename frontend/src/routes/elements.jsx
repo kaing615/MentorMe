@@ -42,6 +42,14 @@ const useRouterElements = () => {
           path: MENTEE_PATH.HOME,
           element: <HomeScreen />,
         },
+        {
+          path: MENTEE_PATH.PROFILE,
+          element: <MenteeProfile />,
+        },
+        {
+          path: MENTEE_PATH.SHOPPINGCART,
+          element: <ShoppingCart />,
+        },
       ],
     },
 

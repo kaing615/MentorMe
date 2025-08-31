@@ -1,3 +1,16 @@
+import React, { useState, useEffect } from "react";
+import { toast } from "react-toastify";
+import { FaUserCircle } from "react-icons/fa";
+import { useNavigate, useLocation } from "react-router-dom";
+import { PATH, MENTOR_PATH } from "../routes/path";
+import youtubeImg from "../assets/youtube.png";
+import profileApi from "../api/modules/profile.api";
+import { FaFacebook } from "react-icons/fa6";
+import { FaXTwitter } from "react-icons/fa6";
+import { FaLinkedin } from "react-icons/fa";
+import { FaGoogle } from "react-icons/fa";
+import courseApi from "../api/modules/course.api";
+
 // Capitalize initials of each word
 function capitalizeWords(str) {
   if (!str) return "";
@@ -6,23 +19,49 @@ function capitalizeWords(str) {
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
     .join(" ");
 }
-import React, { useState, useEffect } from "react";
-import { toast } from "react-toastify";
-import { FaUserCircle } from "react-icons/fa";
-import { useNavigate, useLocation } from "react-router-dom";
-import { PATH, MENTOR_PATH } from "../routes/path";
-import youtubeImg from "../assets/youtube.png";
-import profileApi from "../api/modules/profile.api";
-import facebookImg from "../assets/facebook.png";
-import linkedinImg from "../assets/linkedin.png";
-import twitterImg from "../assets/twitter.png";
-import googleImg from "../assets/google.png";
-import courseApi from "../api/modules/course.api";
 
 const MentorProfile = () => {
   // State lưu thông tin profile
-  const [profile, setProfile] = useState(null);
-  // Hàm lưu profile vào DB khi bấm nút Save Profile
+  const navigate = useNavigate(); // Hook to navigate between routes
+  const location = useLocation();
+  // --- AUTH & ROLE CHECK ---
+  useEffect(() => {
+    // Check token
+    const token =
+      sessionStorage.getItem("token") || localStorage.getItem("token");
+    const userStr =
+      sessionStorage.getItem("user") || localStorage.getItem("user");
+    console.log("Token:", token);
+    let user = null;
+    if (!token) {
+      navigate("/auth/signin");
+      return;
+    }
+    // Check user object
+    try {
+      user = userStr ? JSON.parse(userStr) : null;
+    } catch (e) {
+      user = null;
+    }
+    if (!user || !user.role) {
+      navigate("/auth/signin");
+      return;
+    }
+    // Check role
+    if (user.role === "mentor") {
+      return;
+    }
+    if (user.role === "mentee") {
+      navigate("/home");
+      return;
+    }
+    if (user.role === "admin") {
+      navigate("/admin/profile");
+      return;
+    }
+  }, [navigate]);
+
+  // Save profilepl
   const handleUpdateProfile = async () => {
     setLoading(true);
     setError(null);
@@ -34,7 +73,6 @@ const MentorProfile = () => {
       }
       const response = await profileApi.updateMentorProfile(payload);
       if (response && response.data) {
-        setProfile(response.data);
         setProfileImage(null); // Reset local image preview để sidebar lấy avatar từ backend
         toast.success("Cập nhật profile thành công!", {
           position: "top-right",
@@ -57,8 +95,6 @@ const MentorProfile = () => {
     const { response, error } = await profileApi.getProfileDetail();
     if (error) {
       setError("Không thể tải chi tiết profile");
-    } else if (response && response.data) {
-      setProfile(response.data);
     }
     setLoading(false);
   };
@@ -74,10 +110,15 @@ const MentorProfile = () => {
         setError("Tạo khóa học thất bại");
       } else if (response && response.data) {
         // Sau khi tạo thành công, reload lại danh sách courses
-        if (profile?.user?._id) {
-          const mentorId = profile.user._id;
-          const courses = await courseApi.getCoursesByMentor(mentorId);
-          setAllCourses(courses);
+        if (formData?._id) {
+          const mentorId = formData._id;
+          if (!mentorId) {
+            setError("Mentor ID không hợp lệ!");
+            setAllCourses([]);
+          } else {
+            const courses = await courseApi.getCoursesByMentor(mentorId);
+            setAllCourses(courses);
+          }
         }
         alert("Tạo khóa học thành công!");
       }
@@ -109,7 +150,7 @@ const MentorProfile = () => {
     setLoading(true);
     setError(null);
     if (!courseId) {
-      setError("Course ID is undefined!");
+      setError("Course ID không hợp lệ!");
       setLoading(false);
       return;
     }
@@ -163,8 +204,7 @@ const MentorProfile = () => {
     }
   };
 
-  const navigate = useNavigate();
-  const location = useLocation();
+  // ...existing code...
   // Tab logic: luôn vào tab 'profile' khi vào mentor/profile lần đầu, reload thì giữ tab hiện tại
   const [activeTab, setActiveTab] = useState(() => {
     // Nếu có tab lưu trong localStorage thì lấy, không thì mặc định là 'profile'
@@ -197,7 +237,6 @@ const MentorProfile = () => {
           setError(
             "Không nhận được dữ liệu profile từ API hoặc thiếu thông tin user."
           );
-          setProfile(null);
           setFormData({
             userName: "",
             firstName: "",
@@ -216,7 +255,7 @@ const MentorProfile = () => {
           setProfileImage(null);
           setAllCourses([]);
         } else {
-          setProfile(profileData);
+          // ...existing code...
           setFormData({
             userName: profileData?.user?.userName || "",
             firstName: profileData?.user?.firstName || "",
@@ -251,21 +290,27 @@ const MentorProfile = () => {
               profileData?.headline || profileData?.user?.headline || "",
             website: profileData?.links?.website || "",
             twitter: profileData?.links?.X || "",
-            linkedin: profileData?.links?.linkedin || "",
+            linkedin: profileData?.user?.linkedinUrl || "",
             youtube: profileData?.links?.youtube || "",
             facebook: profileData?.links?.facebook || "",
+            avatarUrl: profileData?.user?.avatarUrl || "",
           });
           setProfileImage(profileData?.user?.avatarUrl || null);
           // Lấy đúng danh sách khóa học của mentor
           if (profileData?.user?._id) {
             const mentorId = profileData.user._id;
-            const courses = await courseApi.getCoursesByMentor(mentorId);
-            setAllCourses(courses);
+            if (!mentorId) {
+              setError("Mentor ID không hợp lệ!");
+              setAllCourses([]);
+            } else {
+              const courses = await courseApi.getCoursesByMentor(mentorId);
+              setAllCourses(courses);
+            }
           }
         }
       } catch (error) {
         setError("Không thể tải thông tin profile hoặc courses");
-        setProfile(null);
+        // ...existing code...
         setAllCourses([]);
       }
       setLoading(false);
@@ -299,16 +344,7 @@ const MentorProfile = () => {
       const res = await profileApi.changeAvatar(file);
       if (res && res.avatarUrl) {
         setProfileImage(res.avatarUrl);
-        // Có thể cập nhật lại profile nếu muốn
-        if (profile && profile.user) {
-          setProfile((prev) => ({
-            ...prev,
-            user: {
-              ...prev.user,
-              avatarUrl: res.avatarUrl,
-            },
-          }));
-        }
+        // ...existing code...
       }
     } catch (err) {
       alert("Đổi avatar thất bại!");
@@ -680,14 +716,14 @@ const MentorProfile = () => {
           style={{ width: 280, minWidth: 280 }}
           className="bg-slate-50 rounded-2xl shadow-sm p-8 flex flex-col items-center sticky top-10 self-start"
         >
-          {profile?.user?.avatarUrl || profile?.avatarUrl ? (
+          {formData.avatarUrl ? (
             <img
-              src={profile.user.avatarUrl || profile.avatarUrl}
+              src={formData.avatarUrl}
               alt={
-                profile?.user?.firstName || profile?.user?.lastName
+                formData.firstName || formData.lastName
                   ? `${capitalizeWords(
-                      profile.user.firstName
-                    )} ${capitalizeWords(profile.user.lastName)}`
+                      formData.firstName || ""
+                    )} ${capitalizeWords(formData.lastName || "")}`.trim()
                   : "Default Avatar"
               }
               className="w-24 h-24 rounded-full object-cover mb-4"
@@ -696,11 +732,11 @@ const MentorProfile = () => {
             <FaUserCircle className="w-24 h-24 text-gray-300 mb-4" />
           )}
           <h2 className="font-semibold text-xl text-gray-900 mb-3">
-            {profile?.user?.firstName || profile?.user?.lastName
-              ? `${capitalizeWords(profile.user.firstName)} ${capitalizeWords(
-                  profile.user.lastName
+            {formData.firstName || formData.lastName
+              ? `${capitalizeWords(formData.firstName || "")} ${capitalizeWords(
+                  formData.lastName || ""
                 )}`.trim()
-              : "Name"}
+              : "Mentor"}
           </h2>
           <button className="bg-blue-600 text-white border-none rounded-lg px-6 py-1.5 mb-6 font-medium text-base">
             Mentor
@@ -1008,7 +1044,7 @@ const MentorProfile = () => {
                 <div className="space-y-4">
                   <div>
                     <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-1">
-                      <img src={googleImg} alt="Website" className="w-5 h-5" />
+                      <FaGoogle className="w-5 h-5 text-[#4285F4]" />
                       Website
                     </label>
                     <input
@@ -1022,7 +1058,7 @@ const MentorProfile = () => {
                   </div>
                   <div>
                     <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-1">
-                      <img src={twitterImg} alt="Twitter" className="w-5 h-5" />
+                      <FaXTwitter className="w-5 h-5 text-[#1DA1F2]" />
                       Twitter
                     </label>
                     <input
@@ -1036,11 +1072,7 @@ const MentorProfile = () => {
                   </div>
                   <div>
                     <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-1">
-                      <img
-                        src={linkedinImg}
-                        alt="LinkedIn"
-                        className="w-5 h-5"
-                      />
+                      <FaLinkedin className="w-5 h-5 text-[#0077B5]" />
                       LinkedIn
                     </label>
                     <input
@@ -1068,11 +1100,7 @@ const MentorProfile = () => {
                   </div>
                   <div>
                     <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-1">
-                      <img
-                        src={facebookImg}
-                        alt="Facebook"
-                        className="w-5 h-5"
-                      />
+                      <FaFacebook className="w-5 h-5 text-[#1877F3]" />
                       Facebook
                     </label>
                     <input
@@ -1937,6 +1965,7 @@ const MentorProfile = () => {
                     <button
                       onClick={() => {
                         setReviewSearchTerm("");
+
                         setReviewSortBy("latest");
                         setReviewCurrentPage(1);
                       }}

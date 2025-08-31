@@ -16,6 +16,8 @@ export const AUTH_PATH = {
 export const MENTEE_PATH = {
   HOME: "home",
   COURSE: "course",
+  PROFILE: "profile",
+  SHOPPINGCART: "shoppingcart",
 };
 
 export const ADMIN_PATH = {

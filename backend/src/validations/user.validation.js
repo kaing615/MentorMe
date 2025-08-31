@@ -87,6 +87,10 @@ export const signUpMentorSchema = Joi.object({
     "string.empty": "Greatest Achievement không được để trống",
   }),
   // Links object
+  linkedinUrl: Joi.string().uri().required().messages({
+    "string.uri": "LinkedIn URL không hợp lệ",
+    "any.required": "LinkedIn URL là bắt buộc",
+  }),
   links: Joi.object({
     linkedin: Joi.string().uri().optional().messages({
       "string.uri": "LinkedIn URL không hợp lệ",
@@ -100,6 +104,11 @@ export const signUpMentorSchema = Joi.object({
   }).optional(),
   introVideo: Joi.string().uri().optional().messages({
     "string.uri": "Intro Video phải là một URL hợp lệ",
+  }),
+  // Add other fields that might be sent from frontend
+  confirmPassword: Joi.string().valid(Joi.ref("password")).required().messages({
+    "any.only": "Mật khẩu xác nhận không khớp",
+    "any.required": "Vui lòng xác nhận mật khẩu",
   }),
 });
 

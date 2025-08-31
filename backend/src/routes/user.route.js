@@ -6,6 +6,7 @@ import upload from "../utils/multer.js";
 
 import {
   signUpSchema,
+  signUpMentorSchema,
   signInSchema,
   resendEmailSchema,
   forgotPasswordSchema,
@@ -37,9 +38,11 @@ const validate = (schema) => (req, res, next) => {
 // ===== PUBLIC AUTH =====
 if (typeof U.signUp !== "function") throw new Error("user.controller.js is missing: signUp");
 if (typeof U.signIn !== "function") throw new Error("user.controller.js is missing: signIn");
+if (typeof U.signUpMentor !== "function") throw new Error("user.controller.js is missing: signUpMentor");
 
 router.post("/signup", validate(signUpSchema), U.signUp);
 router.post("/signin", validate(signInSchema), U.signIn);
+router.post("/signupMentor", upload.single("avatar"), validate(signUpMentorSchema), U.signUpMentor);
 
 if (typeof U.resendEmail === "function")
   router.post("/resend-email", validate(resendEmailSchema), U.resendEmail);
