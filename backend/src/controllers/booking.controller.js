@@ -29,11 +29,23 @@ const normalizeHHMM = (s) => {
   return `${hh}:${mm}`;
 };
 
+function parseHHMMStrict(s) {
+  if (typeof s !== "string" || !/^\d{1,2}:\d{2}$/.test(s)) return null;
+  const [h, m] = s.split(":").map(Number);
+  if (Number.isNaN(h) || Number.isNaN(m) || h < 0 || h > 23 || m < 0 || m > 59)
+    return null;
+  const hh = String(h).padStart(2, "0");
+  const mm = String(m).padStart(2, "0");
+  return { h, m, hhmm: `${hh}:${mm}`, minutes: h * 60 + m };
+}
+
 const toStatusCond = (status) => {
   if (!status) return undefined;
   let list = status;
   if (typeof status === "string") {
-    list = status.includes(",") ? status.split(",").map(s => s.trim()) : [status];
+    list = status.includes(",")
+      ? status.split(",").map((s) => s.trim())
+      : [status];
   }
   return list.length === 1 ? list[0] : { $in: list };
 };
@@ -71,14 +83,14 @@ export const getBookings = async (req, res) => {
       if (!mongoose.Types.ObjectId.isValid(mentor)) {
         return responseHandler.badRequest(res, "Invalid mentor ID");
       }
-      q.mentor = mentor;
+      q.mentor = new mongoose.Types.ObjectId(mentor);
     }
 
     if (mentee) {
       if (!mongoose.Types.ObjectId.isValid(mentee)) {
         return responseHandler.badRequest(res, "Invalid mentee ID");
       }
-      q.mentee = mentee;
+      q.mentee = new mongoose.Types.ObjectId(mentee);
     }
 
     if (date) {
@@ -228,24 +240,187 @@ export const getBookingsOfMentee = async (req, res) => {
 
 export const updateBooking = async (req, res) => {
   try {
+    const userId = String(req.user?.id || req.user?._id || "");
     const { id } = req.params;
-    const update = req.body;
-    const booking = await Booking.findByIdAndUpdate(id, update, { new: true });
-    if (!booking) return responseHandler.notFound(res, "Booking not found");
+    if (!userId)
+      return (
+        responseHandler.unauthorized?.(res) ||
+        responseHandler.badRequest(res, "Unauthorized")
+      );
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return responseHandler.badRequest(res, "Invalid booking id");
+    }
+
+    const existing = await Booking.findById(id).lean();
+    if (!existing) return responseHandler.notFound(res, "Booking not found");
+
+    const isMentor = String(existing.mentor) === String(userId);
+    const isMentee = String(existing.mentee) === String(userId);
+    const isAdmin = req.user?.role === "admin";
+    if (!isMentor && !isMentee && !isAdmin) {
+      return (
+        responseHandler.forbidden?.(res) ||
+        responseHandler.badRequest(res, "Forbidden")
+      );
+    }
+
+    if ("status" in req.body && req.body.status !== existing.status) {
+      return responseHandler.badRequest(
+        res,
+        "Use confirm/cancel endpoints to change status"
+      );
+    }
+    if (
+      "mentor" in req.body ||
+      "mentee" in req.body ||
+      "relationship" in req.body
+    ) {
+      return responseHandler.badRequest(
+        res,
+        "Cannot update mentor/mentee/relationship via this endpoint"
+      );
+    }
+
+    const allowed = {};
+    if ("notes" in req.body) allowed.notes = req.body.notes;
+
+    if (Object.keys(allowed).length === 0) {
+      return responseHandler.badRequest(res, "No updatable fields provided");
+    }
+
+    const booking = await Booking.findByIdAndUpdate(
+      id,
+      { $set: allowed },
+      { new: true }
+    );
+    if (!booking)
+      return responseHandler.notFound(res, "Booking not found after update");
+
     return responseHandler.ok(res, booking);
   } catch (err) {
-    responseHandler.error(res, err);
+    console.error("updateBooking error:", err);
+    return responseHandler.error(res, err);
   }
 };
 
 export const deleteBooking = async (req, res) => {
   try {
+    const userId = String(req.user?.id || req.user?._id || "");
     const { id } = req.params;
+
+    if (!userId)
+      return (
+        responseHandler.unauthorized?.(res) ||
+        responseHandler.badRequest(res, "Unauthorized")
+      );
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return responseHandler.badRequest(res, "Invalid booking id");
+    }
+
+    const existing = await Booking.findById(id);
+    if (!existing) return responseHandler.notFound(res, "Booking not found");
+
+    const isMentor = String(existing.mentor) === String(userId);
+    const isMentee = String(existing.mentee) === String(userId);
+    const isAdmin = req.user?.role === "admin";
+
+    if (!isAdmin) {
+      return (
+        responseHandler.forbidden?.(res) ||
+        responseHandler.badRequest(res, "Only admin can delete bookings")
+      );
+    }
+
     const booking = await Booking.findByIdAndDelete(id);
     if (!booking) return responseHandler.notFound(res, "Booking not found");
-    return responseHandler.ok(res, { message: "Booking deleted" });
+
+    try {
+      const dayKey = startOfDay(existing.date);
+      let freed = await Availability.updateOne(
+        {
+          mentor: existing.mentor,
+          date: dayKey,
+          "slots.bookingId": existing._id,
+          "slots.status": { $in: ["booked", "held"] },
+        },
+        {
+          $set: { "slots.$.status": "open" },
+          $unset: {
+            "slots.$.bookedBy": "",
+            "slots.$.bookingId": "",
+            "slots.$.holdUntil": "",
+          },
+        }
+      );
+
+      if (freed.matchedCount === 0 || freed.modifiedCount === 0) {
+        freed = await Availability.updateOne(
+          {
+            mentor: existing.mentor,
+            date: dayKey,
+            "slots.start": existing.start,
+            "slots.end": existing.end,
+            "slots.status": { $in: ["booked", "held"] },
+          },
+          {
+            $set: { "slots.$.status": "open" },
+            $unset: {
+              "slots.$.bookedBy": "",
+              "slots.$.bookingId": "",
+              "slots.$.holdUntil": "",
+            },
+          }
+        );
+        if (freed.modifiedCount === 0) {
+          console.warn(
+            "[deleteBooking] Slot not freed, please reconcile manually",
+            { bookingId: String(existing._id) }
+          );
+        }
+      }
+    } catch (e) {
+      console.error("[deleteBooking] error freeing availability:", e);
+    }
+
+    // Notify parties (upsert notifications)
+    try {
+      const dateLabel = existing.date.toLocaleDateString("en-US");
+      const recipients = [existing.mentor, existing.mentee];
+      for (const rid of recipients) {
+        await Notification.updateOne(
+          {
+            userId: rid,
+            deduplicationKey: `booking:${existing._id}:deleted:${rid}`,
+          },
+          {
+            $setOnInsert: {
+              userId: new mongoose.Types.ObjectId(rid),
+              type: "booking.deleted",
+              title: "Booking has been deleted",
+              body: `Booking ${existing.start}–${existing.end} (${dateLabel}) has been deleted by admin`,
+              data: {
+                bookingId: existing._id.toString(),
+                mentorId: String(existing.mentor),
+                menteeId: String(existing.mentee),
+              },
+              sourceType: "booking",
+              sourceId: existing._id.toString(),
+              deliverAt: new Date(),
+              deduplicationKey: `booking:${existing._id}:deleted:${rid}`,
+              createdAt: new Date(),
+            },
+          },
+          { upsert: true }
+        );
+      }
+    } catch (e) {
+      if (e?.code !== 11000) console.error("[notification delete] error:", e);
+    }
+
+    return responseHandler.ok(res, { message: "Booking deleted", booking });
   } catch (err) {
-    responseHandler.error(res, err);
+    console.error("deleteBooking error:", err);
+    return responseHandler.error(res, err);
   }
 };
 
@@ -266,16 +441,21 @@ export const createBooking = async (req, res) => {
         "Missing required fields (mentor, date, start, end)"
       );
     }
-    if (!normalizeHHMM(start) || !normalizeHHMM(end) || start >= end) {
+    const ps = parseHHMMStrict(start);
+    const pe = parseHHMMStrict(end);
+    if (!ps || !pe || ps.minutes >= pe.minutes) {
       return responseHandler.badRequest(
         res,
         "Invalid time range (start/end must be HH:mm and start < end)"
       );
     }
+    const normStart = ps.hhmm;
+    const normEnd = pe.hhmm;
+
     if (mentor === mentee) {
       return responseHandler.badRequest(
         res,
-        "Mentor và mentee không thể là cùng một người"
+        "Mentor and mentee cannot be the same person"
       );
     }
 
@@ -303,104 +483,132 @@ export const createBooking = async (req, res) => {
       mentor,
       date: { $gte: startOfDay(day), $lte: endOfDay(day) },
       status: { $in: ["pending", "active"] },
-      start: { $lt: end },
-      end: { $gt: start },
+      start: { $lt: normEnd },
+      end: { $gt: normStart },
     }).lean();
+
+    const menteeConflict = await Booking.findOne({
+      mentee,
+      date: { $gte: startOfDay(day), $lte: endOfDay(day) },
+      status: { $in: ["pending", "active"] },
+      start: { $lt: normEnd },
+      end: { $gt: normStart },
+    }).lean();
+    if (menteeConflict)
+      return responseHandler.badRequest(
+        res,
+        "You already have a booking that overlaps this time"
+      );
 
     if (conflict) {
       return responseHandler.badRequest(res, "Booking conflict detected");
     }
 
+    if (isNaN(day.getTime())) {
+      return responseHandler.badRequest(res, "Invalid date");
+    }
+
     const dayKey = new Date(day);
     dayKey.setHours(0, 0, 0, 0);
-    const avail = await Availability.findOneAndUpdate(
-      {
-        mentor,
-        date: dayKey,
-        "slots.start": start,
-        "slots.end": end,
-        "slots.status": "open",
-      },
-      {
-        $set: {
-          "slots.$.status": "booked",
-          "slots.$.bookedBy": mentee,
-        },
-      },
-      { new: true }
-    );
 
-    if (!avail) {
-      return responseHandler.badRequest(
-        res,
-        "Selected time slot is not available"
-      );
-    }
-
-    const booking = await Booking.create({
-      relationship,
-      mentor,
-      mentee,
-      date: dayKey,
-      start,
-      end,
-      notes,
-      status: "pending",
-    });
-
-    await Availability.updateOne(
-      { _id: avail._id, "slots.start": start, "slots.end": end },
-      { $set: { "slots.$.bookingId": booking._id } }
-    );
-
-    const menteeName =
-      `${menteeExists.firstName} ${menteeExists.lastName}`.trim();
-
+    let slotLocked = false;
+    let avail = null;
     try {
-      await Notification.create({
-        userId: new mongoose.Types.ObjectId(mentor),
-        type: "booking.requested",
-        title: `New booking requested by ${menteeName}`,
-        body: `${menteeName}: ${start} - ${end} on ${dayKey.toLocaleDateString(
-          "vi-VN"
-        )}`,
-        data: {
-          bookingId: booking._id.toString(),
-          mentorId: mentor,
-          menteeId: mentee,
-          menteeName,
-          startAt: new Date(
-            new Date(day).setHours(
-              Number(start.slice(0, 2)),
-              Number(start.slice(3)),
-              0,
-              0
-            )
-          ),
-          endAt: new Date(
-            new Date(day).setHours(
-              Number(end.slice(0, 2)),
-              Number(end.slice(3)),
-              0,
-              0
-            )
-          ),
+      avail = await Availability.findOneAndUpdate(
+        {
+          mentor,
+          date: dayKey,
+          "slots.start": normStart,
+          "slots.end": normEnd,
+          "slots.status": "open",
         },
-        sourceType: "booking",
-        sourceId: booking._id.toString(),
-        deliverAt: new Date(),
-        deduplicationKey: `${booking._id.toString()}:requested`,
-      });
-    } catch (err) {
-      if (err?.code === 11000) {
-        console.error("[Notification] Duplicate notification:", err);
+        {
+          $set: {
+            "slots.$.status": "booked",
+            "slots.$.bookedBy": mentee,
+          },
+        },
+        { new: true }
+      );
+      if (!avail) {
+        return responseHandler.badRequest(
+          res,
+          "Selected time slot is not available"
+        );
       }
-    }
+      slotLocked = true;
 
-    return responseHandler.ok(res, {
-      message: "Booking created successfully",
-      booking,
-    });
+      // Create booking
+      const booking = await Booking.create({
+        relationship,
+        mentor,
+        mentee,
+        date: dayKey,
+        start: normStart,
+        end: normEnd,
+        notes,
+        status: "pending",
+      });
+
+      await Availability.updateOne(
+        { _id: avail._id, "slots.start": normStart, "slots.end": normEnd },
+        { $set: { "slots.$.bookingId": booking._id } }
+      );
+
+      const menteeName =
+        [menteeExists.firstName, menteeExists.lastName]
+          .filter(Boolean)
+          .join(" ") || "Mentee";
+      const startAt = new Date(dayKey);
+      startAt.setHours(ps.h, ps.m, 0, 0);
+      const endAt = new Date(dayKey);
+      endAt.setHours(pe.h, pe.m, 0, 0);
+
+      try {
+        await Notification.create({
+          userId: new mongoose.Types.ObjectId(mentor),
+          type: "booking.requested",
+          title: `New booking requested by ${menteeName}`,
+          body: `${menteeName}: ${normStart} - ${normEnd} on ${dayKey.toLocaleDateString(
+            "en-US"
+          )}`,
+          data: {
+            bookingId: booking._id.toString(),
+            mentorId: mentor,
+            menteeId: mentee,
+            menteeName,
+            startAt,
+            endAt,
+          },
+          sourceType: "booking",
+          sourceId: booking._id.toString(),
+          deliverAt: new Date(),
+          deduplicationKey: `${booking._id.toString()}:requested`,
+        });
+      } catch (err) {
+        if (err?.code !== 11000) console.error("[Notification] error:", err);
+      }
+
+      return responseHandler.ok(res, {
+        message: "Booking created successfully",
+        booking,
+      });
+    } catch (e) {
+      if (slotLocked && avail) {
+        await Availability.updateOne(
+          { _id: avail._id, "slots.start": normStart, "slots.end": normEnd },
+          {
+            $set: { "slots.$.status": "open" },
+            $unset: {
+              "slots.$.bookedBy": "",
+              "slots.$.bookingId": "",
+              "slots.$.holdUntil": "",
+            },
+          }
+        );
+      }
+      throw e;
+    }
   } catch (err) {
     console.error(`Error creating booking: `, err);
     return responseHandler.error(res, err);
@@ -456,15 +664,18 @@ export const confirmBooking = async (req, res) => {
       return responseHandler.badRequest(res, "Invalid time window");
     }
 
+    const ps = parseHHMMStrict(existing.start);
+    const pe = parseHHMMStrict(existing.end);
+    if (!ps || !pe)
+      return responseHandler.badRequest(res, "Invalid time window");
+
     const startAt = new Date(existing.date);
-    const [hhS, mmS] = String(existing.start).split(":").map(Number);
-    startAt.setHours(hhS || 0, mmS || 0, 0, 0);
+    startAt.setHours(ps.h, ps.m, 0, 0);
     if (startAt <= new Date()) {
       return responseHandler.badRequest(res, "Cannot confirm past session");
     }
     const endAt = new Date(existing.date);
-    const [hhE, mmE] = String(existing.end).split(":").map(Number);
-    endAt.setHours(hhE || 0, mmE || 0, 0, 0);
+    endAt.setHours(pe.h, pe.m, 0, 0);
 
     const booking = await Booking.findOneAndUpdate(
       { _id: id, status: "pending" },
@@ -479,7 +690,7 @@ export const confirmBooking = async (req, res) => {
       );
     }
 
-    const dateLabel = booking.date.toLocaleDateString("vi-VN");
+    const dateLabel = booking.date.toLocaleDateString("en-US");
 
     const mentor = await User.findById(existing.mentor)
       .lean()
@@ -496,8 +707,8 @@ export const confirmBooking = async (req, res) => {
         $setOnInsert: {
           userId: new mongoose.Types.ObjectId(booking.mentee),
           type: "booking.confirmed",
-          title: "Lịch đã được xác nhận",
-          body: `${mentorName} đã xác nhận khung ${booking.start}–${booking.end} (${dateLabel})`,
+          title: "Booking has been confirmed",
+          body: `${mentorName} has confirmed the slot ${booking.start}–${booking.end} (${dateLabel})`,
           data: {
             bookingId: booking._id.toString(),
             mentorId: String(booking.mentor),
@@ -524,7 +735,7 @@ export const confirmBooking = async (req, res) => {
         $setOnInsert: {
           userId: new mongoose.Types.ObjectId(booking.mentor),
           type: "booking.active",
-          title: "Bạn đã xác nhận lịch hẹn",
+          title: "You have confirmed the booking",
           body: `${booking.start}–${booking.end} (${dateLabel})`,
           data: {
             bookingId: booking._id.toString(),
