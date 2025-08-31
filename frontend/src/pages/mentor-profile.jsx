@@ -28,6 +28,7 @@ const MentorProfile = () => {
   useEffect(() => {
     // Check token
     const token =
+      sessionStorage.getItem("actkn") || localStorage.getItem("actkn") || 
       sessionStorage.getItem("token") || localStorage.getItem("token");
     const userStr =
       sessionStorage.getItem("user") || localStorage.getItem("user");

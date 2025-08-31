@@ -57,21 +57,38 @@ export const sendVerificationEmail = async (email, verifyKey, userName) => {
 
 export const verifyEmail = async (req, res) => {
   try {
-    const { email, verifyKey } = req.query;
+    // Sử dụng validatedQuery thay vì query để tránh lỗi read-only
+    const { email, verifyKey } = req.validatedQuery || req.query;
+    
+    // Kiểm tra cả email và verifyKey
     const user = await User.findOne({
       email,
+      verifyKey,
+      isVerified: false, // Chỉ verify user chưa được verify
     });
+    
     if (!user)
       return responseHandler.badRequest(
         res,
         "Liên kết xác thực không hợp lệ hoặc đã được sử dụng."
       );
 
+    // Kiểm tra xem verifyKey có hết hạn không (nếu có)
+    if (user.verifyKeyExpires && user.verifyKeyExpires < Date.now()) {
+      return responseHandler.badRequest(
+        res,
+        "Liên kết xác thực đã hết hạn. Vui lòng yêu cầu gửi lại email xác thực."
+      );
+    }
+
+    // Cập nhật trạng thái verified
     user.isVerified = true;
     user.verifyKey = "";
     user.verifyKeyExpires = undefined;
 
     await user.save();
+
+    console.log(`User ${user.email} verified successfully. isVerified: ${user.isVerified}`);
 
     const token = jwt.sign(
       { id: user._id, role: user.role },
