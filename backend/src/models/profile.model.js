@@ -36,7 +36,7 @@ const ProfileSchema = new mongoose.Schema(
     // Social Links (consolidated)
     links: {
       website: { type: String, default: "" },
-      X: { type: String, default: "" },
+      twitter: { type: String, default: "" },
       linkedin: { type: String, default: "" },
       github: { type: String, default: "" },
       youtube: { type: String, default: "" },

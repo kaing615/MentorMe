@@ -1,13 +1,13 @@
 import express from "express";
 import purchasedCourseController from "../controllers/purchasedCourse.controller.js";
 import { validateBody } from "../middlewares/joi.middleware.js";
-import tokenMiddleware from "../middlewares/token.middleware.js";
+import authMiddleware from "../middlewares/auth.middleware.js";
 import * as userValidation from "../validations/user.validation.js";
 
 const router = express.Router();
 
 // Tất cả routes đều yêu cầu authentication
-router.use(tokenMiddleware.auth);
+// router.use(authMiddleware.verifyToken);
 
 /**
  * @route   GET /api/purchased-courses

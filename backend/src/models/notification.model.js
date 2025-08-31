@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 import mongoose, { Schema, version } from "mongoose";
+=======
+import mongoose, { version } from "mongoose";
+>>>>>>> 320758f58565f1339e2012aa3e2883b8adb53cc1
 
 const NotificationSchema = mongoose.Schema(
     {
@@ -27,4 +31,8 @@ NotificationSchema.index(
 
 const Notification = mongoose.model("Notification", NotificationSchema);
 
+<<<<<<< HEAD
 export default Notification;
+=======
+export default Notification;
+>>>>>>> 320758f58565f1339e2012aa3e2883b8adb53cc1

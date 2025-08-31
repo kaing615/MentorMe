@@ -15,12 +15,12 @@ const SlotSchema = new mongoose.Schema({
 }, { _id: true });
 
 const AvailabilitySchema = new mongoose.Schema({
-  mentor: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, index: true },
-  date:   { type: Date, required: true, index: true }, 
-  timezone: { type: String, default: "Asia/Ho_Chi_Minh" },
-  slots: [SlotSchema],
-}, { timestamps: true });
-
-AvailabilitySchema.index({ mentor: 1, date: 1 }, { unique: true }); 
-
-export default mongoose.model("Availability", AvailabilitySchema);
+  mentor: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+  date: { type: Date, required: true },
+  slots: [
+    {
+      start: { type: String, required: true },
+      end: { type: String, required: true },
+    },
+  ],
+});

@@ -1,7 +1,9 @@
 import axios from "axios";
 import queryString from "query-string";
 
-const baseURL = `http://localhost:4000/api/v1`;
+const raw = import.meta.env.VITE_API_URL || "http://localhost:4000";
+const base = raw.replace(/\/$/, ""); // bỏ dấu / cuối nếu có
+const baseURL = `${base}/api/v1`;    // ✅ luôn có /api/v1
 
 const publicClient = axios.create({
     baseURL,
@@ -38,4 +40,4 @@ publicClient.interceptors.response.use(
     }
 );
 
-export default publicClient;
+export default privateClient;

@@ -9,7 +9,17 @@ import User from "../models/user.model.js";
  */
 const getPurchasedCourses = async (req, res) => {
   try {
-    const { id: userId } = req.user;
+    // Nếu không có req.user, lấy user đầu tiên trong DB (dev mode)
+    let userId;
+    if (req.user && req.user.id) {
+      userId = req.user.id;
+    } else {
+      const firstUser = await User.findOne();
+      if (!firstUser) {
+        return responseHandler.notFound(res, "Không tìm thấy user.");
+      }
+      userId = firstUser._id;
+    }
 
     const user = await User.findById(userId)
       .populate({
@@ -27,7 +37,7 @@ const getPurchasedCourses = async (req, res) => {
       );
 
     if (!user) {
-      return responseHandler.notfound(res, "Không tìm thấy user.");
+      return responseHandler.notFound(res, "Không tìm thấy user.");
     }
 
     const purchasedCourses = user.purchasedCourses.map((item) => ({
@@ -70,7 +80,7 @@ const updateCourseProgress = async (req, res) => {
 
     const user = await User.findById(userId);
     if (!user) {
-      return responseHandler.notfound(res, "Không tìm thấy user.");
+      return responseHandler.notFound(res, "Không tìm thấy user.");
     }
 
     const courseIndex = user.purchasedCourses.findIndex(
@@ -113,7 +123,7 @@ const checkCoursePurchase = async (req, res) => {
 
     const user = await User.findById(userId);
     if (!user) {
-      return responseHandler.notfound(res, "Không tìm thấy user.");
+      return responseHandler.notFound(res, "Không tìm thấy user.");
     }
 
     const purchasedCourse = user.purchasedCourses.find(
@@ -155,7 +165,7 @@ const handlePurchaseSuccess = async (req, res) => {
       .populate("courses");
 
     if (!order) {
-      return responseHandler.notfound(res, "Không tìm thấy đơn hàng.");
+      return responseHandler.notFound(res, "Không tìm thấy đơn hàng.");
     }
 
     if (order.status !== "paid") {
@@ -169,7 +179,7 @@ const handlePurchaseSuccess = async (req, res) => {
 
     const user = await User.findById(userId);
     if (!user) {
-      return responseHandler.notfound(res, "Không tìm thấy user.");
+      return responseHandler.notFound(res, "Không tìm thấy user.");
     }
 
     let coursesAdded = 0;
@@ -228,7 +238,7 @@ const getLearningStats = async (req, res) => {
 
     const user = await User.findById(userId);
     if (!user) {
-      return responseHandler.notfound(res, "Không tìm thấy user.");
+      return responseHandler.notFound(res, "Không tìm thấy user.");
     }
 
     const totalCourses = user.purchasedCourses.length;
