@@ -373,7 +373,7 @@ components:
               type: boolean
               example: true
 
-              # =========================
+    # =========================
     # BOOKING SCHEMAS
     # =========================
     Booking:
@@ -494,6 +494,153 @@ components:
           example: "Booking confirmed"
         booking:
           $ref: "#/components/schemas/Booking"
+
+    MessageAttachment:
+      type: object
+      properties:
+        url:
+          type: string
+          format: uri
+          example: "https://cdn.example.com/files/abc.png"
+        name:
+          type: string
+          example: "screenshot.png"
+        type:
+          type: string
+          example: "image/png"
+
+    Message:
+      type: object
+      properties:
+        _id:
+          type: string
+          example: "66d21a3e9d3b5d9fef123456"
+        sender:
+          type: string
+          description: ObjectId của người gửi
+          example: "66c9a8a2b1f0b2f4b9a1c300"
+        receiver:
+          type: string
+          description: ObjectId của người nhận
+          example: "66c9a8a2b1f0b2f4b9a1c301"
+        messageType:
+          type: string
+          enum: [text, image, file]
+          example: "text"
+        attachments:
+          type: array
+          items:
+            $ref: "#/components/schemas/MessageAttachment"
+        status:
+          type: string
+          enum: [sent, delivered]
+          example: "sent"
+        content:
+          type: string
+          example: "Xin chào mentor!"
+        sentAt:
+          type: string
+          format: date-time
+          example: "2025-08-31T07:15:00.000Z"
+        read:
+          type: boolean
+          example: false
+        readAt:
+          type: string
+          format: date-time
+          nullable: true
+          example: null
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    MessageSendRequest:
+      type: object
+      required: [receiver]
+      properties:
+        receiver:
+          type: string
+          description: ObjectId người nhận
+          example: "66c9a8a2b1f0b2f4b9a1c301"
+        messageType:
+          type: string
+          enum: [text, image, file]
+          default: text
+        content:
+          type: string
+          description: Bắt buộc nếu messageType = text
+          example: "Hello!"
+        attachments:
+          type: array
+          description: Bắt buộc nếu messageType ≠ text
+          items:
+            $ref: "#/components/schemas/MessageAttachment"
+
+    MessageListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Message"
+        nextCursor:
+          type: string
+          nullable: true
+          description: Con trỏ phân trang dạng "<ISO>_<ObjectId>"
+          example: "2025-08-31T07:15:00.000Z_66d21a3e9d3b5d9fef123456"
+
+    MessageMarkDeliveredRequest:
+      type: object
+      required: [ids]
+      properties:
+        ids:
+          type: array
+          items:
+            type: string
+          example: ["66d21a3e9d3b5d9fef123451", "66d21a3e9d3b5d9fef123452"]
+
+    MessageUpdateCountResponse:
+      type: object
+      properties:
+        matched:
+          type: integer
+          example: 5
+        modified:
+          type: integer
+          example: 5
+
+    MessageMarkReadRequest:
+      type: object
+      required: [peerId]
+      properties:
+        peerId:
+          type: string
+          description: ObjectId của đối tác hội thoại (người gửi các tin chưa đọc)
+          example: "66c9a8a2b1f0b2f4b9a1c301"
+
+    ConversationItem:
+      type: object
+      properties:
+        peerId:
+          type: string
+          description: ObjectId của đối tác hội thoại
+          example: "66c9a8a2b1f0b2f4b9a1c301"
+        unreadCount:
+          type: integer
+          example: 3
+        lastMessage:
+          $ref: "#/components/schemas/Message"
+
+    ConversationListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ConversationItem"
 
 paths:
   /user/signup:
@@ -1769,7 +1916,7 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
-                # =========================
+  # =========================
   # BOOKING ENDPOINTS
   # =========================
 
@@ -2020,3 +2167,175 @@ paths:
           description: Unauthorized
         "404":
           description: Không tìm thấy booking
+  /messages:
+    post:
+      tags: [Messages]
+      summary: Gửi tin nhắn
+      description: Gửi tin nhắn giữa 2 người dùng. Yêu cầu JWT.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MessageSendRequest"
+      responses:
+        "201":
+          description: Tạo tin nhắn thành công
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Message"
+        "200":
+          description: (Fallback) Server có thể trả 200 nếu không dùng created()
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Message"
+        "400":
+          description: Lỗi validation (receiver không hợp lệ, tự nhắn cho mình, thiếu content/attachments, messageType sai…)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+    get:
+      tags: [Messages]
+      summary: Lấy tin nhắn theo hội thoại (me ↔ peer)
+      description: Trả về danh sách tin nhắn và `nextCursor` để phân trang lùi. Yêu cầu JWT.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: peer
+          required: true
+          schema:
+            type: string
+            description: ObjectId của đối tác hội thoại
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+          description: Số bản ghi tối đa
+        - in: query
+          name: cursor
+          schema:
+            type: string
+          description: Con trỏ phân trang dạng "<ISO>_<ObjectId>"
+          example: "2025-08-31T07:15:00.000Z_66d21a3e9d3b5d9fef123456"
+      responses:
+        "200":
+          description: Lấy danh sách tin nhắn thành công
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageListResponse"
+        "400":
+          description: Peer không hợp lệ / cursor sai định dạng
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /messages/mark-delivered:
+    post:
+      tags: [Messages]
+      summary: Đánh dấu "delivered" cho các tin nhắn bạn vừa nhận
+      description: Chỉ áp dụng cho tin nhắn có `receiver = me` và `status = sent`. Yêu cầu JWT.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MessageMarkDeliveredRequest"
+      responses:
+        "200":
+          description: Cập nhật trạng thái thành công
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageUpdateCountResponse"
+        "400":
+          description: Không có ID hợp lệ
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /messages/mark-read:
+    post:
+      tags: [Messages]
+      summary: Đánh dấu "đã đọc" tất cả tin nhắn từ một peer → me
+      description: Cập nhật các tin có `sender = peerId` và `receiver = me` với `read = true, readAt = now`. Yêu cầu JWT.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MessageMarkReadRequest"
+      responses:
+        "200":
+          description: Cập nhật trạng thái đọc thành công
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageUpdateCountResponse"
+        "400":
+          description: peerId không hợp lệ
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /messages/conversations:
+    get:
+      tags: [Messages]
+      summary: Lấy danh sách hội thoại (gộp theo peer, kèm tin nhắn cuối)
+      description: Kết quả gồm `peerId`, `unreadCount`, và `lastMessage`. Yêu cầu JWT.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Lấy danh sách hội thoại thành công
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConversationListResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
