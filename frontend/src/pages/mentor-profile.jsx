@@ -613,7 +613,7 @@ const MentorProfile = () => {
       setLoading(true);
       setError(null);
     try {
-      const data = await profileApi(dispatch).getProfile();
+      const data = await profileApi();
       const profileData = data?.data;
       console.log("Profile API response:", profileData);
 

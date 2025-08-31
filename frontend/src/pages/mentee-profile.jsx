@@ -37,7 +37,7 @@ const MenteeProfile = () => {
       return;
     }
     if (user.role === "mentor") {
-      navigate("/mentor/profile");
+      navigate("/mentor/home");
       return;
     }
     if (user.role === "admin") {
