@@ -1,12 +1,9 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { IoArrowForward, IoCloudUpload, IoCheckmark } from "react-icons/io5";
 import { authApi } from "../api/modules/auth.api";
 import { toast } from "react-toastify";
-import { useNavigate } from "react-router-dom";
-import { MENTEE_PATH, MENTOR_PATH, PATH } from "../routes/path";
 
 const ApplyAsMentor = () => {
-  const navigate = useNavigate();
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
@@ -30,44 +27,6 @@ const ApplyAsMentor = () => {
   const [completedSteps, setCompletedSteps] = useState([]);
   const [errors, setErrors] = useState({});
   const [touched, setTouched] = useState({});
-
-  // Check if user is already logged in
-  useEffect(() => {
-    const checkAuthStatus = async () => {
-      const token = localStorage.getItem("actkn") || localStorage.getItem("token");
-      const user = localStorage.getItem("user");
-      const isLoggedIn = localStorage.getItem("isLoggedIn");
-      
-      if (token && user && isLoggedIn === "true") {
-        try {
-          const userData = JSON.parse(user);
-          
-          if (token.split('.').length === 3) {
-            // Redirect based on user role or stored userType
-            if (userData.role === "mentor" || userData.userType === "mentor") {
-              navigate(`${PATH.MENTOR}/${MENTOR_PATH.HOME}`, { replace: true });
-            } else {
-              navigate(`${PATH.MENTEE}${MENTEE_PATH.HOME}`, { replace: true });
-            }
-
-            toast.info("You are already logged in!");
-          } else {
-            // Invalid token format, clear storage
-            throw new Error("Invalid token format");
-          }
-        } catch (error) {
-          console.error("Error validating auth data:", error);
-          // Clear invalid data
-          localStorage.removeItem("user");
-          localStorage.removeItem("token");
-          localStorage.removeItem("actkn");
-          localStorage.removeItem("isLoggedIn");
-        }
-      }
-    };
-    
-    checkAuthStatus();
-  }, [navigate]);
 
   // Validate step 1 fields
   const validateStep1 = (validatePhoto = false) => {

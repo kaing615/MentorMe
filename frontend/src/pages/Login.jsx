@@ -33,44 +33,6 @@ const Login = () => {
     return () => clearTimeout(timeout);
   }, [dispatch]);
 
-  // Check if user is already logged in
-  useEffect(() => {
-    const checkAuthStatus = async () => {
-      const token = localStorage.getItem("actkn") || localStorage.getItem("token");
-      const user = localStorage.getItem("user");
-      const isLoggedIn = localStorage.getItem("isLoggedIn");
-      
-      if (token && user && isLoggedIn === "true") {
-        try {
-          const userData = JSON.parse(user);
-          
-          if (token.split('.').length === 3) {
-            // Redirect based on user role or stored userType
-            if (userData.role === "mentor" || userData.userType === "mentor") {
-              navigate(`${PATH.MENTOR}/${MENTOR_PATH.HOME}`, { replace: true });
-            } else {
-              navigate(`${PATH.MENTEE}${MENTEE_PATH.HOME}`, { replace: true });
-            }
-
-            toast.info("You are already logged in!");
-          } else {
-            // Invalid token format, clear storage
-            throw new Error("Invalid token format");
-          }
-        } catch (error) {
-          console.error("Error validating auth data:", error);
-          // Clear invalid data
-          localStorage.removeItem("user");
-          localStorage.removeItem("token");
-          localStorage.removeItem("actkn");
-          localStorage.removeItem("isLoggedIn");
-        }
-      }
-    };
-    
-    checkAuthStatus();
-  }, [navigate]);
-
   // Validation functions
   const validateEmail = (email) => {
     if (!email.trim()) return "Email is required";
@@ -140,11 +102,11 @@ const Login = () => {
 
       toast.success("Đăng nhập thành công!");
 
-      // Store user data in localStorage and Redux store
+      // Store user data in sessionStorage and Redux store
       if (response.data?.user) {
         const userData = response.data.user;
-        localStorage.setItem("user", JSON.stringify(userData));
-        localStorage.setItem("isLoggedIn", "true"); // Set login status in localStorage for header
+        sessionStorage.setItem("user", JSON.stringify(userData));
+        sessionStorage.setItem("isLoggedIn", "true"); // Set login status in sessionStorage for header
         
         // Dispatch user data to Redux store with isLoggedIn flag
         dispatch(setUser({
@@ -154,7 +116,7 @@ const Login = () => {
         }));
       }
       if (response.data?.token) {
-        localStorage.setItem("actkn", response.data.token);
+        sessionStorage.setItem("token", response.data.token);
       }
 
       // Navigate based on user role or selected type
