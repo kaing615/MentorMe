@@ -12,20 +12,28 @@ const Header = () => {
   const location = useLocation();
   const dispatch = useDispatch();
 
-  // Get user data from Redux store
+  // Get user data from Redux store and localStorage
   const user = useSelector((state) => state.user);
-  const isLoggedIn = user?.isLoggedIn || false;
+  const localLoggedIn = localStorage.getItem("isLoggedIn") === "true";
+  const localUser = localStorage.getItem("user");
+  const localToken = localStorage.getItem("actkn") || localStorage.getItem("token");
+  
+  // Improved authentication check - persistent across tabs and sessions
+  const isLoggedIn = (user?.isLoggedIn && localLoggedIn && localUser && localToken) || 
+                     (localLoggedIn && localUser && localToken && !user?.isLoggedIn);
+
+  // Khởi tạo trạng thái header từ localStorage khi component mount
+  useEffect(() => {
+    const savedMentorMode = localStorage.getItem("mentorMode");
+    if (savedMentorMode !== null) {
+      setShowCategories(savedMentorMode === "true");
+    }
+  }, []);
 
   useEffect(() => {
-    // Khi user thay đổi (đăng nhập/đăng xuất), cập nhật mentorMode đúng role
-    if (user && user.role) {
-      localStorage.setItem(
-        "mentorMode",
-        user.role === "mentor" ? "true" : "false"
-      );
-      setShowCategories(user.role === "mentor");
-    } else {
-      // Nếu chưa đăng nhập, giữ logic cũ cho trang auth
+    // Chỉ thay đổi giao diện khi user logout hoặc chưa đăng nhập
+    if (!isLoggedIn) {
+      // Nếu chưa đăng nhập, set dựa trên current path
       const currentPath = location.pathname;
       const shouldShowCategories =
         currentPath.includes("/auth/signin") ||
@@ -33,14 +41,17 @@ const Header = () => {
       setShowCategories(shouldShowCategories);
       localStorage.setItem("mentorMode", shouldShowCategories.toString());
     }
+    // Nếu đã đăng nhập, duy trì trạng thái hiện tại (không thay đổi)
+    
     const handleStorageChange = (e) => {
-      if (e.key === "mentorMode") {
+      if (e.key === "mentorMode" && !isLoggedIn) {
+        // Chỉ cập nhật khi chưa đăng nhập
         setShowCategories(e.newValue === "true");
       }
     };
     window.addEventListener("storage", handleStorageChange);
     return () => window.removeEventListener("storage", handleStorageChange);
-  }, [location.pathname, user]);
+  }, [location.pathname, isLoggedIn]);
 
   const handleAPICall = (id, action) => {
     console.log(`API Call - ID: ${id}, Action: ${action}`);
@@ -49,7 +60,20 @@ const Header = () => {
   const handleLogout = () => {
     // Clear user data using Redux action (will also clear localStorage)
     dispatch(clearUser());
+    // Clear all authentication related data from both localStorage and sessionStorage
+    localStorage.removeItem("user");
+    localStorage.removeItem("token");
+    localStorage.removeItem("actkn");
+    localStorage.removeItem("isLoggedIn");
+    sessionStorage.removeItem("user");
+    sessionStorage.removeItem("token");
+    sessionStorage.removeItem("actkn");
+    sessionStorage.removeItem("isLoggedIn");
+    // Reset header về trạng thái mặc định khi đăng xuất
+    setShowCategories(false);
+    localStorage.setItem("mentorMode", "false");
     navigate("/");
+    toast.success("Đăng xuất thành công!");
   };
 
   return (
@@ -147,7 +171,7 @@ const Header = () => {
                   onClick={handleLogout}
                   title="Click to Logout"
                 >
-                  {user?.firstName?.charAt(0).toUpperCase() || "U"}
+                  {(user?.firstName || (localUser ? JSON.parse(localUser).firstName : null))?.charAt(0).toUpperCase() || "U"}
                 </div>
               </div>
             )}
