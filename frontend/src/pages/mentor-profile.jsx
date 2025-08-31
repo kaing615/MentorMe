@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { toast } from "react-toastify";
 import { FaUserCircle } from "react-icons/fa";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, useLocation} from "react-router-dom";
 import { PATH, MENTOR_PATH } from "../routes/path";
 import youtubeImg from "../assets/youtube.png";
 import profileApi from "../api/modules/profile.api";
@@ -10,7 +10,7 @@ import linkedinImg from "../assets/linkedin.png";
 import twitterImg from "../assets/twitter.png";
 import googleImg from "../assets/google.png";
 import courseApi from "../api/modules/course.api";
-
+import { useDispatch, useSelector } from "react-redux";
 
 
 function capitalizeWords(str) {
@@ -605,94 +605,82 @@ const MentorProfile = () => {
     }
   }, []);
 
+  const dispatch = useDispatch();
+
   // Lấy thông tin profile khi mount
   useEffect(() => {
     const fetchProfileAndCourses = async () => {
       setLoading(true);
       setError(null);
-      try {
-        const data = await profileApi.getProfile();
-        const profileData = data?.data;
-        console.log("Profile API response:", profileData);
-        if (!profileData || !profileData.user) {
-          setError(
-            "Không nhận được dữ liệu profile từ API hoặc thiếu thông tin user."
-          );
-          setProfile(null);
-          setFormData({
-            userName: "",
-            firstName: "",
-            lastName: "",
-            jobTitle: "",
-            category: "",
-            bio: "",
-            mentorReason: "",
-            headline: "",
-            website: "",
-            twitter: "",
-            linkedin: "",
-            youtube: "",
-            facebook: "",
-          });
-          setProfileImage(null);
-          setAllCourses([]);
-        } else {
-          setProfile(profileData);
-          setFormData({
-            userName: profileData?.user?.userName || "",
-            firstName: profileData?.user?.firstName || "",
-            lastName: profileData?.user?.lastName || "",
-            bio: profileData?.bio || profileData?.user?.bio || "",
-            jobTitle:
-              profileData?.jobTitle || profileData?.user?.jobTitle || "",
-            category:
-              profileData?.category || profileData?.user?.category || "",
-            skills:
-              Array.isArray(profileData?.skills) &&
-              profileData.skills.length > 0
-                ? profileData.skills
-                : Array.isArray(profileData?.user?.skills)
-                ? profileData.user.skills
-                : [],
-            experience:
-              profileData?.experience || profileData?.user?.experience || "",
-            location:
-              profileData?.location || profileData?.user?.location || "",
-            mentorReason:
-              profileData?.mentorReason ||
-              profileData?.user?.mentorReason ||
-              "",
-            greatestAchievement:
-              profileData?.greatestAchievement ||
-              profileData?.user?.greatestAchievement ||
-              "",
-            introVideo:
-              profileData?.introVideo || profileData?.user?.introVideo || "",
-            headline:
-              profileData?.headline || profileData?.user?.headline || "",
-            website: profileData?.links?.website || "",
-            twitter: profileData?.links?.X || "",
-            linkedin: profileData?.links?.linkedin || "",
-            youtube: profileData?.links?.youtube || "",
-            facebook: profileData?.links?.facebook || "",
-          });
-          setProfileImage(profileData?.user?.avatarUrl || null);
-          // Lấy đúng danh sách khóa học của mentor
-          if (profileData?.user?._id) {
-            const mentorId = profileData.user._id;
-            const courses = await courseApi.getCoursesByMentor(mentorId);
-            setAllCourses(courses);
-          }
-        }
-      } catch (error) {
-        setError("Không thể tải thông tin profile hoặc courses");
+    try {
+      const data = await profileApi(dispatch).getProfile();
+      const profileData = data?.data;
+      console.log("Profile API response:", profileData);
+
+      if (!profileData || !profileData.user) {
+        setError("Không nhận được dữ liệu profile từ API hoặc thiếu thông tin user.");
         setProfile(null);
+        setFormData({
+          userName: "",
+          firstName: "",
+          lastName: "",
+          jobTitle: "",
+          category: "",
+          bio: "",
+          mentorReason: "",
+          headline: "",
+          website: "",
+          twitter: "",
+          linkedin: "",
+          youtube: "",
+          facebook: "",
+        });
+        setProfileImage(null);
         setAllCourses([]);
+      } else {
+        const user = profileData.user;
+        const profile = profileData.profile || {};
+        setProfile(profileData);
+        setFormData({
+          userName: user?.userName || "",
+          firstName: user?.firstName || "",
+          lastName: user?.lastName || "",
+          bio: profile?.bio || user?.bio || "",
+          jobTitle: profile?.jobTitle || user?.jobTitle || "",
+          category: profile?.category || user?.category || "",
+          skills: Array.isArray(profile?.skills) && profile.skills.length > 0
+            ? profile.skills
+            : Array.isArray(user?.skills)
+            ? user.skills
+            : [],
+          experience: profile?.experience || user?.experience || "",
+          location: profile?.location || user?.location || "",
+          mentorReason: profile?.mentorReason || user?.mentorReason || "",
+          greatestAchievement: profile?.greatestAchievement || user?.greatestAchievement || "",
+          introVideo: profile?.introVideo || user?.introVideo || "",
+          headline: profile?.headline || user?.headline || "",
+          website: profile?.links?.website || "",
+          twitter: profile?.links?.X || "",
+          linkedin: profile?.links?.linkedin || "",
+          youtube: profile?.links?.youtube || "",
+          facebook: profile?.links?.facebook || "",
+        });
+        setProfileImage(user?.avatarUrl || null);
+        if (user?._id) {
+          const mentorId = user._id;
+          const courses = await courseApi.getCoursesByMentor(mentorId);
+          setAllCourses(courses);
+        }
       }
-      setLoading(false);
-    };
-    fetchProfileAndCourses();
-  }, []);
+    } catch (error) {
+      setError("Không thể tải thông tin profile hoặc courses");
+      setProfile(null);
+      setAllCourses([]);
+    }
+    setLoading(false);
+  };
+  fetchProfileAndCourses();
+}, []);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [formData, setFormData] = useState({
