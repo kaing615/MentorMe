@@ -7,8 +7,13 @@ import nodemailer from "nodemailer";
 import responseHandler from "../handlers/response.handler.js";
 import User from "../models/user.model.js";
 import { uploadImage } from "../utils/cloudinary.js";
+import profileUtils from "../utils/profile.utils.js";
 
 dotenv.config();
+
+const isTestEnvironment = () => {
+  return process.env.NODE_ENV === "test" || process.env.NODE_ENV === "development";
+};
 
 const transport = nodemailer.createTransport({
   host: process.env.MAIL_HOST,
@@ -129,7 +134,7 @@ export const googleAuth = async (req, res) => {
         firstName,
         lastName,
         avatar,
-        role: Array.isArray(role) ? role : [role],
+        role: Array.isArray(role) ? role[0] : role,
         isVerified: true,
       });
       await user.save();
@@ -202,6 +207,7 @@ export const signUp = async (req, res) => {
       userName,
       password: hashedPassword,
       salt,
+      role: "mentee",
       isVerified: false,
       isDeleted: false,
       verifyKey: isTestEnv ? "" : generateToken(),
@@ -294,6 +300,11 @@ export const signUpMentor = async (req, res) => {
     // Check test environment once
     const isTestEnv = isTestEnvironment();
 
+    // Debug: Log received data
+    console.log('=== SignUpMentor Debug ===');
+    console.log('req.body:', req.body);
+    console.log('req.file:', req.file ? { originalname: req.file.originalname, mimetype: req.file.mimetype } : 'No file');
+
     const {
       userName,
       email,
@@ -356,7 +367,7 @@ export const signUpMentor = async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    // Tạo User với chỉ authentication fields
+    // Tạo User với đầy đủ thông tin
     const user = new User({
       userName,
       email,
@@ -366,31 +377,40 @@ export const signUpMentor = async (req, res) => {
       salt,
       avatarUrl,
       avatarPublicId,
-      role: ["mentor"],
+      role: "mentor",
       isVerified: false,
+      // Thông tin mentor
+      jobTitle,
+      location,
+      category,
+      skills: typeof skills === 'string' ? skills.split(',').map(s => s.trim()).filter(s => s) : (Array.isArray(skills) ? skills : []),
+      bio,
+      linkedinUrl: req.body.linkedinUrl, // Frontend gửi linkedinUrl thay vì links
+      introVideo,
+      mentorReason,
+      greatestAchievement,
       // ... các trường còn lại
       ...rest,
     });
 
     await user.save();
 
-    // Tự động tạo Profile với thông tin mentor
+    // Tự động tạo Profile với thông tin mentor (không trùng lặp với User)
     await profileUtils.createProfileForNewUser(
       user._id,
       {
-        jobTitle,
-        location,
-        category,
-        skills,
-        bio,
-        mentorReason,
-        greatestAchievement,
-        headline,
-        experience,
-        introVideo,
-        languages,
-        timezone,
-        links,
+        headline: req.body.headline || '',
+        experience: req.body.experience || '',
+        languages: req.body.languages || [],
+        timezone: req.body.timezone || '',
+        links: {
+          linkedin: req.body.linkedinUrl || '',
+          website: req.body.website || '',
+          github: req.body.github || '',
+          youtube: req.body.youtube || '',
+          facebook: req.body.facebook || '',
+          X: req.body.X || '',
+        },
       },
       "mentor"
     );

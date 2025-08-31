@@ -2,8 +2,8 @@ import axios from "axios";
 // Thêm interceptor để tự động gửi token cho mọi request
 axios.interceptors.request.use((config) => {
   const token =
-    sessionStorage.getItem("token") ||
-    sessionStorage.getItem("actkn") ||
+    localStorage.getItem("token") ||
+    localStorage.getItem("actkn") ||
     localStorage.getItem("token");
   console.log("[Axios Interceptor] Token gửi đi:", token);
   if (token) {
