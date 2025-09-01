@@ -12,13 +12,9 @@ import profileUtils from "../utils/profile.utils.js";
 dotenv.config();
 
 const isTestEnvironment = () => {
-<<<<<<< HEAD
-  return process.env.NODE_ENV === "test" || process.env.NODE_ENV === "development";
-=======
   return (
     process.env.NODE_ENV === "test" || process.env.NODE_ENV === "development"
   );
->>>>>>> 316df926c8f121dd092dd5a7cbbc8234278e0af9
 };
 
 const transport = nodemailer.createTransport({
@@ -342,11 +338,6 @@ export const signUpMentor = async (req, res) => {
     const isTestEnv = isTestEnvironment();
 
     // Debug: Log received data
-<<<<<<< HEAD
-    console.log('=== SignUpMentor Debug ===');
-    console.log('req.body:', req.body);
-    console.log('req.file:', req.file ? { originalname: req.file.originalname, mimetype: req.file.mimetype } : 'No file');
-=======
     console.log("=== SignUpMentor Debug ===");
     console.log("req.body:", req.body);
     console.log(
@@ -355,7 +346,6 @@ export const signUpMentor = async (req, res) => {
         ? { originalname: req.file.originalname, mimetype: req.file.mimetype }
         : "No file"
     );
->>>>>>> 316df926c8f121dd092dd5a7cbbc8234278e0af9
 
     const {
       userName,
@@ -431,19 +421,6 @@ export const signUpMentor = async (req, res) => {
       avatarPublicId,
       role: "mentor",
       isVerified: false,
-<<<<<<< HEAD
-      // Thông tin mentor
-      jobTitle,
-      location,
-      category,
-      skills: typeof skills === 'string' ? skills.split(',').map(s => s.trim()).filter(s => s) : (Array.isArray(skills) ? skills : []),
-      bio,
-      linkedinUrl: req.body.linkedinUrl, // Frontend gửi linkedinUrl thay vì links
-      introVideo,
-      mentorReason,
-      greatestAchievement,
-      // ... các trường còn lại
-=======
       jobTitle,
       location,
       category,
@@ -465,29 +442,11 @@ export const signUpMentor = async (req, res) => {
       experience,
       languages,
       timezone,
->>>>>>> 316df926c8f121dd092dd5a7cbbc8234278e0af9
       ...rest,
     });
 
     await user.save();
 
-<<<<<<< HEAD
-    // Tự động tạo Profile với thông tin mentor (không trùng lặp với User)
-    await profileUtils.createProfileForNewUser(
-      user._id,
-      {
-        headline: req.body.headline || '',
-        experience: req.body.experience || '',
-        languages: req.body.languages || [],
-        timezone: req.body.timezone || '',
-        links: {
-          linkedin: req.body.linkedinUrl || '',
-          website: req.body.website || '',
-          github: req.body.github || '',
-          youtube: req.body.youtube || '',
-          facebook: req.body.facebook || '',
-          X: req.body.X || '',
-=======
     // Đồng bộ đầy đủ dữ liệu sang Profile
     await profileUtils.createProfileForNewUser(
       user._id,
@@ -511,7 +470,6 @@ export const signUpMentor = async (req, res) => {
           youtube: req.body.youtube || "",
           facebook: req.body.facebook || "",
           X: req.body.X || "",
->>>>>>> 316df926c8f121dd092dd5a7cbbc8234278e0af9
         },
       },
       "mentor"

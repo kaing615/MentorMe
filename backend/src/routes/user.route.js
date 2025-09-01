@@ -49,12 +49,9 @@ if (typeof U.signUpMentor !== "function") throw new Error("user.controller.js is
 router.post("/signup", validate(signUpSchema), U.signUp);
 router.post("/signin", validate(signInSchema), U.signIn);
 router.post("/signupMentor", upload.single("avatar"), validate(signUpMentorSchema), U.signUpMentor);
-<<<<<<< HEAD
-=======
 
 if (typeof U.verifyEmail === "function")
   router.get("/verify", validate(verifyEmailSchema), U.verifyEmail);
->>>>>>> 316df926c8f121dd092dd5a7cbbc8234278e0af9
 
 if (typeof U.resendEmail === "function")
   router.post("/resend-email", validate(resendEmailSchema), U.resendEmail);

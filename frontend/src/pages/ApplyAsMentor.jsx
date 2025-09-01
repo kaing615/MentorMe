@@ -1,9 +1,35 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { IoArrowForward, IoCloudUpload, IoCheckmark } from "react-icons/io5";
 import { authApi } from "../api/modules/auth.api";
 import { toast } from "react-toastify";
+import { useNavigate } from "react-router-dom";
+import { MENTEE_PATH, MENTOR_PATH, PATH } from "../routes/path";
 
 const ApplyAsMentor = () => {
+  const navigate = useNavigate();
+
+  // Check if user is already authenticated
+  useEffect(() => {
+    const token = sessionStorage.getItem("token");
+    const role = sessionStorage.getItem("role");
+    
+    if (token && role) {
+      // Redirect based on role
+      switch (role) {
+        case "mentee":
+          navigate(`/${MENTEE_PATH.HOME}`);
+          break;
+        case "mentor":
+          navigate(`${PATH.MENTOR}/${MENTOR_PATH.HOME}`);
+          break;
+        case "admin":
+          navigate(PATH.ADMIN);
+          break;
+        default:
+          navigate(PATH.MENTEE);
+      }
+    }
+  }, [navigate]);
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
