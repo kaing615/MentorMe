@@ -1,4 +1,6 @@
 import React from "react";
+import { Link } from "react-router-dom";
+import { PATH, PLATFORM_PATH } from "../../routes/path";
 import facebooklogo from "../../assets/facebook.png";
 import githublogo from "../../assets/github.png";
 import googlelogo from "../../assets/google.png";
@@ -31,19 +33,12 @@ const Footer = () => {
           <div className="font-bold mb-2">Get Help</div>
           <ul className="text-sm text-gray-300 space-y-1">
             <li>
-              <a href="#contact" className="hover:underline">
-                Contact Us
-              </a>
-            </li>
-            <li>
-              <a href="#articles" className="hover:underline">
-                Latest Articles
-              </a>
-            </li>
-            <li>
-              <a href="#faq" className="hover:underline">
-                FAQ
-              </a>
+              <Link 
+                to={`${PATH.PLATFORM}/${PLATFORM_PATH.HELP_REQUEST}`} 
+                className="hover:underline"
+              >
+                Help Request
+              </Link>
             </li>
           </ul>
         </div>

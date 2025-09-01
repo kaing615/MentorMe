@@ -1,10 +1,10 @@
 // screens/HomeScreen.jsx
 import React, { useRef, useEffect, useState } from "react";
 import { useDispatch } from "react-redux";
-import { IoStarOutline, IoStar } from "react-icons/io5";
 import { useNavigate } from "react-router-dom";
 
 import minatoImg from "../assets/minato.webp";
+import { IoStarOutline , IoStar } from "react-icons/io5";
 import oipImg from "../assets/OIP.webp";
 import GradImg from "../assets/grad.png";
 import NiggaImg from "../assets/nigga.png";
@@ -168,7 +168,7 @@ const HomeScreen = () => {
 
   const scrollCarouselBy = (ref, direction, itemSelector = "button") => {
     const container = ref.current;
-    if (!container) return;
+    if (!container) return; 
     const card = container.querySelector(itemSelector);
     let cardWidth = 320; // fallback
     let gap = 32;

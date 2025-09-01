@@ -23,6 +23,7 @@ const CourseSchema = new mongoose.Schema(
     numberOfRatings: { type: Number, default: 0 }, // Thêm numberOfRatings
     link: { type: String, required: true },
     lectures: { type: Number, required: true },
+    language: { type: String, required: true },
   },
   { timestamps: true }
 );

@@ -202,6 +202,7 @@ export const signUp = async (req, res) => {
       userName,
       password: hashedPassword,
       salt,
+      role: "mentee",
       isVerified: false,
       isDeleted: false,
       verifyKey: isTestEnv ? "" : generateToken(),
@@ -366,7 +367,7 @@ export const signUpMentor = async (req, res) => {
       salt,
       avatarUrl,
       avatarPublicId,
-      role: ["mentor"],
+      role: "mentor",
       isVerified: false,
       // ... các trường còn lại
       ...rest,

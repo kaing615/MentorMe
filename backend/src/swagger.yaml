@@ -8,7 +8,75 @@ info:
     email: support@mentorme.com
 
 servers:
-  - url: http://localhost:4000
+  - url: http://localhost:4000/api/v1
+    description: Development server
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+        userName:
+          type: string
+        firstName:
+          type: string
+        lastName:
+          type: string
+        email:
+          type: string
+        role:
+          type: string
+          enum: [mentor, mentee]
+        isVerified:
+          type: boolean
+
+    Profile:
+      type: object
+      properties:
+        id:
+          type: string
+        userId:
+          type: string
+        bio:
+          type: string
+        location:
+          type: string
+        avatarUrl:
+          type: string
+        links:
+          type: object
+        languages:
+          type: array
+          items:
+            type: string
+        timezone:
+          type: string
+
+    Error:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [error]
+        message:
+          type: string
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              field:
+                type: string
+              message:
+                type: string
 
 paths:
   /user/signup:
@@ -154,9 +222,20 @@ paths:
                   example: "Want to share knowledge"
                 greatestAchievement:
                   type: string
-                introVideo:
+                  description: Thành tựu lớn nhất
+                  example: "Led a successful startup"
+                location:
                   type: string
-                  format: uri
+                  description: Địa điểm (optional)
+                  example: "Ho Chi Minh City"
+                skills:
+                  type: string
+                  description: Kỹ năng (comma-separated, sẽ được parse thành array)
+                  example: "JavaScript,Node.js,React"
+                links:
+                  type: string
+                  description: Social links (JSON string, optional)
+                  example: '{"linkedin":"https://linkedin.com/in/mentor"}'
                 avatar:
                   type: string
                   format: binary
@@ -441,6 +520,17 @@ paths:
       responses:
         "200":
           description: Đặt lại mật khẩu thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "success"
+                  message:
+                    type: string
+                    example: "Đặt lại mật khẩu thành công!"
         "400":
           description: Token không hợp lệ hoặc đã hết hạn
           content:

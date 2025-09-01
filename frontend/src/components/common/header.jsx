@@ -1,19 +1,115 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate, useLocation, Outlet } from 'react-router-dom';
-import { IoSearch, IoCartOutline } from 'react-icons/io5';
-import { FaRegHeart, FaRegBell } from 'react-icons/fa';
-import { MdOutlineShoppingCart } from 'react-icons/md';
+import React, { useState, useEffect } from "react";
+import { useNavigate, useLocation, Outlet } from "react-router-dom";
+import { useDispatch, useSelector } from "react-redux";
+import { IoSearch, IoCartOutline } from "react-icons/io5";
+import { FaRegHeart, FaRegBell } from "react-icons/fa";
+import { MdOutlineShoppingCart } from "react-icons/md";
 
 const Header = () => {
   const [showCategories, setShowCategories] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [dropdowns, setDropdowns] = useState({
+    cart: false,
+    notifications: false,
+    profile: false,
+  });
+
+  // TODO: Replace with actual cart data from API
+  const [cartItems, setCartItems] = useState([
+    {
+      id: 1,
+      title: "Advanced React Development",
+      instructor: "Sarah Johnson",
+      price: 89.99,
+      originalPrice: 129.99,
+      image: "/api/placeholder/80/60",
+    },
+    {
+      id: 2,
+      title: "UI/UX Design Masterclass",
+      instructor: "Mike Chen",
+      price: 69.99,
+      originalPrice: 99.99,
+      image: "/api/placeholder/80/60",
+    },
+    {
+      id: 3,
+      title: "Full Stack JavaScript",
+      instructor: "Alex Turner",
+      price: 79.99,
+      originalPrice: 119.99,
+      image: "/api/placeholder/80/60",
+    },
+    {
+      id: 4,
+      title: "Python Data Science",
+      instructor: "Emma Davis",
+      price: 94.99,
+      originalPrice: 139.99,
+      image: "/api/placeholder/80/60",
+    },
+    {
+      id: 5,
+      title: "Machine Learning Basics",
+      instructor: "Robert Kim",
+      price: 109.99,
+      originalPrice: 159.99,
+      image: "/api/placeholder/80/60",
+    },
+    {
+      id: 6,
+      title: "Cloud Computing AWS",
+      instructor: "Lisa Wong",
+      price: 84.99,
+      originalPrice: 124.99,
+      image: "/api/placeholder/80/60",
+    },
+  ]);
+
+  // TODO: Replace with actual messages data from API
+  const [messages, setMessages] = useState([
+    {
+      id: 1,
+      sender: "John Smith",
+      avatar: "JS",
+      content:
+        "Great progress on your React project! Let's schedule a review session...",
+      time: "2 minutes ago",
+      isOnline: true,
+      isNew: true,
+    },
+    {
+      id: 2,
+      sender: "Emily Martinez",
+      avatar: "EM",
+      content:
+        "I've reviewed your design portfolio. Really impressive work! 🎨",
+      time: "1 hour ago",
+      isOnline: true,
+      isNew: true,
+    },
+    {
+      id: 3,
+      sender: "Michael Stone",
+      avatar: "MS",
+      content:
+        "Thank you for the JavaScript guidance. The concepts are much clearer now! 💡",
+      time: "3 hours ago",
+      isOnline: false,
+      isNew: true,
+    },
+  ]);
+
   const navigate = useNavigate();
   const location = useLocation();
   const dispatch = useDispatch();
   
   // Get user data from Redux store
   const user = useSelector((state) => state.user);
-  setIsLoggedIn(user?.isLoggedIn || false);
+
+  useEffect(() => {
+    setIsLoggedIn(user?.isLoggedIn || false);
+  }, [user?.isLoggedIn]);
 
   useEffect(() => {
     const currentPath = location.pathname;
@@ -22,17 +118,17 @@ const Header = () => {
       currentPath.includes("/auth/apply-as-men");
 
     setShowCategories(shouldShowCategories);
-    localStorage.setItem('mentorMode', shouldShowCategories.toString());
+    localStorage.setItem("mentorMode", shouldShowCategories.toString());
 
-    const loginStatus = localStorage.getItem('isLoggedIn');
-    setIsLoggedIn(loginStatus === 'true');
+    const loginStatus = localStorage.getItem("isLoggedIn");
+    setIsLoggedIn(loginStatus === "true");
 
     const handleStorageChange = (e) => {
       if (e.key === "mentorMode") {
         setShowCategories(e.newValue === "true");
       }
-      if (e.key === 'isLoggedIn') {
-        setIsLoggedIn(e.newValue === 'true');
+      if (e.key === "isLoggedIn") {
+        setIsLoggedIn(e.newValue === "true");
       }
     };
 
@@ -113,7 +209,7 @@ const Header = () => {
   const toggleLoginStatus = () => {
     const newStatus = !isLoggedIn;
     setIsLoggedIn(newStatus);
-    localStorage.setItem('isLoggedIn', newStatus.toString());
+    localStorage.setItem("isLoggedIn", newStatus.toString());
   };
 
   return (
@@ -126,7 +222,7 @@ const Header = () => {
             onClick={() => {
               localStorage.setItem("mentorMode", "false");
               setShowCategories(false);
-              navigate('/');
+              navigate("/");
             }}
           >
             MentorMe
@@ -432,12 +528,132 @@ const Header = () => {
                     </div>
                   )}
                 </div>
-                <div
-                  className="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center rounded-full bg-slate-700 text-white text-sm font-bold cursor-pointer select-none hover:bg-slate-600 transition-colors duration-200"
-                  onClick={() => handleAPICall('avatar-mentor-id', 'Avatar')}
-                  title="User Profile"
-                >
-                  V
+
+                {/* Profile Dropdown */}
+                <div className="relative dropdown-container">
+                  <div
+                    className="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center rounded-full bg-gradient-to-br from-slate-700 to-slate-800 text-white text-sm font-bold cursor-pointer select-none hover:from-slate-600 hover:to-slate-700 hover:scale-110 transition-all duration-300 shadow-lg"
+                    onClick={() => toggleDropdown("profile")}
+                  >
+                    V
+                  </div>
+                  {dropdowns.profile && (
+                    <div className="absolute right-0 top-full mt-3 w-72 bg-white rounded-2xl shadow-2xl border border-gray-100 z-50 transform transition-all duration-300 ease-out opacity-100 scale-100 animate-fadeInUp">
+                      <div className="relative overflow-hidden">
+                        <div className="absolute inset-0 bg-gradient-to-br from-slate-50 via-gray-50 to-blue-50"></div>
+                        <div className="relative p-6 border-b border-gray-100">
+                          <div className="flex items-center gap-4">
+                            <div className="w-16 h-16 bg-gradient-to-br from-slate-700 to-slate-800 rounded-2xl flex items-center justify-center text-white font-bold text-xl shadow-lg">
+                              V
+                            </div>
+                            <div>
+                              <h3 className="font-bold text-gray-800 text-lg">
+                                Viet Thang
+                              </h3>
+                              <p className="text-sm text-gray-500">
+                                viet@mentorme.com
+                              </p>
+                              <div className="flex items-center gap-2 mt-2"></div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="py-3">
+                        <button
+                          onClick={() => {
+                            navigate("/profile");
+                            closeAllDropdowns();
+                          }}
+                          className="w-full px-6 py-3 text-left text-gray-700 hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 hover:text-blue-700 transition-all duration-200 flex items-center gap-4 group"
+                        >
+                          <div className="w-8 h-8 bg-blue-100 group-hover:bg-blue-200 rounded-lg flex items-center justify-center transition-colors duration-200">
+                            <svg
+                              className="w-4 h-4 text-blue-600"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth="2"
+                                d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                              />
+                            </svg>
+                          </div>
+                          <div>
+                            <p className="font-medium">Profile</p>
+                            <p className="text-xs text-gray-500">
+                              Manage your account
+                            </p>
+                          </div>
+                        </button>
+                        <button
+                          onClick={() => {
+                            navigate("/settings");
+                            closeAllDropdowns();
+                          }}
+                          className="w-full px-6 py-3 text-left text-gray-700 hover:bg-gradient-to-r hover:from-purple-50 hover:to-indigo-50 hover:text-purple-700 transition-all duration-200 flex items-center gap-4 group"
+                        >
+                          <div className="w-8 h-8 bg-purple-100 group-hover:bg-purple-200 rounded-lg flex items-center justify-center transition-colors duration-200">
+                            <svg
+                              className="w-4 h-4 text-purple-600"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth="2"
+                                d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+                              />
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth="2"
+                                d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                              />
+                            </svg>
+                          </div>
+                          <div>
+                            <p className="font-medium">Settings</p>
+                            <p className="text-xs text-gray-500">
+                              Preferences & privacy
+                            </p>
+                          </div>
+                        </button>
+                        <div className="border-t border-gray-200 mt-3 pt-3">
+                          <button
+                            onClick={handleLogout}
+                            className="w-full px-6 py-3 text-left text-red-600 hover:bg-gradient-to-r hover:from-red-50 hover:to-pink-50 hover:text-red-700 transition-all duration-200 flex items-center gap-4 group"
+                          >
+                            <div className="w-8 h-8 bg-red-100 group-hover:bg-red-200 rounded-lg flex items-center justify-center transition-colors duration-200">
+                              <svg
+                                className="w-4 h-4 text-red-600"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth="2"
+                                  d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+                                />
+                              </svg>
+                            </div>
+                            <div>
+                              <p className="font-medium">Sign Out</p>
+                              <p className="text-xs text-gray-500">
+                                End your session
+                              </p>
+                            </div>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             )}

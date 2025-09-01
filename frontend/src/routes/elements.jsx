@@ -1,8 +1,10 @@
-import { PATH, AUTH_PATH, MENTEE_PATH, MENTOR_PATH } from "./path";
+import { PATH, AUTH_PATH, MENTEE_PATH, MENTOR_PATH, PLATFORM_PATH } from "./path";
 import { useRoutes } from "react-router-dom";
 
 import WelcomePage from "../pages/WelcomePage";
 import HomeScreen from "../pages/homeScreen";
+import SendHelpRequest from "../components/common/SendHelpRequest";
+import ProtectedRoute from "../components/common/ProtectedRoute";
 import AllPagesLayout from "../components/layout/AllPagesLayout";
 import SignUp_SignIn_layout from "../components/layout/SignUp_SignIn_layout";
 
@@ -55,6 +57,21 @@ const useRouterElements = () => {
         { path: MENTOR_PATH.CREATECOURSE, element: <CreateCoursePage /> },
         { path: `${MENTOR_PATH.COURSEDETAIL}/:id`, element: <CourseDetail /> },
         { path: `${MENTOR_PATH.EDITCOURSE}/:id`, element: <EditCoursePage /> },
+      ],
+    },
+
+    {
+      path: PATH.PLATFORM,
+      element: <AllPagesLayout />,
+      children: [
+        {
+          path: PLATFORM_PATH.HELP_REQUEST,
+          element: (
+            <ProtectedRoute>
+              <SendHelpRequest />
+            </ProtectedRoute>
+          )
+        },
       ],
     },
 
