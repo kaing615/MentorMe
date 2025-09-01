@@ -1,18 +1,18 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { toast } from "react-toastify";
 import { FaUserCircle } from "react-icons/fa";
-import { useNavigate, useLocation} from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { PATH, MENTOR_PATH } from "../routes/path";
 import youtubeImg from "../assets/youtube.png";
 import profileApi from "../api/modules/profile.api";
-import facebookImg from "../assets/facebook.png";
-import linkedinImg from "../assets/linkedin.png";
-import twitterImg from "../assets/twitter.png";
-import googleImg from "../assets/google.png";
+import { FaFacebook } from "react-icons/fa6";
+import { FaXTwitter } from "react-icons/fa6";
+import { FaLinkedin } from "react-icons/fa";
+import { FaGoogle } from "react-icons/fa";
 import courseApi from "../api/modules/course.api";
-import { useDispatch, useSelector } from "react-redux";
 
 
+// Capitalize initials of each word
 function capitalizeWords(str) {
   if (!str) return "";
   return str
@@ -26,7 +26,7 @@ function toMinutes(hhmm) { const [h, m] = hhmm.split(":").map(Number); return h 
 function toHHMM(mins) { const h = Math.floor(mins / 60); const m = mins % 60; return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`; }
 function generateTimes(startHH = 8, endHH = 22, stepMin = 30) {
   const out = []; let t = startHH * 60; const end = endHH * 60; while (t < end) { out.push(toHHMM(t)); t += stepMin; } return out;
-}
+} 
 function todayKey() { const d = new Date(); return d.toISOString().slice(0,10); }
 function isPast(dateStr) { const today = new Date(todayKey()+"T00:00:00"); const d = new Date(dateStr+"T00:00:00"); return d < today; }
 function isInCurrentYear(dateStr) { const y = new Date().getFullYear(); const d = new Date(dateStr+"T00:00:00"); return d.getFullYear() === y; }
@@ -442,8 +442,47 @@ function MentorAvailabilityBuilder({ onBack, onSave, editingSchedule }) {
 
 const MentorProfile = () => {
   // State lưu thông tin profile
-  const [profile, setProfile] = useState(null);
-  // Hàm lưu profile vào DB khi bấm nút Save Profile
+  const navigate = useNavigate(); // Hook to navigate between routes
+  const location = useLocation();
+  // --- AUTH & ROLE CHECK ---
+  useEffect(() => {
+    // Check token
+    const token =
+      sessionStorage.getItem("actkn") || localStorage.getItem("actkn") || 
+      sessionStorage.getItem("token") || localStorage.getItem("token");
+    const userStr =
+      sessionStorage.getItem("user") || localStorage.getItem("user");
+    console.log("Token:", token);
+    let user = null;
+    if (!token) {
+      navigate("/auth/signin");
+      return;
+    }
+    // Check user object
+    try {
+      user = userStr ? JSON.parse(userStr) : null;
+    } catch (e) {
+      user = null;
+    }
+    if (!user || !user.role) {
+      navigate("/auth/signin");
+      return;
+    }
+    // Check role
+    if (user.role === "mentor") {
+      return;
+    }
+    if (user.role === "mentee") {
+      navigate("/home");
+      return;
+    }
+    if (user.role === "admin") {
+      navigate("/admin/profile");
+      return;
+    }
+  }, [navigate]);
+
+  // Save profilepl
   const handleUpdateProfile = async () => {
     setLoading(true);
     setError(null);
@@ -455,7 +494,6 @@ const MentorProfile = () => {
       }
       const response = await profileApi.updateMentorProfile(payload);
       if (response && response.data) {
-        setProfile(response.data);
         setProfileImage(null); // Reset local image preview để sidebar lấy avatar từ backend
         toast.success("Cập nhật profile thành công!", {
           position: "top-right",
@@ -478,8 +516,6 @@ const MentorProfile = () => {
     const { response, error } = await profileApi.getProfileDetail();
     if (error) {
       setError("Không thể tải chi tiết profile");
-    } else if (response && response.data) {
-      setProfile(response.data);
     }
     setLoading(false);
   };
@@ -495,10 +531,15 @@ const MentorProfile = () => {
         setError("Tạo khóa học thất bại");
       } else if (response && response.data) {
         // Sau khi tạo thành công, reload lại danh sách courses
-        if (profile?.user?._id) {
-          const mentorId = profile.user._id;
-          const courses = await courseApi.getCoursesByMentor(mentorId);
-          setAllCourses(courses);
+        if (formData?._id) {
+          const mentorId = formData._id;
+          if (!mentorId) {
+            setError("Mentor ID không hợp lệ!");
+            setAllCourses([]);
+          } else {
+            const courses = await courseApi.getCoursesByMentor(mentorId);
+            setAllCourses(courses);
+          }
         }
         alert("Tạo khóa học thành công!");
       }
@@ -530,7 +571,7 @@ const MentorProfile = () => {
     setLoading(true);
     setError(null);
     if (!courseId) {
-      setError("Course ID is undefined!");
+      setError("Course ID không hợp lệ!");
       setLoading(false);
       return;
     }
@@ -584,8 +625,7 @@ const MentorProfile = () => {
     }
   };
 
-  const navigate = useNavigate();
-  const location = useLocation();
+  // ...existing code...
   // Tab logic: luôn vào tab 'profile' khi vào mentor/profile lần đầu, reload thì giữ tab hiện tại
   const [activeTab, setActiveTab] = useState(() => {
     // Nếu có tab lưu trong localStorage thì lấy, không thì mặc định là 'profile'
@@ -605,82 +645,99 @@ const MentorProfile = () => {
     }
   }, []);
 
-  const dispatch = useDispatch();
-
   // Lấy thông tin profile khi mount
   useEffect(() => {
     const fetchProfileAndCourses = async () => {
       setLoading(true);
       setError(null);
-    try {
-      const data = await profileApi();
-      const profileData = data?.data;
-      console.log("Profile API response:", profileData);
-
-      if (!profileData || !profileData.user) {
-        setError("Không nhận được dữ liệu profile từ API hoặc thiếu thông tin user.");
-        setProfile(null);
-        setFormData({
-          userName: "",
-          firstName: "",
-          lastName: "",
-          jobTitle: "",
-          category: "",
-          bio: "",
-          mentorReason: "",
-          headline: "",
-          website: "",
-          twitter: "",
-          linkedin: "",
-          youtube: "",
-          facebook: "",
-        });
-        setProfileImage(null);
-        setAllCourses([]);
-      } else {
-        const user = profileData.user;
-        const profile = profileData.profile || {};
-        setProfile(profileData);
-        setFormData({
-          userName: user?.userName || "",
-          firstName: user?.firstName || "",
-          lastName: user?.lastName || "",
-          bio: profile?.bio || user?.bio || "",
-          jobTitle: profile?.jobTitle || user?.jobTitle || "",
-          category: profile?.category || user?.category || "",
-          skills: Array.isArray(profile?.skills) && profile.skills.length > 0
-            ? profile.skills
-            : Array.isArray(user?.skills)
-            ? user.skills
-            : [],
-          experience: profile?.experience || user?.experience || "",
-          location: profile?.location || user?.location || "",
-          mentorReason: profile?.mentorReason || user?.mentorReason || "",
-          greatestAchievement: profile?.greatestAchievement || user?.greatestAchievement || "",
-          introVideo: profile?.introVideo || user?.introVideo || "",
-          headline: profile?.headline || user?.headline || "",
-          website: profile?.links?.website || "",
-          twitter: profile?.links?.X || "",
-          linkedin: profile?.links?.linkedin || "",
-          youtube: profile?.links?.youtube || "",
-          facebook: profile?.links?.facebook || "",
-        });
-        setProfileImage(user?.avatarUrl || null);
-        if (user?._id) {
-          const mentorId = user._id;
-          const courses = await courseApi.getCoursesByMentor(mentorId);
-          setAllCourses(courses);
+      try {
+        const data = await profileApi.getProfile();
+        const profileData = data?.data;
+        console.log("Profile API response:", profileData);
+        if (!profileData || !profileData.user) {
+          setError(
+            "Không nhận được dữ liệu profile từ API hoặc thiếu thông tin user."
+          );
+          setFormData({
+            userName: "",
+            firstName: "",
+            lastName: "",
+            jobTitle: "",
+            category: "",
+            bio: "",
+            mentorReason: "",
+            headline: "",
+            website: "",
+            twitter: "",
+            linkedin: "",
+            youtube: "",
+            facebook: "",
+          });
+          setProfileImage(null);
+          setAllCourses([]);
+        } else {
+          // ...existing code...
+          setFormData({
+            userName: profileData?.user?.userName || "",
+            firstName: profileData?.user?.firstName || "",
+            lastName: profileData?.user?.lastName || "",
+            bio: profileData?.bio || profileData?.user?.bio || "",
+            jobTitle:
+              profileData?.jobTitle || profileData?.user?.jobTitle || "",
+            category:
+              profileData?.category || profileData?.user?.category || "",
+            skills:
+              Array.isArray(profileData?.skills) &&
+              profileData.skills.length > 0
+                ? profileData.skills
+                : Array.isArray(profileData?.user?.skills)
+                ? profileData.user.skills
+                : [],
+            experience:
+              profileData?.experience || profileData?.user?.experience || "",
+            location:
+              profileData?.location || profileData?.user?.location || "",
+            mentorReason:
+              profileData?.mentorReason ||
+              profileData?.user?.mentorReason ||
+              "",
+            greatestAchievement:
+              profileData?.greatestAchievement ||
+              profileData?.user?.greatestAchievement ||
+              "",
+            introVideo:
+              profileData?.introVideo || profileData?.user?.introVideo || "",
+            headline:
+              profileData?.headline || profileData?.user?.headline || "",
+            website: profileData?.links?.website || "",
+            twitter: profileData?.links?.X || "",
+            linkedin: profileData?.user?.linkedinUrl || "",
+            youtube: profileData?.links?.youtube || "",
+            facebook: profileData?.links?.facebook || "",
+            avatarUrl: profileData?.user?.avatarUrl || "",
+          });
+          setProfileImage(profileData?.user?.avatarUrl || null);
+          // Lấy đúng danh sách khóa học của mentor
+          if (profileData?.user?._id) {
+            const mentorId = profileData.user._id;
+            if (!mentorId) {
+              setError("Mentor ID không hợp lệ!");
+              setAllCourses([]);
+            } else {
+              const courses = await courseApi.getCoursesByMentor(mentorId);
+              setAllCourses(courses);
+            }
+          }
         }
+      } catch (error) {
+        setError("Không thể tải thông tin profile hoặc courses");
+        // ...existing code...
+        setAllCourses([]);
       }
-    } catch (error) {
-      setError("Không thể tải thông tin profile hoặc courses");
-      setProfile(null);
-      setAllCourses([]);
-    }
-    setLoading(false);
-  };
-  fetchProfileAndCourses();
-}, []);
+      setLoading(false);
+    };
+    fetchProfileAndCourses();
+  }, []);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [formData, setFormData] = useState({
@@ -708,16 +765,7 @@ const MentorProfile = () => {
       const res = await profileApi.changeAvatar(file);
       if (res && res.avatarUrl) {
         setProfileImage(res.avatarUrl);
-        // Có thể cập nhật lại profile nếu muốn
-        if (profile && profile.user) {
-          setProfile((prev) => ({
-            ...prev,
-            user: {
-              ...prev.user,
-              avatarUrl: res.avatarUrl,
-            },
-          }));
-        }
+        // ...existing code...
       }
     } catch (err) {
       alert("Đổi avatar thất bại!");
@@ -1226,14 +1274,14 @@ const MentorProfile = () => {
           style={{ width: 280, minWidth: 280 }}
           className="bg-slate-50 rounded-2xl shadow-sm p-8 flex flex-col items-center sticky top-10 self-start"
         >
-          {profile?.user?.avatarUrl || profile?.avatarUrl ? (
+          {formData?.avatarUrl || profileImage ? (
             <img
-              src={profile.user.avatarUrl || profile.avatarUrl}
+              src={formData.avatarUrl || profileImage}
               alt={
-                profile?.user?.firstName || profile?.user?.lastName
+                formData?.firstName || formData?.lastName
                   ? `${capitalizeWords(
-                      profile.user.firstName
-                    )} ${capitalizeWords(profile.user.lastName)}`
+                      formData.firstName
+                    )} ${capitalizeWords(formData.lastName)}`
                   : "Default Avatar"
               }
               className="w-24 h-24 rounded-full object-cover mb-4"
@@ -1242,9 +1290,9 @@ const MentorProfile = () => {
             <FaUserCircle className="w-24 h-24 text-gray-300 mb-4" />
           )}
           <h2 className="font-semibold text-xl text-gray-900 mb-3">
-            {profile?.user?.firstName || profile?.user?.lastName
-              ? `${capitalizeWords(profile.user.firstName)} ${capitalizeWords(
-                  profile.user.lastName
+            {formData?.firstName || formData?.lastName
+              ? `${capitalizeWords(formData.firstName)} ${capitalizeWords(
+                  formData.lastName
                 )}`.trim()
               : "Name"}
           </h2>
@@ -1574,7 +1622,7 @@ const MentorProfile = () => {
                 <div className="space-y-4">
                   <div>
                     <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-1">
-                      <img src={googleImg} alt="Website" className="w-5 h-5" />
+                      <FaGoogle className="w-5 h-5 text-blue-500" />
                       Website
                     </label>
                     <input
@@ -1588,8 +1636,8 @@ const MentorProfile = () => {
                   </div>
                   <div>
                     <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-1">
-                      <img src={twitterImg} alt="Twitter" className="w-5 h-5" />
-                      Twitter
+                      <FaXTwitter className="w-5 h-5 text-black" />
+                      Twitter/X
                     </label>
                     <input
                       type="url"
@@ -1602,11 +1650,7 @@ const MentorProfile = () => {
                   </div>
                   <div>
                     <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-1">
-                      <img
-                        src={linkedinImg}
-                        alt="LinkedIn"
-                        className="w-5 h-5"
-                      />
+                      <FaLinkedin className="w-5 h-5 text-blue-700" />
                       LinkedIn
                     </label>
                     <input
@@ -1634,11 +1678,7 @@ const MentorProfile = () => {
                   </div>
                   <div>
                     <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-1">
-                      <img
-                        src={facebookImg}
-                        alt="Facebook"
-                        className="w-5 h-5"
-                      />
+                      <FaFacebook className="w-5 h-5 text-blue-600" />
                       Facebook
                     </label>
                     <input
