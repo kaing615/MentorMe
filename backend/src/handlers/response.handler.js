@@ -4,11 +4,11 @@ const responseWithData = (res, statusCode, data) => {
   });
 };
 
-const error = (res, err) =>
+const error = (res) =>
   responseWithData(res, 500, {
     status: 500,
     message: "Oops! Something went wrong",
-    error: err?.message || err,
+    error: error,
   });
 
 const badRequest = (res, message) =>

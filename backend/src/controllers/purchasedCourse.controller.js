@@ -9,17 +9,7 @@ import User from "../models/user.model.js";
  */
 const getPurchasedCourses = async (req, res) => {
   try {
-    // Nếu không có req.user, lấy user đầu tiên trong DB (dev mode)
-    let userId;
-    if (req.user && req.user.id) {
-      userId = req.user.id;
-    } else {
-      const firstUser = await User.findOne();
-      if (!firstUser) {
-        return responseHandler.notFound(res, "Không tìm thấy user.");
-      }
-      userId = firstUser._id;
-    }
+    const { id: userId } = req.user;
 
     const user = await User.findById(userId)
       .populate({
@@ -75,7 +65,7 @@ const updateCourseProgress = async (req, res) => {
     const { progress } = req.body;
 
     if (progress < 0 || progress > 100) {
-      return responseHandler.badrequest(res, "Tiến độ phải từ 0 đến 100%.");
+      return responseHandler.badRequest(res, "Tiến độ phải từ 0 đến 100%.");
     }
 
     const user = await User.findById(userId);
@@ -88,7 +78,7 @@ const updateCourseProgress = async (req, res) => {
     );
 
     if (courseIndex === -1) {
-      return responseHandler.badrequest(res, "Bạn chưa mua khóa học này.");
+      return responseHandler.badRequest(res, "Bạn chưa mua khóa học này.");
     }
 
     user.purchasedCourses[courseIndex].progress = progress;
@@ -169,7 +159,7 @@ const handlePurchaseSuccess = async (req, res) => {
     }
 
     if (order.status !== "paid") {
-      return responseHandler.badrequest(res, "Đơn hàng chưa được thanh toán.");
+      return responseHandler.badRequest(res, "Đơn hàng chưa được thanh toán.");
     }
 
     // Kiểm tra order có thuộc về user này không
