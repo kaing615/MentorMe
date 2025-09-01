@@ -39,7 +39,7 @@ const CourseDetail = () => {
       user = null;
     }
     // Chỉ cho phép mentee, mentor, admin
-    if (!user || !["mentee", "mentor", "admin"].includes(user.role)) {
+    if (!user || !["mentee", "mentor"].includes(user.role)) {
       toast.error("Bạn không có quyền truy cập trang này");
       navigate(PATH.LOGIN);
       return;
