@@ -279,9 +279,14 @@ export const getMyCourses = async (req, res) => {
 
 export const createCourse = async (req, res) => {
   try {
+    console.log("=== CREATE COURSE REQUEST ===");
+    console.log("Request body:", req.body);
+    console.log("Request file:", req.file ? "File uploaded" : "No file");
+
     const { id: userId } = req.user;
     let {
       title,
+      description,
       courseOverview,
       keyLearningObjectives,
       price,
@@ -289,10 +294,19 @@ export const createCourse = async (req, res) => {
       tags,
       language,
       duration,
+      link,
       driveLink,
       lectures,
       level,
     } = req.body;
+
+    // Xử lý description - ưu tiên courseOverview
+    const finalDescription = courseOverview || description || "";
+    console.log("Final description:", finalDescription);
+
+    // Xử lý link - ưu tiên driveLink
+    const finalLink = driveLink || link || "";
+    console.log("Final link:", finalLink);
 
     // Parse tags
     if (typeof tags === "string") {
@@ -360,24 +374,42 @@ export const createCourse = async (req, res) => {
       thumbnailPublicId = result.public_id;
     }
 
-    const newCourse = new Course({
+    console.log("Creating course with data:", {
       title,
-      description: courseOverview,
+      description: finalDescription,
       keyLearningObjectives,
-      price,
+      price: Number(price),
       mentor: userId,
       category,
       tags,
       language,
-      duration,
-      link: driveLink,
-      lectures,
+      duration: Number(duration) || 0,
+      link: finalLink,
+      lectures: Number(lectures),
+      level,
+      thumbnail: thumbnailUrl,
+      thumbnailPublicId,
+    });
+
+    const newCourse = new Course({
+      title,
+      description: finalDescription,
+      keyLearningObjectives,
+      price: Number(price),
+      mentor: userId,
+      category,
+      tags,
+      language,
+      duration: Number(duration) || 0,
+      link: finalLink,
+      lectures: Number(lectures),
       level,
       thumbnail: thumbnailUrl,
       thumbnailPublicId,
     });
 
     await newCourse.save();
+    console.log("Course created successfully:", newCourse._id);
 
     const populatedCourse = await Course.findById(newCourse._id).populate(
       "mentor",

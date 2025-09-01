@@ -1,7 +1,6 @@
 import express from "express";
 import * as CourseCtl from "../controllers/course.controller.js";
 import { verifyToken, authorizeRoles } from "../middlewares/auth.middleware.js";
-import forceMentor from "../middlewares/forceMentor.middleware.js";
 import upload from "../utils/multer.js";
 import {
   createCourseSchema,
@@ -9,7 +8,7 @@ import {
   addMentorSchema,
   addContentSchema,
   addReviewSchema,
-} from "../validations/course.validation.js"; // đúng: 'validations' theo file của bạn
+} from "../validations/course.validation.js";
 
 const router = express.Router();
 
@@ -50,7 +49,9 @@ const validate = (schema) => (req, res, next) => {
     stripUnknown: true,
   });
   if (error) {
-    return res.status(400).json({ message: "Validation error", details: error.details });
+    return res
+      .status(400)
+      .json({ message: "Validation error", details: error.details });
   }
   req.body = { ...req.body, ...value };
   next();
@@ -59,10 +60,8 @@ const validate = (schema) => (req, res, next) => {
 /** ========= PUBLIC ========= */
 router.get("/related", C.getRelatedCourses);
 router.get("/mentor/:mentorId", C.getCoursesByMentor);
-router.get("/", C.getCourses);
-router.get("/:courseId", C.getCourseById);
 router.get("/reviews", C.getAllReviews);
-router.get("/related", C.getRelatedCourses);
+router.get("/", C.getCourses);
 
 /** ========= AUTHED / ROLE ========= */
 // Danh sách khoá học của chính mentor đang đăng nhập
@@ -73,14 +72,16 @@ router.get(
   C.getMyCourses
 );
 
+// Route with params must be last
+router.get("/:courseId", C.getCourseById);
+
 // Tạo khoá học (mentor/admin)
 router.post(
   "/",
   verifyToken,
-  authorizeRoles("mentor", "admin"),
-  forceMentor, // nếu forceMentor kiểm tra đúng mentor, giữ lại; nếu không cần có thể bỏ
   upload?.single ? upload.single("thumbnail") : upload,
   validate(createCourseSchema),
+  authorizeRoles("mentor", "admin"),
   C.createCourse
 );
 
@@ -89,7 +90,6 @@ router.put(
   "/:courseId",
   verifyToken,
   authorizeRoles("mentor", "admin"),
-  forceMentor,
   upload?.single ? upload.single("thumbnail") : upload,
   validate(updateCourseSchema),
   C.updateCourse
@@ -100,7 +100,6 @@ router.delete(
   "/:courseId",
   verifyToken,
   authorizeRoles("mentor", "admin"),
-  forceMentor,
   C.deleteCourse
 );
 
@@ -133,7 +132,6 @@ router.post(
   "/:courseId/content",
   verifyToken,
   authorizeRoles("mentor", "admin"),
-  forceMentor,
   validate(addContentSchema),
   C.addContentToCourse
 );
@@ -141,7 +139,6 @@ router.delete(
   "/:courseId/content/:contentId",
   verifyToken,
   authorizeRoles("mentor", "admin"),
-  forceMentor,
   C.removeContentFromCourse
 );
 

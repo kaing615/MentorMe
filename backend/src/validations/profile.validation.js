@@ -53,26 +53,26 @@ export const updateMentorProfileSchema = Joi.object({
     "any.required": "Lý do làm mentor là bắt buộc",
   }),
 
-  location: Joi.string().min(1).optional().messages({
+  location: Joi.string().min(1).optional().allow("").messages({
     "string.empty": "Location không được để trống",
   }),
 
   skills: Joi.alternatives()
     .try(Joi.array().items(Joi.string()), Joi.string())
-    .optional()
+    .required()
     .messages({
       "array.base": "Skills phải là mảng hoặc chuỗi",
     }),
 
-  greatestAchievement: Joi.string().min(1).optional().messages({
+  greatestAchievement: Joi.string().min(1).optional().allow("").messages({
     "string.empty": "Greatest Achievement không được để trống",
   }),
 
-  headline: Joi.string().min(5).max(100).optional().messages({
+  headline: Joi.string().min(5).max(100).optional().allow("").messages({
     "string.min": "Headline phải từ 5-100 ký tự",
     "string.max": "Headline phải từ 5-100 ký tự",
   }),
-  experience: Joi.string().min(10).max(1000).optional().messages({
+  experience: Joi.string().min(10).max(1000).required().messages({
     "string.min": "Experience phải từ 10-1000 ký tự",
     "string.max": "Experience phải từ 10-1000 ký tự",
   }),
@@ -92,12 +92,30 @@ export const updateMentorProfileSchema = Joi.object({
   }),
 
   links: Joi.object({
-    website: Joi.string().uri().optional().messages({ "string.uri": "Website URL không hợp lệ" }),
-    linkedin: Joi.string().uri().optional().messages({ "string.uri": "LinkedIn URL không hợp lệ" }),
-    github: Joi.string().uri().optional().messages({ "string.uri": "Github URL không hợp lệ" }),
-    X: Joi.string().uri().optional().messages({ "string.uri": "X URL không hợp lệ" }),
-    youtube: Joi.string().uri().optional().messages({ "string.uri": "Youtube URL không hợp lệ" }),
-    facebook: Joi.string().uri().optional().messages({ "string.uri": "Facebook URL không hợp lệ" }),
+    website: Joi.string()
+      .uri()
+      .optional()
+      .messages({ "string.uri": "Website URL không hợp lệ" }),
+    linkedin: Joi.string()
+      .uri()
+      .optional()
+      .messages({ "string.uri": "LinkedIn URL không hợp lệ" }),
+    github: Joi.string()
+      .uri()
+      .optional()
+      .messages({ "string.uri": "Github URL không hợp lệ" }),
+    X: Joi.string()
+      .uri()
+      .optional()
+      .messages({ "string.uri": "X URL không hợp lệ" }),
+    youtube: Joi.string()
+      .uri()
+      .optional()
+      .messages({ "string.uri": "Youtube URL không hợp lệ" }),
+    facebook: Joi.string()
+      .uri()
+      .optional()
+      .messages({ "string.uri": "Facebook URL không hợp lệ" }),
   }).optional(),
 });
 
@@ -137,9 +155,18 @@ export const updateMenteeProfileSchema = Joi.object({
   }),
 
   links: Joi.object({
-    linkedin: Joi.string().uri().optional().messages({ "string.uri": "LinkedIn URL không hợp lệ" }),
-    github: Joi.string().uri().optional().messages({ "string.uri": "Github URL không hợp lệ" }),
-    website: Joi.string().uri().optional().messages({ "string.uri": "Website URL không hợp lệ" }),
+    linkedin: Joi.string()
+      .uri()
+      .optional()
+      .messages({ "string.uri": "LinkedIn URL không hợp lệ" }),
+    github: Joi.string()
+      .uri()
+      .optional()
+      .messages({ "string.uri": "Github URL không hợp lệ" }),
+    website: Joi.string()
+      .uri()
+      .optional()
+      .messages({ "string.uri": "Website URL không hợp lệ" }),
   }).optional(),
 });
 

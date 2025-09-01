@@ -24,28 +24,24 @@ const CourseDetail = () => {
 
   // Check authentication and role
   useEffect(() => {
-    const token = sessionStorage.getItem("token");
-    const role = sessionStorage.getItem("role");
-    
+    const token =
+      localStorage.getItem("token") || localStorage.getItem("actkn");
     if (!token) {
       toast.error("Vui lòng đăng nhập để xem chi tiết khóa học");
       navigate(PATH.LOGIN);
       return;
     }
-    
-    if (role !== "mentee") {
-      toast.warning("Chỉ học viên mới có thể xem chi tiết khóa học");
-      // Redirect based on role
-      switch (role) {
-        case "mentor":
-          navigate(`${PATH.MENTOR}/${MENTOR_PATH.HOME}`);
-          break;
-        case "admin":
-          navigate(PATH.ADMIN);
-          break;
-        default:
-          navigate(PATH.MENTEE);
-      }
+    const userStr = localStorage.getItem("user");
+    let user = null;
+    try {
+      user = userStr ? JSON.parse(userStr) : null;
+    } catch (e) {
+      user = null;
+    }
+    // Chỉ cho phép mentee, mentor, admin
+    if (!user || !["mentee", "mentor", "admin"].includes(user.role)) {
+      toast.error("Bạn không có quyền truy cập trang này");
+      navigate(PATH.LOGIN);
       return;
     }
   }, [navigate]);
@@ -84,11 +80,12 @@ const CourseDetail = () => {
 
         // Fetch related courses
         if (course && course.category) {
-          const { response: relatedResponse } = await courseApi.getRelatedCourses({
-            courseId: id,
-            category: course.category,
-            limit: 6,
-          });
+          const { response: relatedResponse } =
+            await courseApi.getRelatedCourses({
+              courseId: id,
+              category: course.category,
+              limit: 6,
+            });
 
           const rel = relatedResponse?.data?.courses || [];
           setRelatedCourses(Array.isArray(rel) ? rel : []);
@@ -128,7 +125,9 @@ const CourseDetail = () => {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
-          <h2 className="text-2xl font-bold text-red-600 mb-4">Có lỗi xảy ra</h2>
+          <h2 className="text-2xl font-bold text-red-600 mb-4">
+            Có lỗi xảy ra
+          </h2>
           <p className="text-gray-600">{error}</p>
         </div>
       </div>
@@ -139,20 +138,17 @@ const CourseDetail = () => {
   const testimonials = [
     {
       name: "Jane Doe",
-      text:
-        "MentorMe is a game-changer! I love how easy it is to connect with real mentors who actually get what I'm going through.",
+      text: "MentorMe is a game-changer! I love how easy it is to connect with real mentors who actually get what I'm going through.",
       avatar: minatoImg,
     },
     {
       name: "John Smith",
-      text:
-        "This programming course was exactly what I needed! The instructor explains complex concepts clearly.",
+      text: "This programming course was exactly what I needed! The instructor explains complex concepts clearly.",
       avatar: minatoImg,
     },
     {
       name: "Sarah Wilson",
-      text:
-        "Amazing learning experience! The course content is well-structured and the mentor is always available to help.",
+      text: "Amazing learning experience! The course content is well-structured and the mentor is always available to help.",
       avatar: minatoImg,
     },
   ];
@@ -197,7 +193,9 @@ const CourseDetail = () => {
     const hasHalf = r % 1 !== 0;
 
     for (let i = 0; i < full; i++) {
-      stars.push(<IoStar key={`full-${i}`} className="text-yellow-500" size={20} />);
+      stars.push(
+        <IoStar key={`full-${i}`} className="text-yellow-500" size={20} />
+      );
     }
     if (hasHalf) {
       stars.push(
@@ -213,18 +211,27 @@ const CourseDetail = () => {
     }
     const empty = 5 - Math.ceil(r);
     for (let i = 0; i < empty; i++) {
-      stars.push(<IoStarOutline key={`empty-${i}`} className="text-yellow-500" size={20} />);
+      stars.push(
+        <IoStarOutline
+          key={`empty-${i}`}
+          className="text-yellow-500"
+          size={20}
+        />
+      );
     }
     return stars;
   };
 
   const basePrice = Number(courseData?.price) || 0;
   const discount = Number(courseData?.discount) || 0;
-  const discountedPrice = (basePrice - basePrice * (discount / 100));
+  const discountedPrice = basePrice - basePrice * (discount / 100);
 
   return (
     <div title="Course Detail" className="flex flex-col">
-      <div title="hold name and box of course" className="flex flex-row pt-3 pl-10 gap-8">
+      <div
+        title="hold name and box of course"
+        className="flex flex-row pt-3 pl-10 gap-8"
+      >
         <div title="hold name of course" className="w-[70%] pt-10">
           <h1 className="font-bold text-5xl">{courseData.title}</h1>
           <p className="pt-3 text-slate-700">{courseData.description}</p>
@@ -234,8 +241,12 @@ const CourseDetail = () => {
             className="flex flex-row pt-3 items-center space-x-4"
           >
             <div className="flex flex-row items-center">
-              <div className="flex flex-row">{renderStars(courseData.rate || 0)}</div>
-              <span className="pl-2 text-lg font-medium">{courseData.rate || 0}</span>
+              <div className="flex flex-row">
+                {renderStars(courseData.rate || 0)}
+              </div>
+              <span className="pl-2 text-lg font-medium">
+                {courseData.rate || 0}
+              </span>
             </div>
 
             <p className="text-lg text-slate-700">|</p>
@@ -250,29 +261,44 @@ const CourseDetail = () => {
 
             <div className="flex flex-row items-center text-slate-700">
               <span>
-                {Array.isArray(courseData.category) ? courseData.category.join(", ") : courseData.category}
+                {Array.isArray(courseData.category)
+                  ? courseData.category.join(", ")
+                  : courseData.category}
               </span>
             </div>
           </div>
 
           <div title="hold author" className="flex flex-row mt-4">
-            <div title="avatar of author" className="w-12 h-12 rounded-full bg-gray-300 mr-3">
+            <div
+              title="avatar of author"
+              className="w-12 h-12 rounded-full bg-gray-300 mr-3"
+            >
               <img
                 src={courseData.mentor?.avatarUrl}
                 alt="Avatar"
                 className="w-full h-full object-cover rounded-full"
-                onError={(e) => { e.currentTarget.src = minatoImg; }}
+                onError={(e) => {
+                  e.currentTarget.src = minatoImg;
+                }}
               />
             </div>
             <div title="hold name of author" className="flex flex-row mt-3">
               <div>Create by</div>
-              <div title="name of author" className="font-semibold text-lg ml-2">
-                {courseData.mentor?.userName || courseData.mentor?.email || "Anonymous"}
+              <div
+                title="name of author"
+                className="font-semibold text-lg ml-2"
+              >
+                {courseData.mentor?.userName ||
+                  courseData.mentor?.email ||
+                  "Anonymous"}
               </div>
             </div>
           </div>
 
-          <div title="hold language of course" className="flex flex-row mt-4 gap-3">
+          <div
+            title="hold language of course"
+            className="flex flex-row mt-4 gap-3"
+          >
             <AiOutlineGlobal className="text-gray-400" size={25} />
             <span className="text-gray-700">
               {(() => {
@@ -320,14 +346,20 @@ const CourseDetail = () => {
         </div>
 
         <div title="hold box of course" className="w-1/4 mt-5">
-          <div className="bg-white rounded-lg p-6" style={{ boxShadow: "0px 0px 8px 0px rgba(0,0,0,0.15)" }}>
+          <div
+            className="bg-white rounded-lg p-6"
+            style={{ boxShadow: "0px 0px 8px 0px rgba(0,0,0,0.15)" }}
+          >
             <img
               src={courseData.thumbnail || courseData.thumbnailUrl || CoursePic}
               alt="Course Thumbnail"
               className="w-full h-48 object-cover rounded-lg mb-4"
             />
 
-            <div title="hold price" className="flex flex-row items-center space-x-3 mb-4">
+            <div
+              title="hold price"
+              className="flex flex-row items-center space-x-3 mb-4"
+            >
               <span className="text-3xl font-bold text-black">
                 ${discountedPrice.toFixed(1)}
               </span>
@@ -343,7 +375,10 @@ const CourseDetail = () => {
               )}
             </div>
 
-            <div title="hold button of course" className="flex flex-col space-y-3">
+            <div
+              title="hold button of course"
+              className="flex flex-col space-y-3"
+            >
               <button className="w-full bg-slate-950 text-white py-2 rounded-lg hover:bg-slate-500 transition duration-200">
                 Add To Cart
               </button>
@@ -353,14 +388,24 @@ const CourseDetail = () => {
               </button>
             </div>
 
-            <div title="line separator" className="border-t border-gray-300 my-4" />
+            <div
+              title="line separator"
+              className="border-t border-gray-300 my-4"
+            />
 
             <div className="flex flex-col font-medium text-lg gap-2 mt-2">
               Share
-              <div title="hold social media icons" className="flex flex-row gap-2">
+              <div
+                title="hold social media icons"
+                className="flex flex-row gap-2"
+              >
                 <a href="https://facebook.com" aria-label="Facebook">
                   <div className="bg-slate-200 rounded-full flex items-center justify-center w-10 h-10">
-                    <img src={facebooklogo} alt="Facebook" className="w-6 h-6" />
+                    <img
+                      src={facebooklogo}
+                      alt="Facebook"
+                      className="w-6 h-6"
+                    />
                   </div>
                 </a>
                 <a href="https://github.com" aria-label="GitHub">
@@ -375,12 +420,20 @@ const CourseDetail = () => {
                 </a>
                 <a href="https://yourwebsite.com" aria-label="Website">
                   <div className="bg-slate-200 rounded-full flex items-center justify-center w-10 h-10">
-                    <img src={twitterlogo} alt="Your Website" className="w-6 h-6" />
+                    <img
+                      src={twitterlogo}
+                      alt="Your Website"
+                      className="w-6 h-6"
+                    />
                   </div>
                 </a>
                 <a href="https://microsoft.com" aria-label="Microsoft">
                   <div className="bg-slate-200 rounded-full flex items-center justify-center w-10 h-10">
-                    <img src={microsoftlogo} alt="Microsoft" className="w-6 h-6" />
+                    <img
+                      src={microsoftlogo}
+                      alt="Microsoft"
+                      className="w-6 h-6"
+                    />
                   </div>
                 </a>
               </div>
@@ -390,16 +443,27 @@ const CourseDetail = () => {
       </div>
 
       {/* Testimonials Section */}
-      <section className="w-full py-14 bg-white mt-16 pl-4" style={{ background: "#f8f9fb" }}>
+      <section
+        className="w-full py-14 bg-white mt-16 pl-4"
+        style={{ background: "#f8f9fb" }}
+      >
         <div className="w-full flex flex-col gap-6">
           <div className="flex flex-col md:flex-row md:items-end md:justify-between mb-4 px-10">
             <div className="flex flex-col gap-1">
-              <h1 className="text-3xl font-bold text-slate-800">What Our Customer Say</h1>
-              <h2 className="text-2xl font-bold text-slate-800">About This Course</h2>
+              <h1 className="text-3xl font-bold text-slate-800">
+                What Our Customer Say
+              </h1>
+              <h2 className="text-2xl font-bold text-slate-800">
+                About This Course
+              </h2>
             </div>
           </div>
           <div className="relative px-10">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" ref={testimonialRef} id="testimonial-track">
+            <div
+              className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+              ref={testimonialRef}
+              id="testimonial-track"
+            >
               {reviews && reviews.length > 0 ? (
                 reviews.map((review, idx) => (
                   <div
@@ -409,7 +473,9 @@ const CourseDetail = () => {
                     <div className="text-blue-700 text-4xl mb-2">
                       <ImQuotesLeft />
                     </div>
-                    <div className="text-slate-700 text-base flex-1">{review.content}</div>
+                    <div className="text-slate-700 text-base flex-1">
+                      {review.content}
+                    </div>
                     <div className="flex items-center gap-3 mt-2">
                       <img
                         src={review.user?.avatar || minatoImg}
@@ -426,7 +492,9 @@ const CourseDetail = () => {
                   </div>
                 ))
               ) : (
-                <div className="text-gray-500 col-span-3">No reviews yet for this course.</div>
+                <div className="text-gray-500 col-span-3">
+                  No reviews yet for this course.
+                </div>
               )}
             </div>
           </div>
@@ -438,23 +506,47 @@ const CourseDetail = () => {
         <div className="w-full">
           <div className="flex flex-col md:flex-row md:items-end md:justify-between mb-6 px-10">
             <div className="flex flex-col gap-1">
-              <h1 className="text-3xl font-bold text-[#1A2233]">More Courses Like This</h1>
+              <h1 className="text-3xl font-bold text-[#1A2233]">
+                More Courses Like This
+              </h1>
             </div>
             <div className="flex gap-2 mt-4 md:mt-0">
               <button
                 onClick={() => scrollCoursesBy(-1)}
                 className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center text-xl shadow hover:bg-gray-200 transition"
               >
-                <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                <svg
+                  width="20"
+                  height="20"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M15 19l-7-7 7-7"
+                  />
                 </svg>
               </button>
               <button
                 onClick={() => scrollCoursesBy(1)}
                 className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center text-xl shadow hover:bg-gray-200 transition"
               >
-                <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                <svg
+                  width="20"
+                  height="20"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M9 5l7 7-7 7"
+                  />
                 </svg>
               </button>
             </div>
@@ -463,7 +555,11 @@ const CourseDetail = () => {
             <div
               ref={coursesRef}
               className="overflow-x-auto whitespace-nowrap select-none no-scrollbar"
-              style={{ WebkitOverflowScrolling: "touch", scrollSnapType: "x mandatory", scrollBehavior: "smooth" }}
+              style={{
+                WebkitOverflowScrolling: "touch",
+                scrollSnapType: "x mandatory",
+                scrollBehavior: "smooth",
+              }}
               tabIndex={-1}
             >
               <div className="inline-flex gap-8">
@@ -474,11 +570,15 @@ const CourseDetail = () => {
                   return (
                     <button
                       key={course.courseId || course._id || idx}
-                      onClick={() => navigate(`/courses/${course.courseId || course._id}`)}
+                      onClick={() =>
+                        navigate(`/courses/${course.courseId || course._id}`)
+                      }
                       className="text-left border border-gray-200 rounded-lg p-4 w-[320px] hover:shadow-lg transition duration-200 flex flex-col items-start whitespace-normal"
                     >
                       <img
-                        src={course.thumbnailUrl || course.thumbnail || CoursePic}
+                        src={
+                          course.thumbnailUrl || course.thumbnail || CoursePic
+                        }
                         alt={course.title}
                         className="w-[320px] h-[180px] object-cover rounded-lg mb-2"
                       />
@@ -486,20 +586,30 @@ const CourseDetail = () => {
                         {course.title}
                       </div>
                       <div className="text-sm text-slate-600">
-                        By {course.mentor?.userName || course.mentor?.firstName || "Mentor"}
+                        By{" "}
+                        {course.mentor?.userName ||
+                          course.mentor?.firstName ||
+                          "Mentor"}
                       </div>
                       <div className="flex items-center gap-2 mt-1 text-slate-700">
-                        <div className="flex items-center">{renderStars(course.rate || 0)}</div>
+                        <div className="flex items-center">
+                          {renderStars(course.rate || 0)}
+                        </div>
                         <span className="text-sm">({course.rate || 0})</span>
                       </div>
                       <div className="text-sm text-slate-600 mt-1">
                         {course.duration} hours · {course.lectures} Lectures ·{" "}
-                        {Array.isArray(course.category) ? course.category.join(", ") : course.category}
+                        {Array.isArray(course.category)
+                          ? course.category.join(", ")
+                          : course.category}
                       </div>
                       <div className="font-bold flex flex-row text-xl mt-1 gap-1">
                         <div title="discount">${pDisc}</div>
                         {d > 0 && (
-                          <div title="original" className="text-base font-semibold text-gray-400 line-through">
+                          <div
+                            title="original"
+                            className="text-base font-semibold text-gray-400 line-through"
+                          >
                             ${p.toFixed(1)}
                           </div>
                         )}
@@ -508,7 +618,9 @@ const CourseDetail = () => {
                   );
                 })}
                 {relatedCourses.length === 0 && (
-                  <div className="text-slate-600">Chưa có khoá học tương tự.</div>
+                  <div className="text-slate-600">
+                    Chưa có khoá học tương tự.
+                  </div>
                 )}
               </div>
             </div>

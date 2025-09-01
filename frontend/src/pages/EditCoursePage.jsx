@@ -218,7 +218,32 @@ const EditCoursePage = () => {
     <div className="min-h-screen bg-white-50">
       {/* Main Content */}
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <h2 className="text-2xl font-bold text-gray-900 mb-8">Edit Course</h2>
+        {/* Header with Back Button */}
+        <div className="flex items-center gap-4 mb-8">
+          <button
+            type="button"
+            onClick={() =>
+              navigate("/mentor/profile", { state: { tab: "mycourses" } })
+            }
+            className="flex items-center justify-center w-10 h-10 rounded-full bg-white shadow-sm border border-gray-200 hover:bg-gray-50 transition-colors group"
+            title="Back to My Courses"
+          >
+            <svg
+              className="w-5 h-5 text-gray-600 group-hover:text-gray-800 transition-colors"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M15 19l-7-7 7-7"
+              />
+            </svg>
+          </button>
+          <h2 className="text-2xl font-bold text-gray-900">Edit Course</h2>
+        </div>
 
         <div className="bg-white rounded-lg shadow-sm">
           <form onSubmit={handleSubmit(onSubmit)} className="p-8">
@@ -498,12 +523,21 @@ const EditCoursePage = () => {
               </div>
             </div>
 
-            {/* Submit Button */}
-            <div className="flex justify-end mt-8">
+            {/* Action Buttons */}
+            <div className="flex justify-end gap-4 mt-8">
+              <button
+                type="button"
+                onClick={() =>
+                  navigate("/mentor/profile", { state: { tab: "mycourses" } })
+                }
+                className="px-8 py-3 bg-white text-gray-700 border border-gray-300 rounded-md hover:bg-gray-50 focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-colors"
+              >
+                Cancel
+              </button>
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="px-8 py-3 bg-gray-900 text-white rounded-md hover:bg-gray-800 focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-8 py-3 bg-gray-900 text-white rounded-md hover:bg-gray-800 focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 {isSubmitting ? "Saving..." : "Save Changes"}
               </button>
