@@ -1,6 +1,7 @@
 export const PATH = {
 	NOT_FOUND: "*",
 	AUTH: "/auth",
+	LOGIN: "/auth/signin",
 	ADMIN: "/admin",
 	MENTEE: "/",
   MENTOR: "/mentor",

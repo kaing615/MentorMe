@@ -15,11 +15,40 @@ import { showLoading, hideLoading } from "../redux/features/loading.slice";
 import courseApi from "../api/modules/course.api";
 import { toast } from "react-toastify";
 import { FaHashtag } from "react-icons/fa";
+import { MENTEE_PATH, MENTOR_PATH, PATH } from "../routes/path";
 
 const CourseDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const dispatch = useDispatch();
+
+  // Check authentication and role
+  useEffect(() => {
+    const token = sessionStorage.getItem("token");
+    const role = sessionStorage.getItem("role");
+    
+    if (!token) {
+      toast.error("Vui lòng đăng nhập để xem chi tiết khóa học");
+      navigate(PATH.LOGIN);
+      return;
+    }
+    
+    if (role !== "mentee") {
+      toast.warning("Chỉ học viên mới có thể xem chi tiết khóa học");
+      // Redirect based on role
+      switch (role) {
+        case "mentor":
+          navigate(`${PATH.MENTOR}/${MENTOR_PATH.HOME}`);
+          break;
+        case "admin":
+          navigate(PATH.ADMIN);
+          break;
+        default:
+          navigate(PATH.MENTEE);
+      }
+      return;
+    }
+  }, [navigate]);
 
   // States
   const [courseData, setCourseData] = useState(null);
