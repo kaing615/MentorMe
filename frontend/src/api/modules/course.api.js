@@ -1,7 +1,6 @@
 import publicClient from "../clients/public.client.js";
 import createPrivateClient from "../clients/private.client.js";
 
-// Tạo private client instance
 const privateClient = createPrivateClient();
 
 const courseEndpoints = {
