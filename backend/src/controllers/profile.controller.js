@@ -14,7 +14,8 @@ const sanitizeUser = (userDoc) => {
   return obj;
 };
 
-const capitalize = (str) => (str ? str.charAt(0).toUpperCase() + str.slice(1) : "");
+const capitalize = (str) =>
+  str ? str.charAt(0).toUpperCase() + str.slice(1) : "";
 
 const parseArrayish = (val) => {
   if (Array.isArray(val)) return val;
@@ -68,7 +69,10 @@ export const updateMentorProfile = async (req, res) => {
     const user = await User.findById(userId);
     if (!user) return responseHandler.badRequest(res, "User không tồn tại");
     if (user.role !== "mentor") {
-      return responseHandler.forbidden(res, "Chỉ mentor mới có thể cập nhật thông tin này");
+      return responseHandler.forbidden(
+        res,
+        "Chỉ mentor mới có thể cập nhật thông tin này"
+      );
     }
 
     let avatarUrl = user.avatarUrl;
@@ -78,7 +82,9 @@ export const updateMentorProfile = async (req, res) => {
       if (user.avatarPublicId) {
         await cloudinary.uploader.destroy(user.avatarPublicId);
       }
-      const base64 = `data:${req.file.mimetype};base64,${req.file.buffer.toString("base64")}`;
+      const base64 = `data:${
+        req.file.mimetype
+      };base64,${req.file.buffer.toString("base64")}`;
       const result = await uploadImage(base64, {
         public_id: `avatar_mentor_${userId}_${Date.now()}`,
         folder: "user_avatars",
@@ -113,7 +119,8 @@ export const updateMentorProfile = async (req, res) => {
     if (skillsArray !== undefined) profile.skills = skillsArray;
     if (bio !== undefined) profile.bio = bio;
     if (mentorReason !== undefined) profile.mentorReason = mentorReason;
-    if (greatestAchievement !== undefined) profile.greatestAchievement = greatestAchievement;
+    if (greatestAchievement !== undefined)
+      profile.greatestAchievement = greatestAchievement;
     if (headline !== undefined) profile.headline = headline;
     if (experience !== undefined) profile.experience = experience;
     if (introVideo !== undefined) profile.introVideo = introVideo;
@@ -134,7 +141,10 @@ export const updateMentorProfile = async (req, res) => {
     });
   } catch (err) {
     console.error("Lỗi cập nhật thông tin mentor:", err);
-    return responseHandler.error(res, err.message || "Lỗi cập nhật thông tin mentor!");
+    return responseHandler.error(
+      res,
+      err.message || "Lỗi cập nhật thông tin mentor!"
+    );
   }
 };
 
@@ -160,7 +170,10 @@ export const updateMenteeProfile = async (req, res) => {
     const user = await User.findById(userId);
     if (!user) return responseHandler.badRequest(res, "User không tồn tại");
     if (user.role !== "mentee") {
-      return responseHandler.forbidden(res, "Chỉ mentee mới có thể cập nhật thông tin này");
+      return responseHandler.forbidden(
+        res,
+        "Chỉ mentee mới có thể cập nhật thông tin này"
+      );
     }
 
     let avatarUrl = user.avatarUrl;
@@ -169,7 +182,9 @@ export const updateMenteeProfile = async (req, res) => {
       if (user.avatarPublicId) {
         await cloudinary.uploader.destroy(user.avatarPublicId);
       }
-      const base64 = `data:${req.file.mimetype};base64,${req.file.buffer.toString("base64")}`;
+      const base64 = `data:${
+        req.file.mimetype
+      };base64,${req.file.buffer.toString("base64")}`;
       const result = await uploadImage(base64, {
         public_id: `avatar_mentee_${userId}_${Date.now()}`,
         folder: "user_avatars",
@@ -201,10 +216,6 @@ export const updateMenteeProfile = async (req, res) => {
     if (description !== undefined) profile.description = description;
     if (goal !== undefined) profile.goal = goal;
     if (education !== undefined) profile.education = education;
-    const languagesArray = parseArrayish(languages);
-    if (languages !== undefined) profile.languages = languagesArray;
-    if (timezone !== undefined) profile.timezone = timezone;
-
     if (links && Object.keys(links).length > 0) {
       profile.links = { ...(profile.links || {}), ...links };
     }
@@ -218,7 +229,10 @@ export const updateMenteeProfile = async (req, res) => {
     });
   } catch (err) {
     console.error("Lỗi cập nhật thông tin mentee:", err);
-    return responseHandler.error(res, err.message || "Lỗi cập nhật thông tin mentee!");
+    return responseHandler.error(
+      res,
+      err.message || "Lỗi cập nhật thông tin mentee!"
+    );
   }
 };
 
@@ -230,11 +244,89 @@ export const getProfile = async (req, res) => {
     const user = await User.findById(userId);
     if (!user) return responseHandler.badRequest(res, "User không tồn tại");
 
-    const profile = await Profile.findOne({ user: userId });
+    let profile = await Profile.findOne({ user: userId });
+
+    // Nếu chưa có profile, tạo mới với dữ liệu từ User
+    if (!profile) {
+      profile = new Profile({
+        user: userId,
+        jobTitle: user.jobTitle || "",
+        location: user.location || "",
+        category: user.category || "",
+        bio: user.bio || "",
+        skills: user.skills || [],
+        mentorReason: user.mentorReason || "",
+        greatestAchievement: user.greatestAchievement || "",
+        introVideo: user.introVideo || "",
+        links: {
+          linkedin: user.linkedinUrl || "",
+        },
+      });
+      await profile.save();
+    }
+
+    // Tạo merged profile data ưu tiên Profile trước, User làm fallback
+    const mergedProfile = {
+      // Basic user info từ User model
+      _id: user._id,
+      email: user.email,
+      userName: user.userName,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      role: user.role,
+      avatarUrl: user.avatarUrl,
+      avatarPublicId: user.avatarPublicId,
+      isVerified: user.isVerified,
+
+      // Profile data ưu tiên Profile model, fallback về User model
+      jobTitle: profile.jobTitle || user.jobTitle || "",
+      location: profile.location || user.location || "",
+      category: profile.category || user.category || "",
+      bio: profile.bio || user.bio || "",
+      skills:
+        profile.skills && profile.skills.length > 0
+          ? profile.skills
+          : user.skills || [],
+      experience: profile.experience || "",
+
+      // Mentor specific
+      headline: profile.headline || "",
+      mentorReason: profile.mentorReason || user.mentorReason || "",
+      greatestAchievement:
+        profile.greatestAchievement || user.greatestAchievement || "",
+      introVideo: profile.introVideo || user.introVideo || "",
+
+      // Mentee specific
+      description: profile.description || "",
+      goal: profile.goal || "",
+      education: profile.education || "",
+
+      // Common
+      languages: profile.languages || [],
+      timezone: profile.timezone || "",
+
+      // Social Links
+      links: {
+        website: profile.links?.website || "",
+        twitter: profile.links?.twitter || "",
+        linkedin: profile.links?.linkedin || user.linkedinUrl || "",
+        github: profile.links?.github || "",
+        youtube: profile.links?.youtube || "",
+        facebook: profile.links?.facebook || "",
+      },
+
+      // Business Logic
+      reviews: profile.reviews || [],
+      rate: profile.rate || 0,
+
+      // Timestamps
+      createdAt: profile.createdAt,
+      updatedAt: profile.updatedAt,
+    };
 
     return responseHandler.ok(res, {
-      user: sanitizeUser(user),
-      profile,
+      profile: mergedProfile,
+      user: sanitizeUser(user), // Giữ lại để backward compatibility
     });
   } catch (err) {
     console.error("Lỗi lấy thông tin profile:", err);
@@ -249,13 +341,16 @@ export const changeAvatar = async (req, res) => {
 
     const user = await User.findById(userId);
     if (!user) return responseHandler.badRequest(res, "User không tồn tại");
-    if (!req.file) return responseHandler.badRequest(res, "Chưa có file avatar gửi lên!");
+    if (!req.file)
+      return responseHandler.badRequest(res, "Chưa có file avatar gửi lên!");
 
     if (user.avatarPublicId) {
       await cloudinary.uploader.destroy(user.avatarPublicId);
     }
 
-    const base64 = `data:${req.file.mimetype};base64,${req.file.buffer.toString("base64")}`;
+    const base64 = `data:${req.file.mimetype};base64,${req.file.buffer.toString(
+      "base64"
+    )}`;
     const result = await uploadImage(base64, {
       public_id: `avatar_${userId}_${Date.now()}`,
       folder: "user_avatars",

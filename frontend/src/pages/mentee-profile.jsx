@@ -7,16 +7,16 @@ import { FaXTwitter } from "react-icons/fa6";
 import { FaLinkedin } from "react-icons/fa";
 import { FaGoogle } from "react-icons/fa";
 import profileApi from "../api/modules/profile.api";
-import purchasedCourseApi from "../api/modules/purchasedCourse.api"
+import purchasedCourseApi from "../api/modules/purchasedCourse.api";
 
 const MenteeProfile = () => {
   const navigate = useNavigate();
   // --- AUTH & ROLE CHECK ---
   useEffect(() => {
     const token =
-      sessionStorage.getItem("token") || localStorage.getItem("token");
+      localStorage.getItem("token") || localStorage.getItem("actkn");
     const userStr =
-      sessionStorage.getItem("user") || localStorage.getItem("user");
+      localStorage.getItem("user") || localStorage.getItem("user");
     let user = null;
     if (!token) {
       navigate("/auth/signin");
@@ -127,18 +127,17 @@ const MenteeProfile = () => {
       setLoading(true);
       setError(null);
       try {
-        const data = await profileApi.getProfile();
+        const data = await profileApi().getProfile();
         const profileData = data?.data;
-        console.log("Fetched profile data:", profileData);
         if (!profileData || !profileData.user) {
           setError(
             "Không nhận được dữ liệu profile từ API hoặc thiếu thông tin user."
           );
-          setProfile(null);
           setFormData({
             userName: "",
             firstName: "",
             lastName: "",
+            email: "",
             bio: "",
             description: "",
             goal: "",
@@ -147,30 +146,37 @@ const MenteeProfile = () => {
             twitter: "",
             linkedin: "",
             facebook: "",
+            avatarUrl: "",
+            location: "",
+            role: "",
           });
           setProfileImage(null);
         } else {
           setProfile(profileData);
+          const user = profileData.user || {};
+          const profile = profileData.profile || {};
+          const links = profile.links || {};
           setFormData({
-            userName: profileData?.user?.userName || "",
-            firstName: profileData?.user?.firstName || "",
-            lastName: profileData?.user?.lastName || "",
-            bio: profileData?.bio || profileData?.user?.bio || "",
-            description:
-              profileData?.profile?.description ||
-              profileData?.description ||
-              "",
-            goal: profileData?.profile?.goal || profileData?.goal || "",
-            education:
-              profileData?.profile?.education || profileData?.education || "",
-            website: profileData?.links?.website || "",
-            twitter: profileData?.links?.twitter || "",
-            linkedin: profileData?.links?.linkedin || "",
-            facebook: profileData?.links?.facebook || "",
+            userName: user.userName || "",
+            firstName: user.firstName || "",
+            lastName: user.lastName || "",
+            email: user.email || "",
+            bio: profile.bio || user.bio || "",
+            description: profile.description || "",
+            goal: profile.goal || "",
+            education: profile.education || "",
+            website: links.website || "",
+            twitter: links.twitter || "",
+            linkedin: links.linkedin || "",
+            facebook: links.facebook || "",
+            avatarUrl: user.avatarUrl || "",
+            location: user.location || profile.location || "",
+            role: user.role || "",
           });
-          setProfileImage(profileData?.user?.avatarUrl || null);
+          setProfileImage(user.avatarUrl || null);
         }
       } catch (error) {
+        console.error("[DEBUG] Lỗi khi gọi profileApi.getProfile:", error);
         setError("Không thể tải thông tin profile");
         setProfile(null);
       }
@@ -184,7 +190,8 @@ const MenteeProfile = () => {
   useEffect(() => {
     async function fetchPurchasedCourses() {
       try {
-        const res = await purchasedCourseApi.getPurchasedCourses();
+        const api = purchasedCourseApi();
+        const res = await api.getPurchasedCourses();
         const data = res.data;
         if (data && data.data && Array.isArray(data.data.courses)) {
           setPurchasedCourses(data.data.courses);

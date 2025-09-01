@@ -5,31 +5,31 @@ import createPrivateClient from "../clients/private.client.js";
 const privateClient = createPrivateClient();
 
 const courseEndpoints = {
-  list: "courses",
-  detail: ({ id }) => `courses/${id}`,
-  related: () => `courses/related`,
-  getAllCourses: "courses",
-  getAllReviews: "reviews",
-  getCourseDetails: ({ courseId }) => `courses/${courseId}`,
-  createCourse: "courses",
-  updateCourse: ({ courseId }) => `courses/${courseId}`,
-  deleteCourse: ({ courseId }) => `courses/${courseId}`,
-  getMyCourses: "courses/my-courses",
-  getUserCourses: ({ userId }) => `user/users/${userId}/courses`,
-  getCourseReviews: ({ courseId }) => `courses/${courseId}/reviews`,
-  addCourseReview: ({ courseId }) => `courses/${courseId}/reviews`,
+  list: "api/v1/courses",
+  detail: ({ id }) => `api/v1/courses/${id}`,
+  related: () => `api/v1/courses/related`,
+  getAllCourses: "api/v1/courses",
+  getAllReviews: "api/v1/reviews",
+  getCourseDetails: ({ courseId }) => `api/v1/courses/${courseId}`,
+  createCourse: "api/v1/courses",
+  updateCourse: ({ courseId }) => `api/v1/courses/${courseId}`,
+  deleteCourse: ({ courseId }) => `api/v1/courses/${courseId}`,
+  getMyCourses: "api/v1/courses/my-courses",
+  getUserCourses: ({ userId }) => `api/v1/user/users/${userId}/courses`,
+  getCourseReviews: ({ courseId }) => `api/v1/courses/${courseId}/reviews`,
+  addCourseReview: ({ courseId }) => `api/v1/courses/${courseId}/reviews`,
   updateCourseReview: ({ courseId, reviewId }) =>
-    `courses/${courseId}/reviews/${reviewId}`,
+    `api/v1/courses/${courseId}/reviews/${reviewId}`,
   deleteCourseReview: ({ courseId, reviewId }) =>
-    `courses/${courseId}/reviews/${reviewId}`,
-  enrollInCourse: ({ courseId }) => `courses/${courseId}/enroll`,
-  unenrollFromCourse: ({ courseId }) => `courses/${courseId}/enroll`,
-  addMentorToCourse: ({ courseId }) => `courses/${courseId}/mentors`,
+    `api/v1/courses/${courseId}/reviews/${reviewId}`,
+  enrollInCourse: ({ courseId }) => `api/v1/courses/${courseId}/enroll`,
+  unenrollFromCourse: ({ courseId }) => `api/v1/courses/${courseId}/enroll`,
+  addMentorToCourse: ({ courseId }) => `api/v1/courses/${courseId}/mentors`,
   removeMentorFromCourse: ({ courseId, mentorId }) =>
-    `courses/${courseId}/mentors/${mentorId}`,
-  addContentToCourse: ({ courseId }) => `courses/${courseId}/content`,
+    `api/v1/courses/${courseId}/mentors/${mentorId}`,
+  addContentToCourse: ({ courseId }) => `api/v1/courses/${courseId}/content`,
   removeContentFromCourse: ({ courseId, contentId }) =>
-    `courses/${courseId}/content/${contentId}`,
+    `api/v1/courses/${courseId}/content/${contentId}`,
 };
 
 const courseApi = {
