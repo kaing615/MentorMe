@@ -1,28 +1,63 @@
 import React, { useState, useEffect } from "react";
+import { toast } from "react-toastify";
+import { FaUserCircle } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
-import facebookImg from "../assets/facebook.png";
-import twitterImg from "../assets/twitter.png";
-import googleImg from "../assets/google.png";
-import minatoImg from "../assets/minato.webp";
-import menteeProfileApi from "../api/modules/menteeProfile.api";
-import purchasedCourseApi from "../api/modules/purchasedCourse.api";
-// Đã xoá mock data, chỉ dùng dữ liệu từ backend
+import { FaFacebook } from "react-icons/fa6";
+import { FaXTwitter } from "react-icons/fa6";
+import { FaLinkedin } from "react-icons/fa";
+import { FaGoogle } from "react-icons/fa";
+import profileApi from "../api/modules/profile.api";
+import purchasedCourseApi from "../api/modules/purchasedCourse.api"
 
 const MenteeProfile = () => {
   const navigate = useNavigate();
-  // Đọc tab từ localStorage, mặc định là 'profile'
-  const [activeTab, setActiveTab] = useState(
-    () => localStorage.getItem("menteeProfileTab") || "profile"
-  );
-
+  // --- AUTH & ROLE CHECK ---
   useEffect(() => {
-    // Khi đổi tab, lưu vào localStorage
+    const token =
+      sessionStorage.getItem("token") || localStorage.getItem("token");
+    const userStr =
+      sessionStorage.getItem("user") || localStorage.getItem("user");
+    let user = null;
+    if (!token) {
+      navigate("/auth/signin");
+      return;
+    }
+    //Check user object
+    try {
+      user = userStr ? JSON.parse(userStr) : null;
+    } catch (e) {
+      user = null;
+    }
+    if (!user || !user.role) {
+      navigate("/auth/signin");
+      return;
+    }
+    // 3. Check role
+    if (user.role === "mentee") {
+      return;
+    }
+    if (user.role === "mentor") {
+      navigate("/mentor/home");
+      return;
+    }
+    if (user.role === "admin") {
+      navigate("/admin/profile");
+      return;
+    }
+  }, [navigate]);
+  // Tab logic: luôn vào tab 'profile' khi vào mentee/profile lần đầu, reload thì giữ tab hiện tại
+  const [activeTab, setActiveTab] = useState(() => {
+    return localStorage.getItem("menteeProfileTab") || "profile";
+  });
+  useEffect(() => {
     localStorage.setItem("menteeProfileTab", activeTab);
   }, [activeTab]);
-
   useEffect(() => {
-    // Khi load trang, cuộn lên đầu
-    window.scrollTo({ top: 0, left: 0, behavior: "smooth" });
+    if (!localStorage.getItem("menteeProfileTab")) {
+      setActiveTab("profile");
+      localStorage.setItem("menteeProfileTab", "profile");
+    }
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }, []);
 
   // TODO: Replace with API call - fetch user profile data
@@ -31,8 +66,10 @@ const MenteeProfile = () => {
   //   return response.json();
   // };
 
-  // State chỉ lấy dữ liệu từ backend
+  // State lưu thông tin profile
+  const [profile, setProfile] = useState(null);
   const [formData, setFormData] = useState({
+    userName: "",
     firstName: "",
     lastName: "",
     bio: "",
@@ -44,46 +81,104 @@ const MenteeProfile = () => {
     linkedin: "",
     facebook: "",
   });
-  const [profileImage, setProfileImage] = useState("");
+  const [profileImage, setProfileImage] = useState(null); // preview
+  const [profileImageFile, setProfileImageFile] = useState(null); // file gốc
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
 
-  console.log("MenteeProfile component mounted");
-  useEffect(() => {
-    console.log("Fetching profile...");
-    async function fetchProfile() {
-      try {
-        const res = await menteeProfileApi.getProfile();
-        const data = res.data;
-        console.log("API profile data:", data);
-        if (data && data.user) {
-          const user = data.user;
-          const profile = data.profile || {};
-          // Log các trường để debug
-          console.log("user:", user);
-          console.log("profile:", profile);
-          console.log("links:", profile.links);
-          setFormData((prev) => ({
-            ...prev,
-            firstName: user.firstName || "",
-            lastName: user.lastName || "",
-            bio: profile.bio || "",
-            description: profile.description || "",
-            goal: profile.goal || "",
-            education: profile.education || "",
-            website: profile.links?.website || "",
-            twitter: profile.links?.twitter || "",
-            linkedin: profile.links?.linkedin || "",
-            facebook: profile.links?.facebook || "",
-          }));
-          if (user.avatarUrl) setProfileImage(user.avatarUrl);
-        }
-      } catch (err) {
-        console.error("Profile fetch error:", err);
-      }
+  // Đổi avatar khi upload ảnh mới
+  const handleImageUpload = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setProfileImageFile(file); // lưu file gốc để gửi API
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        setProfileImage(ev.target.result); // preview
+      };
+      reader.readAsDataURL(file);
     }
+  };
+  const handleChangeAvatar = async () => {
+    if (!profileImageFile) return;
+    try {
+      const res = await profileApi.changeAvatar(profileImageFile);
+      if (res && res.avatarUrl) {
+        setProfileImage(res.avatarUrl);
+        setProfileImageFile(null);
+        if (profile && profile.user) {
+          setProfile((prev) => ({
+            ...prev,
+            user: {
+              ...prev.user,
+              avatarUrl: res.avatarUrl,
+            },
+          }));
+        }
+        toast.success("Đổi avatar thành công!");
+      }
+    } catch (err) {
+      toast.error("Đổi avatar thất bại!");
+    }
+  };
+
+  // Lấy thông tin profile khi mount
+  useEffect(() => {
+    const fetchProfile = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const data = await profileApi.getProfile();
+        const profileData = data?.data;
+        console.log("Fetched profile data:", profileData);
+        if (!profileData || !profileData.user) {
+          setError(
+            "Không nhận được dữ liệu profile từ API hoặc thiếu thông tin user."
+          );
+          setProfile(null);
+          setFormData({
+            userName: "",
+            firstName: "",
+            lastName: "",
+            bio: "",
+            description: "",
+            goal: "",
+            education: "",
+            website: "",
+            twitter: "",
+            linkedin: "",
+            facebook: "",
+          });
+          setProfileImage(null);
+        } else {
+          setProfile(profileData);
+          setFormData({
+            userName: profileData?.user?.userName || "",
+            firstName: profileData?.user?.firstName || "",
+            lastName: profileData?.user?.lastName || "",
+            bio: profileData?.bio || profileData?.user?.bio || "",
+            description:
+              profileData?.profile?.description ||
+              profileData?.description ||
+              "",
+            goal: profileData?.profile?.goal || profileData?.goal || "",
+            education:
+              profileData?.profile?.education || profileData?.education || "",
+            website: profileData?.links?.website || "",
+            twitter: profileData?.links?.twitter || "",
+            linkedin: profileData?.links?.linkedin || "",
+            facebook: profileData?.links?.facebook || "",
+          });
+          setProfileImage(profileData?.user?.avatarUrl || null);
+        }
+      } catch (error) {
+        setError("Không thể tải thông tin profile");
+        setProfile(null);
+      }
+      setLoading(false);
+    };
     fetchProfile();
   }, []);
 
-  // Fetch purchased courses
   const [purchasedCourses, setPurchasedCourses] = useState([]);
 
   useEffect(() => {
@@ -329,45 +424,34 @@ const MenteeProfile = () => {
       [name]: value,
     }));
   };
-
-  const handleImageUpload = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        setProfileImage(e.target.result);
-      };
-      reader.readAsDataURL(file);
+  // Hàm lưu profile vào DB khi bấm nút Save Profile
+  const handleUpdateProfile = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const payload = { ...formData };
+      const response = await profileApi.updateMenteeProfile(
+        payload,
+        profileImageFile
+      );
+      if (response && response.data) {
+        setProfile(response.data);
+        setProfileImage(null); // Reset local image preview để sidebar lấy avatar từ backend
+        setProfileImageFile(null);
+        toast.success("Cập nhật profile thành công!", {
+          position: "top-right",
+          autoClose: 3000,
+        });
+      }
+    } catch (error) {
+      setError(error.message || "Cập nhật profile thất bại");
+      toast.error(error.message || "Cập nhật profile thất bại", {
+        position: "top-right",
+        autoClose: 4000,
+      });
     }
+    setLoading(false);
   };
-
-  const handleSaveImage = () => {
-    // TODO: Replace with API call to upload profile image
-    // const uploadProfileImage = async (imageFile) => {
-    //   const formData = new FormData();
-    //   formData.append('profileImage', imageFile);
-    //   const response = await fetch('/api/users/profile/image', {
-    //     method: 'POST',
-    //     body: formData
-    //   });
-    //   return response.json();
-    // };
-
-    if (profileImage) {
-      // Auto update sidebar avatar when image is saved - using mockup for now
-      console.log("Image saved successfully");
-    }
-  };
-
-  // TODO: Add API-ready function for profile updates
-  // const updateProfile = async (profileData) => {
-  //   const response = await fetch('/api/users/profile', {
-  //     method: 'PUT',
-  //     headers: { 'Content-Type': 'application/json' },
-  //     body: JSON.stringify(profileData)
-  //   });
-  //   return response.json();
-  // };
 
   return (
     <>
@@ -379,21 +463,27 @@ const MenteeProfile = () => {
             style={{ width: 280, minWidth: 280 }}
             className="bg-slate-50 rounded-2xl shadow-sm p-8 flex flex-col items-center sticky top-10 self-start"
           >
-            <img
-              src={profileImage || minatoImg}
-              alt="Minato Namikaze"
-              className="w-24 h-24 rounded-full object-cover mb-4"
-            />
+            <div className="w-24 h-24 rounded-full bg-gray-300 flex items-center justify-center mb-4 relative overflow-hidden">
+              {profileImage ? (
+                <img
+                  src={profileImage}
+                  alt={formData.firstName || "Avatar"}
+                  className="absolute inset-0 w-full h-full object-cover rounded-full"
+                />
+              ) : (
+                <FaUserCircle className="w-24 h-24 text-gray-300" />
+              )}
+            </div>
             <h2 className="font-semibold text-xl text-gray-900 mb-3">
-              Minato Namikaze
+              {formData.firstName || formData.lastName
+                ? `${formData.firstName} ${formData.lastName}`.trim()
+                : "Mentee"}
             </h2>
             <button className="bg-blue-600 text-white border-none rounded-lg px-6 py-1.5 mb-6 font-medium text-base">
               Mentee
             </button>
-
-            {/* Navigation Menu */}
-            <nav className="w-full mt-6">
-              <ul className="list-none p-0 m-0 flex flex-col gap-2">
+            <nav className="w-full">
+              <ul className="flex flex-col gap-2">
                 <li
                   className={`px-4 py-2.5 rounded-lg font-medium transition-all duration-200 cursor-pointer ${
                     activeTab === "profile"
@@ -482,9 +572,22 @@ const MenteeProfile = () => {
                 {/* Personal Information Section */}
                 <div className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100">
                   <h3 className="text-lg font-semibold text-gray-900 mb-6">
-                    Basic Info
+                    Personal Information
                   </h3>
-                  <div className="grid grid-cols-2 gap-4 mb-4">
+                  <div className="grid grid-cols-3 gap-4 mb-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Username
+                      </label>
+                      <input
+                        type="text"
+                        name="userName"
+                        value={formData.userName}
+                        onChange={handleInputChange}
+                        className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="Username"
+                      />
+                    </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         First Name
@@ -492,7 +595,6 @@ const MenteeProfile = () => {
                       <input
                         type="text"
                         name="firstName"
-                        placeholder="First Name"
                         value={formData.firstName}
                         onChange={handleInputChange}
                         className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
@@ -505,7 +607,6 @@ const MenteeProfile = () => {
                       <input
                         type="text"
                         name="lastName"
-                        placeholder="Last Name"
                         value={formData.lastName}
                         onChange={handleInputChange}
                         className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
@@ -518,8 +619,7 @@ const MenteeProfile = () => {
                     </label>
                     <textarea
                       name="bio"
-                      placeholder="Short bio about yourself"
-                      rows={2}
+                      rows={3}
                       value={formData.bio}
                       onChange={handleInputChange}
                       className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 resize-none"
@@ -531,7 +631,6 @@ const MenteeProfile = () => {
                     </label>
                     <textarea
                       name="description"
-                      placeholder="Describe yourself as a mentee"
                       rows={2}
                       value={formData.description}
                       onChange={handleInputChange}
@@ -545,7 +644,6 @@ const MenteeProfile = () => {
                     <input
                       type="text"
                       name="goal"
-                      placeholder="Your learning/career goals"
                       value={formData.goal}
                       onChange={handleInputChange}
                       className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
@@ -558,7 +656,6 @@ const MenteeProfile = () => {
                     <input
                       type="text"
                       name="education"
-                      placeholder="Your education background"
                       value={formData.education}
                       onChange={handleInputChange}
                       className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
@@ -566,26 +663,18 @@ const MenteeProfile = () => {
                   </div>
                 </div>
 
-                {/* Image Upload Section */}
+                {/* Image Upload Section - mentor style */}
                 <div className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100">
                   <h3 className="text-lg font-semibold text-gray-900 mb-6">
                     Profile Image
                   </h3>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Image Preview
-                  </label>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleImageUpload}
-                    id="imageUpload"
-                    style={{ display: "none" }}
-                  />
                   <div
-                    className="border-2 border-dashed border-gray-300 rounded-lg p-12 text-center mb-4 bg-gray-50 cursor-pointer"
+                    className="border-2 border-dashed border-gray-300 rounded-lg p-12 text-center mb-4 bg-gray-50 cursor-pointer flex items-center justify-center"
                     onClick={() =>
                       document.getElementById("imageUpload").click()
                     }
+                    style={{ minHeight: 120 }}
+                    title="Click to upload/change avatar"
                   >
                     {profileImage ? (
                       <img
@@ -596,8 +685,8 @@ const MenteeProfile = () => {
                     ) : (
                       <div className="w-24 h-24 bg-gray-300 rounded mx-auto flex items-center justify-center">
                         <svg
-                          width="24"
-                          height="24"
+                          width="32"
+                          height="32"
                           fill="none"
                           stroke="currentColor"
                           className="text-gray-500"
@@ -611,10 +700,17 @@ const MenteeProfile = () => {
                         </svg>
                       </div>
                     )}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageUpload}
+                      className="hidden"
+                      id="imageUpload"
+                    />
                   </div>
                 </div>
 
-                {/* Links Section */}
+                {/* Links Section - mentor style */}
                 <div className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100">
                   <h3 className="text-lg font-semibold text-gray-900 mb-6">
                     Social Links
@@ -622,11 +718,7 @@ const MenteeProfile = () => {
                   <div className="space-y-4">
                     <div>
                       <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-1">
-                        <img
-                          src={googleImg}
-                          alt="Website"
-                          className="w-5 h-5"
-                        />
+                        <FaGoogle className="w-5 h-5 text-[#4285F4]" />
                         Website
                       </label>
                       <input
@@ -640,11 +732,7 @@ const MenteeProfile = () => {
                     </div>
                     <div>
                       <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-1">
-                        <img
-                          src={twitterImg}
-                          alt="Twitter"
-                          className="w-5 h-5"
-                        />
+                        <FaXTwitter className="w-5 h-5 text-[#1DA1F2]" />
                         Twitter
                       </label>
                       <input
@@ -658,11 +746,7 @@ const MenteeProfile = () => {
                     </div>
                     <div>
                       <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-1">
-                        <img
-                          src={googleImg}
-                          alt="LinkedIn"
-                          className="w-5 h-5"
-                        />
+                        <FaLinkedin className="w-5 h-5 text-[#0077B5]" />
                         LinkedIn
                       </label>
                       <input
@@ -676,11 +760,7 @@ const MenteeProfile = () => {
                     </div>
                     <div>
                       <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-1">
-                        <img
-                          src={facebookImg}
-                          alt="Facebook"
-                          className="w-5 h-5"
-                        />
+                        <FaFacebook className="w-5 h-5 text-[#1877F3]" />
                         Facebook
                       </label>
                       <input
@@ -694,6 +774,19 @@ const MenteeProfile = () => {
                     </div>
                   </div>
                 </div>
+                {/* Nút lưu profile ở cuối form */}
+                <button
+                  type="button"
+                  className={`bg-blue-600 text-white px-6 py-2 rounded-lg font-semibold mt-8 float-right transition-all duration-200 ${
+                    loading
+                      ? "opacity-50 cursor-not-allowed"
+                      : "hover:bg-blue-700 hover:scale-105"
+                  }`}
+                  onClick={loading ? undefined : handleUpdateProfile}
+                  disabled={loading}
+                >
+                  {loading ? "Saving..." : "Save Profile"}
+                </button>
               </form>
             )}
 
@@ -1260,93 +1353,7 @@ const MenteeProfile = () => {
                         </div>
                       </div>
 
-                      {/* Messages List */}
-                      <div
-                        className="space-y-4 overflow-y-auto pr-2"
-                        style={{ maxHeight: "560px" }}
-                      >
-                        {generateMenteeMessages(8).map((message) => (
-                          <div
-                            key={message.id}
-                            className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer"
-                            onClick={() => {
-                              // Create mentor object from message data
-                              const mentor = {
-                                id: message.id,
-                                name: message.mentorName,
-                                avatar: message.mentorAvatar,
-                                specialty: message.mentorSpecialty,
-                                isOnline: message.isOnline,
-                                company: "Tech Company",
-                                yearsExperience: 5,
-                                rating: 4.8,
-                                reviewsCount: 120,
-                                hourlyRate: 75,
-                                bio: "Experienced mentor ready to help with your learning journey.",
-                                skills: ["JavaScript", "React", "Node.js"],
-                              };
-                              handleStartChat(mentor);
-                            }}
-                          >
-                            <div className="flex items-start gap-4">
-                              <div className="relative">
-                                <img
-                                  src={message.mentorAvatar}
-                                  alt={message.mentorName}
-                                  className="w-12 h-12 rounded-full object-cover"
-                                />
-                                {message.isOnline && (
-                                  <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></div>
-                                )}
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center justify-between mb-1">
-                                  <h4 className="font-semibold text-gray-900">
-                                    {message.mentorName}
-                                  </h4>
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-xs text-gray-500">
-                                      {message.timestamp}
-                                    </span>
-                                    {message.unreadCount > 0 && (
-                                      <span className="bg-blue-600 text-white text-xs px-2 py-1 rounded-full">
-                                        {message.unreadCount}
-                                      </span>
-                                    )}
-                                  </div>
-                                </div>
-                                <p className="text-sm text-blue-600 mb-2">
-                                  {message.mentorSpecialty}
-                                </p>
-                                <p className="text-sm text-gray-600 truncate">
-                                  {message.lastMessage}
-                                </p>
-                                <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
-                                  <span className="flex items-center gap-1">
-                                    <svg
-                                      className="w-3 h-3"
-                                      fill="none"
-                                      stroke="currentColor"
-                                      viewBox="0 0 24 24"
-                                    >
-                                      <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        strokeWidth={2}
-                                        d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
-                                      />
-                                    </svg>
-                                    {message.totalMessages} messages
-                                  </span>
-                                  <span>
-                                    Last session: {message.lastSessionDate}
-                                  </span>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
+                      {/* Messages List - Hiện tại bỏ trống, không render gì khi chưa có API */}
                     </>
                   ) : (
                     <>

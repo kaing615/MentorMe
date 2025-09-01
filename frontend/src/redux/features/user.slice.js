@@ -9,35 +9,34 @@ const userSlice = createSlice({
   reducers: {
     setUser: (state, action) => {
       const userData = action.payload;
-      // Update localStorage when user data changes (persists across tabs and sessions)
+      // Update sessionStorage when user data changes (only persists during session)
       if (userData) {
-        localStorage.setItem('user', JSON.stringify(userData));
-        localStorage.setItem('isLoggedIn', 'true');
+        sessionStorage.setItem('user', JSON.stringify(userData));
+        sessionStorage.setItem('isLoggedIn', 'true');
       }
       return userData;
     },
     clearUser: () => {
-      // Clear localStorage when user is cleared
-      localStorage.removeItem('user');
-      localStorage.removeItem('isLoggedIn');
-      localStorage.removeItem('token');
-      localStorage.removeItem('actkn');
+      // Clear sessionStorage when user is cleared
+      sessionStorage.removeItem('user');
+      sessionStorage.removeItem('isLoggedIn');
+      sessionStorage.removeItem('token');
       return null;
     },
     updateUser: (state, action) => {
       if (state) {
         const updatedUser = { ...state, ...action.payload };
-        localStorage.setItem('user', JSON.stringify(updatedUser));
+        sessionStorage.setItem('user', JSON.stringify(updatedUser));
         return updatedUser;
       }
       return state;
     },
-    // Action to restore user from localStorage (called manually)
+    // Action to restore user from sessionStorage (called manually)
     restoreUser: () => {
       try {
-        const storedUser = localStorage.getItem('user');
-        const isLoggedIn = localStorage.getItem('isLoggedIn') === 'true';
-        const token = localStorage.getItem('actkn') || localStorage.getItem('token');
+        const storedUser = sessionStorage.getItem('user');
+        const isLoggedIn = sessionStorage.getItem('isLoggedIn') === 'true';
+        const token = sessionStorage.getItem('token');
         
         if (storedUser && isLoggedIn && token) {
           return {
@@ -46,12 +45,11 @@ const userSlice = createSlice({
           };
         }
       } catch (error) {
-        console.error('Error reading user data from localStorage:', error);
+        console.error('Error reading user data from sessionStorage:', error);
         // Clear invalid data
-        localStorage.removeItem('user');
-        localStorage.removeItem('isLoggedIn');
-        localStorage.removeItem('token');
-        localStorage.removeItem('actkn');
+        sessionStorage.removeItem('user');
+        sessionStorage.removeItem('isLoggedIn');
+        sessionStorage.removeItem('token');
       }
       
       return null;

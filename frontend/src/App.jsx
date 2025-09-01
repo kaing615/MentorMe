@@ -14,10 +14,10 @@ function App() {
 
   // Restore user state from localStorage on app load
   useEffect(() => {
-    // Only attempt to restore if there's evidence of a previous login session (persistent across tabs)
-    const hasLoginData = localStorage.getItem('user') && 
-                         (localStorage.getItem('actkn') || localStorage.getItem('token')) && 
-                         localStorage.getItem('isLoggedIn') === 'true';
+    // Only attempt to restore if there's evidence of a previous login session in current tab
+    const hasLoginData = sessionStorage.getItem('user') && 
+                         sessionStorage.getItem('token') && 
+                         sessionStorage.getItem('isLoggedIn') === 'true';
     
     if (hasLoginData) {
       dispatch(restoreUser());

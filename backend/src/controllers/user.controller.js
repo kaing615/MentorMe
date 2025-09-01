@@ -12,7 +12,13 @@ import profileUtils from "../utils/profile.utils.js";
 dotenv.config();
 
 const isTestEnvironment = () => {
+<<<<<<< HEAD
   return process.env.NODE_ENV === "test" || process.env.NODE_ENV === "development";
+=======
+  return (
+    process.env.NODE_ENV === "test" || process.env.NODE_ENV === "development"
+  );
+>>>>>>> 316df926c8f121dd092dd5a7cbbc8234278e0af9
 };
 
 const transport = nodemailer.createTransport({
@@ -55,21 +61,38 @@ export const sendVerificationEmail = async (email, verifyKey, userName) => {
 
 export const verifyEmail = async (req, res) => {
   try {
-    const { email, verifyKey } = req.query;
+    // Sử dụng validatedQuery thay vì query để tránh lỗi read-only
+    const { email, verifyKey } = req.validatedQuery || req.query;
+    
+    // Kiểm tra cả email và verifyKey
     const user = await User.findOne({
       email,
+      verifyKey,
+      isVerified: false, // Chỉ verify user chưa được verify
     });
+    
     if (!user)
       return responseHandler.badRequest(
         res,
         "Liên kết xác thực không hợp lệ hoặc đã được sử dụng."
       );
 
+    // Kiểm tra xem verifyKey có hết hạn không (nếu có)
+    if (user.verifyKeyExpires && user.verifyKeyExpires < Date.now()) {
+      return responseHandler.badRequest(
+        res,
+        "Liên kết xác thực đã hết hạn. Vui lòng yêu cầu gửi lại email xác thực."
+      );
+    }
+
+    // Cập nhật trạng thái verified
     user.isVerified = true;
     user.verifyKey = "";
     user.verifyKeyExpires = undefined;
 
     await user.save();
+
+    console.log(`User ${user.email} verified successfully. isVerified: ${user.isVerified}`);
 
     const token = jwt.sign(
       { id: user._id, role: user.role },
@@ -223,8 +246,26 @@ export const signUp = async (req, res) => {
 
     await user.save();
 
-    // Tự động tạo Profile cho user mới
-    await profileUtils.createProfileForNewUser(user._id, {}, "mentee");
+    // Tự động tạo Profile cho user mới, đồng bộ đầy đủ dữ liệu
+    await profileUtils.createProfileForNewUser(user._id, {
+      firstName: user.firstName,
+      lastName: user.lastName,
+      userName: user.userName,
+      email: user.email,
+      description: req.body.description || "",
+      goal: req.body.goal || "",
+      education: req.body.education || "",
+      languages: req.body.languages || [],
+      timezone: req.body.timezone || "",
+      links: {
+        website: req.body.website || "",
+        linkedin: req.body.linkedinUrl || "",
+        github: req.body.github || "",
+        youtube: req.body.youtube || "",
+        facebook: req.body.facebook || "",
+        X: req.body.X || "",
+      },
+    }, "mentee");
 
     // In test environment, return token immediately for better testing UX
     if (isTestEnv) {
@@ -301,9 +342,20 @@ export const signUpMentor = async (req, res) => {
     const isTestEnv = isTestEnvironment();
 
     // Debug: Log received data
+<<<<<<< HEAD
     console.log('=== SignUpMentor Debug ===');
     console.log('req.body:', req.body);
     console.log('req.file:', req.file ? { originalname: req.file.originalname, mimetype: req.file.mimetype } : 'No file');
+=======
+    console.log("=== SignUpMentor Debug ===");
+    console.log("req.body:", req.body);
+    console.log(
+      "req.file:",
+      req.file
+        ? { originalname: req.file.originalname, mimetype: req.file.mimetype }
+        : "No file"
+    );
+>>>>>>> 316df926c8f121dd092dd5a7cbbc8234278e0af9
 
     const {
       userName,
@@ -379,6 +431,7 @@ export const signUpMentor = async (req, res) => {
       avatarPublicId,
       role: "mentor",
       isVerified: false,
+<<<<<<< HEAD
       // Thông tin mentor
       jobTitle,
       location,
@@ -390,11 +443,35 @@ export const signUpMentor = async (req, res) => {
       mentorReason,
       greatestAchievement,
       // ... các trường còn lại
+=======
+      jobTitle,
+      location,
+      category,
+      skills:
+        typeof skills === "string"
+          ? skills
+              .split(",")
+              .map((s) => s.trim())
+              .filter((s) => s)
+          : Array.isArray(skills)
+          ? skills
+          : [],
+      bio,
+      linkedinUrl: req.body.linkedinUrl,
+      introVideo,
+      mentorReason,
+      greatestAchievement,
+      headline,
+      experience,
+      languages,
+      timezone,
+>>>>>>> 316df926c8f121dd092dd5a7cbbc8234278e0af9
       ...rest,
     });
 
     await user.save();
 
+<<<<<<< HEAD
     // Tự động tạo Profile với thông tin mentor (không trùng lặp với User)
     await profileUtils.createProfileForNewUser(
       user._id,
@@ -410,6 +487,31 @@ export const signUpMentor = async (req, res) => {
           youtube: req.body.youtube || '',
           facebook: req.body.facebook || '',
           X: req.body.X || '',
+=======
+    // Đồng bộ đầy đủ dữ liệu sang Profile
+    await profileUtils.createProfileForNewUser(
+      user._id,
+      {
+        jobTitle: user.jobTitle,
+        location: user.location,
+        category: user.category,
+        bio: user.bio,
+        skills: user.skills,
+        experience: user.experience,
+        headline: user.headline,
+        mentorReason: user.mentorReason,
+        greatestAchievement: user.greatestAchievement,
+        introVideo: user.introVideo,
+        languages: user.languages,
+        timezone: user.timezone,
+        links: {
+          linkedin: user.linkedinUrl || "",
+          website: req.body.website || "",
+          github: req.body.github || "",
+          youtube: req.body.youtube || "",
+          facebook: req.body.facebook || "",
+          X: req.body.X || "",
+>>>>>>> 316df926c8f121dd092dd5a7cbbc8234278e0af9
         },
       },
       "mentor"

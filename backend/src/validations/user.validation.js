@@ -148,6 +148,18 @@ export const resetPasswordSchema = Joi.object({
   }),
 });
 
+// Verify email validation
+export const verifyEmailSchema = Joi.object({
+  email: Joi.string().email().required().messages({
+    "string.email": "Email không hợp lệ",
+    "any.required": "Email là bắt buộc",
+  }),
+  verifyKey: Joi.string().required().messages({
+    "string.empty": "Verify key không hợp lệ",
+    "any.required": "Verify key là bắt buộc",
+  }),
+});
+
 // Resend email validation (params)
 export const resendEmailParamsSchema = Joi.object({
   email: Joi.string().email().required().messages({

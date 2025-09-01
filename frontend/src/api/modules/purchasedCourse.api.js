@@ -1,9 +1,11 @@
-import createPrivateClient from "../clients/private.client";
+import createPrivateClient from "../clients/private.client.js";
 
-const privateClient = createPrivateClient();
-
-const purchasedCourseApi = {
-  getPurchasedCourses: () => privateClient.get("/purchased-courses"),
+const purchasedCourseApi = (dispatch) => {
+  const client = createPrivateClient(dispatch);
+  
+  return {
+    getPurchasedCourses: () => client.get("/purchased-courses"),
+  };
 };
 
 export default purchasedCourseApi;
