@@ -10,6 +10,7 @@ import { FaXTwitter } from "react-icons/fa6";
 import { FaLinkedin } from "react-icons/fa";
 import { FaGoogle } from "react-icons/fa";
 import courseApi from "../api/modules/course.api";
+import MentorMenteeChat from "../components/MentorMenteeChat.jsx";
 
 
 // Capitalize initials of each word
@@ -785,11 +786,6 @@ const MentorProfile = () => {
   const [menteeCurrentPage, setMenteeCurrentPage] = useState(1);
   const menteesPerPage = 8;
 
-  // Message management state
-  const [selectedConversation, setSelectedConversation] = useState(null);
-  const [messageInput, setMessageInput] = useState("");
-  const [searchMessages, setSearchMessages] = useState("");
-
   // Reviews management state
   const [reviewSearchTerm, setReviewSearchTerm] = useState("");
   const [reviewSortBy, setReviewSortBy] = useState("latest");
@@ -1153,51 +1149,11 @@ const MentorProfile = () => {
     console.log("Save image functionality to be implemented");
   };
 
-  // Message handlers
-  const handleSendMessage = () => {
-    if (messageInput.trim() && selectedConversation) {
-      // TODO: Implement send message functionality with API
-      console.log("Sending message:", messageInput);
-      setMessageInput("");
-    }
-  };
-
-  const handleSelectConversation = (conversation) => {
-    setSelectedConversation(conversation);
-  };
-
   const handleSendMessageToMentee = (menteeId) => {
-    // Find or create conversation with this mentee
-    const existingConversation = conversations.find(
-      (conv) => conv.menteeId === menteeId
-    );
-    if (existingConversation) {
-      setSelectedConversation(existingConversation);
-    } else {
-      // Create new conversation - TODO: Implement with API
-      const mentee = allMentees.find((m) => m.id === menteeId);
-      if (mentee) {
-        const newConversation = {
-          id: conversations.length + 1,
-          menteeId: mentee.id,
-          menteeName: mentee.name,
-          menteeAvatar: mentee.avatar,
-          lastMessage: "",
-          lastMessageTime: "Now",
-          isOnline: false,
-          unreadCount: 0,
-          messages: [],
-        };
-        setSelectedConversation(newConversation);
-      }
-    }
+    // TODO: Implement opening chat with specific mentee
+    // For now, just switch to messages tab
     setActiveTab("messages");
   };
-
-  // Filter conversations based on search
-  const filteredConversations = conversations.filter((conv) =>
-    conv.menteeName.toLowerCase().includes(searchMessages.toLowerCase())
-  );
 
   // Reviews filter and search logic
   const getFilteredAndSortedReviews = () => {
@@ -1339,10 +1295,7 @@ const MentorProfile = () => {
                     ? "bg-gray-200 hover:bg-gray-300 hover:shadow-sm"
                     : "hover:bg-blue-50 hover:text-blue-600 hover:shadow-sm hover:scale-105"
                 }`}
-                onClick={() => {
-                  handleTabChange("messages");
-                  setSelectedConversation(null); // Reset to messages list when clicking tab
-                }}
+                onClick={() => handleTabChange("messages")}
               >
                 Message
               </li>
@@ -2282,206 +2235,10 @@ const MentorProfile = () => {
             </div>
           )}
 
-          {activeTab === "messages" && !selectedConversation && (
+          {activeTab === "messages" && (
             <div className="space-y-6">
-              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-                {/* Header with Search and Filter */}
-                <div className="flex justify-between items-center mb-6">
-                  <h3 className="text-lg font-semibold text-gray-900">
-                    Messages
-                  </h3>
-                  <div className="flex gap-4 items-center">
-                    <div className="relative">
-                      <input
-                        type="text"
-                        placeholder="Search User"
-                        value={searchMessages}
-                        onChange={(e) => setSearchMessages(e.target.value)}
-                        className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                      />
-                      <svg
-                        className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                        />
-                      </svg>
-                    </div>
-
-                    <div className="flex gap-2">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm text-gray-600">Sort By</span>
-                        <select className="px-3 py-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
-                          <option>Relevance</option>
-                          <option>Latest</option>
-                          <option>Oldest</option>
-                        </select>
-                      </div>
-
-                      <button className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg bg-white hover:bg-gray-50 transition">
-                        <svg
-                          className="w-4 h-4"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"
-                          />
-                        </svg>
-                        Filter
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Conversations List */}
-                <div className="space-y-4 max-h-[500px] overflow-y-auto pr-2">
-                  {filteredConversations.map((conversation) => (
-                    <div
-                      key={conversation.id}
-                      onClick={() => handleSelectConversation(conversation)}
-                      className="flex items-center gap-4 p-4 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors"
-                    >
-                      <div className="relative">
-                        <img
-                          src={conversation.menteeAvatar}
-                          alt={conversation.menteeName}
-                          className="w-12 h-12 rounded-full object-cover"
-                        />
-                        {conversation.isOnline && (
-                          <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></div>
-                        )}
-                      </div>
-
-                      <div className="flex-1 min-w-0">
-                        <h4 className="font-semibold text-gray-900 mb-1">
-                          {conversation.menteeName}
-                        </h4>
-                        <p className="text-sm text-gray-600 truncate">
-                          {conversation.lastMessage}
-                        </p>
-                      </div>
-
-                      <div className="text-right">
-                        <p className="text-xs text-gray-500 mb-1">
-                          {conversation.lastMessageTime}
-                        </p>
-                        {conversation.unreadCount > 0 && (
-                          <span className="inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white bg-blue-600 rounded-full">
-                            {conversation.unreadCount}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {activeTab === "messages" && selectedConversation && (
-            <div className="space-y-6">
-              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 h-[600px] flex flex-col">
-                {/* Chat Header */}
-                <div className="p-4 border-b border-gray-200 flex items-center gap-3">
-                  <button
-                    onClick={() => setSelectedConversation(null)}
-                    className="p-1 hover:bg-gray-100 rounded transition-colors"
-                  >
-                    <svg
-                      className="w-5 h-5"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M15 19l-7-7 7-7"
-                      />
-                    </svg>
-                  </button>
-                  <img
-                    src={selectedConversation.menteeAvatar}
-                    alt={selectedConversation.menteeName}
-                    className="w-10 h-10 rounded-full object-cover"
-                  />
-                  <div>
-                    <h4 className="font-semibold text-gray-900">
-                      {selectedConversation.menteeName}
-                    </h4>
-                    {selectedConversation.isOnline && (
-                      <p className="text-sm text-green-600">Online</p>
-                    )}
-                  </div>
-                </div>
-
-                {/* Messages List */}
-                <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                  {selectedConversation.messages.map((message) => (
-                    <div
-                      key={message.id}
-                      className={`flex ${
-                        message.senderId === "mentor"
-                          ? "justify-end"
-                          : "justify-start"
-                      }`}
-                    >
-                      <div
-                        className={`max-w-[70%] px-4 py-2 rounded-lg ${
-                          message.senderId === "mentor"
-                            ? "bg-blue-600 text-white"
-                            : "bg-gray-100 text-gray-900"
-                        }`}
-                      >
-                        <p className="text-sm">{message.content}</p>
-                        <div
-                          className={`text-xs mt-1 ${
-                            message.senderId === "mentor"
-                              ? "text-blue-100"
-                              : "text-gray-500"
-                          }`}
-                        >
-                          {message.timestamp}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Message Input */}
-                <div className="p-4 border-t border-gray-200">
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      placeholder="Type Your Message"
-                      value={messageInput}
-                      onChange={(e) => setMessageInput(e.target.value)}
-                      onKeyPress={(e) =>
-                        e.key === "Enter" && handleSendMessage()
-                      }
-                      className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                    />
-                    <button
-                      onClick={handleSendMessage}
-                      className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition font-medium"
-                    >
-                      Send
-                    </button>
-                  </div>
-                </div>
-              </div>
+              {/* Sử dụng component MentorMenteeChat mới với API integration */}
+              <MentorMenteeChat userRole="mentor" />
             </div>
           )}
 

@@ -233,11 +233,33 @@ export const listConversations = async (req, res) => {
           unreadCount: { $sum: { $cond: ["$isUnreadForMe", 1, 0] } },
         },
       },
+      // Lookup user information for the peer
+      {
+        $lookup: {
+          from: "users",
+          localField: "_id",
+          foreignField: "_id",
+          as: "peerInfo"
+        }
+      },
+      {
+        $unwind: {
+          path: "$peerInfo",
+          preserveNullAndEmptyArrays: true
+        }
+      },
       { $sort: { "lastMessage.sentAt": -1, "lastMessage._id": -1 } },
       {
         $project: {
           peerId: "$_id",
           unreadCount: 1,
+          peerInfo: {
+            firstName: 1,
+            lastName: 1,
+            userName: 1,
+            avatarUrl: 1,
+            role: 1
+          },
           lastMessage: {
             _id: 1,
             sender: 1,
