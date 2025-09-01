@@ -13,8 +13,13 @@ export const objectId = Joi.string().custom((value, helpers) => {
 // Helpers: number từ số hoặc chuỗi số
 const numberFromString = (opts = {}) => {
   const { min, integer, allowEmptyString } = opts;
-  const baseNum = Joi.number()[integer ? "integer" : "min"]?.(min ?? 0) ?? Joi.number();
-  const numSchema = integer ? Joi.number().integer().min(min ?? 0) : Joi.number().min(min ?? 0);
+  const baseNum =
+    Joi.number()[integer ? "integer" : "min"]?.(min ?? 0) ?? Joi.number();
+  const numSchema = integer
+    ? Joi.number()
+        .integer()
+        .min(min ?? 0)
+    : Joi.number().min(min ?? 0);
 
   const strToNum = Joi.string()
     .pattern(integer ? /^\d+$/ : /^\d+(\.\d+)?$/)
@@ -38,9 +43,9 @@ export const createCourseSchema = Joi.object({
     "any.required": "Tiêu đề khóa học là bắt buộc",
   }),
 
-  // Mô tả (ít nhất một trong hai field phải có)
-  description: Joi.string().min(10).max(2000),
-  courseOverview: Joi.string().min(10).max(2000),
+  // Mô tả - frontend gửi courseOverview
+  description: Joi.string().min(10).max(2000).optional(),
+  courseOverview: Joi.string().min(10).max(2000).optional(),
 
   // Giá
   price: Joi.alternatives()
@@ -67,10 +72,12 @@ export const createCourseSchema = Joi.object({
   }),
 
   // Level (nếu có)
-  level: Joi.string().valid("Beginner", "Intermediate", "Advanced", "Expert"),
+  level: Joi.string()
+    .valid("Beginner", "Intermediate", "Advanced", "Expert")
+    .optional(),
 
   // Mục tiêu học (optional)
-  keyLearningObjectives: Joi.string().allow(""),
+  keyLearningObjectives: Joi.string().allow("").optional(),
 
   // Số bài giảng
   lectures: Joi.alternatives()
@@ -90,22 +97,44 @@ export const createCourseSchema = Joi.object({
     }),
 
   // Thời lượng (phút) — cho phép chuỗi rỗng
-  duration: numberFromString({ min: 0, integer: true, allowEmptyString: true }).optional(),
+  duration: numberFromString({
+    min: 0,
+    integer: true,
+    allowEmptyString: true,
+  }).optional(),
 
-  // Link khoá học: chấp nhận 'link' hoặc 'driveLink' (chỉ cần 1)
-  link: Joi.string().uri(),
-  driveLink: Joi.string().uri(),
+  // Link khoá học - frontend gửi driveLink
+  link: Joi.string().uri().optional(),
+  driveLink: Joi.string().uri().optional(),
 
-  // Tag (optional)
-  tags: Joi.array().items(Joi.string().allow("")).optional(),
+  // Tag (optional) - có thể là string hoặc array
+  tags: Joi.alternatives()
+    .try(Joi.array().items(Joi.string().allow("")), Joi.string().allow(""))
+    .optional(),
+
+  // Language (optional) - có thể là string hoặc array
+  language: Joi.alternatives()
+    .try(Joi.array().items(Joi.string().allow("")), Joi.string().allow(""))
+    .optional(),
 
   // Thumbnail do multer xử lý — không validate ở đây
-})
-  .or("description", "courseOverview")
-  .or("link", "driveLink")
-  .messages({
-    "object.missing": "Cần cung cấp mô tả (description/courseOverview) và link (link/driveLink).",
-  });
+}).custom((value, helpers) => {
+  // Đảm bảo có ít nhất description hoặc courseOverview
+  if (!value.description && !value.courseOverview) {
+    return helpers.error("object.missing", {
+      message: "Cần cung cấp mô tả (description hoặc courseOverview)",
+    });
+  }
+
+  // Đảm bảo có ít nhất link hoặc driveLink
+  if (!value.link && !value.driveLink) {
+    return helpers.error("object.missing", {
+      message: "Cần cung cấp link (link hoặc driveLink)",
+    });
+  }
+
+  return value;
+});
 
 // ========== UPDATE COURSE ==========
 export const updateCourseSchema = Joi.object({
@@ -143,8 +172,8 @@ export const addContentSchema = Joi.object({
 export const addReviewSchema = Joi.object({
   rating: Joi.alternatives()
     .try(
-      Joi.number().integer().min(1).max(5),              // nhận số 1..5
-      Joi.string()                                       // nhận chuỗi "1".."5"
+      Joi.number().integer().min(1).max(5), // nhận số 1..5
+      Joi.string() // nhận chuỗi "1".."5"
         .pattern(/^[1-5]$/)
         .custom((value) => parseInt(value, 10))
     )

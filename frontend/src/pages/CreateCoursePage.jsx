@@ -182,6 +182,11 @@ const CreateCoursePage = () => {
       formData.append("courseOverview", data.courseOverview);
       formData.append("keyLearningObjectives", data.keyLearningObjectives);
       formData.append("driveLink", data.driveLink);
+
+      // Backend validation requires description and link fields
+      formData.append("description", data.courseOverview); // Use courseOverview as description
+      formData.append("link", data.driveLink); // Use driveLink as link
+
       formData.append("tags", JSON.stringify(data.tags)); // Send tags as JSON string
       formData.append("language", JSON.stringify(data.language)); // Send language as JSON string
 

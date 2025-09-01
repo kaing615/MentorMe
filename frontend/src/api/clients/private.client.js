@@ -9,7 +9,17 @@ const baseURL = /\/api\/v1$/i.test(API_ROOT) ? API_ROOT : `${API_ROOT}/api/v1`;
 const createPrivateClient = (dispatch) => {
   const client = axios.create({
     baseURL,
-    paramsSerializer: { encode: (params) => queryString.stringify(params) },
+    paramsSerializer: (params) => {
+      // Sử dụng URLSearchParams để serialize một cách an toàn
+      const searchParams = new URLSearchParams();
+      Object.keys(params).forEach((key) => {
+        const value = params[key];
+        if (value !== null && value !== undefined) {
+          searchParams.append(key, String(value));
+        }
+      });
+      return searchParams.toString();
+    },
   });
 
   client.interceptors.request.use((config) => {
@@ -20,7 +30,8 @@ const createPrivateClient = (dispatch) => {
     };
 
     // Ưu tiên sessionStorage, fallback localStorage
-    const raw = sessionStorage.getItem("actkn") || localStorage.getItem("actkn");
+    const raw =
+      sessionStorage.getItem("actkn") || localStorage.getItem("actkn");
     // Làm sạch nếu lỡ lưu kèm "Bearer " hoặc có dấu "
     const token = raw?.replace(/^Bearer\s+/i, "")?.replace(/^"|"$/g, "");
 

@@ -5,8 +5,16 @@ const baseURL = import.meta.env.VITE_API_URL || "http://localhost:4000/api/v1";
 
 const publicClient = axios.create({
   baseURL,
-  paramsSerializer: {
-    encode: (params) => queryString.stringify(params),
+  paramsSerializer: (params) => {
+    // Sử dụng URLSearchParams để serialize một cách an toàn
+    const searchParams = new URLSearchParams();
+    Object.keys(params).forEach((key) => {
+      const value = params[key];
+      if (value !== null && value !== undefined) {
+        searchParams.append(key, String(value));
+      }
+    });
+    return searchParams.toString();
   },
 });
 

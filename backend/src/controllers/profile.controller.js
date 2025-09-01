@@ -100,6 +100,7 @@ export const updateMentorProfile = async (req, res) => {
     let profile = await Profile.findOne({ user: userId });
     if (!profile) profile = new Profile({ user: userId });
 
+    // Only update user fields if they are provided
     if (userName !== undefined) user.userName = userName;
     if (firstName !== undefined) user.firstName = capitalize(firstName);
     if (lastName !== undefined) user.lastName = capitalize(lastName);
@@ -111,8 +112,9 @@ export const updateMentorProfile = async (req, res) => {
     if (category !== undefined) user.category = category;
     if (headline !== undefined) user.headline = headline;
     if (introVideo !== undefined) user.introVideo = introVideo;
-    if (skillsArray?.length) user.skills = skillsArray;
+    if (skillsArray?.length >= 0) user.skills = skillsArray;
 
+    // Only update profile fields if they are provided
     if (jobTitle !== undefined) profile.jobTitle = jobTitle;
     if (location !== undefined) profile.location = location;
     if (category !== undefined) profile.category = category;
@@ -194,28 +196,33 @@ export const updateMenteeProfile = async (req, res) => {
       avatarPublicId = result.public_id;
     }
 
-    const updatedUser = await User.findByIdAndUpdate(
-      userId,
-      {
-        userName,
-        firstName: firstName !== undefined ? capitalize(firstName) : undefined,
-        lastName: lastName !== undefined ? capitalize(lastName) : undefined,
-        avatarUrl,
-        avatarPublicId,
-        bio,
-        location,
-      },
-      { new: true, runValidators: true }
-    );
+    // Prepare update object - only include fields that are provided
+    const updateFields = {};
+    if (userName !== undefined) updateFields.userName = userName;
+    if (firstName !== undefined) updateFields.firstName = capitalize(firstName);
+    if (lastName !== undefined) updateFields.lastName = capitalize(lastName);
+    if (avatarUrl !== undefined) updateFields.avatarUrl = avatarUrl;
+    if (avatarPublicId !== undefined)
+      updateFields.avatarPublicId = avatarPublicId;
+    if (bio !== undefined) updateFields.bio = bio;
+    if (location !== undefined) updateFields.location = location;
+
+    const updatedUser = await User.findByIdAndUpdate(userId, updateFields, {
+      new: true,
+      runValidators: true,
+    });
 
     let profile = await Profile.findOne({ user: userId });
     if (!profile) profile = new Profile({ user: userId });
 
+    // Only update profile fields if they are provided
     if (bio !== undefined) profile.bio = bio;
     if (location !== undefined) profile.location = location;
     if (description !== undefined) profile.description = description;
     if (goal !== undefined) profile.goal = goal;
     if (education !== undefined) profile.education = education;
+    if (languages !== undefined) profile.languages = parseArrayish(languages);
+    if (timezone !== undefined) profile.timezone = timezone;
     if (links && Object.keys(links).length > 0) {
       profile.links = { ...(profile.links || {}), ...links };
     }

@@ -444,74 +444,12 @@ const MentorProfile = () => {
   // State lưu thông tin profile
   const navigate = useNavigate(); // Hook to navigate between routes
   const location = useLocation();
-
-  // State cho profile data - thay thế formData
-  const [profileData, setProfileData] = useState({
-    userName: "",
-    firstName: "",
-    lastName: "",
-    jobTitle: "",
-    category: "",
-    bio: "",
-    mentorReason: "",
-    headline: "",
-    website: "",
-    twitter: "",
-    linkedin: "",
-    youtube: "",
-    facebook: "",
-    skills: [],
-    experience: "",
-    location: "",
-    greatestAchievement: "",
-    introVideo: "",
-    avatarUrl: "",
-  });
-
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [profileImage, setProfileImage] = useState(null);
-
-  // Tab logic
-  const [activeTab, setActiveTab] = useState(() => {
-    return localStorage.getItem("mentorProfileTab") || "profile";
-  });
-
-  // Course management state
-  const [searchTerm, setSearchTerm] = useState("");
-  const [sortBy, setSortBy] = useState("latest");
-  const [filterBy, setFilterBy] = useState("relevance");
-  const [currentPage, setCurrentPage] = useState(1);
-  const coursesPerPage = 9;
-
-  // Mentee management state
-  const [menteeSearchTerm, setMenteeSearchTerm] = useState("");
-  const [menteeSortBy, setMenteeSortBy] = useState("latest");
-  const [menteeCurrentPage, setMenteeCurrentPage] = useState(1);
-  const menteesPerPage = 8;
-
-  // Message management state
-  const [selectedConversation, setSelectedConversation] = useState(null);
-  const [messageInput, setMessageInput] = useState("");
-  const [searchMessages, setSearchMessages] = useState("");
-
-  // Reviews management state
-  const [reviewSearchTerm, setReviewSearchTerm] = useState("");
-  const [reviewSortBy, setReviewSortBy] = useState("latest");
-  const [reviewCurrentPage, setReviewCurrentPage] = useState(1);
-  const reviewsPerPage = 6;
-
-  // Real courses data from MongoDB API
-  const [allCourses, setAllCourses] = useState([]);
-  const [allMentees] = useState([]);
-  const [conversations] = useState([]);
-  const [allReviews, setAllReviews] = useState([]);
-
   // --- AUTH & ROLE CHECK ---
   useEffect(() => {
     // Check token
     const token =
-      localStorage.getItem("actkn") || localStorage.getItem("actkn");
+      localStorage.getItem("actkn") || localStorage.getItem("actkn") || 
+      localStorage.getItem("token") || localStorage.getItem("token");
     const userStr =
       localStorage.getItem("user") || localStorage.getItem("user");
     console.log("Token:", token);
@@ -544,18 +482,17 @@ const MentorProfile = () => {
     }
   }, [navigate]);
 
-  // Save profile
+  // Save profilepl
   const handleUpdateProfile = async () => {
     setLoading(true);
     setError(null);
     try {
-      // Gom dữ liệu từ profileData và avatar
-      const payload = { ...profileData };
+      // Gom dữ liệu từ formData và avatar
+      const payload = { ...formData };
       if (profileImage) {
         payload.avatar = profileImage;
       }
-      const api = profileApi();
-      const response = await api.updateMentorProfile(payload);
+      const response = await profileApi.updateMentorProfile(payload);
       if (response && response.data) {
         setProfileImage(null); // Reset local image preview để sidebar lấy avatar từ backend
         toast.success("Cập nhật profile thành công!", {
@@ -595,7 +532,7 @@ const MentorProfile = () => {
       } else if (response && response.data) {
         // Sau khi tạo thành công, reload lại danh sách courses
         if (formData?._id) {
-          const mentorId = profileData._id;
+          const mentorId = formData._id;
           if (!mentorId) {
             setError("Mentor ID không hợp lệ!");
             setAllCourses([]);
@@ -688,6 +625,13 @@ const MentorProfile = () => {
     }
   };
 
+  // ...existing code...
+  // Tab logic: luôn vào tab 'profile' khi vào mentor/profile lần đầu, reload thì giữ tab hiện tại
+  const [activeTab, setActiveTab] = useState(() => {
+    // Nếu có tab lưu trong localStorage thì lấy, không thì mặc định là 'profile'
+    return localStorage.getItem("mentorProfileTab") || "profile";
+  });
+
   // Khi activeTab thay đổi, lưu vào localStorage
   useEffect(() => {
     localStorage.setItem("mentorProfileTab", activeTab);
@@ -707,17 +651,14 @@ const MentorProfile = () => {
       setLoading(true);
       setError(null);
       try {
-        const api = profileApi(); // Khởi tạo profileApi
-        const data = await api.getProfile();
-        const responseData = data?.data;
-        console.log("Profile API response:", responseData);
-
-        // Backend giờ trả về merged profile data trong responseData.profile
-        const profile = responseData?.profile;
-
-        if (!profile) {
-          setError("Không nhận được dữ liệu profile từ API.");
-          setProfileData({
+        const data = await profileApi.getProfile();
+        const profileData = data?.data;
+        console.log("Profile API response:", profileData);
+        if (!profileData || !profileData.user) {
+          setError(
+            "Không nhận được dữ liệu profile từ API hoặc thiếu thông tin user."
+          );
+          setFormData({
             userName: "",
             firstName: "",
             lastName: "",
@@ -731,74 +672,129 @@ const MentorProfile = () => {
             linkedin: "",
             youtube: "",
             facebook: "",
-            skills: [],
-            experience: "",
-            location: "",
-            greatestAchievement: "",
-            introVideo: "",
-            avatarUrl: "",
           });
           setProfileImage(null);
           setAllCourses([]);
         } else {
-          // Sử dụng merged profile data trực tiếp
-          setProfileData({
-            userName: profile.userName || "",
-            firstName: profile.firstName || "",
-            lastName: profile.lastName || "",
-            bio: profile.bio || "",
-            jobTitle: profile.jobTitle || "",
-            category: profile.category || "",
-            skills: Array.isArray(profile.skills) ? profile.skills : [],
-            experience: profile.experience || "",
-            location: profile.location || "",
-            mentorReason: profile.mentorReason || "",
-            greatestAchievement: profile.greatestAchievement || "",
-            introVideo: profile.introVideo || "",
-            headline: profile.headline || "",
-            website: profile.links?.website || "",
-            twitter: profile.links?.twitter || "",
-            linkedin: profile.links?.linkedin || "",
-            youtube: profile.links?.youtube || "",
-            facebook: profile.links?.facebook || "",
-            avatarUrl: profile.avatarUrl || "",
+          // ...existing code...
+          setFormData({
+            userName: profileData?.user?.userName || "",
+            firstName: profileData?.user?.firstName || "",
+            lastName: profileData?.user?.lastName || "",
+            bio: profileData?.bio || profileData?.user?.bio || "",
+            jobTitle:
+              profileData?.jobTitle || profileData?.user?.jobTitle || "",
+            category:
+              profileData?.category || profileData?.user?.category || "",
+            skills:
+              Array.isArray(profileData?.skills) &&
+              profileData.skills.length > 0
+                ? profileData.skills
+                : Array.isArray(profileData?.user?.skills)
+                ? profileData.user.skills
+                : [],
+            experience:
+              profileData?.experience || profileData?.user?.experience || "",
+            location:
+              profileData?.location || profileData?.user?.location || "",
+            mentorReason:
+              profileData?.mentorReason ||
+              profileData?.user?.mentorReason ||
+              "",
+            greatestAchievement:
+              profileData?.greatestAchievement ||
+              profileData?.user?.greatestAchievement ||
+              "",
+            introVideo:
+              profileData?.introVideo || profileData?.user?.introVideo || "",
+            headline:
+              profileData?.headline || profileData?.user?.headline || "",
+            website: profileData?.links?.website || "",
+            twitter: profileData?.links?.X || "",
+            linkedin: profileData?.user?.linkedinUrl || "",
+            youtube: profileData?.links?.youtube || "",
+            facebook: profileData?.links?.facebook || "",
+            avatarUrl: profileData?.user?.avatarUrl || "",
           });
-          setProfileImage(profile.avatarUrl || null);
-
+          setProfileImage(profileData?.user?.avatarUrl || null);
           // Lấy đúng danh sách khóa học của mentor
-          if (profile._id) {
-            const mentorId = profile._id;
-            try {
+          if (profileData?.user?._id) {
+            const mentorId = profileData.user._id;
+            if (!mentorId) {
+              setError("Mentor ID không hợp lệ!");
+              setAllCourses([]);
+            } else {
               const courses = await courseApi.getCoursesByMentor(mentorId);
               setAllCourses(courses);
-            } catch (courseError) {
-              console.error("Lỗi khi lấy courses:", courseError);
-              setAllCourses([]);
             }
           }
         }
       } catch (error) {
-        console.error("Lỗi khi gọi API getProfile:", error);
         setError("Không thể tải thông tin profile hoặc courses");
+        // ...existing code...
         setAllCourses([]);
       }
       setLoading(false);
     };
     fetchProfileAndCourses();
   }, []);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [formData, setFormData] = useState({
+    userName: "",
+    firstName: "",
+    lastName: "",
+    jobTitle: "",
+    category: "",
+    bio: "",
+    mentorReason: "",
+    headline: "",
+    website: "",
+    twitter: "",
+    linkedin: "",
+    youtube: "",
+    facebook: "",
+  });
+
+  // Sửa trong mentor-profile.jsx
+  const [profileImage, setProfileImage] = useState(null);
 
   // Đổi avatar khi upload ảnh mới
   const handleChangeAvatar = async (file) => {
     try {
-      const api = profileApi();
-      const res = await api.changeAvatar(file);
+      const res = await profileApi.changeAvatar(file);
       if (res && res.avatarUrl) {
         setProfileImage(res.avatarUrl);
+        // ...existing code...
       }
     } catch (err) {
       alert("Đổi avatar thất bại!");
     }
   };
+
+  // Course management state
+  const [searchTerm, setSearchTerm] = useState("");
+  const [sortBy, setSortBy] = useState("latest");
+  const [filterBy, setFilterBy] = useState("relevance");
+  const [currentPage, setCurrentPage] = useState(1);
+  const coursesPerPage = 9;
+
+  // Mentee management state
+  const [menteeSearchTerm, setMenteeSearchTerm] = useState("");
+  const [menteeSortBy, setMenteeSortBy] = useState("latest");
+  const [menteeCurrentPage, setMenteeCurrentPage] = useState(1);
+  const menteesPerPage = 8;
+
+  // Message management state
+  const [selectedConversation, setSelectedConversation] = useState(null);
+  const [messageInput, setMessageInput] = useState("");
+  const [searchMessages, setSearchMessages] = useState("");
+
+  // Reviews management state
+  const [reviewSearchTerm, setReviewSearchTerm] = useState("");
+  const [reviewSortBy, setReviewSortBy] = useState("latest");
+  const [reviewCurrentPage, setReviewCurrentPage] = useState(1);
+  const reviewsPerPage = 6;
 
   // Schedule management state
   const [scheduleMode, setScheduleMode] = useState("list"); // 'list' | 'builder' | 'review'
@@ -936,7 +932,21 @@ const MentorProfile = () => {
     console.log("Booking declined:", bookingId);
     // TODO: Call API to update booking status
   };
-  
+
+  // Real courses data from MongoDB API
+  // No mock data, empty courses array
+  const [allCourses, setAllCourses] = useState([]);
+
+  // Real mentees data - TODO: Replace with API data
+  const [allMentees] = useState([]);
+
+  // Real conversations data - TODO: Replace with API data
+  const [conversations] = useState([]);
+
+  // Real reviews data from MongoDB API
+  // No mock data, empty reviews array
+  const [allReviews, setAllReviews] = useState([]);
+
   // Load courses from MongoDB
   const loadCourses = async () => {
     try {
@@ -1121,7 +1131,7 @@ const MentorProfile = () => {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setProfileData((prev) => ({
+    setFormData((prev) => ({
       ...prev,
       [name]: value,
     }));
@@ -1388,7 +1398,7 @@ const MentorProfile = () => {
                       type="text"
                       name="firstName"
                       placeholder="Label"
-                      value={profileData.firstName}
+                      value={formData.firstName}
                       onChange={handleInputChange}
                       className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                     />
@@ -1401,7 +1411,7 @@ const MentorProfile = () => {
                     <input
                       type="text"
                       name="lastName"
-                      value={profileData.lastName}
+                      value={formData.lastName}
                       onChange={handleInputChange}
                       className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                     />
@@ -1417,7 +1427,7 @@ const MentorProfile = () => {
                     <input
                       type="text"
                       name="jobTitle"
-                      value={profileData.jobTitle || ""}
+                      value={formData.jobTitle || ""}
                       onChange={handleInputChange}
                       className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                     />
@@ -1429,7 +1439,7 @@ const MentorProfile = () => {
                     <input
                       type="text"
                       name="category"
-                      value={profileData.category || ""}
+                      value={formData.category || ""}
                       onChange={handleInputChange}
                       className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                     />
@@ -1446,9 +1456,9 @@ const MentorProfile = () => {
                       type="text"
                       name="skills"
                       value={
-                        Array.isArray(profileData.skills)
-                          ? profileData.skills.join(", ")
-                          : profileData.skills || ""
+                        Array.isArray(formData.skills)
+                          ? formData.skills.join(", ")
+                          : formData.skills || ""
                       }
                       onChange={(e) =>
                         handleInputChange({
@@ -1469,7 +1479,7 @@ const MentorProfile = () => {
                     <input
                       type="text"
                       name="experience"
-                      value={profileData.experience || ""}
+                      value={formData.experience || ""}
                       onChange={handleInputChange}
                       className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                     />
@@ -1482,7 +1492,7 @@ const MentorProfile = () => {
                   <textarea
                     name="mentorReason"
                     rows={2}
-                    value={profileData.mentorReason || ""}
+                    value={formData.mentorReason || ""}
                     onChange={handleInputChange}
                     className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 resize-none"
                   />
@@ -1494,7 +1504,7 @@ const MentorProfile = () => {
                   <input
                     type="text"
                     name="greatestAchievement"
-                    value={profileData.greatestAchievement || ""}
+                    value={formData.greatestAchievement || ""}
                     onChange={handleInputChange}
                     className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                   />
@@ -1508,7 +1518,7 @@ const MentorProfile = () => {
                     type="text"
                     name="headline"
                     placeholder="Label"
-                    value={profileData.headline}
+                    value={formData.headline}
                     onChange={handleInputChange}
                     className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                   />
@@ -1522,7 +1532,7 @@ const MentorProfile = () => {
                     name="bio"
                     placeholder="Label"
                     rows={3}
-                    value={profileData.bio}
+                    value={formData.bio}
                     onChange={handleInputChange}
                     className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 resize-none"
                   />
@@ -1534,7 +1544,7 @@ const MentorProfile = () => {
                   <input
                     type="url"
                     name="introVideo"
-                    value={profileData.introVideo || ""}
+                    value={formData.introVideo || ""}
                     onChange={handleInputChange}
                     className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                     placeholder="https://..."
@@ -1547,7 +1557,7 @@ const MentorProfile = () => {
                   <input
                     type="text"
                     name="location"
-                    value={profileData.location || ""}
+                    value={formData.location || ""}
                     onChange={handleInputChange}
                     className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                     placeholder="City, Country"
@@ -1619,7 +1629,7 @@ const MentorProfile = () => {
                       type="url"
                       name="website"
                       placeholder="https://your-website.com"
-                      value={profileData.website}
+                      value={formData.website}
                       onChange={handleInputChange}
                       className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                     />
@@ -1633,7 +1643,7 @@ const MentorProfile = () => {
                       type="url"
                       name="twitter"
                       placeholder="https://twitter.com/username"
-                      value={profileData.twitter}
+                      value={formData.twitter}
                       onChange={handleInputChange}
                       className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                     />
@@ -1647,7 +1657,7 @@ const MentorProfile = () => {
                       type="url"
                       name="linkedin"
                       placeholder="https://linkedin.com/in/username"
-                      value={profileData.linkedin}
+                      value={formData.linkedin}
                       onChange={handleInputChange}
                       className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                     />
@@ -1661,7 +1671,7 @@ const MentorProfile = () => {
                       type="url"
                       name="youtube"
                       placeholder="https://youtube.com/channel/channelid"
-                      value={profileData.youtube}
+                      value={formData.youtube}
                       onChange={handleInputChange}
                       className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                     />
@@ -1675,7 +1685,7 @@ const MentorProfile = () => {
                       type="url"
                       name="facebook"
                       placeholder="https://facebook.com/username"
-                      value={profileData.facebook}
+                      value={formData.facebook}
                       onChange={handleInputChange}
                       className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                     />
