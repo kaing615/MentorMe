@@ -2074,43 +2074,6 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
-  /availability:
-    get:
-      tags:
-        - Availability Management
-      summary: Lấy availability của mentor theo ngày
-      description: |
-        Lấy availability của mentor cho một ngày cụ thể.
-        - Mentor chỉ có thể xem availability của chính mình (bảo mật)
-        - Nếu không truyền date sẽ lấy ngày hiện tại
-      security:
-        - bearerAuth: []
-      parameters:
-        - in: query
-          name: date
-          required: false
-          schema:
-            type: string
-            format: date
-          description: Ngày cần lấy availability (YYYY-MM-DD). Nếu không truyền sẽ sử dụng ngày hiện tại.
-          example: "2025-08-31"
-      responses:
-        "200":
-          description: Lấy availability thành công
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  status:
-                    type: string
-                    example: "success"
-                  data:
-                    type: object
-                    properties:
-                      availability:
-                        $ref: "#/components/schemas/Availability"
-
   /availability/today-schedule:
     get:
       tags:

@@ -19,18 +19,6 @@ router.post(
 );
 
 /**
- * @route   GET /api/availability
- * @desc    Lấy availability của mentor cho một ngày cụ thể (chỉ mentor xem của chính mình)
- * @access  Private (Mentor only)
- */
-router.get(
-  "/",
-  tokenMiddleware.auth,
-  validateQuery(availabilityValidation.getAvailabilitySchema),
-  availabilityController.getAvailability
-);
-
-/**
  * @route   GET /api/availability/today-schedule
  * @desc    Lấy lịch chi tiết trong ngày của mentor (với thống kê)
  * @access  Private (Mentor only)

@@ -247,70 +247,6 @@ export const createOrUpdateAvailability = async (req, res) => {
 };
 
 /**
- * Lấy availability của mentor cho một ngày (chỉ mentor xem của chính mình)
- * GET /api/availability?date=YYYY-MM-DD
- */
-export const getAvailability = async (req, res) => {
-  try {
-    const mentorId = req.user.id; // Lấy từ token thay vì params
-    let { date } = req.query;
-
-    // Nếu không truyền date, sử dụng ngày hiện tại
-    if (!date) {
-      const today = new Date();
-      date = today.toISOString().split("T")[0]; // Format YYYY-MM-DD
-    }
-
-    // Validate mentor
-    const mentor = await User.findById(mentorId);
-    if (!mentor || !mentor.role.includes("mentor")) {
-      return responseHandler.forbidden(
-        res,
-        "Chỉ mentor mới có thể xem availability của mình"
-      );
-    }
-
-    // Chuẩn hóa date
-    const inputDate = new Date(date);
-    const normalizedDate = new Date(
-      inputDate.toISOString().split("T")[0] + "T00:00:00.000Z"
-    );
-
-    // Tìm availability
-    const availability = await Availability.findOne({
-      mentor: mentorId,
-      date: normalizedDate,
-    }).populate("mentor", "firstName lastName avatarUrl");
-
-    if (!availability) {
-      return responseHandler.ok(res, {
-        message: "Không có availability cho ngày này",
-        availability: null,
-        dayOfWeek: normalizedDate.toLocaleDateString("vi-VN", {
-          weekday: "long",
-        }),
-        mentor: {
-          _id: mentor._id,
-          firstName: mentor.firstName,
-          lastName: mentor.lastName,
-          avatarUrl: mentor.avatarUrl,
-        },
-      });
-    }
-
-    return responseHandler.ok(res, {
-      availability,
-      dayOfWeek: normalizedDate.toLocaleDateString("vi-VN", {
-        weekday: "long",
-      }),
-    });
-  } catch (error) {
-    console.error("Error getting availability:", error);
-    return responseHandler.error(res, "Lỗi khi lấy availability");
-  }
-};
-
-/**
  * Lấy lịch trong ngày của mentor (detailed schedule)
  * GET /api/availability/today-schedule?date=YYYY-MM-DD
  */
@@ -653,7 +589,6 @@ export const manualCleanupOldAvailabilities = async (req, res) => {
 
 export default {
   createOrUpdateAvailability,
-  getAvailability,
   getTodaySchedule,
   deleteAvailability,
   getMentorAvailabilityRange,
