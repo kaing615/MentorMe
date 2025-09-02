@@ -62,14 +62,10 @@ export const signUpMentorSchema = Joi.object({
     "string.empty": "Category không được để trống",
     "any.required": "Category là bắt buộc",
   }),
-  skills: Joi.alternatives()
-    .try(Joi.array().items(Joi.string()).min(1), Joi.string().min(1))
-    .required()
-    .messages({
-      "array.min": "Skills phải có ít nhất 1 kỹ năng",
-      "any.required": "Skills là bắt buộc",
-      "string.min": "Skills phải có ít nhất 1 kỹ năng",
-    }),
+  skills: Joi.array().items(Joi.string()).min(1).required().messages({
+    "array.min": "Skills phải có ít nhất 1 kỹ năng",
+    "any.required": "Skills là bắt buộc",
+  }),
   bio: Joi.string().min(50).max(500).required().messages({
     "string.empty": "Bio không được để trống",
     "string.min": "Bio phải từ 50-500 ký tự",

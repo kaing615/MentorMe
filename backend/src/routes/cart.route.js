@@ -1,98 +1,77 @@
-// routes/cart.route.js
-import { Router } from "express";
+import express from "express";
 import cartController from "../controllers/cart.controller.js";
 import tokenMiddleware from "../middlewares/token.middleware.js";
 import cartValidator from "../middlewares/validators/cart.middleware.js";
 
-const router = Router();
+const router = express.Router();
 
-/**
- * Tất cả routes đều yêu cầu đăng nhập (Bearer token)
- */
+// Tất cả cart routes đều cần authentication
 router.use(tokenMiddleware.auth);
 
 /**
- * @swagger
- * tags:
- *   name: Cart
- *   description: API giỏ hàng khóa học
+ * @route   GET /api/cart
+ * @desc    Lấy giỏ hàng của người dùng hiện tại
+ * @access  Private (Yêu cầu token)
+ * @return  {
+ *   success: true,
+ *   data: {
+ *     totalCourses: number,
+ *     totalPrice: number,
+ *     courses: [
+ *       {
+ *         course: {
+ *           _id: string,
+ *           title: string,
+ *           description: string,
+ *           price: number,
+ *           category: string,
+ *           duration: number,
+ *           rate: number,
+ *           lectures: number,
+ *           thumbnail: string,
+ *           mentor: {
+ *             _id: string,
+ *             firstName: string,
+ *             lastName: string,
+ *             avatarUrl: string,
+ *             jobTitle: string
+ *           }
+ *         },
+ *         addedAt: Date
+ *       }
+ *     ],
+ *     cart: Cart Object
+ *   },
+ *   message: "Lấy giỏ hàng thành công."
+ * }
+ * @note Giỏ hàng sẽ được tự động tạo nếu chưa tồn tại và totalPrice sẽ được tự động cập nhật
  */
-
-/**
- * @swagger
- * /api/cart:
- *   get:
- *     summary: Lấy giỏ hàng của người dùng
- *     tags: [Cart]
- *     security: [ { bearerAuth: [] } ]
- *     responses:
- *       200:
- *         description: Lấy giỏ hàng thành công
- *   post:
- *     summary: Thêm khóa học vào giỏ hàng
- *     tags: [Cart]
- *     security: [ { bearerAuth: [] } ]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required: [ courseId ]
- *             properties:
- *               courseId:
- *                 type: string
- *                 format: objectid
- *                 example: "60f7b3b3e1b3c72a8c8b4567"
- *     responses:
- *       200:
- *         description: Thêm khóa học thành công
- *   delete:
- *     summary: Xóa toàn bộ giỏ hàng
- *     tags: [Cart]
- *     security: [ { bearerAuth: [] } ]
- *     responses:
- *       200:
- *         description: Đã xóa toàn bộ giỏ hàng
- */
-
-/**
- * @swagger
- * /api/cart/{courseId}:
- *   delete:
- *     summary: Xóa 1 khóa học khỏi giỏ hàng
- *     tags: [Cart]
- *     security: [ { bearerAuth: [] } ]
- *     parameters:
- *       - in: path
- *         name: courseId
- *         required: true
- *         schema: { type: string, format: objectid }
- *     responses:
- *       200:
- *         description: Xóa thành công
- */
-
-/**
- * @swagger
- * /api/cart/check/{courseId}:
- *   get:
- *     summary: Kiểm tra khóa học có trong giỏ không
- *     tags: [Cart]
- *     security: [ { bearerAuth: [] } ]
- *     parameters:
- *       - in: path
- *         name: courseId
- *         required: true
- *         schema: { type: string, format: objectid }
- *     responses:
- *       200:
- *         description: Kết quả kiểm tra
- */
-
-// ======== Primary RESTful routes ========
 router.get("/", cartController.getCart);
 
+/**
+ * @route   POST /api/cart
+ * @desc    Thêm khóa học vào giỏ hàng
+ * @access  Private (Yêu cầu token)
+ * @body    { courseId: string }
+ * @return  {
+ *   success: true,
+ *   data: {
+ *     courseId: string,
+ *     courseTitle: string,
+ *     totalCourses: number,
+ *     totalPrice: number,
+ *     cart: Cart Object
+ *   },
+ *   message: "Thêm khóa học vào giỏ hàng thành công."
+ * }
+ * @errors
+ *   - 400: Course ID không hợp lệ (validation middleware)
+ *   - 404: Không tìm thấy khóa học
+ *   - 400: Bạn đã mua khóa học này rồi
+ *   - 400: Khóa học đã có trong giỏ hàng
+ * @validation
+ *   - courseId: required, valid MongoDB ObjectId
+ */
 router.post(
   "/",
   cartValidator.addToCartValidator,
@@ -100,6 +79,27 @@ router.post(
   cartController.addToCart
 );
 
+/**
+ * @route   DELETE /api/cart/:courseId
+ * @desc    Xóa khóa học khỏi giỏ hàng
+ * @access  Private (Yêu cầu token)
+ * @params  courseId - ID của khóa học cần xóa (MongoDB ObjectId)
+ * @return  {
+ *   success: true,
+ *   data: {
+ *     courseId: string,
+ *     totalCourses: number,
+ *     totalPrice: number
+ *   },
+ *   message: "Xóa khóa học khỏi giỏ hàng thành công."
+ * }
+ * @errors
+ *   - 400: Course ID không hợp lệ (validation middleware)
+ *   - 404: Khóa học không có trong giỏ hàng
+ * @validation
+ *   - courseId: required, valid MongoDB ObjectId
+ * @note Giỏ hàng sẽ được tự động tạo nếu chưa tồn tại
+ */
 router.delete(
   "/:courseId",
   cartValidator.removeFromCartValidator,
@@ -107,36 +107,47 @@ router.delete(
   cartController.removeFromCart
 );
 
+/**
+ * @route   DELETE /api/cart
+ * @desc    Xóa toàn bộ giỏ hàng (làm trống giỏ hàng)
+ * @access  Private (Yêu cầu token)
+ * @return  {
+ *   success: true,
+ *   data: {
+ *     totalCourses: 0,
+ *     totalPrice: 0
+ *   },
+ *   message: "Xóa toàn bộ giỏ hàng thành công."
+ * }
+ * @note Giỏ hàng sẽ được tự động tạo nếu chưa tồn tại
+ */
 router.delete("/", cartController.clearCart);
 
+/**
+ * @route   GET /api/cart/check/:courseId
+ * @desc    Kiểm tra xem khóa học có trong giỏ hàng của người dùng không
+ * @access  Private (Yêu cầu token)
+ * @params  courseId - ID của khóa học cần kiểm tra (MongoDB ObjectId)
+ * @return  {
+ *   success: true,
+ *   data: {
+ *     courseId: string,
+ *     inCart: boolean
+ *   },
+ *   message: "Kiểm tra giỏ hàng thành công."
+ * }
+ * @errors
+ *   - 400: Course ID không hợp lệ (validation middleware)
+ *   - 404: Không tìm thấy khóa học
+ * @validation
+ *   - courseId: required, valid MongoDB ObjectId
+ * @note Giỏ hàng sẽ được tự động tạo nếu chưa tồn tại
+ */
 router.get(
   "/check/:courseId",
   cartValidator.checkInCartValidator,
   cartValidator.handleValidationErrors,
   cartController.checkInCart
 );
-
-// ======== Backward-compatible aliases (DEPRECATED) ========
-// POST /api/cart/add -> alias của POST /api/cart
-router.post(
-  "/add",
-  cartValidator.addToCartValidator,
-  cartValidator.handleValidationErrors,
-  cartController.addToCart
-);
-
-// PUT /api/cart/update/:courseId -> không còn hỗ trợ quantity cho khóa học
-router.put("/update/:courseId", cartController.updateCartItem);
-
-// DELETE /api/cart/remove/:courseId -> alias của DELETE /api/cart/:courseId
-router.delete(
-  "/remove/:courseId",
-  cartValidator.removeFromCartValidator,
-  cartValidator.handleValidationErrors,
-  cartController.removeFromCart
-);
-
-// DELETE /api/cart/clear -> alias của DELETE /api/cart
-router.delete("/clear", cartController.clearCart);
 
 export default router;

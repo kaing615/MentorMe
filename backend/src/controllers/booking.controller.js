@@ -18,17 +18,6 @@ function endOfDay(d) {
   return x;
 }
 
-function isValidHHMM(s) {
-  return /^\d{2}:\d{2}$/.test(s);
-}
-
-const normalizeHHMM = (s) => {
-  const [h, m] = String(s).split(":");
-  const hh = String(parseInt(h, 10)).padStart(2, "0");
-  const mm = String(parseInt(m, 10)).padStart(2, "0");
-  return `${hh}:${mm}`;
-};
-
 function parseHHMMStrict(s) {
   if (typeof s !== "string" || !/^\d{1,2}:\d{2}$/.test(s)) return null;
   const [h, m] = s.split(":").map(Number);
@@ -49,13 +38,6 @@ const toStatusCond = (status) => {
   }
   return list.length === 1 ? list[0] : { $in: list };
 };
-
-function combineDateAndTime(date, hhmm) {
-  const [h = 0, m = 0] = String(hhmm).split(":").map(Number);
-  const d = new Date(date);
-  d.setHours(h, m, 0, 0);
-  return d;
-}
 
 export const getBookings = async (req, res) => {
   try {
@@ -221,7 +203,26 @@ export const getBookingsOfMentee = async (req, res) => {
     }
 
     if (status) {
-      query.status = Array.isArray(status) ? { $in: status } : status;
+      const allowed = new Set([
+        "pending",
+        "active",
+        "rejected",
+        "finished",
+        "cancelled",
+      ]);
+      const list = Array.isArray(status)
+        ? status
+        : String(status)
+            .split(",")
+            .map((s) => s.trim());
+      const invalid = list.filter((s) => !allowed.has(s));
+      if (invalid.length) {
+        return responseHandler.badRequest(
+          res,
+          `Invalid status: ${invalid.join(", ")}`
+        );
+      }
+      query.status = list.length === 1 ? list[0] : { $in: list };
     }
 
     const lim = Math.min(Number(limit) || 10, 100);
@@ -335,31 +336,17 @@ export const deleteBooking = async (req, res) => {
     if (!booking) return responseHandler.notFound(res, "Booking not found");
 
     try {
-      const dayKey = startOfDay(existing.date);
-      let freed = await Availability.updateOne(
-        {
-          mentor: existing.mentor,
-          date: dayKey,
-          "slots.bookingId": existing._id,
-          "slots.status": { $in: ["booked", "held"] },
-        },
-        {
-          $set: { "slots.$.status": "open" },
-          $unset: {
-            "slots.$.bookedBy": "",
-            "slots.$.bookingId": "",
-            "slots.$.holdUntil": "",
-          },
-        }
-      );
+      const dateKey = new Date(existing.date).toISOString().slice(0, 10);
+      const dayKey = new Date(`${dateKey}T00:00:00.000Z`);
 
-      if (freed.matchedCount === 0 || freed.modifiedCount === 0) {
+      let freed = null;
+
+      if (existing.slotId) {
         freed = await Availability.updateOne(
           {
             mentor: existing.mentor,
             date: dayKey,
-            "slots.start": existing.start,
-            "slots.end": existing.end,
+            "slots._id": existing.slotId,
             "slots.status": { $in: ["booked", "held"] },
           },
           {
@@ -371,9 +358,47 @@ export const deleteBooking = async (req, res) => {
             },
           }
         );
+      }
+
+      if (!freed || freed.modifiedCount === 0) {
+        freed = await Availability.updateOne(
+          {
+            mentor: existing.mentor,
+            date: dayKey,
+            "slots.bookingId": existing._id,
+            "slots.status": { $in: ["booked", "held"] },
+          },
+          {
+            $set: { "slots.$.status": "open" },
+            $unset: {
+              "slots.$.bookedBy": "",
+              "slots.$.bookingId": "",
+              "slots.$.holdUntil": "",
+            },
+          }
+        );
+        if (!freed || freed.modifiedCount === 0) {
+          freed = await Availability.updateOne(
+            {
+              mentor: existing.mentor,
+              date: dayKey,
+              "slots.start": existing.start,
+              "slots.end": existing.end,
+              "slots.status": { $in: ["booked", "held"] },
+            },
+            {
+              $set: { "slots.$.status": "open" },
+              $unset: {
+                "slots.$.bookedBy": "",
+                "slots.$.bookingId": "",
+                "slots.$.holdUntil": "",
+              },
+            }
+          );
+        }
         if (freed.modifiedCount === 0) {
           console.warn(
-            "[deleteBooking] Slot not freed, please reconcile manually",
+            "[cancelBooking] Slot not freed, please reconcile manually",
             { bookingId: String(existing._id) }
           );
         }
@@ -478,10 +503,12 @@ export const createBooking = async (req, res) => {
       relationship = rel ? rel._id ?? null : null;
     }
 
-    const day = new Date(date);
+    const dateKey = new Date(date).toISOString().slice(0, 10);
+    const dayKey = new Date(`${dateKey}T00:00:00.000Z`);
+
     const conflict = await Booking.findOne({
       mentor,
-      date: { $gte: startOfDay(day), $lte: endOfDay(day) },
+      date: dayKey,
       status: { $in: ["pending", "active"] },
       start: { $lt: normEnd },
       end: { $gt: normStart },
@@ -489,7 +516,7 @@ export const createBooking = async (req, res) => {
 
     const menteeConflict = await Booking.findOne({
       mentee,
-      date: { $gte: startOfDay(day), $lte: endOfDay(day) },
+      date: dayKey,
       status: { $in: ["pending", "active"] },
       start: { $lt: normEnd },
       end: { $gt: normStart },
@@ -504,12 +531,9 @@ export const createBooking = async (req, res) => {
       return responseHandler.badRequest(res, "Booking conflict detected");
     }
 
-    if (isNaN(day.getTime())) {
+    if (Number.isNaN(dayKey.getTime())) {
       return responseHandler.badRequest(res, "Invalid date");
     }
-
-    const dayKey = new Date(day);
-    dayKey.setHours(0, 0, 0, 0);
 
     let slotLocked = false;
     let avail = null;
@@ -538,7 +562,10 @@ export const createBooking = async (req, res) => {
       }
       slotLocked = true;
 
-      // Create booking
+      const slot = avail.slots.find(
+        (s) => s.start === normStart && s.end === normEnd
+      );
+
       const booking = await Booking.create({
         relationship,
         mentor,
@@ -548,6 +575,7 @@ export const createBooking = async (req, res) => {
         end: normEnd,
         notes,
         status: "pending",
+        slotId: slot?._id,
       });
 
       await Availability.updateOne(
@@ -862,32 +890,17 @@ export const cancelBooking = async (req, res) => {
       return responseHandler.badRequest(res, "Booking is not cancellable");
     }
 
-    const dayKey = startOfDay(existing.date);
+    const dateKey = new Date(existing.date).toISOString().slice(0, 10);
+    const dayKey = new Date(`${dateKey}T00:00:00.000Z`);
 
-    let freed = await Availability.updateOne(
-      {
-        mentor: existing.mentor,
-        date: dayKey,
-        "slots.bookingId": existing._id,
-        "slots.status": { $in: ["booked", "held"] },
-      },
-      {
-        $set: { "slots.$.status": "open" },
-        $unset: {
-          "slots.$.bookedBy": "",
-          "slots.$.bookingId": "",
-          "slots.$.holdUntil": "",
-        },
-      }
-    );
+    let freed = null;
 
-    if (freed.matchedCount === 0 || freed.modifiedCount === 0) {
+    if (existing.slotId) {
       freed = await Availability.updateOne(
         {
           mentor: existing.mentor,
           date: dayKey,
-          "slots.start": existing.start,
-          "slots.end": existing.end,
+          "slots._id": existing.slotId,
           "slots.status": { $in: ["booked", "held"] },
         },
         {
@@ -899,6 +912,44 @@ export const cancelBooking = async (req, res) => {
           },
         }
       );
+    }
+
+    if (!freed || freed.modifiedCount === 0) {
+      freed = await Availability.updateOne(
+        {
+          mentor: existing.mentor,
+          date: dayKey,
+          "slots.bookingId": existing._id,
+          "slots.status": { $in: ["booked", "held"] },
+        },
+        {
+          $set: { "slots.$.status": "open" },
+          $unset: {
+            "slots.$.bookedBy": "",
+            "slots.$.bookingId": "",
+            "slots.$.holdUntil": "",
+          },
+        }
+      );
+      if (!freed || freed.modifiedCount === 0) {
+        freed = await Availability.updateOne(
+          {
+            mentor: existing.mentor,
+            date: dayKey,
+            "slots.start": existing.start,
+            "slots.end": existing.end,
+            "slots.status": { $in: ["booked", "held"] },
+          },
+          {
+            $set: { "slots.$.status": "open" },
+            $unset: {
+              "slots.$.bookedBy": "",
+              "slots.$.bookingId": "",
+              "slots.$.holdUntil": "",
+            },
+          }
+        );
+      }
       if (freed.modifiedCount === 0) {
         console.warn(
           "[cancelBooking] Slot not freed, please reconcile manually",
