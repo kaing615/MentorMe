@@ -113,6 +113,9 @@ export const updateMentorProfile = async (req, res) => {
     if (headline !== undefined) user.headline = headline;
     if (introVideo !== undefined) user.introVideo = introVideo;
     if (skillsArray?.length >= 0) user.skills = skillsArray;
+    if (mentorReason !== undefined) user.mentorReason = mentorReason;
+    if (greatestAchievement !== undefined)
+      user.greatestAchievement = greatestAchievement;
 
     // Only update profile fields if they are provided
     if (jobTitle !== undefined) profile.jobTitle = jobTitle;
@@ -333,7 +336,7 @@ export const getProfile = async (req, res) => {
 
     return responseHandler.ok(res, {
       profile: mergedProfile,
-      user: sanitizeUser(user), // Giữ lại để backward compatibility
+      user: { ...sanitizeUser(user), experience: mergedProfile.experience }, // Đảm bảo user cũng có trường experience
     });
   } catch (err) {
     console.error("Lỗi lấy thông tin profile:", err);

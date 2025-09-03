@@ -3,6 +3,8 @@ import { useDispatch } from "react-redux";
 import { useParams, useNavigate } from "react-router-dom";
 import { IoStarOutline, IoStar } from "react-icons/io5";
 import { AiOutlineGlobal } from "react-icons/ai";
+import { FaHashtag, FaBullseye } from "react-icons/fa";
+import { GiLevelEndFlag } from "react-icons/gi";
 import CoursePic from "../assets/thumbnail.png";
 import facebooklogo from "../assets/facebook.png";
 import githublogo from "../assets/github.png";
@@ -14,7 +16,6 @@ import { ImQuotesLeft } from "react-icons/im";
 import { showLoading, hideLoading } from "../redux/features/loading.slice";
 import courseApi from "../api/modules/course.api";
 import { toast } from "react-toastify";
-import { FaHashtag } from "react-icons/fa";
 import { MENTEE_PATH, MENTOR_PATH, PATH } from "../routes/path";
 
 const CourseDetail = () => {
@@ -39,7 +40,7 @@ const CourseDetail = () => {
       user = null;
     }
     // Chỉ cho phép mentee, mentor, admin
-    if (!user || !["mentee", "mentor", "admin"].includes(user.role)) {
+    if (!user || !["mentee", "mentor"].includes(user.role)) {
       toast.error("Bạn không có quyền truy cập trang này");
       navigate(PATH.LOGIN);
       return;
@@ -297,52 +298,172 @@ const CourseDetail = () => {
 
           <div
             title="hold language of course"
-            className="flex flex-row mt-4 gap-3"
+            className="flex flex-row mt-4 gap-3 items-start"
           >
-            <AiOutlineGlobal className="text-gray-400" size={25} />
-            <span className="text-gray-700">
-              {(() => {
-                if (!courseData.language) return "No language available";
-                let langs = courseData.language;
-                if (Array.isArray(langs)) return langs.join(", ");
-                if (typeof langs === "string" && langs.trim().startsWith("[")) {
-                  try {
-                    const parsed = JSON.parse(langs);
-                    if (Array.isArray(parsed)) return parsed.join(", ");
-                  } catch {}
-                }
-                return String(langs)
-                  .replace(/\[|\]|"/g, "")
-                  .split(",")
-                  .map((lang) => lang.trim())
-                  .filter(Boolean)
-                  .join(", ");
-              })()}
-            </span>
+            <AiOutlineGlobal className="text-gray-400 mt-1" size={25} />
+            <div className="flex flex-col">
+              <span className="text-gray-700 font-medium mb-2">Languages:</span>
+              <div className="flex flex-wrap gap-2">
+                {(() => {
+                  if (!courseData.language)
+                    return (
+                      <span className="text-gray-500 text-sm">
+                        No language available
+                      </span>
+                    );
+                  let langs = courseData.language;
+
+                  // Parse languages array
+                  if (Array.isArray(langs)) {
+                    return langs.map((lang, index) => (
+                      <span
+                        key={index}
+                        className="inline-block bg-green-100 text-green-800 text-sm px-3 py-1 rounded-full font-medium"
+                      >
+                        {lang.trim()}
+                      </span>
+                    ));
+                  }
+
+                  if (
+                    typeof langs === "string" &&
+                    langs.trim().startsWith("[")
+                  ) {
+                    try {
+                      const parsed = JSON.parse(langs);
+                      if (Array.isArray(parsed)) {
+                        return parsed.map((lang, index) => (
+                          <span
+                            key={index}
+                            className="inline-block bg-green-100 text-green-800 text-sm px-3 py-1 rounded-full font-medium"
+                          >
+                            {lang.trim()}
+                          </span>
+                        ));
+                      }
+                    } catch {}
+                  }
+
+                  // Fallback for string format
+                  const langArray = String(langs)
+                    .replace(/\[|\]|"/g, "")
+                    .split(",")
+                    .map((lang) => lang.trim())
+                    .filter(Boolean);
+
+                  return langArray.map((lang, index) => (
+                    <span
+                      key={index}
+                      className="inline-block bg-green-100 text-green-800 text-sm px-3 py-1 rounded-full font-medium"
+                    >
+                      {lang}
+                    </span>
+                  ));
+                })()}
+              </div>
+            </div>
           </div>
 
-          <div title="hold tags" className="flex flex-row mt-4 gap-3">
-            <FaHashtag className="text-gray-400" size={25} />
-            <span className="text-gray-700">
-              {(() => {
-                if (!courseData.tags) return "No tags available";
-                let tags = courseData.tags;
-                if (Array.isArray(tags)) return tags.join(", ");
-                if (typeof tags === "string" && tags.trim().startsWith("[")) {
-                  try {
-                    const parsed = JSON.parse(tags);
-                    if (Array.isArray(parsed)) return parsed.join(", ");
-                  } catch {}
-                }
-                return String(tags)
-                  .replace(/\[|\]|"/g, "")
-                  .split(",")
-                  .map((tag) => tag.trim())
-                  .filter(Boolean)
-                  .join(", ");
-              })()}
-            </span>
+          <div
+            title="hold tags"
+            className="flex flex-row mt-4 gap-3 items-start"
+          >
+            <FaHashtag className="text-gray-400 mt-1" size={25} />
+            <div className="flex flex-col">
+              <span className="text-gray-700 font-medium mb-2">Tags:</span>
+              <div className="flex flex-wrap gap-2">
+                {(() => {
+                  if (!courseData.tags)
+                    return (
+                      <span className="text-gray-500 text-sm">
+                        No tags available
+                      </span>
+                    );
+                  let tags = courseData.tags;
+
+                  // Parse tags array
+                  if (Array.isArray(tags)) {
+                    return tags.map((tag, index) => (
+                      <span
+                        key={index}
+                        className="inline-block bg-blue-100 text-blue-800 text-sm px-3 py-1 rounded-full font-medium"
+                      >
+                        {tag.trim()}
+                      </span>
+                    ));
+                  }
+
+                  if (typeof tags === "string" && tags.trim().startsWith("[")) {
+                    try {
+                      const parsed = JSON.parse(tags);
+                      if (Array.isArray(parsed)) {
+                        return parsed.map((tag, index) => (
+                          <span
+                            key={index}
+                            className="inline-block bg-blue-100 text-blue-800 text-sm px-3 py-1 rounded-full font-medium"
+                          >
+                            {tag.trim()}
+                          </span>
+                        ));
+                      }
+                    } catch {}
+                  }
+
+                  // Fallback for string format
+                  const tagArray = String(tags)
+                    .replace(/\[|\]|"/g, "")
+                    .split(",")
+                    .map((tag) => tag.trim())
+                    .filter(Boolean);
+
+                  return tagArray.map((tag, index) => (
+                    <span
+                      key={index}
+                      className="inline-block bg-blue-100 text-blue-800 text-sm px-3 py-1 rounded-full font-medium"
+                    >
+                      {tag}
+                    </span>
+                  ));
+                })()}
+              </div>
+            </div>
           </div>
+
+          {/* Hiển thị level nếu có */}
+          {courseData.level && (
+            <div
+              title="hold level"
+              className="flex flex-row mt-4 gap-3 items-start"
+            >
+              <GiLevelEndFlag className="text-gray-400 mt-1" size={25} />
+              <div className="flex flex-col">
+                <span className="text-gray-700 font-medium mb-2">Level:</span>
+                <div className="flex flex-wrap gap-2">
+                  <span className="inline-block bg-purple-100 text-purple-800 text-sm px-3 py-1 rounded-full font-medium">
+                    {courseData.level}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Hiển thị key learning objectives nếu có */}
+          {courseData.keyLearningObjectives && (
+            <div
+              title="hold key objectives"
+              className="flex flex-row mt-4 gap-3 items-start"
+            >
+              <FaBullseye className="text-gray-400 mt-1" size={25} />
+              <div className="flex flex-col">
+                <span className="text-gray-700 font-medium mb-2">
+                  Key Learning Objectives:
+                </span>
+                <div className="text-gray-600 text-sm leading-relaxed">
+                  {courseData.keyLearningObjectives}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         <div title="hold box of course" className="w-1/4 mt-5">
@@ -361,12 +482,36 @@ const CourseDetail = () => {
               className="flex flex-row items-center space-x-3 mb-4"
             >
               <span className="text-3xl font-bold text-black">
-                ${discountedPrice.toFixed(1)}
+                $
+                {(() => {
+                  const price =
+                    typeof discountedPrice === "number"
+                      ? discountedPrice
+                      : parseFloat(discountedPrice || 0);
+                  return price % 1 === 0
+                    ? price.toLocaleString("en-US")
+                    : price.toLocaleString("en-US", {
+                        minimumFractionDigits: 1,
+                        maximumFractionDigits: 2,
+                      });
+                })()}
               </span>
               {discount > 0 && (
                 <>
                   <span className="text-xl font-semibold text-gray-400 line-through">
-                    ${basePrice.toFixed(1)}
+                    $
+                    {(() => {
+                      const price =
+                        typeof basePrice === "number"
+                          ? basePrice
+                          : parseFloat(basePrice || 0);
+                      return price % 1 === 0
+                        ? price.toLocaleString("en-US")
+                        : price.toLocaleString("en-US", {
+                            minimumFractionDigits: 1,
+                            maximumFractionDigits: 2,
+                          });
+                    })()}
                   </span>
                   <span className="text-xl font-semibold text-green-600">
                     {discount}% Off
@@ -566,14 +711,25 @@ const CourseDetail = () => {
                 {relatedCourses.map((course, idx) => {
                   const p = Number(course.price) || 0;
                   const d = Number(course.discount) || 0;
-                  const pDisc = (p - p * (d / 100)).toFixed(1);
+                  const discountedPrice = p - p * (d / 100);
+                  const formatPrice = (price) => {
+                    return price % 1 === 0
+                      ? price.toLocaleString("en-US")
+                      : price.toLocaleString("en-US", {
+                          minimumFractionDigits: 1,
+                          maximumFractionDigits: 2,
+                        });
+                  };
                   return (
                     <button
                       key={course.courseId || course._id || idx}
-                      onClick={() =>
-                        navigate(`/courses/${course.courseId || course._id}`)
-                      }
-                      className="text-left border border-gray-200 rounded-lg p-4 w-[320px] hover:shadow-lg transition duration-200 flex flex-col items-start whitespace-normal"
+                      onClick={() => {
+                        navigate(
+                          `/course-detail/${course.courseId || course._id}`
+                        );
+                        window.scrollTo(0, 0);
+                      }}
+                      className="text-left border border-gray-200 rounded-lg p-4 w-[320px] hover:shadow-lg transition duration-200 flex flex-col items-start whitespace-normal min-h-[400px]"
                     >
                       <img
                         src={
@@ -582,35 +738,90 @@ const CourseDetail = () => {
                         alt={course.title}
                         className="w-[320px] h-[180px] object-cover rounded-lg mb-2"
                       />
-                      <div className="font-bold text-lg line-clamp-2 break-words whitespace-normal max-w-full">
+                      <div className="font-bold text-lg line-clamp-2 break-words whitespace-normal max-w-full mb-1">
                         {course.title}
                       </div>
-                      <div className="text-sm text-slate-600">
+                      <div className="text-sm text-slate-600 mb-2">
                         By{" "}
                         {course.mentor?.userName ||
                           course.mentor?.firstName ||
                           "Mentor"}
                       </div>
-                      <div className="flex items-center gap-2 mt-1 text-slate-700">
+                      <div className="flex items-center gap-2 mt-1 text-slate-700 mb-2">
                         <div className="flex items-center">
                           {renderStars(course.rate || 0)}
                         </div>
                         <span className="text-sm">({course.rate || 0})</span>
                       </div>
-                      <div className="text-sm text-slate-600 mt-1">
+                      <div className="text-sm text-slate-600 mb-2">
                         {course.duration} hours · {course.lectures} Lectures ·{" "}
                         {Array.isArray(course.category)
                           ? course.category.join(", ")
                           : course.category}
                       </div>
-                      <div className="font-bold flex flex-row text-xl mt-1 gap-1">
-                        <div title="discount">${pDisc}</div>
+
+                      {/* Hiển thị tags */}
+                      {course.tags && course.tags.length > 0 && (
+                        <div className="mb-2">
+                          <div className="flex flex-wrap gap-1">
+                            {course.tags.slice(0, 3).map((tag, index) => (
+                              <span
+                                key={index}
+                                className="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full font-medium max-w-[80px] truncate"
+                              >
+                                {tag}
+                              </span>
+                            ))}
+                            {course.tags.length > 3 && (
+                              <span className="inline-block bg-gray-100 text-gray-600 text-xs px-2 py-1 rounded-full">
+                                +{course.tags.length - 3} more
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Hiển thị languages */}
+                      {course.language && course.language.length > 0 && (
+                        <div className="mb-2">
+                          <p className="text-xs text-gray-500 mb-1">
+                            Languages:
+                          </p>
+                          <div className="flex flex-wrap gap-1">
+                            {course.language.slice(0, 2).map((lang, index) => (
+                              <span
+                                key={index}
+                                className="inline-block bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full font-medium max-w-[80px] truncate"
+                              >
+                                {lang}
+                              </span>
+                            ))}
+                            {course.language.length > 2 && (
+                              <span className="inline-block bg-gray-100 text-gray-600 text-xs px-2 py-1 rounded-full">
+                                +{course.language.length - 2} more
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Hiển thị level */}
+                      {course.level && (
+                        <p className="text-green-500 text-xs mb-2">
+                          <b>Level:</b> {course.level}
+                        </p>
+                      )}
+
+                      <div className="font-bold flex flex-row text-xl mt-auto gap-1">
+                        <div title="discount">
+                          ${formatPrice(discountedPrice)}
+                        </div>
                         {d > 0 && (
                           <div
                             title="original"
                             className="text-base font-semibold text-gray-400 line-through"
                           >
-                            ${p.toFixed(1)}
+                            ${formatPrice(p)}
                           </div>
                         )}
                       </div>

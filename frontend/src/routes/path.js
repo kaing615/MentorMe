@@ -19,6 +19,7 @@ export const MENTEE_PATH = {
   COURSE: "course",
   PROFILE: "profile",
   SHOPPINGCART: "shoppingcart",
+  COURSEDETAIL: "course-detail",
 };
 
 export const ADMIN_PATH = {
