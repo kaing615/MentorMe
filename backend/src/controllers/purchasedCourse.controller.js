@@ -19,7 +19,6 @@ const getPurchasedCourses = async (req, res) => {
       }
       userId = firstUser._id;
     }
-    const { id: userId } = req.user;
 
     // Tìm tất cả các order mà user là mentee
     const orders = await Order.find({ mentee: userId }).populate({
@@ -74,7 +73,7 @@ const updateCourseProgress = async (req, res) => {
     const { progress } = req.body;
 
     if (progress < 0 || progress > 100) {
-      return responseHandler.badRequest(res, "Tiến độ phải từ 0 đến 100%.");
+      return responseHandler.badrequest(res, "Tiến độ phải từ 0 đến 100%.");
     }
 
     const user = await User.findById(userId);
@@ -87,7 +86,7 @@ const updateCourseProgress = async (req, res) => {
     );
 
     if (courseIndex === -1) {
-      return responseHandler.badRequest(res, "Bạn chưa mua khóa học này.");
+      return responseHandler.badrequest(res, "Bạn chưa mua khóa học này.");
     }
 
     user.purchasedCourses[courseIndex].progress = progress;
@@ -168,7 +167,7 @@ const handlePurchaseSuccess = async (req, res) => {
     }
 
     if (order.status !== "paid") {
-      return responseHandler.badRequest(res, "Đơn hàng chưa được thanh toán.");
+      return responseHandler.badrequest(res, "Đơn hàng chưa được thanh toán.");
     }
 
     // Kiểm tra order có thuộc về user này không

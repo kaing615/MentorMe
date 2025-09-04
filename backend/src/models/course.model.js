@@ -32,7 +32,6 @@ const CourseSchema = new mongoose.Schema(
     rate: { type: Number, default: 0 },
     numberOfRatings: { type: Number, default: 0 },
 
-    numberOfRatings: { type: Number, default: 0 },
     link: { type: String, required: true },
     lectures: { type: Number, required: true },
   },

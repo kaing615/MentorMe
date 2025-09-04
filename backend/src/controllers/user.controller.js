@@ -8,12 +8,6 @@ import responseHandler from "../handlers/response.handler.js";
 import User from "../models/user.model.js";
 import { uploadImage } from "../utils/cloudinary.js";
 import profileUtils from "../utils/profile.utils.js";
-import profileUtils from "../utils/profile.utils.js";
-
-// Helper function để check test environment (chỉ true khi test thực sự)
-const isTestEnvironment = () => {
-  return process.env.NODE_ENV === "test"; // Chỉ skip khi NODE_ENV=test
-};
 
 dotenv.config();
 
@@ -234,8 +228,6 @@ export const signUp = async (req, res) => {
       salt,
       role: "mentee",
       isVerified: false,
-      role: "mentee",
-      isVerified: isTestEnv, // Auto-verify in test environment
       isDeleted: false,
       verifyKey: isTestEnv ? "" : generateToken(),
       verifyKeyExpires: isTestEnv
@@ -371,6 +363,10 @@ export const signUpMentor = async (req, res) => {
       greatestAchievement,
       links,
       introVideo,
+      headline,
+      experience,
+      languages,
+      timezone,
       ...rest
     } = req.body;
 
@@ -448,19 +444,6 @@ export const signUpMentor = async (req, res) => {
       timezone,
       ...rest,
     });
-      role: "mentor",
-      isVerified: isTestEnv, // Auto-verify in test environment
-      isDeleted: false,
-      verifyKey: isTestEnv ? "" : generateToken(),
-      verifyKeyExpires: isTestEnv
-        ? undefined
-        : Date.now() + 24 * 60 * 60 * 1000,
-    });
-
-    // Only send email in production
-    if (!isTestEnv) {
-      await sendVerificationEmail(user.email, user.verifyKey, user.userName);
-    }
 
     await user.save();
 
@@ -488,15 +471,6 @@ export const signUpMentor = async (req, res) => {
           facebook: req.body.facebook || "",
           X: req.body.X || "",
         },
-        jobTitle,
-        location,
-        category,
-        skills,
-        bio,
-        mentorReason,
-        greatestAchievement,
-        links,
-        introVideo,
       },
       "mentor"
     );
@@ -528,6 +502,14 @@ export const signUpMentor = async (req, res) => {
     });
   } catch (err) {
     console.error("Lỗi signUpMentor:", err);
+    if (err.details) {
+      // Nếu là lỗi validation của Joi
+      console.error("Chi tiết lỗi Joi:", err.details);
+      return responseHandler.error(res, {
+        message: err.message || "Lỗi đăng ký mentor!",
+        details: err.details,
+      });
+    }
     responseHandler.error(res, err.message || "Lỗi đăng ký mentor!");
   }
 };

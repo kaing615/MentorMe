@@ -1,35 +1,46 @@
+import path from "path";
+import fs from "fs";
+
 import responseHandler from "../handlers/response.handler.js";
+
 import Course from "../models/course.model.js";
 import Order from "../models/order.model.js";
 import User from "../models/user.model.js";
+import Lesson from "../models/lesson.model.js";
+import Review from "../models/review.model.js";
 
-/**
- * @desc Lấy tất cả khóa học
- * @route GET /api/course
- * @access Public
- */
+import { uploadImage } from "../utils/cloudinary.js";
+import {
+  addMentorSchema,
+  addContentSchema,
+  addReviewSchema,
+} from "../validations/course.validation.js";
+
+const getParamId = (req) => req.params.courseId || req.params.id;
+const isMentorOfCourse = (course, userId) =>
+  course.mentor && course.mentor.toString() === userId.toString();
+
 export const getCourses = async (req, res) => {
   try {
-    const { page = 1, limit = 10, category, mentor, search, rate } = req.query;
+    const {
+      page = 1,
+      limit = 10,
+      category,
+      mentor,
+      search,
+      rate,
+      sortBy,
+      filterBy,
+    } = req.query;
+
+    const pageNum = Number(page) || 1;
+    const limitNum = Math.min(Number(limit) || 10, 100);
+    const skip = (pageNum - 1) * limitNum;
 
     const query = {};
-
-    // Filter by category
-    if (category) {
-      query.category = category;
-    }
-
-    // Filter by mentor
-    if (mentor) {
-      query.mentor = mentor;
-    }
-
-    // Filter by rate
-    if (rate) {
-      query.rate = { $gte: Number(rate) };
-    }
-
-    // Search by title or description
+    if (category) query.category = category;
+    if (mentor) query.mentor = mentor;
+    if (rate) query.rate = { $gte: Number(rate) };
     if (search) {
       query.$or = [
         { title: { $regex: search, $options: "i" } },
@@ -62,20 +73,18 @@ export const getCourses = async (req, res) => {
     else if (sortBy === "priceAsc") sortOptions = { price: 1, createdAt: -1 };
     else if (sortBy === "priceDesc") sortOptions = { price: -1, createdAt: -1 };
 
-
-    const skip = (page - 1) * limit;
     const courses = await Course.find(query)
-      .populate("mentor", "firstName lastName avatarUrl jobTitle")
-      .limit(limit * 1)
+      .populate("mentor", "userName avatarUrl jobTitle")
       .skip(skip)
-      .sort({ createdAt: -1 });
+      .limit(limitNum)
+      .sort(sortOptions);
 
     const total = await Course.countDocuments(query);
+    const totalPages = Math.ceil(total / limitNum);
 
-    const coursesWithId = courses.map((course) => {
-      const obj = course.toObject();
+    const coursesWithId = courses.map((c) => {
+      const obj = c.toObject();
       obj.courseId = obj._id;
-      delete obj._id;
       delete obj.__v;
       return obj;
     });
@@ -83,8 +92,10 @@ export const getCourses = async (req, res) => {
     return responseHandler.ok(res, {
       message: "Lấy danh sách khóa học thành công!",
       total,
+      totalPages,
+      currentPage: pageNum,
       skip,
-      limit,
+      limit: limitNum,
       courses: coursesWithId,
     });
   } catch (err) {
@@ -93,11 +104,6 @@ export const getCourses = async (req, res) => {
   }
 };
 
-/**
- * @desc Lấy chi tiết khóa học
- * @route GET /api/course/:id
- * @access Public
- */
 export const getCourseById = async (req, res) => {
   try {
     const id = getParamId(req);
@@ -111,17 +117,9 @@ export const getCourseById = async (req, res) => {
     const obj = course.toObject();
     obj.courseId = obj._id;
     delete obj.__v;
-    const course = await Course.findById(req.params.id)
-      .populate("mentor", "firstName lastName avatarUrl jobTitle bio location")
-      .populate("mentees", "firstName lastName avatarUrl");
-
-    if (!course) {
-      return responseHandler.notFound(res, "Khóa học không tồn tại!");
-    }
-
     return responseHandler.ok(res, {
       message: "Lấy thông tin khóa học thành công!",
-      course,
+      course: obj,
     });
   } catch (err) {
     console.error("Lỗi lấy khóa học:", err);
@@ -279,11 +277,6 @@ export const getMyCourses = async (req, res) => {
   }
 };
 
-/**
- * @desc Tạo khóa học mới (chỉ mentor)
- * @route POST /api/course
- * @access Private (Mentor only)
- */
 export const createCourse = async (req, res) => {
   try {
     console.log("=== CREATE COURSE REQUEST ===");
@@ -291,20 +284,20 @@ export const createCourse = async (req, res) => {
     console.log("Request file:", req.file ? "File uploaded" : "No file");
 
     const { id: userId } = req.user;
-    const {
+    let {
       title,
       description,
       courseOverview,
       keyLearningObjectives,
-      description,
       price,
       category,
       tags,
+      language,
       duration,
       link,
       driveLink,
-      link,
       lectures,
+      level,
     } = req.body;
 
     // Xử lý description - ưu tiên courseOverview
@@ -357,7 +350,6 @@ export const createCourse = async (req, res) => {
     }
     if (!Array.isArray(language)) language = [];
 
-    // Kiểm tra user có phải mentor không
     const user = await User.findById(userId);
     if (!user || user.role !== "mentor") {
       return responseHandler.forbidden(
@@ -380,10 +372,6 @@ export const createCourse = async (req, res) => {
       });
       thumbnailUrl = result.secure_url;
       thumbnailPublicId = result.public_id;
-      return responseHandler.forbidden(
-        res,
-        "Chỉ mentor mới có thể tạo khóa học."
-      );
     }
 
     console.log("Creating course with data:", {
@@ -408,8 +396,6 @@ export const createCourse = async (req, res) => {
       description: finalDescription,
       keyLearningObjectives,
       price: Number(price),
-      description,
-      price,
       mentor: userId,
       category,
       tags,
@@ -420,10 +406,6 @@ export const createCourse = async (req, res) => {
       level,
       thumbnail: thumbnailUrl,
       thumbnailPublicId,
-      tags: tags || [],
-      duration,
-      link,
-      lectures,
     });
 
     await newCourse.save();
@@ -431,7 +413,7 @@ export const createCourse = async (req, res) => {
 
     const populatedCourse = await Course.findById(newCourse._id).populate(
       "mentor",
-      "firstName lastName avatarUrl jobTitle"
+      "userName firstName lastName avatarUrl jobTitle"
     );
 
     return responseHandler.created(res, {
@@ -444,11 +426,6 @@ export const createCourse = async (req, res) => {
   }
 };
 
-/**
- * @desc Xử lý khi user mua khóa học thành công
- * @route POST /api/course/purchase-success
- * @access Private
- */
 export const handlePurchaseSuccess = async (req, res) => {
   try {
     const { orderId } = req.body;
@@ -457,58 +434,38 @@ export const handlePurchaseSuccess = async (req, res) => {
       .populate("courses");
     if (!order)
       return responseHandler.notFound(res, "Không tìm thấy đơn hàng.");
-
-    // Tìm order và populate courses
-    const order = await Order.findById(orderId)
-      .populate("mentee")
-      .populate("courses");
-
-    if (!order) {
-      return responseHandler.notFound(res, "Không tìm thấy đơn hàng.");
-    }
-
     if (order.status !== "paid") {
       return responseHandler.badRequest(res, "Đơn hàng chưa được thanh toán.");
     }
 
     const user = await User.findById(order.mentee._id);
-    if (!user) {
-      return responseHandler.notFound(res, "Không tìm thấy user.");
-    }
+    if (!user) return responseHandler.notFound(res, "Không tìm thấy user.");
 
-    // Thêm từng khóa học vào danh sách đã mua
     for (const course of order.courses) {
-      // Kiểm tra xem đã mua chưa
-      const existingPurchase = user.purchasedCourses.find(
+      const existingPurchase = user.purchasedCourses?.find(
         (item) => item.course.toString() === course._id.toString()
       );
-
       if (!existingPurchase) {
+        user.purchasedCourses = user.purchasedCourses || [];
         user.purchasedCourses.push({
           course: course._id,
-          orderId: orderId,
+          orderId,
           purchaseDate: new Date(),
           progress: 0,
           lastAccessDate: new Date(),
           isCompleted: false,
         });
-
-        // Thêm user vào danh sách mentees của course
         if (!course.mentees.includes(user._id)) {
           course.mentees.push(user._id);
           await course.save();
         }
       }
     }
-
     await user.save();
 
     return responseHandler.ok(res, {
       message: "Xử lý mua khóa học thành công.",
-      data: {
-        orderId,
-        coursesAdded: order.courses.length,
-      },
+      data: { orderId, coursesAdded: order.courses.length },
     });
   } catch (err) {
     console.error("Lỗi xử lý mua khóa học:", err);
@@ -619,12 +576,6 @@ export const updateCourse = async (req, res) => {
 };
 
 export const deleteCourse = async (req, res) => {
-/**
- * @desc Lấy khóa học theo mentor
- * @route GET /api/course/mentor/:mentorId
- * @access Public
- */
-export const getCoursesByMentor = async (req, res) => {
   try {
     const courseId = getParamId(req);
     const userId = req.user.id;
@@ -763,16 +714,16 @@ export const getAllReviews = async (req, res) => {
     if (sortBy === "oldest") sortOptions = { createdAt: 1 };
     else if (sortBy === "highest-rating") sortOptions = { rate: -1 };
     else if (sortBy === "lowest-rating") sortOptions = { rate: 1 };
-    const { mentorId } = req.params;
-    const { page = 1, limit = 10 } = req.query;
 
-    const courses = await Course.find({ mentor: mentorId })
-      .populate("mentor", "firstName lastName avatarUrl jobTitle")
-      .limit(limit * 1)
-      .skip((page - 1) * limit)
-      .sort({ createdAt: -1 });
+    const reviews = await Review.find({})
+      .populate("author", "userName firstName lastName avatarUrl")
+      .populate("target", "title")
+      .sort(sortOptions)
+      .skip(skip)
+      .limit(limitNum);
 
-    const total = await Course.countDocuments({ mentor: mentorId });
+    const totalReviews = await Review.countDocuments({});
+    const totalPages = Math.ceil(totalReviews / limitNum);
 
     return responseHandler.ok(res, {
       reviews,
@@ -1010,23 +961,29 @@ export const getUserCourses = async (req, res) => {
       totalCourses,
       totalPages,
       currentPage: pageNum,
-      message: "Lấy khóa học theo mentor thành công.",
-      data: {
-        courses,
-        totalPages: Math.ceil(total / limit),
-        currentPage: page,
-        total,
-      },
     });
   } catch (err) {
-    console.error("Lỗi lấy khóa học theo mentor:", err);
-    responseHandler.error(res, err.message);
+    console.error("Error getting user courses:", err);
+    responseHandler.error(res);
   }
 };
 
 export default {
   getCourses,
   getCourseById,
-  createCourse,
+  getRelatedCourses,
   getCoursesByMentor,
+  getMyCourses,
+  createCourse,
+  updateCourse,
+  deleteCourse,
+  addCourseReview,
+  getCourseReviews,
+  getAllReviews,
+  addMentorToCourse,
+  removeMentorFromCourse,
+  addContentToCourse,
+  removeContentFromCourse,
+  handlePurchaseSuccess,
+  getUserCourses,
 };
