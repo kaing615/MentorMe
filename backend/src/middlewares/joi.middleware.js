@@ -24,16 +24,9 @@ const validate = (schema, property = "body") => {
       });
     }
 
-    // For query params, don't overwrite (might be read-only)
-    // Just validate and let the original value pass through
-    if (property === "query") {
-      // Validation passed, continue without modification
-      next();
-    } else {
-      // For body/params, replace with validated and sanitized data
-      req[property] = value;
-      next();
-    }
+    // Replace req[property] with validated and sanitized data
+    req[property] = value;
+    next();
   };
 };
 

@@ -8,557 +8,13 @@ info:
     email: support@mentorme.com
 
 servers:
-  - url: http://localhost:4000/api/v1
-    description: Development server
-
-components:
-  securitySchemes:
-    bearerAuth:
-      type: http
-      scheme: bearer
-      bearerFormat: JWT
-
-  schemas:
-    User:
-      type: object
-      properties:
-        id:
-          type: string
-        userName:
-          type: string
-        firstName:
-          type: string
-        lastName:
-          type: string
-        email:
-          type: string
-        role:
-          type: array
-          items:
-            type: string
-            enum: [admin, mentor, mentee]
-          example: [mentee]
-        isVerified:
-          type: boolean
-
-    Profile:
-      type: object
-      properties:
-        id:
-          type: string
-        userId:
-          type: string
-        bio:
-          type: string
-        location:
-          type: string
-        avatarUrl:
-          type: string
-        links:
-          type: object
-        languages:
-          type: array
-          items:
-            type: string
-        timezone:
-          type: string
-
-    Error:
-      type: object
-      properties:
-        status:
-          type: string
-          enum: [error]
-        message:
-          type: string
-        errors:
-          type: array
-          items:
-            type: object
-            properties:
-              field:
-                type: string
-              message:
-                type: string
-
-    # =========================
-    # PURCHASED COURSES
-    # =========================
-    PurchasedCourse:
-      type: object
-      properties:
-        courseId:
-          type: string
-          description: ID của khóa học
-          example: "60d5f484f0b4a720e8f8d4a1"
-        courseInfo:
-          $ref: "#/components/schemas/CourseDetail"
-        purchaseDate:
-          type: string
-          format: date-time
-          description: Ngày mua khóa học
-          example: "2024-01-15T10:30:00Z"
-        progress:
-          type: number
-          minimum: 0
-          maximum: 100
-          description: Tiến độ học (0-100%)
-          example: 75
-        lastAccessDate:
-          type: string
-          format: date-time
-          description: Lần truy cập cuối
-          example: "2024-01-20T14:30:00Z"
-        isCompleted:
-          type: boolean
-          description: Đã hoàn thành khóa học
-          example: false
-        orderInfo:
-          $ref: "#/components/schemas/OrderInfo"
-
-    CourseDetail:
-      type: object
-      properties:
-        _id:
-          type: string
-          example: "60d5f484f0b4a720e8f8d4a1"
-        title:
-          type: string
-          example: "React Advanced Course"
-        description:
-          type: string
-          example: "Learn advanced React concepts and patterns"
-        price:
-          type: number
-          example: 299000
-        category:
-          type: string
-          example: "Programming"
-        duration:
-          type: number
-          description: Thời lượng (phút)
-          example: 1200
-        rate:
-          type: number
-          example: 4.5
-        link:
-          type: string
-          example: "https://mentorme.com/courses/react-advanced"
-        lectures:
-          type: number
-          example: 20
-        mentor:
-          $ref: "#/components/schemas/MentorInfo"
-
-    MentorInfo:
-      type: object
-      properties:
-        _id:
-          type: string
-          example: "60d5f484f0b4a720e8f8d4a2"
-        firstName:
-          type: string
-          example: "John"
-        lastName:
-          type: string
-          example: "Doe"
-        avatarUrl:
-          type: string
-          example: "https://cloudinary.com/mentor-avatar.jpg"
-        jobTitle:
-          type: string
-          example: "Senior React Developer"
-
-    OrderInfo:
-      type: object
-      properties:
-        _id:
-          type: string
-          example: "60d5f484f0b4a720e8f8d4a3"
-        transactionId:
-          type: string
-          example: "TXN123456789"
-        paymentMethod:
-          type: string
-          enum: [bank, momo, paypal, stripe, cash]
-          example: "paypal"
-        createdAt:
-          type: string
-          format: date-time
-          example: "2024-01-15T10:00:00Z"
-
-    PurchasedCoursesResponse:
-      type: object
-      properties:
-        status:
-          type: number
-          example: 200
-        message:
-          type: string
-          example: "Lấy danh sách khóa học đã mua thành công."
-        data:
-          type: object
-          properties:
-            totalCourses:
-              type: number
-              example: 5
-            courses:
-              type: array
-              items:
-                $ref: "#/components/schemas/PurchasedCourse"
-
-    LearningStats:
-      type: object
-      properties:
-        status:
-          type: number
-          example: 200
-        message:
-          type: string
-          example: "Lấy thống kê học tập thành công."
-        data:
-          type: object
-          properties:
-            totalCourses:
-              type: number
-              example: 10
-            completedCourses:
-              type: number
-              example: 3
-            inProgressCourses:
-              type: number
-              example: 5
-            notStartedCourses:
-              type: number
-              example: 2
-            averageProgress:
-              type: number
-              example: 65.5
-            completionRate:
-              type: number
-              example: 30
-
-    ProgressUpdateRequest:
-      type: object
-      required: [progress]
-      properties:
-        progress:
-          type: number
-          minimum: 0
-          maximum: 100
-          description: Tiến độ học từ 0-100%
-          example: 85
-
-    AddPurchasedCourseRequest:
-      type: object
-      required: [courseId, orderId]
-      properties:
-        courseId:
-          type: string
-          pattern: "^[0-9a-fA-F]{24}$"
-          description: ID của khóa học (MongoDB ObjectId)
-          example: "60d5f484f0b4a720e8f8d4a1"
-        orderId:
-          type: string
-          pattern: "^[0-9a-fA-F]{24}$"
-          description: ID của đơn hàng (MongoDB ObjectId)
-          example: "60d5f484f0b4a720e8f8d4a3"
-
-    PurchaseSuccessRequest:
-      type: object
-      required: [orderId]
-      properties:
-        orderId:
-          type: string
-          pattern: "^[0-9a-fA-F]{24}$"
-          description: ID của đơn hàng đã thanh toán
-          example: "60d5f484f0b4a720e8f8d4a3"
-
-    CheckPurchaseResponse:
-      type: object
-      properties:
-        status:
-          type: number
-          example: 200
-        isPurchased:
-          type: boolean
-          example: true
-        courseData:
-          $ref: "#/components/schemas/PurchasedCourse"
-          nullable: true
-
-    # =========================
-    # CART
-    # =========================
-    CartItem:
-      type: object
-      properties:
-        course:
-          $ref: "#/components/schemas/CourseDetail"
-        addedAt:
-          type: string
-          format: date-time
-          description: Ngày thêm vào giỏ hàng
-          example: "2024-01-15T10:30:00Z"
-
-    CartResponse:
-      type: object
-      properties:
-        status:
-          type: number
-          example: 200
-        message:
-          type: string
-          example: "Lấy giỏ hàng thành công."
-        data:
-          type: object
-          properties:
-            totalCourses:
-              type: number
-              example: 3
-            totalPrice:
-              type: number
-              example: 1197000
-            courses:
-              type: array
-              items:
-                $ref: "#/components/schemas/CartItem"
-            cart:
-              type: object
-              properties:
-                _id:
-                  type: string
-                  example: "60d5f484f0b4a720e8f8d4a5"
-                user:
-                  type: string
-                  example: "60d5f484f0b4a720e8f8d4a2"
-                courses:
-                  type: array
-                  items:
-                    $ref: "#/components/schemas/CartItem"
-                totalPrice:
-                  type: number
-                  example: 1197000
-
-    AddToCartRequest:
-      type: object
-      required: [courseId]
-      properties:
-        courseId:
-          type: string
-          pattern: "^[0-9a-fA-F]{24}$"
-          description: ID của khóa học (MongoDB ObjectId)
-          example: "60d5f484f0b4a720e8f8d4a1"
-
-    CheckCartResponse:
-      type: object
-      properties:
-        status:
-          type: number
-          example: 200
-        message:
-          type: string
-          example: "Kiểm tra giỏ hàng thành công."
-        data:
-          type: object
-          properties:
-            courseId:
-              type: string
-              example: "60d5f484f0b4a720e8f8d4a1"
-            inCart:
-              type: boolean
-              example: true
-
-    # =========================
-    # BOOKING
-    # =========================
-    Booking:
-      type: object
-      properties:
-        _id:
-          type: string
-          example: "66c9a8a2b1f0b2f4b9a1c3d5"
-        relationship:
-          type: string
-          nullable: true
-          example: "66c9a8a2b1f0b2f4b9a1c3d4"
-        mentor:
-          type: string
-          description: MongoDB ObjectId của mentor
-          example: "66c9a8a2b1f0b2f4b9a1c300"
-        mentee:
-          type: string
-          description: MongoDB ObjectId của mentee
-          example: "66c9a8a2b1f0b2f4b9a1c301"
-        status:
-          type: string
-          enum: [pending, active, rejected, finished, cancelled]
-          example: pending
-        date:
-          type: string
-          format: date-time
-          description: Ngày (chuẩn hoá 00:00:00.000Z)
-          example: "2025-09-01T00:00:00.000Z"
-        start:
-          type: string
-          pattern: "^\\d{2}:\\d{2}$"
-          description: HH:mm
-          example: "09:00"
-        end:
-          type: string
-          pattern: "^\\d{2}:\\d{2}$"
-          description: HH:mm
-          example: "10:00"
-        slotId:
-          type: string
-          nullable: true
-        notes:
-          type: string
-          example: "Muốn trao đổi về lộ trình React"
-        createdAt:
-          type: string
-          format: date-time
-          example: "2025-08-28T03:12:00.000Z"
-
-    BookingCreateRequest:
-      type: object
-      required: [date, start, end]
-      properties:
-        date:
-          type: string
-          format: date
-          description: YYYY-MM-DD
-          example: "2025-09-01"
-        start:
-          type: string
-          pattern: "^\\d{2}:\\d{2}$"
-          example: "09:00"
-        end:
-          type: string
-          pattern: "^\\d{2}:\\d{2}$"
-          example: "10:00"
-        notes:
-          type: string
-          example: "Muốn trao đổi về phỏng vấn FE"
-        relationship:
-          type: string
-          description: RelationshipId nếu có
-          example: "66c9a8a2b1f0b2f4b9a1c3d4"
-        mentor:
-          type: string
-          description: Có thể được truyền qua body tuỳ implement (route hiện dùng path param)
-
-    BookingUpdateRequest:
-      type: object
-      properties:
-        status:
-          type: string
-          enum: [pending, active, rejected, finished, cancelled]
-        notes:
-          type: string
-        date:
-          type: string
-          format: date
-        start:
-          type: string
-          pattern: "^\\d{2}:\\d{2}$"
-        end:
-          type: string
-          pattern: "^\\d{2}:\\d{2}$"
-
-    CancelBookingRequest:
-      type: object
-      properties:
-        reason:
-          type: string
-          example: "Bận đột xuất"
-
-    BookingListAdminResponse:
-      type: object
-      properties:
-        items:
-          type: array
-          items:
-            $ref: "#/components/schemas/Booking"
-        nextCursor:
-          type: string
-          nullable: true
-          example: "66c9a8a2b1f0b2f4b9a1c3d5"
-
-    BookingActionResponse:
-      type: object
-      properties:
-        message:
-          type: string
-          example: "Booking confirmed"
-        booking:
-          $ref: "#/components/schemas/Booking"
-
-    # =========================
-    # AVAILABILITY
-    # =========================
-    Slot:
-      type: object
-      properties:
-        _id:
-          type: string
-          example: "64a7b8c9d1e2f3g4h5i6j7k9"
-        start:
-          type: string
-          description: Thời gian bắt đầu (HH:mm)
-          example: "09:00"
-        end:
-          type: string
-          description: Thời gian kết thúc (HH:mm)
-          example: "09:30"
-        status:
-          type: string
-          enum: [open, blocked, booked, held]
-          description: Trạng thái slot
-          example: "open"
-        bookingId:
-          type: string
-          nullable: true
-        bookedBy:
-          type: string
-          nullable: true
-
-    Availability:
-      type: object
-      properties:
-        _id:
-          type: string
-          example: "64a7b8c9d1e2f3g4h5i6j7k8"
-        mentor:
-          type: string
-          description: ID mentor
-          example: "64a7b8c9d1e2f3g4h5i6j7k6"
-        date:
-          type: string
-          format: date-time
-          description: Ngày (00:00:00.000Z)
-          example: "2025-08-31T00:00:00.000Z"
-        timezone:
-          type: string
-          example: "Asia/Ho_Chi_Minh"
-        slots:
-          type: array
-          items:
-            $ref: "#/components/schemas/Slot"
-        createdAt:
-          type: string
-          format: date-time
-        updatedAt:
-          type: string
-          format: date-time
+  - url: http://localhost:4000
 
 paths:
-  # =========================
-  # AUTH
-  # =========================
   /user/signup:
     post:
-      tags: [Authentication]
+      tags:
+        - Authentication
       summary: Đăng ký tài khoản Mentee
       description: Đăng ký tài khoản người dùng thông thường (mentee). Sau khi đăng ký thành công, hệ thống sẽ gửi email xác thực.
       requestBody:
@@ -568,23 +24,39 @@ paths:
             schema:
               type: object
               required:
-                [
-                  firstName,
-                  lastName,
-                  userName,
-                  email,
-                  password,
-                  confirmPassword,
-                ]
+                - firstName
+                - lastName
+                - userName
+                - email
+                - password
+                - confirmPassword
               properties:
-                firstName: { type: string, example: "Nguyen" }
-                lastName: { type: string, example: "Van A" }
-                userName: { type: string, example: "testuser123" }
+                firstName:
+                  type: string
+                  description: Họ của người dùng
+                  example: "Nguyen"
+                lastName:
+                  type: string
+                  description: Tên của người dùng
+                  example: "Van A"
+                userName:
+                  type: string
+                  description: Tên đăng nhập (unique)
+                  example: "testuser123"
                 email:
-                  { type: string, format: email, example: "test@example.com" }
+                  type: string
+                  format: email
+                  description: Email đăng ký (unique)
+                  example: "test@example.com"
                 password:
-                  { type: string, minLength: 6, example: "Password123!" }
-                confirmPassword: { type: string, example: "Password123!" }
+                  type: string
+                  minLength: 6
+                  description: Mật khẩu (tối thiểu 6 ký tự)
+                  example: "Password123!"
+                confirmPassword:
+                  type: string
+                  description: Xác nhận mật khẩu (phải giống password)
+                  example: "Password123!"
       responses:
         "201":
           description: Đăng ký thành công
@@ -593,26 +65,29 @@ paths:
               schema:
                 type: object
                 properties:
-                  status: { type: string, example: success }
+                  status:
+                    type: string
+                    example: "success"
                   message:
-                    {
-                      type: string,
-                      example: "Đăng ký thành công! Vui lòng kiểm tra email để xác thực tài khoản.",
-                    }
+                    type: string
+                    example: "Đăng ký thành công! Vui lòng kiểm tra email để xác thực tài khoản."
         "400":
           description: Lỗi validation hoặc email đã tồn tại
           content:
             application/json:
-              schema: { $ref: "#/components/schemas/Error" }
+              schema:
+                $ref: "#/components/schemas/Error"
         "500":
           description: Lỗi server
           content:
             application/json:
-              schema: { $ref: "#/components/schemas/Error" }
+              schema:
+                $ref: "#/components/schemas/Error"
 
   /user/signupMentor:
     post:
-      tags: [Authentication]
+      tags:
+        - Authentication
       summary: Đăng ký tài khoản Mentor
       description: Đăng ký tài khoản mentor với thông tin đầy đủ và upload avatar. Tạo cả User và Profile trong một request.
       requestBody:
@@ -622,51 +97,70 @@ paths:
             schema:
               type: object
               required:
-                [
-                  firstName,
-                  lastName,
-                  userName,
-                  email,
-                  password,
-                  confirmPassword,
-                  jobTitle,
-                  category,
-                  bio,
-                  mentorReason,
-                  greatestAchievement,
-                  avatar,
-                ]
+                - firstName
+                - lastName
+                - userName
+                - email
+                - password
+                - confirmPassword
+                - jobTitle
+                - category
+                - bio
+                - mentorReason
+                - greatestAchievement
+                - avatar
               properties:
-                firstName: { type: string, example: "Tran" }
-                lastName: { type: string, example: "Van B" }
-                userName: { type: string, example: "mentor123" }
+                firstName:
+                  type: string
+                  description: Họ của mentor
+                  example: "Tran"
+                lastName:
+                  type: string
+                  description: Tên của mentor
+                  example: "Van B"
+                userName:
+                  type: string
+                  description: Tên đăng nhập (unique)
+                  example: "mentor123"
                 email:
-                  { type: string, format: email, example: "mentor@example.com" }
+                  type: string
+                  format: email
+                  description: Email đăng ký (unique)
+                  example: "mentor@example.com"
                 password:
-                  { type: string, minLength: 6, example: "Password123!" }
-                confirmPassword: { type: string, example: "Password123!" }
-                jobTitle: { type: string, example: "Senior Developer" }
-                category: { type: string, example: "Technology" }
+                  type: string
+                  minLength: 6
+                  description: Mật khẩu (tối thiểu 6 ký tự)
+                  example: "Password123!"
+                confirmPassword:
+                  type: string
+                  description: Xác nhận mật khẩu
+                  example: "Password123!"
+                jobTitle:
+                  type: string
+                  description: Chức danh công việc
+                  example: "Senior Developer"
+                category:
+                  type: string
+                  description: Danh mục chuyên môn
+                  example: "Technology"
                 bio:
-                  {
-                    type: string,
-                    example: "Experienced developer with 5+ years",
-                  }
+                  type: string
+                  description: Tiểu sử cá nhân
+                  example: "Experienced developer with 5+ years"
                 mentorReason:
-                  { type: string, example: "Want to share knowledge" }
+                  type: string
+                  description: Lý do muốn làm mentor
+                  example: "Want to share knowledge"
                 greatestAchievement:
-                  { type: string, example: "Led a successful startup" }
-                location: { type: string, example: "Ho Chi Minh City" }
-                skills: { type: string, example: "JavaScript,Node.js,React" }
-                links:
-                  {
-                    type: string,
-                    example: '{"linkedin":"https://linkedin.com/in/mentor"}',
-                  }
+                  type: string
+                introVideo:
+                  type: string
+                  format: uri
                 avatar:
                   type: string
                   format: binary
-                  description: Ảnh đại diện
+                  description: Ảnh đại diện (required)
       responses:
         "201":
           description: Đăng ký mentor thành công
@@ -675,28 +169,36 @@ paths:
               schema:
                 type: object
                 properties:
-                  status: { type: string, example: success }
+                  status:
+                    type: string
+                    example: "success"
                   message:
-                    { type: string, example: "Đăng ký mentor thành công!" }
+                    type: string
+                    example: "Đăng ký mentor thành công!"
                   data:
                     type: object
                     properties:
-                      id: { type: string }
-                      avatarUrl: { type: string }
+                      id:
+                        type: string
+                      avatarUrl:
+                        type: string
         "400":
           description: Lỗi validation hoặc upload file
           content:
             application/json:
-              schema: { $ref: "#/components/schemas/Error" }
+              schema:
+                $ref: "#/components/schemas/Error"
         "500":
           description: Lỗi server
           content:
             application/json:
-              schema: { $ref: "#/components/schemas/Error" }
+              schema:
+                $ref: "#/components/schemas/Error"
 
   /user/signin:
     post:
-      tags: [Authentication]
+      tags:
+        - Authentication
       summary: Đăng nhập hệ thống
       description: Đăng nhập cho cả mentor và mentee. Trả về JWT token để sử dụng cho các API khác.
       requestBody:
@@ -705,11 +207,19 @@ paths:
           application/json:
             schema:
               type: object
-              required: [email, password]
+              required:
+                - email
+                - password
               properties:
                 email:
-                  { type: string, format: email, example: "test@example.com" }
-                password: { type: string, example: "Password123!" }
+                  type: string
+                  format: email
+                  description: Email đăng ký
+                  example: "test@example.com"
+                password:
+                  type: string
+                  description: Mật khẩu
+                  example: "Password123!"
       responses:
         "200":
           description: Đăng nhập thành công
@@ -718,41 +228,56 @@ paths:
               schema:
                 type: object
                 properties:
-                  status: { type: string, example: success }
-                  message: { type: string, example: "Đăng nhập thành công!" }
+                  status:
+                    type: string
+                    example: "success"
+                  message:
+                    type: string
+                    example: "Đăng nhập thành công!"
                   data:
                     type: object
                     properties:
                       token:
-                        {
-                          type: string,
-                          example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-                        }
-                      user: { $ref: "#/components/schemas/User" }
+                        type: string
+                        description: JWT token (expires in 7 days)
+                        example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                      user:
+                        $ref: "#/components/schemas/User"
         "400":
           description: Email hoặc mật khẩu không đúng
           content:
             application/json:
-              schema: { $ref: "#/components/schemas/Error" }
+              schema:
+                $ref: "#/components/schemas/Error"
         "401":
           description: Tài khoản chưa được xác thực
           content:
             application/json:
-              schema: { $ref: "#/components/schemas/Error" }
+              schema:
+                $ref: "#/components/schemas/Error"
 
   /user/verify:
     get:
-      tags: [Authentication]
+      tags:
+        - Authentication
       summary: Xác thực email
+      description: Xác thực email thông qua link được gửi trong email đăng ký. Sau khi xác thực thành công, user sẽ được tự động đăng nhập.
       parameters:
         - in: query
           name: email
           required: true
-          schema: { type: string, format: email }
+          schema:
+            type: string
+            format: email
+          description: Email cần xác thực
+          example: "test@example.com"
         - in: query
           name: verifyKey
           required: true
-          schema: { type: string }
+          schema:
+            type: string
+          description: Verification key từ email
+          example: "abc123def456"
       responses:
         "200":
           description: Xác thực email thành công
@@ -761,39 +286,53 @@ paths:
               schema:
                 type: object
                 properties:
-                  status: { type: string, example: success }
+                  status:
+                    type: string
+                    example: "success"
                   message:
-                    { type: string, example: "Xác thực email thành công!" }
+                    type: string
+                    example: "Xác thực email thành công!"
                   data:
                     type: object
                     properties:
-                      token: { type: string }
-                      user: { $ref: "#/components/schemas/User" }
+                      token:
+                        type: string
+                        description: JWT token for auto login
+                      user:
+                        $ref: "#/components/schemas/User"
         "400":
-          description: Lỗi xác thực
+          description: Lỗi xác thực email (link không hợp lệ hoặc đã hết hạn)
           content:
             application/json:
-              schema: { $ref: "#/components/schemas/Error" }
+              schema:
+                $ref: "#/components/schemas/Error"
         "404":
           description: Không tìm thấy user
           content:
             application/json:
-              schema: { $ref: "#/components/schemas/Error" }
+              schema:
+                $ref: "#/components/schemas/Error"
 
   /user/resend-verification-email:
     post:
-      tags: [Authentication]
+      tags:
+        - Authentication
       summary: Gửi lại email xác thực
+      description: Gửi lại email xác thực cho user chưa được verify. Chỉ có thể gửi cho user đã đăng ký nhưng chưa xác thực.
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [email]
+              required:
+                - email
               properties:
                 email:
-                  { type: string, format: email, example: "test@example.com" }
+                  type: string
+                  format: email
+                  description: Email cần gửi lại verification
+                  example: "test@example.com"
       responses:
         "200":
           description: Gửi lại email xác thực thành công
@@ -802,103 +341,31 @@ paths:
               schema:
                 type: object
                 properties:
-                  status: { type: string, example: success }
+                  status:
+                    type: string
+                    example: "success"
                   message:
-                    { type: string, example: "Email xác thực đã được gửi lại!" }
+                    type: string
+                    example: "Email xác thực đã được gửi lại!"
         "400":
           description: User không tồn tại hoặc đã được xác thực
           content:
             application/json:
-              schema: { $ref: "#/components/schemas/Error" }
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: Lỗi gửi email
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
 
   /user/forgot-password:
     post:
-      tags: [Authentication]
+      tags:
+        - Authentication
       summary: Yêu cầu đặt lại mật khẩu
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [email]
-              properties:
-                email: { type: string, format: email }
-      responses:
-        "200":
-          description: Thành công (luôn trả về OK vì bảo mật)
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  status: { type: string, example: success }
-                  message:
-                    {
-                      type: string,
-                      example: "Nếu email tồn tại, link reset password đã được gửi!",
-                    }
-
-  /user/reset-password:
-    post:
-      tags: [Authentication]
-      summary: Đặt lại mật khẩu
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [email, token, newPassword]
-              properties:
-                email: { type: string, format: email }
-                token: { type: string }
-                newPassword: { type: string, minLength: 6 }
-      responses:
-        "200":
-          description: Đặt lại mật khẩu thành công
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  status: { type: string, example: success }
-                  message:
-                    { type: string, example: "Đặt lại mật khẩu thành công!" }
-
-  # =========================
-  # PROFILE
-  # =========================
-  /profile:
-    get:
-      tags: [Profile Management]
-      summary: Lấy thông tin profile của user hiện tại
-      security: [{ bearerAuth: [] }]
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  status: { type: string, example: success }
-                  data:
-                    type: object
-                    properties:
-                      user: { $ref: "#/components/schemas/User" }
-                      profile: { $ref: "#/components/schemas/Profile" }
-        "401":
-          description: Unauthorized
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/Error" }
-
-  /profile/mentor:
-    put:
-      tags: [Profile Management]
-      summary: Cập nhật profile Mentor
-      security: [{ bearerAuth: [] }]
+      description: Gửi email chứa link reset password cho user. Vì lý do bảo mật, API luôn trả về thành công dù email có tồn tại hay không.
       requestBody:
         required: true
         content:
@@ -906,665 +373,401 @@ paths:
             schema:
               type: object
               required:
-                [
-                  userName,
-                  firstName,
-                  lastName,
-                  jobTitle,
-                  category,
-                  bio,
-                  mentorReason,
-                ]
+                - email
               properties:
-                userName: { type: string, example: "mentor_updated" }
-                firstName: { type: string, example: "Tran" }
-                lastName: { type: string, example: "Van B Updated" }
-                jobTitle: { type: string, example: "Tech Lead" }
-                category: { type: string, example: "Technology" }
-                bio: { type: string }
-                mentorReason: { type: string }
-                location: { type: string }
-                skills:
-                  type: array
-                  items: { type: string }
-                greatestAchievement: { type: string }
-                headline: { type: string }
-                experience: { type: string }
-                introVideo: { type: string }
-                languages:
-                  type: array
-                  items: { type: string }
-                timezone: { type: string }
-                links:
-                  type: object
-                  properties:
-                    linkedin: { type: string }
-                    github: { type: string }
-                    website: { type: string }
+                email:
+                  type: string
+                  format: email
+                  description: Email cần reset password
+                  example: "test@example.com"
       responses:
         "200":
-          description: OK
+          description: Yêu cầu reset password thành công (luôn trả về thành công vì lý do bảo mật)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "success"
+                  message:
+                    type: string
+                    example: "Nếu email tồn tại, link reset password đã được gửi!"
+        "400":
+          description: Lỗi validation email
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: Lỗi server
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
 
-  /profile/mentee:
-    put:
-      tags: [Profile Management]
-      summary: Cập nhật profile Mentee
-      security: [{ bearerAuth: [] }]
+  /user/reset-password:
+    post:
+      tags:
+        - Authentication
+      summary: Đặt lại mật khẩu
+      description: Đặt lại mật khẩu mới bằng cách sử dụng reset token từ email. Token có thời hạn giới hạn.
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [userName, firstName, lastName]
+              required:
+                - email
+                - token
+                - newPassword
               properties:
-                userName: { type: string }
-                firstName: { type: string }
-                lastName: { type: string }
-                bio: { type: string }
-                location: { type: string }
-                description: { type: string }
-                goal: { type: string }
-                education: { type: string }
+                email:
+                  type: string
+                  format: email
+                  description: Email cần reset password
+                  example: "test@example.com"
+                token:
+                  type: string
+                  description: Reset token từ email
+                  example: "abc123def456"
+                newPassword:
+                  type: string
+                  minLength: 6
+                  description: Mật khẩu mới (tối thiểu 6 ký tự)
+                  example: "NewPassword123!"
+      responses:
+        "200":
+          description: Đặt lại mật khẩu thành công
+        "400":
+          description: Token không hợp lệ hoặc đã hết hạn
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Không tìm thấy user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: Lỗi server
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  # Profile Management APIs
+  /profile:
+    get:
+      tags:
+        - Profile Management
+      summary: Lấy thông tin profile của user hiện tại
+      description: Lấy thông tin profile chi tiết của user đang đăng nhập (cả user và profile data)
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Lấy thông tin profile thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "success"
+                  data:
+                    type: object
+                    properties:
+                      user:
+                        $ref: "#/components/schemas/User"
+                      profile:
+                        $ref: "#/components/schemas/Profile"
+        "401":
+          description: Unauthorized - Token không hợp lệ
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Không tìm thấy profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /profile/mentor:
+    put:
+      tags:
+        - Profile Management
+      summary: Cập nhật profile Mentor
+      description: Cập nhật thông tin profile cho mentor. Có thể upload avatar mới cùng lúc.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - userName
+                - firstName
+                - lastName
+                - jobTitle
+                - category
+                - bio
+                - mentorReason
+              properties:
+                userName:
+                  type: string
+                  example: "mentor_updated"
+                firstName:
+                  type: string
+                  example: "Tran"
+                lastName:
+                  type: string
+                  example: "Van B Updated"
+                jobTitle:
+                  type: string
+                  example: "Tech Lead"
+                category:
+                  type: string
+                  example: "Technology"
+                bio:
+                  type: string
+                  example: "Updated bio with more experience"
+                mentorReason:
+                  type: string
+                  example: "Passionate about mentoring"
+                location:
+                  type: string
+                  example: "Ho Chi Minh City"
+                skills:
+                  type: array
+                  items:
+                    type: string
+                  example: ["JavaScript", "Node.js", "React"]
+                greatestAchievement:
+                  type: string
+                  example: "Led a team of 10 developers"
+                headline:
+                  type: string
+                  example: "Experienced Tech Lead"
+                experience:
+                  type: string
+                  example: "7+ years in software development"
+                introVideo:
+                  type: string
+                  example: "https://youtube.com/watch?v=abc123"
                 languages:
                   type: array
-                  items: { type: string }
-                timezone: { type: string }
+                  items:
+                    type: string
+                  example: ["Vietnamese", "English"]
+                timezone:
+                  type: string
+                  example: "GMT+7"
                 links:
                   type: object
                   properties:
-                    linkedin: { type: string }
-                    github: { type: string }
+                    linkedin:
+                      type: string
+                    github:
+                      type: string
+                    website:
+                      type: string
+                  example:
+                    linkedin: "https://linkedin.com/in/mentor"
+                    github: "https://github.com/mentor"
       responses:
         "200":
-          description: OK
+          description: Cập nhật profile mentor thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "success"
+                  message:
+                    type: string
+                    example: "Cập nhật profile mentor thành công!"
+                  data:
+                    type: object
+                    properties:
+                      user:
+                        $ref: "#/components/schemas/User"
+                      profile:
+                        $ref: "#/components/schemas/Profile"
+        "400":
+          description: Lỗi validation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Forbidden - Chỉ mentor mới được cập nhật mentor profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /profile/mentee:
+    put:
+      tags:
+        - Profile Management
+      summary: Cập nhật profile Mentee
+      description: Cập nhật thông tin profile cho mentee
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - userName
+                - firstName
+                - lastName
+              properties:
+                userName:
+                  type: string
+                  example: "mentee_updated"
+                firstName:
+                  type: string
+                  example: "Nguyen"
+                lastName:
+                  type: string
+                  example: "Van A Updated"
+                bio:
+                  type: string
+                  example: "Aspiring developer"
+                location:
+                  type: string
+                  example: "Hanoi"
+                description:
+                  type: string
+                  example: "Looking to learn new technologies"
+                goal:
+                  type: string
+                  example: "Become a full-stack developer"
+                education:
+                  type: string
+                  example: "Computer Science Graduate"
+                languages:
+                  type: array
+                  items:
+                    type: string
+                  example: ["Vietnamese", "English"]
+                timezone:
+                  type: string
+                  example: "GMT+7"
+                links:
+                  type: object
+                  properties:
+                    linkedin:
+                      type: string
+                    github:
+                      type: string
+                  example:
+                    linkedin: "https://linkedin.com/in/mentee"
+      responses:
+        "200":
+          description: Cập nhật profile mentee thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "success"
+                  message:
+                    type: string
+                    example: "Cập nhật profile mentee thành công!"
+                  data:
+                    type: object
+                    properties:
+                      user:
+                        $ref: "#/components/schemas/User"
+                      profile:
+                        $ref: "#/components/schemas/Profile"
+        "400":
+          description: Lỗi validation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
 
   /profile/avatar:
     put:
-      tags: [Profile Management]
+      tags:
+        - Profile Management
       summary: Cập nhật avatar
-      security: [{ bearerAuth: [] }]
+      description: Upload và cập nhật avatar mới cho user (cả mentor và mentee)
+      security:
+        - bearerAuth: []
       requestBody:
         required: true
         content:
           multipart/form-data:
             schema:
               type: object
-              required: [avatar]
+              required:
+                - avatar
               properties:
                 avatar:
                   type: string
                   format: binary
+                  description: File ảnh đại diện (jpg, png, jpeg)
       responses:
         "200":
-          description: OK
-
-  # =========================
-  # PURCHASED COURSES
-  # =========================
-  /purchased-courses:
-    get:
-      tags: [Purchased Courses]
-      summary: Lấy danh sách khóa học đã mua
-      security: [{ bearerAuth: [] }]
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/PurchasedCoursesResponse" }
-
-  /purchased-courses/stats:
-    get:
-      tags: [Purchased Courses]
-      summary: Lấy thống kê học tập
-      security: [{ bearerAuth: [] }]
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/LearningStats" }
-
-  /purchased-courses/check/{courseId}:
-    get:
-      tags: [Purchased Courses]
-      summary: Kiểm tra trạng thái mua khóa học
-      security: [{ bearerAuth: [] }]
-      parameters:
-        - in: path
-          name: courseId
-          required: true
-          schema: { type: string, pattern: "^[0-9a-fA-F]{24}$" }
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/CheckPurchaseResponse" }
-
-  /purchased-courses/{courseId}/progress:
-    put:
-      tags: [Purchased Courses]
-      summary: Cập nhật tiến độ học
-      security: [{ bearerAuth: [] }]
-      parameters:
-        - in: path
-          name: courseId
-          required: true
-          schema: { type: string, pattern: "^[0-9a-fA-F]{24}$" }
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: "#/components/schemas/ProgressUpdateRequest" }
-      responses:
-        "200":
-          description: OK
-
-  /purchased-courses/purchase-success:
-    post:
-      tags: [Purchased Courses]
-      summary: Xử lý thanh toán thành công
-      security: [{ bearerAuth: [] }]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: "#/components/schemas/PurchaseSuccessRequest" }
-      responses:
-        "200":
-          description: OK
-
-  # =========================
-  # CART
-  # =========================
-  /cart:
-    get:
-      tags: [Shopping Cart]
-      summary: Lấy giỏ hàng của user
-      security: [{ bearerAuth: [] }]
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/CartResponse" }
-
-    post:
-      tags: [Shopping Cart]
-      summary: Thêm khóa học vào giỏ hàng
-      security: [{ bearerAuth: [] }]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: "#/components/schemas/AddToCartRequest" }
-      responses:
-        "200":
-          description: OK
-
-    delete:
-      tags: [Shopping Cart]
-      summary: Xóa toàn bộ giỏ hàng
-      security: [{ bearerAuth: [] }]
-      responses:
-        "200": { description: OK }
-
-  /cart/{courseId}:
-    delete:
-      tags: [Shopping Cart]
-      summary: Xóa khóa học khỏi giỏ hàng
-      security: [{ bearerAuth: [] }]
-      parameters:
-        - in: path
-          name: courseId
-          required: true
-          schema: { type: string, pattern: "^[0-9a-fA-F]{24}$" }
-      responses:
-        "200": { description: OK }
-
-  /cart/check/{courseId}:
-    get:
-      tags: [Shopping Cart]
-      summary: Kiểm tra khóa học có trong giỏ hàng không
-      security: [{ bearerAuth: [] }]
-      parameters:
-        - in: path
-          name: courseId
-          required: true
-          schema: { type: string, pattern: "^[0-9a-fA-F]{24}$" }
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/CheckCartResponse" }
-
-  # =========================
-  # BOOKING ENDPOINTS
-  # =========================
-  /booking/mentor/{mentorId}:
-    post:
-      tags: [Booking]
-      summary: Tạo booking cho một mentor (mentee khởi tạo)
-      description: |
-        Tạo lịch hẹn mới dựa trên Availability của mentor.
-        Không cho phép đặt trùng khung giờ đã booked/active.
-        Yêu cầu đăng nhập (JWT). Trạng thái tạo ra sẽ là `pending`.
-      security: [{ bearerAuth: [] }]
-      parameters:
-        - in: path
-          name: mentorId
-          required: true
-          schema:
-            type: string
-            pattern: "^[0-9a-fA-F]{24}$"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: "#/components/schemas/BookingCreateRequest" }
-            examples:
-              default:
-                value:
-                  date: "2025-09-01"
-                  start: "09:00"
-                  end: "10:00"
-                  notes: "Muốn trao đổi về phỏng vấn FE"
-      responses:
-        "200":
-          description: Tạo booking thành công
+          description: Cập nhật avatar thành công
           content:
             application/json:
               schema:
                 type: object
                 properties:
+                  status:
+                    type: string
+                    example: "success"
                   message:
-                    { type: string, example: "Booking created successfully" }
-                  booking: { $ref: "#/components/schemas/Booking" }
-
-  /booking:
-    get:
-      tags: [Booking]
-      summary: (Admin) Lấy danh sách bookings
-      description: |
-        Chỉ **admin** được phép.
-        Hỗ trợ lọc theo mentor, mentee, ngày, khoảng ngày, trạng thái; phân trang theo cursor `_id`.
-      security: [{ bearerAuth: [] }]
-      parameters:
-        - in: query
-          name: mentor
-          schema: { type: string, pattern: "^[0-9a-fA-F]{24}$" }
-        - in: query
-          name: mentee
-          schema: { type: string, pattern: "^[0-9a-fA-F]{24}$" }
-        - in: query
-          name: date
-          schema: { type: string, format: date }
-        - in: query
-          name: from
-          schema: { type: string, format: date }
-        - in: query
-          name: to
-          schema: { type: string, format: date }
-        - in: query
-          name: status
-          schema: { type: string }
-          description: "Danh sách status, phân tách bằng dấu phẩy (VD: pending,active)"
-        - in: query
-          name: before
-          schema: { type: string, pattern: "^[0-9a-fA-F]{24}$" }
-          description: Cursor `_id` nhỏ hơn để phân trang lùi
-        - in: query
-          name: limit
-          schema: { type: integer, minimum: 1, maximum: 100, default: 50 }
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/BookingListAdminResponse" }
-
-  /booking/confirm/{id}:
-    post:
-      tags: [Booking]
-      summary: Mentor/Admin xác nhận booking (pending → active)
-      security: [{ bearerAuth: [] }]
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema: { type: string, pattern: "^[0-9a-fA-F]{24}$" }
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/BookingActionResponse" }
-
-  /booking/cancel/{id}:
-    post:
-      tags: [Booking]
-      summary: Huỷ booking (mentor/mentee/admin)
-      description: Huỷ booking ở trạng thái `pending`/`active`. Khi huỷ sẽ **mở lại slot** trong Availability.
-      security: [{ bearerAuth: [] }]
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema: { type: string, pattern: "^[0-9a-fA-F]{24}$" }
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema: { $ref: "#/components/schemas/CancelBookingRequest" }
-            examples:
-              with_reason:
-                value:
-                  reason: "Bận đột xuất"
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/BookingActionResponse" }
-
-  /booking/{id}:
-    patch:
-      tags: [Booking]
-      summary: Cập nhật booking theo id
-      security: [{ bearerAuth: [] }]
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema: { type: string, pattern: "^[0-9a-fA-F]{24}$" }
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: "#/components/schemas/BookingUpdateRequest" }
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/Booking" }
-
-    delete:
-      tags: [Booking]
-      summary: Xoá booking theo id (admin)
-      security: [{ bearerAuth: [] }]
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema: { type: string, pattern: "^[0-9a-fA-F]{24}$" }
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message: { type: string, example: "Booking deleted" }
-
-  # =========================
-  # AVAILABILITY ENDPOINTS
-  # =========================
-  /availability:
-    post:
-      tags: [Availability Management]
-      summary: Tạo hoặc cập nhật availability
-      description: |
-        Mentor tạo/cập nhật availability cho một ngày.
-        - Chỉ mentor mới có thể tạo
-        - Không thể tạo cho ngày quá khứ
-        - Slots 30 phút, không chồng lấn
-      security: [{ bearerAuth: [] }]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [date, slots]
-              properties:
-                date:
-                  type: string
-                  format: date
-                  example: "2025-08-31"
-                timezone:
-                  type: string
-                  default: "Asia/Ho_Chi_Minh"
-                slots:
-                  type: array
-                  minItems: 1
-                  items:
+                    type: string
+                    example: "Cập nhật avatar thành công!"
+                  data:
                     type: object
-                    required: [start, end]
                     properties:
-                      start:
+                      avatarUrl:
                         type: string
-                        pattern: "^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$"
-                        example: "09:00"
-                      end:
-                        type: string
-                        pattern: "^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$"
-                        example: "09:30"
-      responses:
-        "201":
-          description: Created
+                        example: "https://cloudinary.com/image/abc123.jpg"
+        "400":
+          description: Lỗi upload file (file không hợp lệ hoặc quá lớn)
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  message:
-                    {
-                      type: string,
-                      example: "Availability đã được tạo/cập nhật thành công",
-                    }
-                  availability: { $ref: "#/components/schemas/Availability" }
-
-  /availability/today-schedule:
-    get:
-      tags: [Availability Management]
-      summary: Lấy lịch chi tiết trong ngày của mentor
-      security: [{ bearerAuth: [] }]
-      parameters:
-        - in: query
-          name: date
-          required: false
-          schema: { type: string, format: date }
-          description: YYYY-MM-DD. Nếu không truyền sẽ dùng ngày hiện tại.
-      responses:
-        "200":
-          description: OK
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Unauthorized
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  message:
-                    {
-                      type: string,
-                      example: "Lịch trong ngày được tải thành công",
-                    }
-                  schedule:
-                    type: object
-                    properties:
-                      date:
-                        { type: string, format: date, example: "2025-09-01" }
-                      dayOfWeek: { type: string, example: "Thứ Hai" }
-                      mentor:
-                        type: object
-                        properties:
-                          _id: { type: string }
-                          firstName: { type: string }
-                          lastName: { type: string }
-                          avatarUrl: { type: string }
-                          jobTitle: { type: string }
-                      timezone: { type: string, example: "Asia/Ho_Chi_Minh" }
-                      totalSlots: { type: integer }
-                      openSlots: { type: integer }
-                      blockedSlots: { type: integer }
-                      slots:
-                        type: array
-                        items:
-                          type: object
-                          properties:
-                            _id: { type: string }
-                            start: { type: string, example: "09:00" }
-                            end: { type: string, example: "09:30" }
-                            status:
-                              {
-                                type: string,
-                                enum: [open, blocked, booked, held],
-                              }
-                            duration: { type: string, example: "30m" }
-                            isAvailable: { type: boolean }
-
-  /availability/mentor/range:
-    get:
-      tags: [Availability Management]
-      summary: Lấy availability của mentor trong khoảng thời gian
-      security: [{ bearerAuth: [] }]
-      parameters:
-        - in: query
-          name: startDate
-          schema: { type: string, format: date }
-          required: false
-        - in: query
-          name: endDate
-          schema: { type: string, format: date }
-          required: false
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  availabilities:
-                    type: array
-                    items: { $ref: "#/components/schemas/Availability" }
-                  count:
-                    type: integer
-                    example: 3
-
-  /availability/{availabilityId}:
-    delete:
-      tags: [Availability Management]
-      summary: Xóa availability theo id (mentor sở hữu)
-      security: [{ bearerAuth: [] }]
-      parameters:
-        - in: path
-          name: availabilityId
-          required: true
-          schema: { type: string, pattern: "^[0-9a-fA-F]{24}$" }
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    {
-                      type: string,
-                      example: "Availability đã được xóa thành công",
-                    }
-
-  /availability/overview:
-    get:
-      tags: [Availability Management]
-      summary: Lấy availability overview của mentor trong 7 ngày tới
-      security: [{ bearerAuth: [] }]
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  mentor:
-                    type: object
-                    properties:
-                      _id: { type: string }
-                      firstName: { type: string }
-                      lastName: { type: string }
-                      avatarUrl: { type: string }
-                  overview:
-                    type: array
-                    items:
-                      type: object
-                      properties:
-                        date: { type: string, format: date }
-                        dayOfWeek: { type: string }
-                        hasAvailability: { type: boolean }
-                        slots:
-                          type: array
-                          items:
-                            type: object
-                            properties:
-                              _id: { type: string }
-                              start: { type: string }
-                              end: { type: string }
-                              status:
-                                {
-                                  type: string,
-                                  enum: [open, blocked, booked, held],
-                                }
-                        totalSlots: { type: integer }
-                        availableSlots: { type: integer }
-                        timezone: { type: string }
-                  period:
-                    type: object
-                    properties:
-                      startDate: { type: string, format: date }
-                      endDate: { type: string, format: date }
-                      totalDays: { type: integer, example: 7 }
-                  summary:
-                    type: object
-                    properties:
-                      totalDaysWithSlots: { type: integer }
-                      totalSlots: { type: integer }
-                      totalAvailableSlots: { type: integer }
-
-  /availability/cleanup-old:
-    post:
-      tags: [Availability Management]
-      summary: Manual cleanup availability cũ (Admin only)
-      security: [{ bearerAuth: [] }]
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                daysBack:
-                  type: integer
-                  minimum: 1
-                  maximum: 365
-                  default: 3
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    { type: string, example: "Cleanup completed successfully" }
-                  deletedCount: { type: integer, example: 25 }
-                  cutoffDate: { type: string, format: date-time }
-                  daysBack: { type: integer, example: 3 }
-                  timestamp: { type: string, format: date-time }
+                $ref: "#/components/schemas/Error"
