@@ -11,6 +11,15 @@ export const createOrUpdateAvailability = async (req, res) => {
     const mentorId = req.user.id;
     const { date, timezone = "Asia/Ho_Chi_Minh", slots } = req.body;
 
+    // Debug logging
+    console.log("=== CREATE/UPDATE AVAILABILITY DEBUG ===");
+    console.log("Request body:", JSON.stringify(req.body, null, 2));
+    console.log("Mentor ID:", mentorId);
+    console.log("Date:", date, "Type:", typeof date);
+    console.log("Timezone:", timezone);
+    console.log("Slots:", JSON.stringify(slots, null, 2));
+    console.log("=====================================");
+
     // Kiểm tra user là mentor
     const mentor = await User.findById(mentorId);
     if (!mentor || !mentor.role.includes("mentor")) {
@@ -23,6 +32,8 @@ export const createOrUpdateAvailability = async (req, res) => {
     // Validate date không phải quá khứ
     // Fix: Handle both string and Date object input - Always create UTC date
     let inputDate;
+    console.log("Processing date:", date, "Type:", typeof date);
+    
     if (typeof date === "string") {
       // String input - create UTC date to avoid timezone issues
       const dateStr = date.includes("T") ? date.split("T")[0] : date;
@@ -52,11 +63,15 @@ export const createOrUpdateAvailability = async (req, res) => {
       inputDate = new Date(isoDateStr);
     }
 
+    console.log("Input date after processing:", inputDate);
+
     // Today comparison in UTC
     const today = new Date();
     today.setUTCHours(0, 0, 0, 0);
+    console.log("Today UTC:", today);
 
     if (inputDate < today) {
+      console.log("Date validation failed: inputDate < today");
       return responseHandler.badRequest(
         res,
         "Không thể tạo availability cho ngày trong quá khứ"
@@ -65,7 +80,9 @@ export const createOrUpdateAvailability = async (req, res) => {
 
     // Validate năm hiện tại (nếu cần)
     const currentYear = new Date().getFullYear();
+    console.log("Current year:", currentYear, "Input year:", inputDate.getFullYear());
     if (inputDate.getFullYear() !== currentYear) {
+      console.log("Year validation failed");
       return responseHandler.badRequest(
         res,
         `Chỉ có thể tạo availability trong năm ${currentYear}`
@@ -76,13 +93,18 @@ export const createOrUpdateAvailability = async (req, res) => {
     const normalizedDate = new Date(inputDate);
 
     // Validate slots format
+    console.log("Validating slots:", slots, "Type:", Array.isArray(slots));
     if (!Array.isArray(slots)) {
+      console.log("Slots validation failed: not array");
       return responseHandler.badRequest(res, "Slots phải là một array");
     }
 
     // Validate từng slot
+    console.log("Validating individual slots...");
     for (const slot of slots) {
+      console.log("Validating slot:", slot);
       if (!slot.start || !slot.end) {
+        console.log("Slot validation failed: missing start/end");
         return responseHandler.badRequest(
           res,
           "Mỗi slot phải có start và end time"
@@ -92,6 +114,7 @@ export const createOrUpdateAvailability = async (req, res) => {
       // Validate time format (HH:mm)
       const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
       if (!timeRegex.test(slot.start) || !timeRegex.test(slot.end)) {
+        console.log("Time format validation failed:", slot.start, slot.end);
         return responseHandler.badRequest(
           res,
           "Time format phải là HH:mm (24h)"
@@ -106,12 +129,17 @@ export const createOrUpdateAvailability = async (req, res) => {
         .split(":")
         .reduce((h, m) => h * 60 + parseInt(m));
 
+      console.log(`Slot ${slot.start}-${slot.end}: start=${startMinutes}, end=${endMinutes}`);
+
       if (endMinutes <= startMinutes) {
+        console.log("Duration validation failed: end <= start");
         return responseHandler.badRequest(res, "End time phải sau start time");
       }
 
       const duration = endMinutes - startMinutes;
+      console.log("Slot duration:", duration, "minutes");
       if (duration !== 30) {
+        console.log("Duration validation failed: not 30 minutes");
         return responseHandler.badRequest(
           res,
           "Mỗi slot phải có thời gian chính xác 30 phút"
@@ -123,7 +151,10 @@ export const createOrUpdateAvailability = async (req, res) => {
       const endHour = parseInt(slot.end.split(":")[0]);
       const endMinute = parseInt(slot.end.split(":")[1]);
 
+      console.log(`Working hours validation: startHour=${startHour}, endHour=${endHour}, endMinute=${endMinute}`);
+
       if (startHour < 6) {
+        console.log("Working hours validation failed: startHour < 6");
         return responseHandler.badRequest(
           res,
           `Giờ bắt đầu không thể trước 6:00 (${slot.start})`
@@ -131,6 +162,7 @@ export const createOrUpdateAvailability = async (req, res) => {
       }
 
       if (endHour > 22 || (endHour === 22 && endMinute > 0)) {
+        console.log("Working hours validation failed: endHour > 22 or (endHour === 22 && endMinute > 0)");
         return responseHandler.badRequest(
           res,
           `Giờ kết thúc không thể sau 22:00 (${slot.end})`
@@ -138,7 +170,10 @@ export const createOrUpdateAvailability = async (req, res) => {
       }
     }
 
+    console.log("Individual slot validation completed");
+
     // Validate không có slots trùng giờ
+    console.log("Validating slot overlaps...");
     for (let i = 0; i < slots.length; i++) {
       for (let j = i + 1; j < slots.length; j++) {
         const slot1 = slots[i];
@@ -157,8 +192,11 @@ export const createOrUpdateAvailability = async (req, res) => {
           .split(":")
           .reduce((h, m) => h * 60 + parseInt(m));
 
+        console.log(`Checking overlap: slot1(${start1}-${end1}) vs slot2(${start2}-${end2})`);
+
         // Check overlap: slot1 và slot2 có trùng không
         if (start1 < end2 && start2 < end1) {
+          console.log("Overlap detected!");
           return responseHandler.badRequest(
             res,
             `Slots trùng giờ: ${slot1.start}-${slot1.end} và ${slot2.start}-${slot2.end}`
@@ -167,52 +205,32 @@ export const createOrUpdateAvailability = async (req, res) => {
       }
     }
 
+    console.log("Overlap validation completed");
+
+    // Chuẩn hóa date về 00:00 UTC - Use inputDate directly
+    console.log("Normalized date:", normalizedDate);
+
     // Tìm availability hiện tại hoặc tạo mới
+    console.log("Finding existing availability...");
     let availability = await Availability.findOne({
       mentor: mentorId,
       date: normalizedDate,
     });
 
+    console.log("Existing availability found:", !!availability);
+
     if (availability) {
-      // Merge slots mới với slots hiện tại (không ghi đè)
-      const existingSlots = availability.slots || [];
-      const newSlots = slots.map((slot) => ({
+      console.log("Replacing existing availability");
+      // Replace toàn bộ slots thay vì merge để tránh conflict
+      availability.slots = slots.map((slot) => ({
         start: slot.start,
         end: slot.end,
         status: slot.status || "open",
       }));
-
-      // Validate không trùng với slots hiện tại
-      for (const newSlot of newSlots) {
-        const newStart = newSlot.start
-          .split(":")
-          .reduce((h, m) => h * 60 + parseInt(m));
-        const newEnd = newSlot.end
-          .split(":")
-          .reduce((h, m) => h * 60 + parseInt(m));
-
-        for (const existingSlot of existingSlots) {
-          const existingStart = existingSlot.start
-            .split(":")
-            .reduce((h, m) => h * 60 + parseInt(m));
-          const existingEnd = existingSlot.end
-            .split(":")
-            .reduce((h, m) => h * 60 + parseInt(m));
-
-          // Check overlap với slots hiện tại
-          if (newStart < existingEnd && existingStart < newEnd) {
-            return responseHandler.badRequest(
-              res,
-              `Slot ${newSlot.start}-${newSlot.end} trùng giờ với slot hiện tại ${existingSlot.start}-${existingSlot.end}`
-            );
-          }
-        }
-      }
-
-      // Add slots mới vào availability hiện tại
-      availability.slots.push(...newSlots);
       availability.timezone = timezone;
+      console.log("Slots replaced with", availability.slots.length, "new slots");
     } else {
+      console.log("Creating new availability");
       // Tạo mới
       availability = new Availability({
         mentor: mentorId,
@@ -226,7 +244,9 @@ export const createOrUpdateAvailability = async (req, res) => {
       });
     }
 
+    console.log("About to save availability...");
     await availability.save();
+    console.log("Availability saved successfully!");
 
     return responseHandler.created(res, {
       message: "Availability đã được tạo/cập nhật thành công",
@@ -238,7 +258,13 @@ export const createOrUpdateAvailability = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Error creating/updating availability:", error);
+    console.error("=== ERROR IN CREATE/UPDATE AVAILABILITY ===");
+    console.error("Error details:", error);
+    console.error("Error message:", error.message);
+    console.error("Error stack:", error.stack);
+    console.error("Request body was:", JSON.stringify(req.body, null, 2));
+    console.error("==========================================");
+    
     if (error.name === "ValidationError") {
       return responseHandler.badRequest(res, error.message);
     }
@@ -467,6 +493,8 @@ export const getMentorAvailabilityRange = async (req, res) => {
 export const getAvailabilityOverview = async (req, res) => {
   try {
     const mentorId = req.user.id;
+    console.log("=== GET AVAILABILITY OVERVIEW DEBUG ===");
+    console.log("Mentor ID:", mentorId);
 
     // Kiểm tra user là mentor
     const mentor = await User.findById(mentorId);
@@ -492,10 +520,17 @@ export const getAvailabilityOverview = async (req, res) => {
       today.getDate() + 7
     );
 
+    console.log("Date range:", startDate, "to", endDate);
+
     const availabilities = await Availability.find({
       mentor: mentorId,
       date: { $gte: startDate, $lt: endDate },
     }).sort({ date: 1 });
+
+    console.log("Found availabilities:", availabilities.length);
+    availabilities.forEach(avail => {
+      console.log(`- ${avail.date.toISOString().split('T')[0]}: ${avail.slots.length} slots`);
+    });
 
     // Format response cho Frontend
     const overview = [];
@@ -593,11 +628,112 @@ export const manualCleanupOldAvailabilities = async (req, res) => {
   }
 };
 
+/**
+ * Lấy danh sách tất cả availability/schedules của mentor
+ * GET /api/availability/my-schedules
+ */
+export const getMySchedules = async (req, res) => {
+  try {
+    const mentorId = req.user.id;
+    console.log("=== GET MY SCHEDULES DEBUG ===");
+    console.log("Mentor ID:", mentorId);
+
+    // Kiểm tra user là mentor
+    const mentor = await User.findById(mentorId);
+    if (!mentor || !mentor.role.includes("mentor")) {
+      return responseHandler.forbidden(
+        res,
+        "Chỉ mentor mới có thể xem schedules của mình"
+      );
+    }
+
+    // Lấy tất cả availability của mentor, sắp xếp theo ngày
+    const availabilities = await Availability.find({
+      mentor: mentorId,
+    }).sort({ date: 1 });
+
+    console.log("Found total availabilities:", availabilities.length);
+
+    // Nhóm theo tháng để dễ quản lý
+    const schedulesByMonth = {};
+    
+    availabilities.forEach(availability => {
+      const dateStr = availability.date.toISOString().split('T')[0];
+      const monthKey = dateStr.substring(0, 7); // YYYY-MM
+      
+      if (!schedulesByMonth[monthKey]) {
+        schedulesByMonth[monthKey] = [];
+      }
+      
+      schedulesByMonth[monthKey].push({
+        _id: availability._id,
+        date: dateStr,
+        dayOfWeek: availability.date.toLocaleDateString("vi-VN", { 
+          weekday: "long" 
+        }),
+        timezone: availability.timezone,
+        totalSlots: availability.slots.length,
+        openSlots: availability.slots.filter(slot => slot.status === "open").length,
+        bookedSlots: availability.slots.filter(slot => slot.status === "booked").length,
+        blockedSlots: availability.slots.filter(slot => slot.status === "blocked").length,
+        slots: availability.slots,
+        createdAt: availability.createdAt,
+        updatedAt: availability.updatedAt,
+        // Thêm thông tin trạng thái
+        status: availability.date < new Date() ? "past" : "upcoming",
+        canDelete: availability.slots.every(slot => !["booked", "held"].includes(slot.status))
+      });
+    });
+
+    // Convert object to array và sort theo tháng
+    const scheduleList = Object.keys(schedulesByMonth)
+      .sort((a, b) => b.localeCompare(a)) // Tháng mới nhất trước
+      .map(monthKey => ({
+        month: monthKey,
+        monthName: new Date(monthKey + "-01").toLocaleDateString("vi-VN", {
+          year: "numeric",
+          month: "long"
+        }),
+        schedules: schedulesByMonth[monthKey]
+      }));
+
+    // Thống kê tổng quan
+    const totalSchedules = availabilities.length;
+    const upcomingSchedules = availabilities.filter(a => a.date >= new Date()).length;
+    const pastSchedules = totalSchedules - upcomingSchedules;
+    const totalSlots = availabilities.reduce((sum, a) => sum + a.slots.length, 0);
+    const totalOpenSlots = availabilities.reduce((sum, a) => 
+      sum + a.slots.filter(slot => slot.status === "open").length, 0
+    );
+
+    return responseHandler.ok(res, {
+      mentor: {
+        _id: mentor._id,
+        firstName: mentor.firstName,
+        lastName: mentor.lastName,
+        avatarUrl: mentor.avatarUrl,
+      },
+      schedulesByMonth: scheduleList,
+      summary: {
+        totalSchedules,
+        upcomingSchedules,
+        pastSchedules,
+        totalSlots,
+        totalOpenSlots,
+      },
+    });
+  } catch (error) {
+    console.error("Error getting my schedules:", error);
+    return responseHandler.error(res, "Lỗi khi lấy danh sách schedules");
+  }
+};
+
 export default {
   createOrUpdateAvailability,
   getTodaySchedule,
   deleteAvailability,
   getMentorAvailabilityRange,
   getAvailabilityOverview,
+  getMySchedules,
   manualCleanupOldAvailabilities,
 };

@@ -2,10 +2,16 @@ import Joi from "joi";
 
 // Schema cho tạo/cập nhật availability
 export const createAvailabilitySchema = Joi.object({
-  date: Joi.date().required().messages({
-    "date.base": "Date phải là ngày hợp lệ (YYYY-MM-DD)",
-    "any.required": "Date là bắt buộc",
-  }),
+  date: Joi.alternatives()
+    .try(
+      Joi.date(),
+      Joi.string().pattern(/^\d{4}-\d{2}-\d{2}$/)
+    )
+    .required()
+    .messages({
+      "alternatives.match": "Date phải là ngày hợp lệ (YYYY-MM-DD) hoặc Date object",
+      "any.required": "Date là bắt buộc",
+    }),
 
   timezone: Joi.string().default("Asia/Ho_Chi_Minh").messages({
     "string.base": "Timezone phải là string",
@@ -62,21 +68,39 @@ export const createAvailabilitySchema = Joi.object({
 
 // Schema cho query parameters khi lấy availability
 export const getAvailabilitySchema = Joi.object({
-  date: Joi.date().optional().messages({
-    "date.base": "Date phải là ngày hợp lệ (YYYY-MM-DD)",
-  }),
+  date: Joi.alternatives()
+    .try(
+      Joi.date(),
+      Joi.string().pattern(/^\d{4}-\d{2}-\d{2}$/)
+    )
+    .optional()
+    .messages({
+      "alternatives.match": "Date phải là ngày hợp lệ (YYYY-MM-DD) hoặc Date object",
+    }),
 });
 
 // Schema cho get availability range
 export const getAvailabilityRangeSchema = Joi.object({
-  startDate: Joi.date().optional().messages({
-    "date.base": "startDate phải là ngày hợp lệ (YYYY-MM-DD)",
-  }),
+  startDate: Joi.alternatives()
+    .try(
+      Joi.date(),
+      Joi.string().pattern(/^\d{4}-\d{2}-\d{2}$/)
+    )
+    .optional()
+    .messages({
+      "alternatives.match": "startDate phải là ngày hợp lệ (YYYY-MM-DD) hoặc Date object",
+    }),
 
-  endDate: Joi.date().optional().min(Joi.ref("startDate")).messages({
-    "date.base": "endDate phải là ngày hợp lệ (YYYY-MM-DD)",
-    "date.min": "endDate không thể nhỏ hơn startDate",
-  }),
+  endDate: Joi.alternatives()
+    .try(
+      Joi.date(),
+      Joi.string().pattern(/^\d{4}-\d{2}-\d{2}$/)
+    )
+    .optional()
+    .messages({
+      "alternatives.match": "endDate phải là ngày hợp lệ (YYYY-MM-DD) hoặc Date object",
+      "date.min": "endDate không thể nhỏ hơn startDate",
+    }),
 });
 
 // Schema cho availability overview (chỉ mentor xem của chính mình)

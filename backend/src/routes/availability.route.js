@@ -26,7 +26,6 @@ router.post(
 router.get(
   "/today-schedule",
   tokenMiddleware.auth,
-  validateQuery(availabilityValidation.getAvailabilitySchema),
   availabilityController.getTodaySchedule
 );
 
@@ -50,8 +49,18 @@ router.get(
 router.get(
   "/overview",
   tokenMiddleware.auth,
-  validateQuery(availabilityValidation.getAvailabilityOverviewSchema),
   availabilityController.getAvailabilityOverview
+);
+
+/**
+ * @route   GET /api/availability/my-schedules
+ * @desc    Lấy danh sách tất cả schedules của mentor
+ * @access  Private (Mentor only)
+ */
+router.get(
+  "/my-schedules",
+  tokenMiddleware.auth,
+  availabilityController.getMySchedules
 );
 
 /**

@@ -174,7 +174,7 @@ export const getBookingsOfMentor = async (req, res) => {
     const bookings = await Booking.find(query)
       .sort({ date: -1, start: 1 })
       .limit(lim)
-      .populate("mentee", "firstName lastName avatarUrl");
+      .populate("mentee", "firstName lastName email avatarUrl");
 
     return responseHandler.ok(res, bookings);
   } catch (err) {
