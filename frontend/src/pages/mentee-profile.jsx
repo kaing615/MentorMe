@@ -68,11 +68,21 @@ const MenteeProfile = () => {
 
   // State lưu thông tin profile
   const [profile, setProfile] = useState(null);
+
+  // State cho sidebar (chỉ cập nhật khi save thành công)
+  const [sidebarData, setSidebarData] = useState({
+    firstName: "",
+    lastName: "",
+    avatarUrl: "",
+  });
+
+  // State cho form (thay đổi real-time khi user nhập)
   const [formData, setFormData] = useState({
     userName: "",
     firstName: "",
     lastName: "",
     bio: "",
+    location: "",
     description: "",
     goal: "",
     education: "",
@@ -127,8 +137,9 @@ const MenteeProfile = () => {
       setLoading(true);
       setError(null);
       try {
-        const data = await profileApi().getProfile();
+        const data = await profileApi.getProfile();
         const profileData = data?.data;
+        console.log("Profile API response:", profileData);
         if (!profileData || !profileData.user) {
           setError(
             "Không nhận được dữ liệu profile từ API hoặc thiếu thông tin user."
@@ -150,30 +161,45 @@ const MenteeProfile = () => {
             location: "",
             role: "",
           });
+          setSidebarData({
+            firstName: "",
+            lastName: "",
+            avatarUrl: "",
+          });
           setProfileImage(null);
         } else {
           setProfile(profileData);
           const user = profileData.user || {};
           const profile = profileData.profile || {};
           const links = profile.links || {};
+
+          // Set form data (có thể thay đổi khi user nhập)
           setFormData({
-            userName: user.userName || "",
-            firstName: user.firstName || "",
-            lastName: user.lastName || "",
-            email: user.email || "",
-            bio: profile.bio || user.bio || "",
-            description: profile.description || "",
-            goal: profile.goal || "",
-            education: profile.education || "",
-            website: links.website || "",
-            twitter: links.twitter || "",
-            linkedin: links.linkedin || "",
-            facebook: links.facebook || "",
-            avatarUrl: user.avatarUrl || "",
-            location: user.location || profile.location || "",
-            role: user.role || "",
+            userName: user?.userName || "",
+            firstName: user?.firstName || "",
+            lastName: user?.lastName || "",
+            email: user?.email || "",
+            bio: profile?.bio || user?.bio || "",
+            description: profile?.description || "",
+            goal: profile?.goal || "",
+            education: profile?.education || "",
+            website: links?.website || "",
+            twitter: links?.twitter || "",
+            linkedin: links?.linkedin || "",
+            facebook: links?.facebook || "",
+            avatarUrl: user?.avatarUrl || "",
+            location: user?.location || profile?.location || "",
+            role: user?.role || "",
           });
-          setProfileImage(user.avatarUrl || null);
+
+          // Set sidebar data (chỉ cập nhật khi save thành công)
+          setSidebarData({
+            firstName: user?.firstName || "",
+            lastName: user?.lastName || "",
+            avatarUrl: user?.avatarUrl || "",
+          });
+
+          setProfileImage(user?.avatarUrl || null);
         }
       } catch (error) {
         console.error("[DEBUG] Lỗi khi gọi profileApi.getProfile:", error);
@@ -190,8 +216,7 @@ const MenteeProfile = () => {
   useEffect(() => {
     async function fetchPurchasedCourses() {
       try {
-        const api = purchasedCourseApi();
-        const res = await api.getPurchasedCourses();
+        const res = await purchasedCourseApi.getPurchasedCourses();
         const data = res.data;
         if (data && data.data && Array.isArray(data.data.courses)) {
           setPurchasedCourses(data.data.courses);
@@ -436,19 +461,61 @@ const MenteeProfile = () => {
     setLoading(true);
     setError(null);
     try {
+      // Gom dữ liệu từ formData và avatar
       const payload = { ...formData };
-      const response = await profileApi.updateMenteeProfile(
-        payload,
-        profileImageFile
-      );
+      if (profileImageFile) {
+        payload.avatar = profileImageFile;
+      }
+
+      const response = await profileApi.updateMenteeProfile(payload);
       if (response && response.data) {
         setProfile(response.data);
-        setProfileImage(null); // Reset local image preview để sidebar lấy avatar từ backend
-        setProfileImageFile(null);
+        setProfileImageFile(null); // Reset file gốc
+
+        // Cập nhật đầy đủ formData từ response để đảm bảo sync với DB
+        const updatedUser = response.data.user;
+        const updatedProfile = response.data.profile;
+        const updatedLinks = updatedProfile?.links || {};
+
+        setFormData({
+          userName: updatedUser?.userName || "",
+          firstName: updatedUser?.firstName || "",
+          lastName: updatedUser?.lastName || "",
+          email: updatedUser?.email || "",
+          bio: updatedProfile?.bio || updatedUser?.bio || "",
+          description: updatedProfile?.description || "",
+          goal: updatedProfile?.goal || "",
+          education: updatedProfile?.education || "",
+          website: updatedLinks?.website || "",
+          twitter: updatedLinks?.twitter || "",
+          linkedin: updatedLinks?.linkedin || "",
+          facebook: updatedLinks?.facebook || "",
+          avatarUrl: updatedUser?.avatarUrl || "",
+          location: updatedUser?.location || updatedProfile?.location || "",
+          role: updatedUser?.role || "",
+        });
+
+        // Cập nhật sidebar data (chỉ khi save thành công)
+        setSidebarData({
+          firstName: updatedUser?.firstName || "",
+          lastName: updatedUser?.lastName || "",
+          avatarUrl: updatedUser?.avatarUrl || "",
+        });
+
+        // Cập nhật avatar hiển thị từ response
+        if (updatedUser && updatedUser.avatarUrl) {
+          setProfileImage(updatedUser.avatarUrl);
+        } else {
+          setProfileImage(null);
+        }
+
         toast.success("Cập nhật profile thành công!", {
           position: "top-right",
           autoClose: 3000,
         });
+
+        // Cuộn lên đầu trang sau khi save thành công
+        window.scrollTo({ top: 0, behavior: "smooth" });
       }
     } catch (error) {
       setError(error.message || "Cập nhật profile thất bại");
@@ -459,7 +526,6 @@ const MenteeProfile = () => {
     }
     setLoading(false);
   };
-
   return (
     <>
       <div className="min-h-screen bg-white-100">
@@ -471,10 +537,10 @@ const MenteeProfile = () => {
             className="bg-slate-50 rounded-2xl shadow-sm p-8 flex flex-col items-center sticky top-10 self-start"
           >
             <div className="w-24 h-24 rounded-full bg-gray-300 flex items-center justify-center mb-4 relative overflow-hidden">
-              {profileImage ? (
+              {sidebarData.avatarUrl ? (
                 <img
-                  src={profileImage}
-                  alt={formData.firstName || "Avatar"}
+                  src={sidebarData.avatarUrl}
+                  alt={sidebarData.firstName || "Avatar"}
                   className="absolute inset-0 w-full h-full object-cover rounded-full"
                 />
               ) : (
@@ -482,8 +548,8 @@ const MenteeProfile = () => {
               )}
             </div>
             <h2 className="font-semibold text-xl text-gray-900 mb-3">
-              {formData.firstName || formData.lastName
-                ? `${formData.firstName} ${formData.lastName}`.trim()
+              {sidebarData.firstName || sidebarData.lastName
+                ? `${sidebarData.firstName} ${sidebarData.lastName}`.trim()
                 : "Mentee"}
             </h2>
             <button className="bg-blue-600 text-white border-none rounded-lg px-6 py-1.5 mb-6 font-medium text-base">
@@ -634,6 +700,18 @@ const MenteeProfile = () => {
                   </div>
                   <div className="mb-4">
                     <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Location
+                    </label>
+                    <input
+                      type="text"
+                      name="location"
+                      value={formData.location}
+                      onChange={handleInputChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
                       Description
                     </label>
                     <textarea
@@ -683,9 +761,9 @@ const MenteeProfile = () => {
                     style={{ minHeight: 120 }}
                     title="Click to upload/change avatar"
                   >
-                    {profileImage ? (
+                    {profileImage || formData.avatarUrl ? (
                       <img
-                        src={profileImage}
+                        src={profileImage || formData.avatarUrl}
                         alt="Preview"
                         className="w-24 h-24 object-cover mx-auto rounded"
                       />

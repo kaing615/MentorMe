@@ -20,6 +20,10 @@ export const MENTEE_PATH = {
   PROFILE: "profile",
   SHOPPINGCART: "shoppingcart",
   COURSEDETAIL: "course-detail",
+  ALLCOURSEPAGE: "all-courses",
+  MENTOR: "mentor",
+  ALLMENTORS: "all-mentors",
+
 };
 
 export const ADMIN_PATH = {
@@ -33,6 +37,8 @@ export const MENTOR_PATH = {
   CREATECOURSE: "create-course",
   COURSEDETAIL: "course-detail",
   EDITCOURSE: "edit-course",
+  ALLCOURSE: "all-courses",
+  ALLMENTORS: "all-mentors",
 };
 
 export const PLATFORM_PATH = {

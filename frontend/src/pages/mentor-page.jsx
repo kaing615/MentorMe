@@ -1,9 +1,47 @@
 import React, { useEffect, useState, useRef } from "react";
+import { useNavigate, useParams, useLocation } from "react-router-dom";
 import profileApi from "../api/modules/profile.api";
 import courseApi from "../api/modules/course.api";
-// import axios from "../api/clients/public.client"; // Uncomment and adjust path if you have a custom axios client
-import minatoPic from "../assets/minato.jpg";
+
 const MentorPage = () => {
+  const navigate = useNavigate();
+  const { id } = useParams(); // Lấy ID mentor từ URL
+  const location = useLocation(); // Lấy state từ navigation
+  // --- AUTH CHECK (mentor hoặc mentee đều được xem) ---
+  useEffect(() => {
+    const token =
+      localStorage.getItem("actkn") || localStorage.getItem("token");
+    const userStr =
+      localStorage.getItem("user") || localStorage.getItem("user");
+    console.log("Token:", token);
+    let user = null;
+    if (!token) {
+      navigate("/auth/signin");
+      return;
+    }
+    // Check user object
+    try {
+      user = userStr ? JSON.parse(userStr) : null;
+    } catch (e) {
+      user = null;
+    }
+    if (!user || !user.role) {
+      navigate("/auth/signin");
+      return;
+    }
+    // Check role
+    if (user.role === "mentor") {
+      return;
+    }
+    if (user.role === "mentee") {
+      return;
+    }
+    // if (user.role === "admin") {
+    //   navigate("/admin/profile");
+    //   return;
+    // }
+  }, [navigate]);
+
   // State declarations
   const [mentor, setMentor] = useState(null);
   const [courses, setCourses] = useState([]);
@@ -13,40 +51,68 @@ const MentorPage = () => {
 
   // Fetch data from backend API and overwrite default data if available
   useEffect(() => {
+    // Scroll to top when component mounts or id changes
+    window.scrollTo({ top: 0, behavior: "smooth" });
+
     const fetchMentorData = async () => {
+      console.log("=== Mentor Page Debug ===");
+      console.log("URL params ID:", id);
+      console.log("Location state:", location.state);
+      console.log("Mentor data from state:", location.state?.mentorData);
+
+      if (!id) return; // Nếu không có ID thì không fetch
+
       setLoading(true);
       setError(null);
+
       try {
-        // Fetch mentor profile
-        const mentorRes = await profileApi.getProfile();
-        if (mentorRes?.data) {
-          // Gắn introVideo từ profile hoặc user vào object mentor
-          const introVideo =
-            mentorRes.data?.introVideo ||
-            mentorRes.data?.user?.introVideo ||
-            "";
-          setMentor({ ...mentorRes.data, introVideo });
+        // Fetch mentor profile by ID first
+        console.log("Fetching mentor profile for ID:", id);
+        const mentorProfile = await profileApi.getMentorById(id);
+        console.log("Mentor profile response:", mentorProfile);
+
+        if (mentorProfile && mentorProfile.data) {
+          console.log("Setting mentor data:", mentorProfile.data);
+          setMentor(mentorProfile.data);
+        } else {
+          console.log("No mentor profile data found");
         }
 
-        // Fetch mentor's courses
-        const mentorId = mentorRes?.data?.user?._id;
-        if (mentorId) {
-          const coursesRes = await courseApi.getCoursesByMentor(mentorId);
-          if (Array.isArray(coursesRes)) setCourses(coursesRes);
-        }
+        // Fetch mentor's courses using ID from params
+        console.log("Fetching courses for mentor ID:", id);
+        const coursesRes = await courseApi.getCoursesByMentor(id);
+        console.log("Courses response:", coursesRes);
 
-        // Fetch mentor's reviews (if you have this API)
-        // const reviewsRes = await reviewApi.getReviewsByMentor(mentorId);
-        // if (Array.isArray(reviewsRes)) setReviews(reviewsRes);
+        if (Array.isArray(coursesRes)) {
+          setCourses(coursesRes);
+        }
       } catch (err) {
+        console.error("Error fetching mentor data:", err);
         setError("Không thể tải dữ liệu mentor hoặc khóa học");
+
+        // Fallback: Nếu có mentorData từ state (từ CourseDetail), sử dụng luôn
+        const mentorDataFromState = location.state?.mentorData;
+        if (mentorDataFromState) {
+          console.log(
+            "API failed, using mentor data from navigation state:",
+            mentorDataFromState
+          );
+          setMentor({ user: mentorDataFromState });
+        }
       }
       setLoading(false);
     };
     fetchMentorData();
-  }, []);
+  }, [id, location.state]); // Thêm location.state vào dependency array
 
-  // --- Carousel logic for More Courses section ---
+  // Debug log when mentor state changes
+  useEffect(() => {
+    console.log("=== Mentor State Updated ===");
+    console.log("Current mentor object:", mentor);
+    if (mentor?.user) {
+      console.log("Mentor user data:", mentor.user);
+    }
+  }, [mentor]);
   const mentorCoursesRef = useRef(null);
   const [hoveredCarousel, setHoveredCarousel] = useState(null);
   const scrollCarouselBy = (ref, direction) => {
@@ -73,21 +139,23 @@ const MentorPage = () => {
         <div className="w-full mt-8 p-0">
           {/* Mentor Info Section - fetch and display real data */}
           {mentor && (
-            <div className="w-full flex flex-col md:flex-row md:items-start md:justify-between max-w-7xl mx-auto w-full px-2 md:px-4 mb-12">
+            <div className="w-full flex flex-col lg:flex-row lg:items-start lg:justify-between lg:gap-8 max-w-7xl mx-auto w-full px-2 md:px-4 mb-12">
               {/* Left info + about */}
-              <div className="flex-1 min-w-0 pr-0 md:pr-12">
+              <div className="flex-1 min-w-0 max-w-full lg:max-w-[calc(100%-21rem)] pr-0 lg:pr-8">
                 <div className="text-base text-gray-500 mb-1">Mentor</div>
                 <h1 className="text-4xl font-bold text-gray-900 mb-1">
-                  {mentor?.user?.firstName || "Mentor"}{" "}
-                  {mentor?.user?.lastName || ""}
+                  {mentor?.profile?.firstName ||
+                    mentor?.user?.firstName ||
+                    "Mentor"}{" "}
+                  {mentor?.profile?.lastName || mentor?.user?.lastName || ""}
                 </h1>
                 <div className="text-lg text-gray-700 mb-4 font-medium">
-                  {mentor?.jobTitle || mentor?.user?.jobTitle || ""}
+                  {mentor?.profile?.jobTitle || mentor?.user?.jobTitle || ""}
                 </div>
                 {/* Headline - only show when available */}
-                {(mentor?.headline || mentor?.user?.headline) && (
-                  <div className="text-base text-gray-600 mb-4 italic">
-                    "{mentor?.headline || mentor?.user?.headline}"
+                {(mentor?.profile?.headline || mentor?.user?.headline) && (
+                  <div className="text-base text-gray-600 mb-4 italic break-words overflow-wrap-anywhere leading-relaxed">
+                    "{mentor?.profile?.headline || mentor?.user?.headline}"
                   </div>
                 )}
                 <div className="flex gap-16 mb-6">
@@ -111,19 +179,24 @@ const MentorPage = () => {
                 {/* About Section merged here */}
                 <div className="w-full mt-0">
                   <h3 className="text-xl font-bold mb-2 text-gray-900">
-                    About {mentor?.user?.firstName || "Mentor"}
+                    About{" "}
+                    {mentor?.profile?.firstName ||
+                      mentor?.user?.firstName ||
+                      "Mentor"}
                   </h3>
-                  <p className="mb-6 text-gray-700 text-justify">
-                    {mentor?.bio || mentor?.user?.bio || "No bio available."}
+                  <p className="mb-6 text-gray-700 text-justify break-words overflow-wrap-anywhere leading-relaxed">
+                    {mentor?.profile?.bio ||
+                      mentor?.user?.bio ||
+                      "No bio available."}
                   </p>
                   {/* Category/Expertise */}
-                  {(mentor?.category || mentor?.user?.category) && (
+                  {(mentor?.profile?.category || mentor?.user?.category) && (
                     <div className="mb-6">
                       <h4 className="font-bold mb-2 text-gray-900">Category</h4>
                       <p className="text-gray-700">
                         {(() => {
                           const cat =
-                            mentor?.category || mentor?.user?.category;
+                            mentor?.profile?.category || mentor?.user?.category;
                           if (!cat) return "";
                           return cat.charAt(0).toUpperCase() + cat.slice(1);
                         })()}
@@ -133,8 +206,8 @@ const MentorPage = () => {
                   <h4 className="font-bold mb-2 text-gray-900">
                     Professional Experience
                   </h4>
-                  <p className="text-gray-700 text-justify mb-6">
-                    {mentor?.experience ||
+                  <p className="text-gray-700 text-justify break-words overflow-wrap-anywhere leading-relaxed mb-6">
+                    {mentor?.profile?.experience ||
                       mentor?.user?.experience ||
                       "No professional experience provided."}
                   </p>
@@ -142,38 +215,47 @@ const MentorPage = () => {
                     Areas of Expertise
                   </h4>
                   <ul className="list-disc list-inside mb-6 text-gray-800">
-                    {(mentor?.skills || mentor?.user?.skills || []).map(
-                      (skill, idx) => (
-                        <li key={idx}>{skill}</li>
-                      )
-                    )}
+                    {(
+                      mentor?.profile?.skills ||
+                      mentor?.user?.skills ||
+                      []
+                    ).map((skill, idx) => (
+                      <li key={idx}>{skill}</li>
+                    ))}
                   </ul>
                   <h4 className="font-bold mb-2 text-gray-900">
                     Greatest Achievement
                   </h4>
-                  <p className="text-gray-700 text-justify mb-6">
-                    {mentor?.greatestAchievement ||
+                  <p className="text-gray-700 text-justify break-words overflow-wrap-anywhere leading-relaxed mb-6">
+                    {mentor?.profile?.greatestAchievement ||
                       mentor?.user?.greatestAchievement ||
                       "No greatest achievement provided."}
                   </p>
                 </div>
               </div>
               {/* Right avatar & info buttons */}
-              <div className="flex flex-col items-center w-80 flex-shrink-0 mt-8 md:mt-0">
+              <div className="flex flex-col items-center w-full lg:w-80 flex-shrink-0 mt-8 lg:mt-0">
                 <div className="w-40 h-40 rounded-full overflow-hidden border-4 border-gray-100 shadow mb-6 bg-gray-200 ">
                   <img
                     src={
+                      mentor?.profile?.avatarUrl ||
                       mentor?.user?.avatarUrl ||
                       "https://randomuser.me/api/portraits/men/32.jpg"
                     }
-                    alt={mentor?.user?.firstName || "Mentor"}
+                    alt={
+                      mentor?.profile?.firstName ||
+                      mentor?.user?.firstName ||
+                      "Mentor"
+                    }
                     className="w-full h-full object-cover"
                   />
                 </div>
                 <div className="flex flex-col gap-3 w-full max-w-xs">
                   <a
                     href={
-                      mentor?.links?.website || mentor?.user?.website || "#"
+                      mentor?.profile?.links?.website ||
+                      mentor?.user?.website ||
+                      "#"
                     }
                     className="w-full border border-gray-300 rounded py-2 text-center text-gray-700 font-medium hover:bg-gray-100 transition"
                     target="_blank"
@@ -183,7 +265,9 @@ const MentorPage = () => {
                   </a>
                   <a
                     href={
-                      mentor?.links?.twitter || mentor?.user?.twitter || "#"
+                      mentor?.profile?.links?.twitter ||
+                      mentor?.user?.twitter ||
+                      "#"
                     }
                     className="w-full border border-gray-300 rounded py-2 text-center text-gray-700 font-medium hover:bg-gray-100 transition"
                     target="_blank"
@@ -193,7 +277,7 @@ const MentorPage = () => {
                   </a>
                   <a
                     href={
-                      mentor?.links?.linkedin ||
+                      mentor?.profile?.links?.linkedin ||
                       mentor?.user?.linkedinUrl ||
                       "#"
                     }
@@ -204,7 +288,11 @@ const MentorPage = () => {
                     LinkedIn
                   </a>
                   <a
-                    href={mentor?.links?.github || mentor?.user?.github || "#"}
+                    href={
+                      mentor?.profile?.links?.github ||
+                      mentor?.user?.github ||
+                      "#"
+                    }
                     className="w-full border border-gray-300 rounded py-2 text-center text-gray-700 font-medium hover:bg-gray-100 transition"
                     target="_blank"
                     rel="noopener noreferrer"
@@ -213,7 +301,9 @@ const MentorPage = () => {
                   </a>
                   <a
                     href={
-                      mentor?.links?.youtube || mentor?.user?.youtube || "#"
+                      mentor?.profile?.links?.youtube ||
+                      mentor?.user?.youtube ||
+                      "#"
                     }
                     className="w-full border border-gray-300 rounded py-2 text-center text-gray-700 font-medium hover:bg-gray-100 transition"
                     target="_blank"
@@ -223,7 +313,9 @@ const MentorPage = () => {
                   </a>
                   <a
                     href={
-                      mentor?.links?.facebook || mentor?.user?.facebook || "#"
+                      mentor?.profile?.links?.facebook ||
+                      mentor?.user?.facebook ||
+                      "#"
                     }
                     className="w-full border border-gray-300 rounded py-2 text-center text-gray-700 font-medium hover:bg-gray-100 transition"
                     target="_blank"
@@ -231,21 +323,22 @@ const MentorPage = () => {
                   >
                     Facebook
                   </a>
-                  {!(mentor?.introVideo || mentor?.user?.introVideo) &&
+                  {!(mentor?.profile?.introVideo || mentor?.user?.introVideo) &&
                     (() => {
                       console.log(
                         "Không có introVideo:",
-                        mentor?.introVideo,
+                        mentor?.profile?.introVideo,
                         mentor?.user?.introVideo
                       );
                       return null;
                     })()}
-                  {mentor?.introVideo || mentor?.user?.introVideo ? (
+                  {mentor?.profile?.introVideo || mentor?.user?.introVideo ? (
                     <button
                       className="w-full border border-blue-500 rounded py-2 text-center text-blue-700 font-medium hover:bg-blue-50 transition"
                       onClick={() =>
                         window.open(
-                          mentor?.introVideo || mentor?.user?.introVideo,
+                          mentor?.profile?.introVideo ||
+                            mentor?.user?.introVideo,
                           "_blank"
                         )
                       }
@@ -266,7 +359,10 @@ const MentorPage = () => {
             <div className="max-w-7xl mx-auto w-full px-2 md:px-4">
               <div className="flex justify-between items-center mb-8 px-2">
                 <h3 className="text-[24px] font-bold text-[#222]">
-                  More Courses by {mentor?.user?.firstName || "Mentor"}
+                  More Courses by{" "}
+                  {mentor?.profile?.firstName ||
+                    mentor?.user?.firstName ||
+                    "Mentor"}
                   <span className="text-[#F8FAFC]">{mentor?.name}</span>
                 </h3>
                 <div className="flex gap-3">
@@ -338,7 +434,7 @@ const MentorPage = () => {
                     >
                       <div className="h-[140px] w-full bg-white-100 rounded-t-xl flex items-center justify-center">
                         <img
-                          src={course.thumbnail || minatoPic}
+                          src={course.thumbnail}
                           alt={course.title}
                           className="object-cover h-[120px] w-[92%] rounded-xl"
                           style={{ marginTop: "4px", marginBottom: "4px" }}
@@ -352,6 +448,7 @@ const MentorPage = () => {
                           By{" "}
                           {course.authorName ||
                             course.mentorName ||
+                            mentor?.profile?.firstName ||
                             mentor?.user?.firstName ||
                             "Mentor"}
                         </div>

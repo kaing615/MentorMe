@@ -7,6 +7,44 @@ import { toast } from "react-toastify";
 import courseApi from "../api/modules/course.api";
 
 const EditCoursePage = () => {
+  // --- AUTH & ROLE CHECK ---
+  useEffect(() => {
+    const token =
+      localStorage.getItem("actkn") || localStorage.getItem("token");
+    const userStr =
+      localStorage.getItem("user") || localStorage.getItem("user");
+    console.log("Token:", token);
+    let user = null;
+    if (!token) {
+      navigate("/auth/signin");
+      return;
+    }
+    // Check user object
+    try {
+      user = userStr ? JSON.parse(userStr) : null;
+    } catch (e) {
+      user = null;
+    }
+    if (!user || !user.role) {
+      navigate("/auth/signin");
+      return;
+    }
+    // Check role
+    if (user.role === "mentor") {
+      return;
+    }
+    if (user.role === "mentee") {
+      navigate("/home");
+      return;
+    }
+    // For admin
+    // if (user.role === "admin") {
+    //   navigate("/admin/profile");
+    //   return;
+    // }
+  }, [navigate]);
+
+  
   const { id } = useParams();
   const [imagePreview, setImagePreview] = useState(null);
   const [imageFile, setImageFile] = useState(null);

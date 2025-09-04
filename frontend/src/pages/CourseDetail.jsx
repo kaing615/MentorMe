@@ -28,7 +28,7 @@ const CourseDetail = () => {
     const token =
       localStorage.getItem("token") || localStorage.getItem("actkn");
     if (!token) {
-      toast.error("Vui lòng đăng nhập để xem chi tiết khóa học");
+      toast.error("Please log in to view course details");
       navigate(PATH.LOGIN);
       return;
     }
@@ -41,7 +41,7 @@ const CourseDetail = () => {
     }
     // Chỉ cho phép mentee, mentor, admin
     if (!user || !["mentee", "mentor"].includes(user.role)) {
-      toast.error("Bạn không có quyền truy cập trang này");
+      toast.error("You do not have access to this page.");
       navigate(PATH.LOGIN);
       return;
     }
@@ -272,7 +272,14 @@ const CourseDetail = () => {
           <div title="hold author" className="flex flex-row mt-4">
             <div
               title="avatar of author"
-              className="w-12 h-12 rounded-full bg-gray-300 mr-3"
+              className="w-12 h-12 rounded-full bg-gray-300 mr-3 cursor-pointer"
+              onClick={() => {
+                if (courseData.mentor?._id) {
+                  navigate(`/mentor/${courseData.mentor._id}`, {
+                    state: { mentorData: courseData.mentor },
+                  });
+                }
+              }}
             >
               <img
                 src={courseData.mentor?.avatarUrl}
@@ -287,7 +294,14 @@ const CourseDetail = () => {
               <div>Create by</div>
               <div
                 title="name of author"
-                className="font-semibold text-lg ml-2"
+                className="font-semibold text-lg ml-2 cursor-pointer text-blue-600 hover:text-blue-800 hover:underline"
+                onClick={() => {
+                  if (courseData.mentor?._id) {
+                    navigate(`/mentor/${courseData.mentor._id}`, {
+                      state: { mentorData: courseData.mentor },
+                    });
+                  }
+                }}
               >
                 {courseData.mentor?.userName ||
                   courseData.mentor?.email ||

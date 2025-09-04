@@ -13,14 +13,34 @@ axios.interceptors.request.use((config) => {
 // Lấy profile hiện tại (mentor hoặc mentee, tự động phân loại)
 export const getProfile = async () => {
   try {
-    const response = await axios.get("/api/v1/profile/");
+    const response = await axios.get(`/api/v1/profile/`);
     return response.data;
   } catch (error) {
     throw error;
   }
 };
 
-// Cập nhật profile mentor
+// Lấy thông tin mentor theo ID (public API, không cần token)
+export const getMentorById = async (mentorId) => {
+  try {
+    const response = await axios.get(`/api/v1/profile/mentor/${mentorId}`);
+    return response.data;
+  } catch (error) {
+    throw error;
+  }
+};
+
+// Lấy danh sách top mentors (public API, không cần token)
+export const getTopMentors = async (limit = 6) => {
+  try {
+    const response = await axios.get(
+      `/api/v1/profile/top-mentors?limit=${limit}`
+    );
+    return response.data;
+  } catch (error) {
+    throw error;
+  }
+}; // Cập nhật profile mentor
 export const updateMentorProfile = async (data) => {
   // Kiểm tra các trường bắt buộc (cho phép để trống các trường link, video intro, social)
   const requiredFields = [
@@ -84,25 +104,69 @@ export const updateMentorProfile = async (data) => {
 // Cập nhật profile mentee
 export const updateMenteeProfile = async (data) => {
   try {
+    // Chuẩn bị dữ liệu gửi lên server
+    const payload = { ...data };
+
+    // Tạo object links từ các trường social media riêng lẻ
+    if (data.website || data.twitter || data.linkedin || data.facebook) {
+      payload.links = {
+        website: data.website || "",
+        twitter: data.twitter || "",
+        linkedin: data.linkedin || "",
+        facebook: data.facebook || "",
+      };
+      // Xóa các trường individual để không duplicate
+      delete payload.website;
+      delete payload.twitter;
+      delete payload.linkedin;
+      delete payload.facebook;
+    }
+
     let response;
     if (data.avatar) {
       const formData = new FormData();
-      Object.entries(data).forEach(([key, value]) => {
-        if (key === "links" && typeof value === "object") {
+
+      // Append avatar file first
+      if (data.avatar instanceof File) {
+        formData.append("avatar", data.avatar);
+      }
+
+      // Append other fields
+      Object.entries(payload).forEach(([key, value]) => {
+        if (key === "avatar") {
+          // Skip avatar as it's already appended above
+          return;
+        } else if (key === "links" && typeof value === "object") {
           formData.append(key, JSON.stringify(value));
         } else {
           formData.append(key, value);
         }
       });
+
+      console.log(
+        "[Profile API] PUT /api/v1/profile/mentee multipart",
+        formData
+      );
       response = await axios.put("/api/v1/profile/mentee", formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
     } else {
-      response = await axios.put("/api/v1/profile/mentee", data);
+      // Remove avatar field from payload if not uploading
+      delete payload.avatar;
+      console.log("[Profile API] PUT /api/v1/profile/mentee json", payload);
+      response = await axios.put("/api/v1/profile/mentee", payload);
     }
+    console.log("[Profile API] response:", response.data);
     return response.data;
   } catch (error) {
-    throw error;
+    if (error.response && error.response.data) {
+      console.error("[Profile API] Lỗi cập nhật mentee:", error.response.data);
+      throw new Error(
+        error.response.data.message || "Lỗi cập nhật profile mentee"
+      );
+    }
+    console.error("[Profile API] Network error:", error);
+    throw new Error("Lỗi kết nối mạng khi cập nhật profile");
   }
 };
 
@@ -132,6 +196,8 @@ export const getMentorCourses = async (mentorId) => {
 
 const profileApi = {
   getProfile,
+  getMentorById,
+  getTopMentors,
   updateMentorProfile,
   updateMenteeProfile,
   changeAvatar,

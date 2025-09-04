@@ -3,12 +3,12 @@ import { toast } from "react-toastify";
 import { FaUserCircle } from "react-icons/fa";
 import { useNavigate, useLocation } from "react-router-dom";
 import { PATH, MENTOR_PATH } from "../routes/path";
-import youtubeImg from "../assets/youtube.png";
 import profileApi from "../api/modules/profile.api";
 import { FaFacebook } from "react-icons/fa6";
 import { FaXTwitter } from "react-icons/fa6";
 import { FaLinkedin } from "react-icons/fa";
 import { FaGoogle } from "react-icons/fa";
+import { AiFillYoutube } from 'react-icons/ai';
 import courseApi from "../api/modules/course.api";
 
 // Capitalize initials of each word
@@ -628,8 +628,6 @@ const MentorProfile = () => {
     // Check token
     const token =
       localStorage.getItem("actkn") ||
-      localStorage.getItem("actkn") ||
-      localStorage.getItem("token") ||
       localStorage.getItem("token");
     const userStr =
       localStorage.getItem("user") || localStorage.getItem("user");
@@ -657,10 +655,10 @@ const MentorProfile = () => {
       navigate("/home");
       return;
     }
-    if (user.role === "admin") {
-      navigate("/admin/profile");
-      return;
-    }
+    // if (user.role === "admin") {
+    //   navigate("/admin/profile");
+    //   return;
+    // }
   }, [navigate]);
 
   // Save profilepl
@@ -691,80 +689,80 @@ const MentorProfile = () => {
     setLoading(false);
   };
 
-  const handleGetProfileDetail = async () => {
-    setLoading(true);
-    setError(null);
-    const { response, error } = await profileApi.getProfileDetail();
-    if (error) {
-      setError("Không thể tải chi tiết profile");
-    }
-    setLoading(false);
-  };
+  // const handleGetProfileDetail = async () => {
+  //   setLoading(true);
+  //   setError(null);
+  //   const { response, error } = await profileApi.getProfileDetail();
+  //   if (error) {
+  //     setError("Không thể tải chi tiết profile");
+  //   }
+  //   setLoading(false);
+  // };
 
   // CRUD API integration for Course
-  const handleCreateCourse = async (courseData) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const formData = courseApi.createCourseFormData(courseData);
-      const { response, error } = await courseApi.createCourse(formData);
-      if (error) {
-        setError("Tạo khóa học thất bại");
-      } else if (response && response.data) {
-        // Sau khi tạo thành công, reload lại danh sách courses
-        if (formData?._id) {
-          const mentorId = formData._id;
-          if (!mentorId) {
-            setError("Mentor ID không hợp lệ!");
-            setAllCourses([]);
-          } else {
-            const courses = await courseApi.getCoursesByMentor(mentorId);
-            setAllCourses(courses);
-          }
-        }
-        alert("Tạo khóa học thành công!");
-      }
-    } catch (err) {
-      setError("Tạo khóa học thất bại");
-    }
-    setLoading(false);
-  };
+  // const handleCreateCourse = async (courseData) => {
+  //   setLoading(true);
+  //   setError(null);
+  //   try {
+  //     const formData = courseApi.createCourseFormData(courseData);
+  //     const { response, error } = await courseApi.createCourse(formData);
+  //     if (error) {
+  //       setError("Tạo khóa học thất bại");
+  //     } else if (response && response.data) {
+  //       // Sau khi tạo thành công, reload lại danh sách courses
+  //       if (formData?._id) {
+  //         const mentorId = formData._id;
+  //         if (!mentorId) {
+  //           setError("Mentor ID không hợp lệ!");
+  //           setAllCourses([]);
+  //         } else {
+  //           const courses = await courseApi.getCoursesByMentor(mentorId);
+  //           setAllCourses(courses);
+  //         }
+  //       }
+  //       alert("Tạo khóa học thành công!");
+  //     }
+  //   } catch (err) {
+  //     setError("Tạo khóa học thất bại");
+  //   }
+  //   setLoading(false);
+  // };
 
-  const handleUpdateCourse = async (courseId, updatedData) => {
-    setLoading(true);
-    setError(null);
-    const { response, error } = await courseApi.updateCourse(
-      courseId,
-      updatedData
-    );
-    if (error) {
-      setError("Cập nhật khóa học thất bại");
-    } else if (response && response.data) {
-      setAllCourses((prev) =>
-        prev.map((c) => (c._id === courseId ? response.data : c))
-      );
-      alert("Cập nhật khóa học thành công!");
-    }
-    setLoading(false);
-  };
+  // const handleUpdateCourse = async (courseId, updatedData) => {
+  //   setLoading(true);
+  //   setError(null);
+  //   const { response, error } = await courseApi.updateCourse(
+  //     courseId,
+  //     updatedData
+  //   );
+  //   if (error) {
+  //     setError("Cập nhật khóa học thất bại");
+  //   } else if (response && response.data) {
+  //     setAllCourses((prev) =>
+  //       prev.map((c) => (c._id === courseId ? response.data : c))
+  //     );
+  //     alert("Cập nhật khóa học thành công!");
+  //   }
+  //   setLoading(false);
+  // };
 
-  const handleGetCourseDetail = async (courseId) => {
-    setLoading(true);
-    setError(null);
-    if (!courseId) {
-      setError("Course ID không hợp lệ!");
-      setLoading(false);
-      return;
-    }
-    const { response, error } = await courseApi.getDetail({ courseId });
-    if (error) {
-      setError("Không thể tải chi tiết khóa học");
-    } else if (response && response.data) {
-      // You can set a state for selected course detail if needed
-      alert("Đã tải chi tiết khóa học");
-    }
-    setLoading(false);
-  };
+  // const handleGetCourseDetail = async (courseId) => {
+  //   setLoading(true);
+  //   setError(null);
+  //   if (!courseId) {
+  //     setError("Course ID không hợp lệ!");
+  //     setLoading(false);
+  //     return;
+  //   }
+  //   const { response, error } = await courseApi.getDetail({ courseId });
+  //   if (error) {
+  //     setError("Không thể tải chi tiết khóa học");
+  //   } else if (response && response.data) {
+  //     // You can set a state for selected course detail if needed
+  //     alert("Đã tải chi tiết khóa học");
+  //   }
+  //   setLoading(false);
+  // };
 
   // Replace mock delete with API delete
   const handleDeleteCourse = async (course) => {
@@ -1872,7 +1870,7 @@ const MentorProfile = () => {
                   </div>
                   <div>
                     <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-1">
-                      <img src={youtubeImg} alt="Youtube" className="w-5 h-5" />
+                      <AiFillYoutube className="w-5 h-5" />
                       Youtube
                     </label>
                     <input

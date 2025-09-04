@@ -53,6 +53,18 @@ const useRouterElements = () => {
         {
           path: `${MENTEE_PATH.COURSEDETAIL}/:id`,
           element: <CourseDetail />,
+        },
+        {
+          path: `${MENTEE_PATH.MENTOR}/:id`,
+          element: <MentorPage />,
+        },
+        {
+          path: MENTEE_PATH.ALLCOURSEPAGE,
+          element: <AllCoursePage />,
+        },
+        {
+          path: MENTEE_PATH.ALLMENTORS,
+          element: <AllMentors />,
         }
       ],
     },
@@ -85,6 +97,14 @@ const useRouterElements = () => {
           path: `${MENTOR_PATH.EDITCOURSE}/:id`,
           element: <EditCoursePage />,
         },
+        {
+          path: MENTOR_PATH.ALLCOURSE,
+          element: <AllCoursePage />,
+        },
+        {
+          path: MENTOR_PATH.ALLMENTORS,
+          element: <AllMentors />,
+        }
       ],
     },
 
