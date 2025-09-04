@@ -4,16 +4,8 @@ import Course from "../models/course.model.js";
 import User from "../models/user.model.js";
 import cartUtils from "../utils/cart.utils.js";
 
-/**
- * NOTE:
- * - Schema dùng: Cart { user, courses: [{ course, addedAt }], totalPrice }
- * - Không hỗ trợ quantity (khóa học = sản phẩm mua 1 lần).
- * - Dùng cartUtils.findOrCreateCart & updateTotalPriceIfNeeded để đảm bảo nhất quán.
- * - Chuẩn hóa responseHandler: ok / notFound / badRequest / error
- */
-
-// GET /cart - Lấy giỏ hàng hiện tại
-export const getCart = async (req, res) => {
+// Lấy giỏ hàng của user
+const getCart = async (req, res) => {
   try {
     const userId = req.user.id;
 
@@ -27,204 +19,220 @@ export const getCart = async (req, res) => {
       },
     });
 
-    // Nếu chưa có cart -> tạo cart trống
+    // Nếu chưa có cart thì tạo cart trống
     if (!cart) {
       cart = await cartUtils.findOrCreateCart(userId);
     }
 
-    // Cập nhật totalPrice nếu cần (phòng khi giá khóa học thay đổi)
+    // Cập nhật total price nếu cần
     await cartUtils.updateTotalPriceIfNeeded(cart);
 
-    return responseHandler.ok(res, {
-      message: "Lấy giỏ hàng thành công.",
-      totalCourses: cart.courses.length,
-      totalPrice: cart.totalPrice,
-      courses: cart.courses,
-      cart,
-    });
+    responseHandler.ok(
+      res,
+      {
+        totalCourses: cart.courses.length,
+        totalPrice: cart.totalPrice,
+        courses: cart.courses,
+        cart: cart,
+      },
+      "Lấy giỏ hàng thành công."
+    );
   } catch (error) {
-    console.error("Get cart error:", error);
-    return responseHandler.error(res);
+    console.error("Error getting cart:", error);
+    responseHandler.error(res);
   }
 };
 
-// POST /cart - Thêm khóa học vào giỏ hàng
-export const addToCart = async (req, res) => {
+// Thêm khóa học vào giỏ hàng
+const addToCart = async (req, res) => {
   try {
     const userId = req.user.id;
     const { courseId } = req.body;
 
-    // 1) Khóa học tồn tại?
+    // Kiểm tra khóa học có tồn tại không
     const course = await Course.findById(courseId);
     if (!course) {
-      return responseHandler.notFound(res, "Không tìm thấy khóa học.");
+      return responseHandler.notfound(res, "Không tìm thấy khóa học.");
     }
 
-    // 2) Người dùng tồn tại?
+    // Kiểm tra user đã mua khóa học này chưa
     const user = await User.findById(userId);
     if (!user) {
-      return responseHandler.notFound(res, "Không tìm thấy người dùng.");
+      return responseHandler.notfound(res, "Không tìm thấy người dùng.");
     }
 
-    // 3) Đã mua trước đó?
-    const alreadyPurchased = user.purchasedCourses?.some(
-      (pc) => pc.course?.toString() === courseId
+    const alreadyPurchased = user.purchasedCourses.some(
+      (pc) => pc.course.toString() === courseId
     );
+
     if (alreadyPurchased) {
-      return responseHandler.badRequest(res, "Bạn đã mua khóa học này rồi.");
+      // console.log(`[addToCart] Course already purchased`);
+      return responseHandler.badrequest(res, "Bạn đã mua khóa học này rồi.");
     }
 
-    // 4) Tìm/tạo giỏ
-    const cart = await cartUtils.findOrCreateCart(userId);
+    // Tìm hoặc tạo cart
+    let cart = await cartUtils.findOrCreateCart(userId);
 
-    // 5) Đã có trong giỏ?
-    const exists = cart.courses.some(
+    // Kiểm tra khóa học đã có trong giỏ hàng chưa
+    const existingCourse = cart.courses.find(
       (item) => item.course.toString() === courseId
     );
-    if (exists) {
-      return responseHandler.badRequest(res, "Khóa học đã có trong giỏ hàng.");
+
+    if (existingCourse) {
+      return responseHandler.badrequest(res, "Khóa học đã có trong giỏ hàng.");
     }
 
-    // 6) Thêm vào giỏ
-    cart.courses.push({ course: courseId, addedAt: new Date() });
+    // Thêm khóa học vào giỏ hàng
+    cart.courses.push({
+      course: courseId,
+      addedAt: new Date(),
+    });
 
-    // 7) Cập nhật tổng tiền (dùng utils cho chắc)
-    await cartUtils.updateTotalPriceIfNeeded(cart);
+    // Cập nhật total price
+    cart.totalPrice += course.price;
 
     await cart.save();
 
-    // 8) Populate để trả về đầy đủ
+    // Populate course info để trả về
     await cart.populate({
       path: "courses.course",
       select:
         "title description price category duration rate lectures mentor thumbnail",
-      populate: { path: "mentor", select: "firstName lastName avatarUrl jobTitle" },
+      populate: {
+        path: "mentor",
+        select: "firstName lastName avatarUrl jobTitle",
+      },
     });
 
-    return responseHandler.ok(res, {
-      message: "Thêm khóa học vào giỏ hàng thành công.",
-      courseId,
-      courseTitle: course.title,
-      totalCourses: cart.courses.length,
-      totalPrice: cart.totalPrice,
-      cart,
-    });
+    responseHandler.ok(
+      res,
+      {
+        courseId: courseId,
+        courseTitle: course.title,
+        totalCourses: cart.courses.length,
+        totalPrice: cart.totalPrice,
+        cart: cart,
+      },
+      "Thêm khóa học vào giỏ hàng thành công."
+    );
   } catch (error) {
-    console.error("Add to cart error:", error);
-    return responseHandler.error(res);
+    console.error("Error adding to cart:", error);
+    responseHandler.error(res);
   }
 };
 
-// DELETE /cart/:courseId - Xóa khóa học khỏi giỏ
-export const removeFromCart = async (req, res) => {
+// Xóa khóa học khỏi giỏ hàng
+const removeFromCart = async (req, res) => {
   try {
     const userId = req.user.id;
     const { courseId } = req.params;
 
-    // Tồn tại khóa học?
+    // Kiểm tra khóa học có tồn tại không
     const course = await Course.findById(courseId);
     if (!course) {
-      return responseHandler.notFound(res, "Không tìm thấy khóa học.");
+      return responseHandler.notfound(res, "Không tìm thấy khóa học.");
     }
 
+    // Tìm hoặc tạo cart
     const cart = await cartUtils.findOrCreateCart(userId);
 
-    const idx = cart.courses.findIndex(
+    // Tìm khóa học trong cart
+    const courseIndex = cart.courses.findIndex(
       (item) => item.course.toString() === courseId
     );
-    if (idx === -1) {
-      return responseHandler.notFound(res, "Khóa học không có trong giỏ hàng.");
+
+    if (courseIndex === -1) {
+      return responseHandler.notfound(res, "Khóa học không có trong giỏ hàng.");
     }
 
-    cart.courses.splice(idx, 1);
+    // Lấy thông tin course để trừ price
+    if (course) {
+      cart.totalPrice -= course.price;
+    }
 
-    // Cập nhật tổng tiền an toàn
-    await cartUtils.updateTotalPriceIfNeeded(cart);
+    // Xóa khóa học khỏi cart
+    cart.courses.splice(courseIndex, 1);
+
+    // Đảm bảo totalPrice không âm
+    if (cart.totalPrice < 0) {
+      cart.totalPrice = 0;
+    }
 
     await cart.save();
 
-    return responseHandler.ok(res, {
-      message: "Xóa khóa học khỏi giỏ hàng thành công.",
-      courseId,
-      totalCourses: cart.courses.length,
-      totalPrice: cart.totalPrice,
-    });
+    responseHandler.ok(
+      res,
+      {
+        courseId: courseId,
+        totalCourses: cart.courses.length,
+        totalPrice: cart.totalPrice,
+      },
+      "Xóa khóa học khỏi giỏ hàng thành công."
+    );
   } catch (error) {
-    console.error("Remove from cart error:", error);
-    return responseHandler.error(res);
+    console.error("Error removing from cart:", error);
+    responseHandler.error(res);
   }
 };
 
-// DELETE /cart - Xóa toàn bộ giỏ hàng
-export const clearCart = async (req, res) => {
+// Xóa toàn bộ giỏ hàng
+const clearCart = async (req, res) => {
   try {
     const userId = req.user.id;
 
+    // Tìm hoặc tạo cart
     const cart = await cartUtils.findOrCreateCart(userId);
+
     cart.courses = [];
     cart.totalPrice = 0;
-
     await cart.save();
 
-    return responseHandler.ok(res, {
-      message: "Xóa toàn bộ giỏ hàng thành công.",
-      totalCourses: 0,
-      totalPrice: 0,
-    });
+    responseHandler.ok(
+      res,
+      {
+        totalCourses: 0,
+        totalPrice: 0,
+      },
+      "Xóa toàn bộ giỏ hàng thành công."
+    );
   } catch (error) {
-    console.error("Clear cart error:", error);
-    return responseHandler.error(res);
+    console.error("Error clearing cart:", error);
+    responseHandler.error(res);
   }
 };
 
-// GET /cart/check/:courseId - Kiểm tra khóa học có trong giỏ không
-export const checkInCart = async (req, res) => {
+// Kiểm tra khóa học có trong giỏ hàng không
+const checkInCart = async (req, res) => {
   try {
     const userId = req.user.id;
     const { courseId } = req.params;
 
+    // Kiểm tra khóa học có tồn tại không
     const course = await Course.findById(courseId);
     if (!course) {
-      return responseHandler.notFound(res, "Không tìm thấy khóa học.");
+      return responseHandler.notfound(res, "Không tìm thấy khóa học.");
     }
 
+    // Tìm hoặc tạo cart (mỗi user luôn có cart)
     const cart = await cartUtils.findOrCreateCart(userId);
+
+    // Kiểm tra khóa học có trong giỏ hàng không
     const inCart = cart.courses.some(
       (item) => item.course.toString() === courseId
     );
 
-    return responseHandler.ok(res, {
-      message: "Kiểm tra giỏ hàng thành công.",
-      courseId,
-      inCart,
-    });
-  } catch (error) {
-    console.error("Check in cart error:", error);
-    return responseHandler.error(res);
-  }
-};
-
-/**
- * Giữ API tương thích nhưng báo lỗi do khóa học không có khái niệm quantity.
- * Nếu sau này em bán vật phẩm có số lượng, tách sang model CartItem khác.
- */
-// PATCH /cart/item - KHÔNG HỖ TRỢ quantity cho khóa học
-export const updateCartItem = async (req, res) => {
-  try {
-    return responseHandler.badRequest(
+    responseHandler.ok(
       res,
-      "Khóa học là sản phẩm mua 1 lần, không hỗ trợ thay đổi số lượng."
+      {
+        courseId: courseId,
+        inCart: inCart,
+      },
+      "Kiểm tra giỏ hàng thành công."
     );
   } catch (error) {
-    return responseHandler.error(res);
+    console.error("Error checking cart:", error);
+    responseHandler.error(res);
   }
 };
 
-export default {
-  addToCart,
-  getCart,
-  removeFromCart,
-  clearCart,
-  checkInCart,
-  updateCartItem, // giữ route cho backward-compatibility
-};
+export default { addToCart, checkInCart, clearCart, getCart, removeFromCart };
