@@ -45,10 +45,15 @@ const Login = () => {
           const userData = JSON.parse(user);
           
           if (token.split('.').length === 3) {
-            // Redirect based on user role or stored userType
-            if (userData.role === "mentor" || userData.userType === "mentor") {
+            // Redirect based on user's actual role (not stored userType)
+            if (userData.role === "mentor") {
               navigate(`${PATH.MENTOR}/${MENTOR_PATH.HOME}`, { replace: true });
+            } else if (userData.role === "mentee") {
+              navigate(`${PATH.MENTEE}${MENTEE_PATH.HOME}`, { replace: true });
+            } else if (userData.role === "admin") {
+              navigate(`${PATH.ADMIN}`, { replace: true });
             } else {
+              // Default fallback for unknown roles
               navigate(`${PATH.MENTEE}${MENTEE_PATH.HOME}`, { replace: true });
             }
 
@@ -157,13 +162,18 @@ const Login = () => {
         localStorage.setItem("actkn", response.data.token);
       }
 
-      // Navigate based on user role or selected type
-      if (selected === "mentee") {
-        navigate(`${PATH.MENTEE}${MENTEE_PATH.HOME}`); // Navigate to homeScreen for mentee
-      } else if (selected === "mentor") {
-        navigate(`${PATH.MENTOR}/${MENTOR_PATH.HOME}`); // Navigate to mentor page (will be updated later)
+      // Navigate based on user's actual role (not UI selection)
+      const userRole = response.data?.user?.role;
+      
+      if (userRole === "mentor") {
+        navigate(`${PATH.MENTOR}/${MENTOR_PATH.HOME}`);
+      } else if (userRole === "mentee") {
+        navigate(`${PATH.MENTEE}${MENTEE_PATH.HOME}`);
+      } else if (userRole === "admin") {
+        navigate(`${PATH.ADMIN}`);
       } else {
-        navigate("/"); // Default fallback
+        // Default fallback for unknown roles
+        navigate(`${PATH.MENTEE}${MENTEE_PATH.HOME}`);
       }
     } catch (error) {
       console.error("Login error:", error);
