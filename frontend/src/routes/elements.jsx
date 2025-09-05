@@ -51,6 +51,18 @@ const useRouterElements = () => {
           element: <ShoppingCart />,
         },
         {
+          path: MENTEE_PATH.ORDERCOMPLETECOURSE,
+          element: <OrderCompleteCourse />,
+        },
+        {
+          path: MENTEE_PATH.CHECKOUT,
+          element: <Checkout />,
+        },
+        {
+          path: MENTEE_PATH.ORDERDETAIL,
+          element: <OrderComplete />,
+        },
+        {
           path: `${MENTEE_PATH.COURSEDETAIL}/:id`,
           element: <CourseDetail />,
         },
@@ -65,7 +77,7 @@ const useRouterElements = () => {
         {
           path: MENTEE_PATH.ALLMENTORS,
           element: <AllMentors />,
-        }
+        },
       ],
     },
 
@@ -104,7 +116,7 @@ const useRouterElements = () => {
         {
           path: MENTOR_PATH.ALLMENTORS,
           element: <AllMentors />,
-        }
+        },
       ],
     },
 

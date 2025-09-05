@@ -4,7 +4,7 @@ import fb from "../assets/facebook.png";
 import gg from "../assets/google.png";
 import mcs from "../assets/microsoft.png";
 import { IoArrowForward } from "react-icons/io5";
-import { authApi } from "../api/modules/auth.api";
+import authApi from "../api/modules/auth.api";
 import { toast } from "react-toastify";
 import { useNavigate } from "react-router-dom";
 import { showLoading, hideLoading } from "../redux/features/loading.slice";
@@ -36,15 +36,16 @@ const Login = () => {
   // Check if user is already logged in
   useEffect(() => {
     const checkAuthStatus = async () => {
-      const token = localStorage.getItem("actkn") || localStorage.getItem("token");
+      const token =
+        localStorage.getItem("actkn") || localStorage.getItem("token");
       const user = localStorage.getItem("user");
       const isLoggedIn = localStorage.getItem("isLoggedIn");
-      
+
       if (token && user && isLoggedIn === "true") {
         try {
           const userData = JSON.parse(user);
-          
-          if (token.split('.').length === 3) {
+
+          if (token.split(".").length === 3) {
             // Redirect based on user role or stored userType
             if (userData.role === "mentor" || userData.userType === "mentor") {
               navigate(`${PATH.MENTOR}/${MENTOR_PATH.HOME}`, { replace: true });
@@ -67,7 +68,7 @@ const Login = () => {
         }
       }
     };
-    
+
     checkAuthStatus();
   }, [navigate]);
 
@@ -145,13 +146,15 @@ const Login = () => {
         const userData = response.data.user;
         localStorage.setItem("user", JSON.stringify(userData));
         localStorage.setItem("isLoggedIn", "true"); // Set login status in localStorage for header
-        
+
         // Dispatch user data to Redux store with isLoggedIn flag
-        dispatch(setUser({
-          ...userData,
-          isLoggedIn: true,
-          userType: selected // Store whether user logged in as mentee or mentor
-        }));
+        dispatch(
+          setUser({
+            ...userData,
+            isLoggedIn: true,
+            userType: selected, // Store whether user logged in as mentee or mentor
+          })
+        );
       }
       if (response.data?.token) {
         localStorage.setItem("actkn", response.data.token);

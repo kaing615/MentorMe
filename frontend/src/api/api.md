@@ -7,3 +7,7 @@ Nên tách mỗi resource ra một file (ví dụ: `user.api.js`, `auth.api.js`)
 
 - `user.api.js` (hàm getUser, updateUser...)
 - `auth.api.js` (login, register...)
+- `cart.api.js` (getCart, addToCart, removeFromCart, clearCart...)
+- `checkout.api.js` (createCheckoutSession, validateCheckout, processPayment...)
+- `order.api.js` (createOrder, getOrders, getOrderDetails...)
+- `purchasedCourse.api.js` (getPurchasedCourses...)

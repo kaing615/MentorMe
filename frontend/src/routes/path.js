@@ -23,7 +23,9 @@ export const MENTEE_PATH = {
   ALLCOURSEPAGE: "all-courses",
   MENTOR: "mentor",
   ALLMENTORS: "all-mentors",
-
+  ORDERCOMPLETECOURSE: "order-complete-course",
+  CHECKOUT: "checkout",
+  ORDERDETAIL: "order-detail",
 };
 
 export const ADMIN_PATH = {

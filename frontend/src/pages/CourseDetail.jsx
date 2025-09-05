@@ -15,6 +15,7 @@ import minatoImg from "../assets/minato.webp"; // đổi lại .jpg nếu repo b
 import { ImQuotesLeft } from "react-icons/im";
 import { showLoading, hideLoading } from "../redux/features/loading.slice";
 import courseApi from "../api/modules/course.api";
+import cartApi from "../api/modules/cart.api";
 import { toast } from "react-toastify";
 import { MENTEE_PATH, MENTOR_PATH, PATH } from "../routes/path";
 
@@ -52,6 +53,7 @@ const CourseDetail = () => {
   const [relatedCourses, setRelatedCourses] = useState([]);
   const [reviews, setReviews] = useState([]);
   const [error, setError] = useState(null);
+  const [isAddingToCart, setIsAddingToCart] = useState(false);
 
   // Refs
   const coursesRef = useRef(null);
@@ -117,6 +119,67 @@ const CourseDetail = () => {
       }
     };
   }, [id, dispatch]);
+
+  // Handle Add to Cart
+  const handleAddToCart = async () => {
+    if (!courseData?._id) {
+      toast.error("Không thể thêm khóa học vào giỏ hàng");
+      return;
+    }
+
+    // Check if user is mentee
+    const userStr = localStorage.getItem("user");
+    let user = null;
+    try {
+      user = userStr ? JSON.parse(userStr) : null;
+    } catch (e) {
+      toast.error("Vui lòng đăng nhập lại");
+      return;
+    }
+
+    if (!user || user.role !== "mentee") {
+      toast.error("Chỉ mentee mới có thể mua khóa học");
+      return;
+    }
+
+    setIsAddingToCart(true);
+
+    try {
+      // Debug: Check token
+      const token =
+        localStorage.getItem("token") || localStorage.getItem("actkn");
+      console.log("Add to cart - Token exists:", !!token);
+      console.log("Add to cart - CourseId:", courseData._id);
+
+      const { response, error } = await cartApi.addToCart({
+        courseId: courseData._id,
+        dispatch,
+      });
+
+      if (error) {
+        throw new Error(error.message || "Không thể thêm vào giỏ hàng");
+      }
+
+      toast.success("Đã thêm khóa học vào giỏ hàng!");
+
+      // Có thể navigate đến cart page hoặc show cart sidebar
+      // navigate("/mentee/cart");
+    } catch (error) {
+      console.error("Add to cart error:", error);
+      toast.error(error.message || "Có lỗi xảy ra khi thêm vào giỏ hàng");
+    } finally {
+      setIsAddingToCart(false);
+    }
+  };
+
+  // Handle Buy Now
+  const handleBuyNow = async () => {
+    // Add to cart first, then redirect to checkout
+    await handleAddToCart();
+    if (!isAddingToCart) {
+      navigate("/mentee/checkout");
+    }
+  };
 
   // Loading
   if (!courseData && !error) return null;
@@ -538,11 +601,19 @@ const CourseDetail = () => {
               title="hold button of course"
               className="flex flex-col space-y-3"
             >
-              <button className="w-full bg-slate-950 text-white py-2 rounded-lg hover:bg-slate-500 transition duration-200">
-                Add To Cart
+              <button
+                onClick={handleAddToCart}
+                disabled={isAddingToCart}
+                className="w-full bg-slate-950 text-white py-2 rounded-lg hover:bg-slate-500 transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isAddingToCart ? "Đang thêm..." : "Add To Cart"}
               </button>
 
-              <button className="w-full text-black py-2 rounded-lg border-2 border-slate-950 hover:bg-slate-100 transition duration-200">
+              <button
+                onClick={handleBuyNow}
+                disabled={isAddingToCart}
+                className="w-full text-black py-2 rounded-lg border-2 border-slate-950 hover:bg-slate-100 transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
                 Buy Now
               </button>
             </div>
