@@ -1358,7 +1358,7 @@ const MentorProfile = () => {
   const handleSendMessageToMentee = (menteeId) => {
     // TODO: Implement opening chat with specific mentee
     // For now, just switch to messages tab
-    setActiveTab("messages");
+    handleMessageTabChange();
   };
 
   // Reviews filter and search logic
@@ -1425,6 +1425,13 @@ const MentorProfile = () => {
     setActiveTab(tab);
     localStorage.setItem("mentorProfileTab", tab);
     scrollToTop();
+  };
+
+  // Tab handler riêng cho messages - không cuộn lên đầu
+  const handleMessageTabChange = () => {
+    setActiveTab("messages");
+    localStorage.setItem("mentorProfileTab", "messages");
+    // Không gọi scrollToTop() để giữ nguyên vị trí scroll
   };
 
   return (
@@ -1501,7 +1508,7 @@ const MentorProfile = () => {
                     ? "bg-gray-200 hover:bg-gray-300 hover:shadow-sm"
                     : "hover:bg-blue-50 hover:text-blue-600 hover:shadow-sm hover:scale-105"
                 }`}
-                onClick={() => handleTabChange("messages")}
+                onClick={() => handleMessageTabChange()}
               >
                 Message
               </li>

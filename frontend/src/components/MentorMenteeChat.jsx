@@ -7,7 +7,7 @@
  * Thiết kế: Giao diện hiện đại với màu sắc phù hợp theme tổng thể
  */
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import { useChat } from "../hooks/useChat.js";
 
 // Utility: format thời gian hiển thị
@@ -73,22 +73,59 @@ export default function MentorMenteeChat({ userRole = "mentor" }) {
   console.log("🎯 MentorMenteeChat - loading:", loading);
   console.log("🎯 MentorMenteeChat - error:", error);
   console.log("🎯 MentorMenteeChat - conversations.length:", conversations.length);
-  console.log("🎯 MentorMenteeChat - selectedConversationId:", selectedConversationId);
-  console.log("🎯 MentorMenteeChat - selectedConversation:", selectedConversation);
-  console.log("🎯 MentorMenteeChat - selectedMessages:", selectedMessages);
-  console.log("🎯 MentorMenteeChat - selectedMessages.length:", selectedMessages.length);
   
   const [draft, setDraft] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
-  const messagesEndRef = useRef(null);
+  const [isAutoRefreshing, setIsAutoRefreshing] = useState(false);
   const messagesContainerRef = useRef(null);
+  const messagesEndRef = useRef(null); // Thêm lại ref cho cuối messages
 
-  // Auto scroll to bottom khi có tin nhắn mới
-  useEffect(() => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+  // Debug logs after state initialization
+  console.log("🎯 MentorMenteeChat - selectedConversationId:", selectedConversationId);
+  console.log("🎯 MentorMenteeChat - selectedConversation:", selectedConversation);
+  console.log("🎯 MentorMenteeChat - selectedMessages:", selectedMessages);
+  console.log("🎯 MentorMenteeChat - draft:", draft);
+  console.log("🎯 MentorMenteeChat - selectedMessages.length:", selectedMessages.length);
+  console.log("🎯 MentorMenteeChat - Should show input?", !!selectedConversationId);
+
+  // Helper function để scroll đến cuối - chỉ scroll messages area
+  const scrollToBottom = useCallback((immediate = false) => {
+    if (messagesContainerRef.current) {
+      const container = messagesContainerRef.current;
+      const scrollHeight = container.scrollHeight;
+      const height = container.clientHeight;
+      const maxScrollTop = scrollHeight - height;
+      
+      if (immediate) {
+        container.scrollTop = maxScrollTop;
+      } else {
+        container.scrollTo({
+          top: maxScrollTop,
+          behavior: 'smooth'
+        });
+      }
     }
-  }, [selectedMessages.length]);
+  }, []);
+
+  // Auto scroll to bottom khi có tin nhắn mới - chỉ scroll messages container
+  useEffect(() => {
+    if (selectedMessages.length > 0) {
+      // Delay nhỏ để DOM render xong, sau đó scroll messages area
+      setTimeout(() => {
+        scrollToBottom();
+      }, 50);
+    }
+  }, [selectedMessages.length, scrollToBottom]);
+
+  // Auto scroll khi chọn conversation mới  
+  useEffect(() => {
+    if (selectedConversationId) {
+      // Scroll messages area đến cuối khi chọn conversation
+      setTimeout(() => {
+        scrollToBottom();
+      }, 150);
+    }
+  }, [selectedConversationId, scrollToBottom]);
 
   // Xử lý gửi tin nhắn
   const handleSendMessage = async () => {
@@ -96,7 +133,15 @@ export default function MentorMenteeChat({ userRole = "mentor" }) {
     if (!content || !selectedConversationId || sending) return;
     
     setDraft("");
+    
+    // Gửi tin nhắn
     await sendNewMessage(selectedConversationId, content);
+    
+    // Scroll messages area đến cuối để thấy tin nhắn mới
+    // Input box vẫn cố định ở bottom
+    setTimeout(() => {
+      scrollToBottom();
+    }, 100);
   };
 
   // Xử lý Enter để gửi tin nhắn
@@ -131,24 +176,27 @@ export default function MentorMenteeChat({ userRole = "mentor" }) {
   return (
     <div className="w-full h-[85vh] bg-white border border-gray-200 grid grid-cols-12 rounded-2xl overflow-hidden shadow-lg">
       {/* Sidebar: Danh sách conversations */}
-      <aside className="col-span-4 md:col-span-3 bg-gradient-to-b from-slate-50 to-slate-100 border-r border-gray-200 flex flex-col">
+      <aside className="col-span-4 md:col-span-3 bg-gradient-to-b from-slate-50 to-slate-100 border-r border-gray-200 flex flex-col max-h-full overflow-hidden">
         {/* Header */}
-        <div className="p-5 border-b border-gray-200 bg-white">
+        <div className="p-5 border-b border-gray-200 bg-white flex-shrink-0">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-gray-900">Tin nhắn</h2>
-            {totalUnreadCount > 0 && (
-              <span className="bg-blue-600 text-white text-xs px-2.5 py-1 rounded-full font-medium">
-                {totalUnreadCount}
-              </span>
-            )}
+            <div className="flex items-center gap-3">
+              <h2 className="text-lg font-semibold text-gray-900">Tin nhắn</h2>
+              {totalUnreadCount > 0 && (
+                <div className="flex items-center gap-1.5 bg-red-50 text-red-600 px-2.5 py-1 rounded-full border border-red-200">
+                  <div className="w-1.5 h-1.5 bg-red-500 rounded-full"></div>
+                  <span className="text-xs font-medium">{totalUnreadCount} mới</span>
+                </div>
+              )}
+            </div>
           </div>
-          <p className="text-sm text-gray-500 mt-1">
-            {userRole === "mentor" ? "Tin nhắn từ học viên" : "Tin nhắn với mentor"}
+          <p className="text-sm text-gray-500 mt-2">
+            {userRole === "mentor" ? "Tin nhắn từ mentee" : "Tin nhắn với mentor"}
           </p>
         </div>
 
         {/* Search */}
-        <div className="p-4 border-b border-gray-200 bg-white">
+        <div className="p-4 border-b border-gray-200 bg-white flex-shrink-0">
           <div className="relative">
             <input
               type="text"
@@ -169,7 +217,7 @@ export default function MentorMenteeChat({ userRole = "mentor" }) {
         </div>
 
         {/* Conversations List */}
-        <div className="flex-1 overflow-auto bg-white">
+        <div className="flex-1 overflow-y-auto min-h-0 bg-white">
           {error && (
             <div className="p-4 mx-4 mt-4 text-center bg-red-50 border border-red-200 rounded-lg">
               <div className="flex items-center justify-center mb-2">
@@ -225,29 +273,37 @@ export default function MentorMenteeChat({ userRole = "mentor" }) {
         </div>
       </aside>
 
-      {/* Main Chat Area */}
-      <section className="col-span-8 md:col-span-9 flex flex-col bg-white">
-        {selectedConversation ? (
+      {/* Main Chat Area - Layout như Messenger */}
+      <section className="col-span-8 md:col-span-9 flex flex-col bg-white max-h-full relative overflow-hidden">
+        {selectedConversationId ? (
           <>
-            {/* Chat Header */}
-            <div className="px-6 py-4 border-b border-gray-200 flex items-center gap-4 bg-gradient-to-r from-blue-50 to-indigo-50">
+            {/* Chat Header - Cố định */}
+            <div className="px-6 py-4 border-b border-gray-200 flex items-center gap-4 bg-gradient-to-r from-blue-50 to-indigo-50 flex-shrink-0 z-10">
               <img
-                src={selectedConversation.menteeAvatar}
-                alt={selectedConversation.menteeName}
+                src={selectedConversation?.menteeAvatar || `https://api.dicebear.com/7.x/initials/svg?seed=${selectedConversationId}`}
+                alt={selectedConversation?.menteeName || `User ${selectedConversationId}`}
                 className="w-12 h-12 rounded-full border-2 border-white shadow-sm"
               />
               <div>
-                <h3 className="font-semibold text-gray-900">{selectedConversation.menteeName}</h3>
+                <h3 className="font-semibold text-gray-900">{selectedConversation?.menteeName || `User ${selectedConversationId}`}</h3>
                 <p className="text-sm text-blue-600 font-medium">
-                  {selectedConversation.unread > 0 ? "Có tin nhắn mới" : "Đang trò chuyện"}
+                  {selectedConversation?.unread > 0 ? "Có tin nhắn mới" : "Đang trò chuyện"}
                 </p>
               </div>
             </div>
 
-            {/* Messages */}
+            {/* Messages - Giống Messenger: chỉ vùng này scroll, input cố định */}
             <div 
               ref={messagesContainerRef}
-              className="flex-1 overflow-auto p-6 space-y-4 bg-gradient-to-b from-gray-50 to-white"
+              className="flex-1 overflow-y-auto min-h-0 p-6 space-y-4 bg-gradient-to-b from-gray-50 to-white messages-container"
+              style={{ 
+                maxHeight: 'calc(100% - 120px)', // Đảm bảo để chỗ cho input
+                scrollBehavior: 'smooth',
+                overflowX: 'hidden',
+                /* Custom scrollbar như Messenger */
+                scrollbarWidth: 'thin',
+                scrollbarColor: '#CBD5E0 #F7FAFC'
+              }}
             >
               {selectedMessages.length === 0 ? (
                 <div className="h-full flex items-center justify-center">
@@ -273,11 +329,20 @@ export default function MentorMenteeChat({ userRole = "mentor" }) {
                   />
                 ))
               )}
-              <div ref={messagesEndRef} />
+              {/* Div anchor để scroll đến cuối */}
+              <div ref={messagesEndRef} className="h-1" />
             </div>
 
-            {/* Message Input */}
-            <div className="px-6 py-4 border-t border-gray-200 bg-white">
+            {/* Message Input - CỐ ĐỊNH như Messenger, không bao giờ bị đẩy xuống */}
+            <div 
+              className="px-6 py-4 border-t border-gray-200 bg-white flex-shrink-0 sticky bottom-0 shadow-lg"
+              style={{ 
+                position: 'sticky',
+                bottom: 0,
+                zIndex: 20,
+                backgroundColor: 'white'
+              }}
+            >
               <div className="flex gap-3 items-end">
                 <textarea
                   value={draft}
@@ -309,16 +374,44 @@ export default function MentorMenteeChat({ userRole = "mentor" }) {
             </div>
           </>
         ) : (
-          // No conversation selected
-          <div className="flex-1 flex items-center justify-center bg-gradient-to-br from-gray-50 to-white">
-            <div className="text-center">
-              <div className="w-20 h-20 bg-gradient-to-br from-blue-100 to-indigo-200 rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm">
-                <svg className="w-10 h-10 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M18 10c0 3.866-3.582 7-8 7a8.841 8.841 0 01-4.083-.98L2 17l1.338-3.123C2.493 12.767 2 11.434 2 10c0-3.866 3.582-7 8-7s8 3.134 8 7zM7 9H5v2h2V9zm8 0h-2v2h2V9zM9 9h2v2H9V9z" clipRule="evenodd" />
+          // No conversation selected - Show welcome screen
+          <div className="flex-1 flex items-center justify-center bg-gradient-to-br from-gray-50 via-white to-blue-50 min-h-0">
+            <div className="text-center max-w-md px-6">
+              <div className="w-32 h-32 bg-gradient-to-br from-blue-100 via-indigo-100 to-purple-100 rounded-full flex items-center justify-center mx-auto mb-8 shadow-lg">
+                <svg className="w-16 h-16 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                 </svg>
               </div>
-              <p className="text-xl font-semibold text-gray-800 mb-2">Chọn cuộc trò chuyện</p>
-              <p className="text-gray-500">Chọn một cuộc trò chuyện để bắt đầu nhắn tin</p>
+              <h3 className="text-2xl font-bold text-gray-800 mb-4">
+                {userRole === "mentor" ? "Tin nhắn từ mentee" : "Tin nhắn với mentor"}
+              </h3>
+              <p className="text-gray-600 mb-6 leading-relaxed text-lg">
+                {conversations.length > 0 
+                  ? "Chọn một cuộc trò chuyện từ danh sách bên trái để bắt đầu nhắn tin"
+                  : userRole === "mentor" 
+                    ? "Chưa có học viên nào nhắn tin cho bạn. Tin nhắn mới sẽ xuất hiện ở danh sách bên trái."
+                    : "Chưa có cuộc trò chuyện nào với mentor. Bạn có thể bắt đầu cuộc trò chuyện mới."
+                }
+              </p>
+              
+              {conversations.length > 0 && (
+                <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6">
+                  <div className="flex items-center justify-center gap-2 text-sm text-blue-700 mb-2">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                    <span className="font-medium">Cập nhật tự động</span>
+                  </div>
+                  <p className="text-xs text-blue-600">
+                    Tin nhắn được cập nhật tự động mỗi 3 giây
+                  </p>
+                </div>
+              )}
+              
+              <div className="text-sm text-gray-500">
+                <p>💬 Trò chuyện trực tiếp với {userRole === "mentor" ? "học viên" : "mentor"}</p>
+                <p className="mt-1">🔄 Đồng bộ thời gian thực</p>
+              </div>
             </div>
           </div>
         )}
@@ -386,7 +479,10 @@ function ConversationItem({ conversation, isActive, onClick }) {
  * Component cho message bubble
  */
 function MessageBubble({ message, userRole, showDate }) {
-  const isFromCurrentUser = message.sender === userRole;
+  // Sử dụng field isFromCurrentUser để xác định vị trí hiển thị tin nhắn
+  const isFromCurrentUser = message.isFromCurrentUser !== undefined 
+    ? message.isFromCurrentUser 
+    : message.sender === userRole; // Fallback cho compatibility
   
   return (
     <div>
@@ -400,7 +496,7 @@ function MessageBubble({ message, userRole, showDate }) {
       
       <div className={`flex ${isFromCurrentUser ? "justify-end" : "justify-start"}`}>
         <div
-          className={`max-w-[75%] px-4 py-3 rounded-2xl shadow-sm whitespace-pre-wrap break-words ${
+          className={`max-w-[75%] px-4 py-3 rounded-2xl shadow-sm whitespace-pre-wrap break-words word-wrap overflow-wrap-anywhere ${
             isFromCurrentUser
               ? "bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-br-md"
               : "bg-white border border-gray-200 text-gray-800 rounded-bl-md"

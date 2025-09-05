@@ -9,6 +9,7 @@ import { FaGoogle } from "react-icons/fa";
 import profileApi from "../api/modules/profile.api";
 import purchasedCourseApi from "../api/modules/purchasedCourse.api";
 import minatoImg from "../assets/minato.jpg";
+import MentorMenteeChat from "../components/MentorMenteeChat";
 
 const MenteeProfile = () => {
   const navigate = useNavigate();
@@ -273,9 +274,7 @@ const MenteeProfile = () => {
   const [mentorFilterBy, setMentorFilterBy] = useState("all");
   const [mentorCurrentPage, setMentorCurrentPage] = useState(1);
   const mentorsPerPage = 6;
-  const [selectedChatMentor, setSelectedChatMentor] = useState(null);
-  const [chatMessages, setChatMessages] = useState([]);
-  const [newMessage, setNewMessage] = useState("");
+  // Removed old chat-related states as they're now handled by MentorMenteeChat component
   const [reviewFilter, setReviewFilter] = useState("all");
   const [reviewsToShow, setReviewsToShow] = useState(6);
   const [reviewCurrentPage, setReviewCurrentPage] = useState(1);
@@ -343,61 +342,8 @@ const MenteeProfile = () => {
     //   return response.json();
     // };
 
-    setSelectedChatMentor(mentor);
+    // Switch to messages tab - MentorMenteeChat component will handle the rest
     setActiveTab("messages");
-    // Scroll to main content area, not the very top
-    setTimeout(() => {
-      const mainContent = document.querySelector(".flex-1.min-w-0");
-      if (mainContent) {
-        mainContent.scrollIntoView({ behavior: "smooth", block: "start" });
-      }
-    }, 100);
-    // Initialize chat with some sample messages using mockup for now
-    setChatMessages([
-      {
-        id: 1,
-        senderId: "mentor",
-        senderName: mentor.name,
-        content: `Hello! I'm ${mentor.name}. How can I help you today?`,
-        timestamp: new Date().toLocaleTimeString("en-US", {
-          hour: "2-digit",
-          minute: "2-digit",
-        }),
-        avatar: mentor.avatar,
-      },
-    ]);
-  };
-
-  const handleSendMessage = () => {
-    // TODO: Replace with API call to send message
-    // const sendMessage = async (chatId, message) => {
-    //   const response = await fetch('/api/chats/messages', {
-    //     method: 'POST',
-    //     body: JSON.stringify({ chatId, message, senderId: currentUserId })
-    //   });
-    //   return response.json();
-    // };
-
-    if (newMessage.trim() && selectedChatMentor) {
-      const message = {
-        id: chatMessages.length + 1,
-        senderId: "mentee",
-        senderName: "Minato Namikaze",
-        content: newMessage,
-        timestamp: new Date().toLocaleTimeString("en-US", {
-          hour: "2-digit",
-          minute: "2-digit",
-        }),
-        avatar: minatoImg,
-      };
-      setChatMessages([...chatMessages, message]);
-      setNewMessage("");
-    }
-  };
-
-  const handleBackToMessages = () => {
-    setSelectedChatMentor(null);
-    setChatMessages([]);
   };
 
   // Filter reviews by type
@@ -646,9 +592,6 @@ const MenteeProfile = () => {
                     setActiveTab("messages");
                     setSelectedChatMentor(null);
                     setChatMessages([]);
-                    setTimeout(() => {
-                      window.scrollTo({ top: 0, left: 0, behavior: "smooth" });
-                    }, 100);
                   }}
                 >
                   Message
@@ -1537,188 +1480,8 @@ const MenteeProfile = () => {
 
             {activeTab === "messages" && (
               <div className="space-y-6">
-                {/* Messages Section */}
-                <div className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100">
-                  {!selectedChatMentor ? (
-                    <>
-                      {/* Header with Search and Filter */}
-                      <div className="flex justify-between items-center mb-6">
-                        <h3 className="text-lg font-semibold text-gray-900">
-                          Messages
-                        </h3>
-                        <div className="flex gap-4 items-center">
-                          <div className="relative">
-                            <input
-                              type="text"
-                              placeholder="Search conversations..."
-                              className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                            />
-                            <svg
-                              className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                              />
-                            </svg>
-                          </div>
-
-                          <div className="flex gap-2">
-                            <div className="flex items-center gap-2">
-                              <span className="text-sm text-gray-600">
-                                Sort By
-                              </span>
-                              <select className="px-3 py-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
-                                <option>Relevance</option>
-                                <option>Latest</option>
-                                <option>Oldest</option>
-                              </select>
-                            </div>
-
-                            <button className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg bg-white hover:bg-gray-50 transition">
-                              <svg
-                                className="w-4 h-4"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"
-                                />
-                              </svg>
-                              Filter
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Messages List - Hiện tại bỏ trống, không render gì khi chưa có API */}
-                    </>
-                  ) : (
-                    <>
-                      {/* Individual Chat View */}
-                      {/* Chat Header */}
-                      <div className="flex items-center gap-4 mb-6 pb-4 border-b border-gray-200">
-                        <button
-                          onClick={handleBackToMessages}
-                          className="p-2 hover:bg-gray-100 rounded-lg transition"
-                        >
-                          <svg
-                            className="w-5 h-5 text-gray-600"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M15 19l-7-7 7-7"
-                            />
-                          </svg>
-                        </button>
-                        <div className="relative">
-                          <img
-                            src={selectedChatMentor.avatar}
-                            alt={selectedChatMentor.name}
-                            className="w-12 h-12 rounded-full object-cover"
-                          />
-                          {selectedChatMentor.isOnline && (
-                            <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></div>
-                          )}
-                        </div>
-                        <div className="flex-1">
-                          <h3 className="font-semibold text-gray-900">
-                            {selectedChatMentor.name}
-                          </h3>
-                          <p className="text-sm text-blue-600">
-                            {selectedChatMentor.specialty}
-                          </p>
-                          <p className="text-xs text-gray-500">
-                            {selectedChatMentor.isOnline
-                              ? "Online now"
-                              : "Offline"}
-                          </p>
-                        </div>
-                        <div className="flex gap-2">
-                          <button className="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition">
-                            Schedule Call
-                          </button>
-                          <button className="px-3 py-1 text-sm bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition">
-                            View Profile
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Chat Messages */}
-                      <div className="h-96 overflow-y-auto mb-4 space-y-4 bg-gray-50 rounded-lg p-4">
-                        {chatMessages.map((msg) => (
-                          <div
-                            key={msg.id}
-                            className={`flex gap-3 ${
-                              msg.senderId === "mentee"
-                                ? "flex-row-reverse"
-                                : ""
-                            }`}
-                          >
-                            <img
-                              src={msg.avatar}
-                              alt={msg.senderName}
-                              className="w-8 h-8 rounded-full object-cover flex-shrink-0"
-                            />
-                            <div
-                              className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
-                                msg.senderId === "mentee"
-                                  ? "bg-blue-600 text-white"
-                                  : "bg-white border border-gray-200"
-                              }`}
-                            >
-                              <p className="text-sm">{msg.content}</p>
-                              <p
-                                className={`text-xs mt-1 ${
-                                  msg.senderId === "mentee"
-                                    ? "text-blue-100"
-                                    : "text-gray-500"
-                                }`}
-                              >
-                                {msg.timestamp}
-                              </p>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-
-                      {/* Message Input */}
-                      <div className="flex gap-3">
-                        <input
-                          type="text"
-                          value={newMessage}
-                          onChange={(e) => setNewMessage(e.target.value)}
-                          onKeyPress={(e) =>
-                            e.key === "Enter" && handleSendMessage()
-                          }
-                          placeholder="Type your message..."
-                          className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                        />
-                        <button
-                          onClick={handleSendMessage}
-                          disabled={!newMessage.trim()}
-                          className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          Send
-                        </button>
-                      </div>
-                    </>
-                  )}
-                </div>
+                {/* Messages Section - Using MentorMenteeChat Component */}
+                <MentorMenteeChat userRole="mentee" />
               </div>
             )}
 

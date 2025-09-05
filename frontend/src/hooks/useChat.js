@@ -89,11 +89,7 @@ export const useChat = (userRole = 'mentor') => {
       console.log("🔍 DEBUG - Transformed conversations:", transformedConversations);
       setConversations(transformedConversations);
       
-      // Tự động chọn conversation đầu tiên nếu có
-      if (transformedConversations.length > 0 && !selectedConversationIdRef.current) {
-        console.log("🔍 DEBUG - Auto selecting first conversation:", transformedConversations[0].peerId);
-        setSelectedConversationId(transformedConversations[0].peerId);
-      }
+      // Không tự động chọn conversation nào - user phải click để chọn
       
     } catch (err) {
       console.error("❌ Error loading conversations:", err);
@@ -135,14 +131,29 @@ export const useChat = (userRole = 'mentor') => {
       // Transform messages để phù hợp với UI format
       const transformedMessages = messagesData.reverse().map(msg => {
         console.log("🔄 Transforming message:", msg);
+        
+        // Lấy thông tin user hiện tại từ localStorage
+        const currentUserStr = localStorage.getItem("user");
+        let currentUserId = null;
+        try {
+          const currentUser = currentUserStr ? JSON.parse(currentUserStr) : null;
+          currentUserId = currentUser?._id || currentUser?.id;
+        } catch (e) {
+          console.error("Error parsing current user:", e);
+        }
+        
+        // Xác định sender: nếu message.sender === currentUserId thì là từ user hiện tại
+        const isFromCurrentUser = msg.sender === currentUserId;
+        
         return {
           id: msg._id,
-          sender: msg.sender === peerId ? 'mentee' : userRole, // Xác định sender
+          sender: isFromCurrentUser ? userRole : (userRole === 'mentor' ? 'mentee' : 'mentor'),
           text: msg.content,
           at: new Date(msg.sentAt).getTime(),
           messageType: msg.messageType,
           attachments: msg.attachments,
-          read: msg.read
+          read: msg.read,
+          isFromCurrentUser: isFromCurrentUser // Thêm field này để dễ kiểm tra
         };
       });
 
@@ -202,13 +213,24 @@ export const useChat = (userRole = 'mentor') => {
     setSending(true);
     const tempId = `temp-${Date.now()}`;
     
+    // Lấy thông tin user hiện tại từ localStorage
+    const currentUserStr = localStorage.getItem("user");
+    let currentUserId = null;
+    try {
+      const currentUser = currentUserStr ? JSON.parse(currentUserStr) : null;
+      currentUserId = currentUser?._id || currentUser?.id;
+    } catch (e) {
+      console.error("Error parsing current user:", e);
+    }
+    
     // Optimistic update - hiển thị message ngay lập tức
     const optimisticMessage = {
       id: tempId,
       sender: userRole,
       text: content.trim(),
       at: Date.now(),
-      optimistic: true
+      optimistic: true,
+      isFromCurrentUser: true // Luôn true cho optimistic message
     };
     
     setMessages(prev => ({
@@ -235,17 +257,21 @@ export const useChat = (userRole = 'mentor') => {
         console.log("📡 Using fallback timestamp:", messageTimestamp);
       }
       
+      // Xác định sender cho saved message
+      const isFromCurrentUser = savedMessage.sender === currentUserId;
+      
       // Thay thế optimistic message bằng message thật từ server
       setMessages(prev => ({
         ...prev,
         [peerId]: prev[peerId]?.map(msg => 
           msg.id === tempId ? {
             id: savedMessage._id,
-            sender: userRole,
+            sender: isFromCurrentUser ? userRole : (userRole === 'mentor' ? 'mentee' : 'mentor'),
             text: savedMessage.content,
             at: messageTimestamp,
             messageType: savedMessage.messageType,
-            attachments: savedMessage.attachments
+            attachments: savedMessage.attachments,
+            isFromCurrentUser: isFromCurrentUser
           } : msg
         ) || []
       }));
@@ -322,6 +348,30 @@ export const useChat = (userRole = 'mentor') => {
       loadMessages(selectedConversationId);
     }
   }, [selectedConversationId, loadMessages]);
+
+  // Auto-refresh conversations và messages mỗi 3 giây - tối ưu cho browser và performance
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      // Chỉ refresh nếu không đang gửi tin nhắn và không đang loading để tránh xung đột
+      if (!sending && !loading) {
+        console.log("🔄 Auto-refreshing conversations and messages...");
+        
+        // Reload conversations để cập nhật lastMessage và unread count
+        loadConversations();
+        
+        // Reload messages cho conversation hiện tại nếu có
+        if (selectedConversationIdRef.current) {
+          console.log("🔄 Auto-refreshing messages for:", selectedConversationIdRef.current);
+          loadMessages(selectedConversationIdRef.current);
+        }
+      }
+    }, 3000); // 3 seconds - tối ưu cho browser, tránh lag giao diện
+
+    return () => {
+      console.log("🔄 Clearing auto-refresh interval");
+      clearInterval(intervalId);
+    };
+  }, [sending, loading]); // Thêm loading vào dependency để re-create interval khi loading thay đổi
 
   return {
     // State
