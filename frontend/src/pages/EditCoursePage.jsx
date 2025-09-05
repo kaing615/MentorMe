@@ -7,11 +7,64 @@ import { toast } from "react-toastify";
 import courseApi from "../api/modules/course.api";
 
 const EditCoursePage = () => {
+  // --- AUTH & ROLE CHECK ---
+  useEffect(() => {
+    const token =
+      localStorage.getItem("actkn") || localStorage.getItem("token");
+    const userStr =
+      localStorage.getItem("user") || localStorage.getItem("user");
+    console.log("Token:", token);
+    let user = null;
+    if (!token) {
+      navigate("/auth/signin");
+      return;
+    }
+    // Check user object
+    try {
+      user = userStr ? JSON.parse(userStr) : null;
+    } catch (e) {
+      user = null;
+    }
+    if (!user || !user.role) {
+      navigate("/auth/signin");
+      return;
+    }
+    // Check role
+    if (user.role === "mentor") {
+      return;
+    }
+    if (user.role === "mentee") {
+      navigate("/home");
+      return;
+    }
+    // For admin
+    // if (user.role === "admin") {
+    //   navigate("/admin/profile");
+    //   return;
+    // }
+  }, [navigate]);
+
+  
   const { id } = useParams();
   const [imagePreview, setImagePreview] = useState(null);
   const [imageFile, setImageFile] = useState(null);
   const [imageError, setImageError] = useState("");
+  const [customCategory, setCustomCategory] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("");
   const navigate = useNavigate();
+
+  const predefinedCategories = [
+    "Programming",
+    "Design",
+    "Business",
+    "Marketing",
+    "Photography",
+    "Music",
+    "Health & Fitness",
+    "Language",
+    "Academic",
+    "Lifestyle",
+  ];
 
   // Validation schema
   const courseSchema = yup.object({
@@ -44,7 +97,20 @@ const EditCoursePage = () => {
       .nullable(),
     category: yup.string().required("Category is required"),
     level: yup.string().required("Level is required"),
-    tags: yup.string().required("Tags are required"),
+    tags: yup
+      .string()
+      .test(
+        "is-required-for-programming",
+        "Programming languages are required for Programming category",
+        function (value) {
+          const { category } = this.parent;
+          const isProgramming = category?.toLowerCase() === "programming";
+          if (isProgramming) {
+            return value && value.trim().length > 0;
+          }
+          return true; // Not required for other categories
+        }
+      ),
     language: yup.string().required("Language is required"),
   });
 
@@ -53,6 +119,7 @@ const EditCoursePage = () => {
     handleSubmit,
     formState: { errors, isSubmitting },
     reset,
+    setValue,
   } = useForm({
     resolver: yupResolver(courseSchema),
   });
@@ -68,6 +135,17 @@ const EditCoursePage = () => {
         }
         const course = response.data.course;
         console.log("Course data for edit:", course);
+
+        // Set selected category for UI logic
+        setSelectedCategory(course.category || "");
+        if (
+          course.category &&
+          !predefinedCategories.includes(course.category)
+        ) {
+          setCustomCategory(course.category);
+          setSelectedCategory("Other");
+        }
+
         reset({
           title: course.title || "",
           price: course.price || "",
@@ -380,21 +458,41 @@ const EditCoursePage = () => {
                     Category <span className="text-red-500">*</span>
                   </label>
                   <select
-                    {...register("category")}
+                    value={selectedCategory}
                     className="w-full px-4 py-3 text-gray-400 border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 bg-white transition-all duration-200 focus:text-gray-700"
+                    onChange={(e) => {
+                      setSelectedCategory(e.target.value);
+                      if (e.target.value !== "Other") {
+                        setCustomCategory("");
+                        setValue("category", e.target.value);
+                      } else {
+                        // When "Other" is selected, we'll update the form value when custom input changes
+                        setValue("category", "");
+                      }
+                    }}
                   >
                     <option value="">Select category</option>
-                    <option value="Programming">Programming</option>
-                    <option value="Design">Design</option>
-                    <option value="Business">Business</option>
-                    <option value="Marketing">Marketing</option>
-                    <option value="Photography">Photography</option>
-                    <option value="Music">Music</option>
-                    <option value="Health & Fitness">Health & Fitness</option>
-                    <option value="Language">Language</option>
-                    <option value="Academic">Academic</option>
-                    <option value="Lifestyle">Lifestyle</option>
+                    {predefinedCategories.map((cat) => (
+                      <option key={cat} value={cat}>
+                        {cat}
+                      </option>
+                    ))}
+                    <option value="Other">Other (Enter custom category)</option>
                   </select>
+
+                  {selectedCategory === "Other" && (
+                    <input
+                      type="text"
+                      placeholder="Enter custom category"
+                      value={customCategory}
+                      className="w-full px-4 py-3 mt-2 border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all duration-200"
+                      onChange={(e) => {
+                        setCustomCategory(e.target.value);
+                        setValue("category", e.target.value);
+                      }}
+                    />
+                  )}
+
                   {errors.category && (
                     <p className="mt-1 text-sm text-red-600">
                       {errors.category.message}
@@ -461,17 +559,42 @@ const EditCoursePage = () => {
                   )}
                 </div>
 
-                {/* Tags */}
+                {/* Dynamic Field based on Category */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Tags <span className="text-red-500">*</span>
+                    {selectedCategory?.toLowerCase() === "programming"
+                      ? "Programming Languages"
+                      : "Tools & Technologies"}{" "}
+                    {selectedCategory?.toLowerCase() === "programming" && (
+                      <span className="text-red-500">*</span>
+                    )}
+                    {selectedCategory?.toLowerCase() !== "programming" && (
+                      <span className="text-gray-400">(Optional)</span>
+                    )}
                   </label>
                   <input
                     type="text"
                     {...register("tags")}
-                    placeholder="Enter tags separated by commas (e.g. Python, Backend, Web)"
+                    placeholder={
+                      selectedCategory?.toLowerCase() === "programming"
+                        ? "Enter programming languages separated by commas (e.g. Python, JavaScript, Java)"
+                        : "Enter tools, software, technologies, or certifications separated by commas (e.g. Photoshop, Excel, Google Analytics)"
+                    }
                     className="w-full px-0 py-3 text-gray-900 border-0 border-b border-gray-200 focus:border-blue-500 focus:ring-0 bg-transparent placeholder-gray-400"
                   />
+                  {selectedCategory?.toLowerCase() === "programming" && (
+                    <p className="mt-1 text-xs text-gray-500">
+                      Required for Programming courses. Specify the programming
+                      languages covered.
+                    </p>
+                  )}
+                  {selectedCategory &&
+                    selectedCategory.toLowerCase() !== "programming" && (
+                      <p className="mt-1 text-xs text-gray-500">
+                        List any tools, software, technologies, or
+                        certifications relevant to your course topic.
+                      </p>
+                    )}
                   {errors.tags && (
                     <p className="mt-1 text-sm text-red-600">
                       {errors.tags.message}

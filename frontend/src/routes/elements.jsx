@@ -50,6 +50,34 @@ const useRouterElements = () => {
           path: MENTEE_PATH.SHOPPINGCART,
           element: <ShoppingCart />,
         },
+        {
+          path: MENTEE_PATH.ORDERCOMPLETECOURSE,
+          element: <OrderCompleteCourse />,
+        },
+        {
+          path: MENTEE_PATH.CHECKOUT,
+          element: <Checkout />,
+        },
+        {
+          path: MENTEE_PATH.ORDERDETAIL,
+          element: <OrderComplete />,
+        },
+        {
+          path: `${MENTEE_PATH.COURSEDETAIL}/:id`,
+          element: <CourseDetail />,
+        },
+        {
+          path: `${MENTEE_PATH.MENTOR}/:id`,
+          element: <MentorPage />,
+        },
+        {
+          path: MENTEE_PATH.ALLCOURSEPAGE,
+          element: <AllCoursePage />,
+        },
+        {
+          path: MENTEE_PATH.ALLMENTORS,
+          element: <AllMentors />,
+        },
       ],
     },
 
@@ -57,12 +85,38 @@ const useRouterElements = () => {
       path: PATH.MENTOR,
       element: <AllPagesLayout />,
       children: [
-        { path: MENTOR_PATH.HOME, element: <HomeScreen /> },
-        { path: MENTOR_PATH.PROFILE, element: <MentorProfile /> },
-        { path: MENTOR_PATH.HOMEPAGE, element: <MentorPage /> },
-        { path: MENTOR_PATH.CREATECOURSE, element: <CreateCoursePage /> },
-        { path: `${MENTOR_PATH.COURSEDETAIL}/:id`, element: <CourseDetail /> },
-        { path: `${MENTOR_PATH.EDITCOURSE}/:id`, element: <EditCoursePage /> },
+        {
+          path: MENTOR_PATH.HOME,
+          element: <HomeScreen />,
+        },
+        {
+          path: MENTOR_PATH.PROFILE,
+          element: <MentorProfile />,
+        },
+        {
+          path: MENTOR_PATH.HOMEPAGE,
+          element: <MentorPage />,
+        },
+        {
+          path: MENTOR_PATH.CREATECOURSE,
+          element: <CreateCoursePage />,
+        },
+        {
+          path: `${MENTOR_PATH.COURSEDETAIL}/:id`,
+          element: <CourseDetail />,
+        },
+        {
+          path: `${MENTOR_PATH.EDITCOURSE}/:id`,
+          element: <EditCoursePage />,
+        },
+        {
+          path: MENTOR_PATH.ALLCOURSE,
+          element: <AllCoursePage />,
+        },
+        {
+          path: MENTOR_PATH.ALLMENTORS,
+          element: <AllMentors />,
+        },
       ],
     },
 

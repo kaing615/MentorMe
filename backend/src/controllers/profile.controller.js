@@ -113,6 +113,9 @@ export const updateMentorProfile = async (req, res) => {
     if (headline !== undefined) user.headline = headline;
     if (introVideo !== undefined) user.introVideo = introVideo;
     if (skillsArray?.length >= 0) user.skills = skillsArray;
+    if (mentorReason !== undefined) user.mentorReason = mentorReason;
+    if (greatestAchievement !== undefined)
+      user.greatestAchievement = greatestAchievement;
 
     // Only update profile fields if they are provided
     if (jobTitle !== undefined) profile.jobTitle = jobTitle;
@@ -243,6 +246,107 @@ export const updateMenteeProfile = async (req, res) => {
   }
 };
 
+export const getMentorById = async (req, res) => {
+  try {
+    const { mentorId } = req.params;
+    if (!mentorId)
+      return responseHandler.badRequest(res, "Mentor ID là bắt buộc");
+
+    const user = await User.findById(mentorId);
+    if (!user) return responseHandler.badRequest(res, "Mentor không tồn tại");
+    if (user.role !== "mentor")
+      return responseHandler.badRequest(res, "User này không phải là mentor");
+
+    let profile = await Profile.findOne({ user: mentorId });
+
+    // Nếu chưa có profile, tạo mới với dữ liệu từ User
+    if (!profile) {
+      profile = new Profile({
+        user: mentorId,
+        jobTitle: user.jobTitle || "",
+        location: user.location || "",
+        category: user.category || "",
+        bio: user.bio || "",
+        skills: user.skills || [],
+        mentorReason: user.mentorReason || "",
+        greatestAchievement: user.greatestAchievement || "",
+        introVideo: user.introVideo || "",
+        links: {
+          linkedin: user.linkedinUrl || "",
+        },
+      });
+      await profile.save();
+    }
+
+    // Tạo merged profile data ưu tiên Profile trước, User làm fallback
+    const mergedProfile = {
+      // Basic user info từ User model
+      _id: user._id,
+      email: user.email,
+      userName: user.userName,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      role: user.role,
+      avatarUrl: user.avatarUrl,
+      avatarPublicId: user.avatarPublicId,
+      isVerified: user.isVerified,
+
+      // Profile data ưu tiên Profile model, fallback về User model
+      jobTitle: profile.jobTitle || user.jobTitle || "",
+      location: profile.location || user.location || "",
+      category: profile.category || user.category || "",
+      bio: profile.bio || user.bio || "",
+      skills:
+        profile.skills && profile.skills.length > 0
+          ? profile.skills
+          : user.skills || [],
+      experience: profile.experience || "",
+
+      // Mentor specific
+      headline: profile.headline || "",
+      mentorReason: profile.mentorReason || user.mentorReason || "",
+      greatestAchievement:
+        profile.greatestAchievement || user.greatestAchievement || "",
+      introVideo: profile.introVideo || user.introVideo || "",
+
+      // Mentee specific
+      description: profile.description || "",
+      goal: profile.goal || "",
+      education: profile.education || "",
+
+      // Common
+      languages: profile.languages || [],
+      timezone: profile.timezone || "",
+
+      // Social Links
+      links: {
+        website: profile.links?.website || "",
+        twitter: profile.links?.twitter || "",
+        linkedin: profile.links?.linkedin || user.linkedinUrl || "",
+        github: profile.links?.github || "",
+        youtube: profile.links?.youtube || "",
+        facebook: profile.links?.facebook || "",
+      },
+
+      // Business Logic
+      reviews: profile.reviews || [],
+      rate: profile.rate || 0,
+
+      // Timestamps
+      createdAt: profile.createdAt,
+      updatedAt: profile.updatedAt,
+    };
+
+    return responseHandler.ok(res, {
+      profile: mergedProfile,
+      user: { ...sanitizeUser(user), experience: mergedProfile.experience }, // Đảm bảo user cũng có trường experience
+    });
+  } catch (err) {
+    console.error("Lỗi lấy thông tin mentor:", err);
+    return responseHandler.error(res, "Lỗi lấy thông tin mentor!");
+  }
+};
+
 export const getProfile = async (req, res) => {
   try {
     const userId = getAuthedUserId(req);
@@ -333,7 +437,7 @@ export const getProfile = async (req, res) => {
 
     return responseHandler.ok(res, {
       profile: mergedProfile,
-      user: sanitizeUser(user), // Giữ lại để backward compatibility
+      user: { ...sanitizeUser(user), experience: mergedProfile.experience }, // Đảm bảo user cũng có trường experience
     });
   } catch (err) {
     console.error("Lỗi lấy thông tin profile:", err);
@@ -378,9 +482,55 @@ export const changeAvatar = async (req, res) => {
   }
 };
 
+export const getTopMentors = async (req, res) => {
+  try {
+    const { limit = 6 } = req.query;
+
+    // Tìm tất cả mentors có role = "mentor" và isVerified = true
+    const mentors = await User.find({
+      role: "mentor",
+      isVerified: true,
+    })
+      .select("_id firstName lastName jobTitle category avatarUrl bio")
+      .limit(parseInt(limit))
+      .lean();
+
+    // Lấy thông tin profile cho mỗi mentor
+    const mentorsWithProfile = await Promise.all(
+      mentors.map(async (mentor) => {
+        let profile = await Profile.findOne({ user: mentor._id }).lean();
+
+        return {
+          _id: mentor._id,
+          firstName: mentor.firstName || "",
+          lastName: mentor.lastName || "",
+          fullName: `${mentor.firstName || ""} ${mentor.lastName || ""}`.trim(),
+          jobTitle: profile?.jobTitle || mentor.jobTitle || "",
+          category: profile?.category || mentor.category || "",
+          avatarUrl: mentor.avatarUrl || "",
+          bio: profile?.bio || mentor.bio || "",
+          // Placeholder data cho rating và students (có thể tính từ courses sau)
+          averageRating: 4.5 + Math.random() * 0.5, // Mock data 4.5-5.0
+          totalStudents: Math.floor(Math.random() * 3000) + 500, // Mock data 500-3500
+        };
+      })
+    );
+
+    return responseHandler.ok(res, {
+      mentors: mentorsWithProfile,
+      total: mentorsWithProfile.length,
+    });
+  } catch (err) {
+    console.error("Lỗi lấy danh sách top mentors:", err);
+    return responseHandler.error(res, "Lỗi lấy danh sách top mentors!");
+  }
+};
+
 export default {
   updateMentorProfile,
   updateMenteeProfile,
   getProfile,
+  getMentorById,
+  getTopMentors,
   changeAvatar,
 };

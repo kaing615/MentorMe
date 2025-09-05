@@ -1,18 +1,224 @@
-import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useState, useEffect } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import {
   generateCourses,
   generateReviews,
   generateMentors,
 } from "../utils/mockData";
+import courseApi from "../api/modules/course.api";
+import purchasedCourseApi from "../api/modules/purchasedCourse.api";
+import { toast } from "react-toastify";
 
 const OrderCompleteCourse = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [activeTab, setActiveTab] = useState("Details");
   const [showRatingPopup, setShowRatingPopup] = useState(false);
   const [userRating, setUserRating] = useState(0);
   const [userComment, setUserComment] = useState("");
   const [courseScrollPosition, setCourseScrollPosition] = useState(0);
+
+  // Course data state
+  const [courseData, setCourseData] = useState(null);
+  const [mentorData, setMentorData] = useState(null);
+  const [purchasedCourseData, setPurchasedCourseData] = useState(null);
+  const [progress, setProgress] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  // Get courseId from location state or URL params
+  const courseId =
+    location.state?.courseId ||
+    new URLSearchParams(location.search).get("courseId");
+
+  // Fetch course data on component mount
+  useEffect(() => {
+    const fetchCourseDetails = async () => {
+      if (!courseId) {
+        setError("Course ID not provided");
+        setLoading(false);
+        return;
+      }
+
+      try {
+        setLoading(true);
+        setError(null);
+
+        // Check localStorage for purchased courses first
+        const mockPurchasedCourses = localStorage.getItem(
+          "mockPurchasedCourses"
+        );
+        let isPurchasedFromLocalStorage = false;
+        let localPurchasedData = null;
+
+        if (mockPurchasedCourses) {
+          try {
+            const purchasedCourses = JSON.parse(mockPurchasedCourses);
+            console.log(
+              "🔍 Checking localStorage - Current courseId:",
+              courseId
+            );
+            console.log("🔍 Available purchased courses:", purchasedCourses);
+
+            const purchasedCourse = purchasedCourses.find(
+              (item) =>
+                item.courseId === courseId || item.courseInfo?._id === courseId
+            );
+
+            console.log("🔍 Found purchased course:", purchasedCourse);
+
+            if (purchasedCourse) {
+              isPurchasedFromLocalStorage = true;
+              localPurchasedData = {
+                courseId: purchasedCourse.courseId,
+                progress: purchasedCourse.progress || 0,
+                purchaseDate: purchasedCourse.purchaseDate,
+                isCompleted: purchasedCourse.progress === 100,
+                lastAccessDate: new Date().toISOString(),
+              };
+              console.log(
+                "✅ Course is purchased from localStorage:",
+                localPurchasedData
+              );
+            } else {
+              console.log("❌ Course not found in localStorage");
+            }
+          } catch (e) {
+            console.warn("Error parsing localStorage purchased courses:", e);
+          }
+        }
+
+        // Get course info from location state if available
+        const courseFromState = location.state?.courseInfo;
+
+        // Use course from state if available, otherwise fetch from API
+        if (courseFromState) {
+          setCourseData({
+            id: courseFromState._id,
+            title: courseFromState.title,
+            description: courseFromState.description,
+            price: courseFromState.price,
+            category: courseFromState.category,
+            duration: courseFromState.duration,
+            rate: courseFromState.rate,
+            lectures: courseFromState.lectures,
+            link: courseFromState.link,
+            imageUrl: courseFromState.thumbnail || courseFromState.imageUrl,
+            mentor: courseFromState.mentor,
+            createdAt: courseFromState.createdAt,
+            updatedAt: courseFromState.updatedAt,
+          });
+
+          // Set mentor data from course
+          if (courseFromState.mentor) {
+            setMentorData({
+              id: courseFromState.mentor._id,
+              name: `${courseFromState.mentor.firstName} ${courseFromState.mentor.lastName}`,
+              firstName: courseFromState.mentor.firstName,
+              lastName: courseFromState.mentor.lastName,
+              avatar: courseFromState.mentor.avatarUrl,
+              title: courseFromState.mentor.jobTitle || "Mentor",
+              bio: courseFromState.mentor.bio,
+              email: courseFromState.mentor.email,
+            });
+          }
+
+          // Set purchased data if found in localStorage
+          if (isPurchasedFromLocalStorage) {
+            console.log(
+              "✅ Setting purchasedCourseData from localStorage:",
+              localPurchasedData
+            );
+            setPurchasedCourseData(localPurchasedData);
+            setProgress(localPurchasedData.progress || 0);
+          } else {
+            console.log("❌ No purchased data found in localStorage");
+          }
+
+          setLoading(false);
+          return;
+        }
+
+        // Fetch both course details and purchased course details from API
+        const [courseResult, purchasedResult] = await Promise.allSettled([
+          courseApi.getDetail({ courseId }),
+          purchasedCourseApi.getPurchasedCourseDetails({ courseId }),
+        ]);
+
+        // Handle course details
+        if (courseResult.status === "fulfilled" && !courseResult.value.error) {
+          const course =
+            courseResult.value.response?.data?.course ||
+            courseResult.value.response?.data?.data ||
+            courseResult.value.response?.data;
+          if (course) {
+            setCourseData({
+              id: course._id,
+              title: course.title,
+              description: course.description,
+              price: course.price,
+              category: course.category,
+              duration: course.duration,
+              rate: course.rate,
+              lectures: course.lectures,
+              link: course.link,
+              imageUrl: course.imageUrl,
+              mentor: course.mentor,
+              createdAt: course.createdAt,
+              updatedAt: course.updatedAt,
+            });
+
+            // Set mentor data from course
+            if (course.mentor) {
+              setMentorData({
+                id: course.mentor._id,
+                name: `${course.mentor.firstName} ${course.mentor.lastName}`,
+                firstName: course.mentor.firstName,
+                lastName: course.mentor.lastName,
+                avatar: course.mentor.avatarUrl,
+                title: course.mentor.jobTitle || "Mentor",
+                bio: course.mentor.bio,
+                email: course.mentor.email,
+              });
+            }
+          }
+        } else {
+          console.error("Error fetching course:", courseResult.reason);
+          setError("Failed to load course details");
+        }
+
+        // Handle purchased course details (prioritize localStorage over API)
+        if (isPurchasedFromLocalStorage) {
+          setPurchasedCourseData(localPurchasedData);
+          setProgress(localPurchasedData.progress || 0);
+        } else if (
+          purchasedResult.status === "fulfilled" &&
+          !purchasedResult.value.error
+        ) {
+          const purchasedCourse =
+            purchasedResult.value.response?.data?.purchasedCourse ||
+            purchasedResult.value.response?.data;
+          if (purchasedCourse) {
+            setPurchasedCourseData(purchasedCourse);
+            setProgress(purchasedCourse.progress || 0);
+          }
+        } else {
+          console.warn(
+            "Purchased course data not available:",
+            purchasedResult.reason
+          );
+          // This is not a critical error, user might be viewing course details without purchasing
+        }
+      } catch (err) {
+        console.error("Error in fetchCourseDetails:", err);
+        setError("An unexpected error occurred");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchCourseDetails();
+  }, [courseId, location.state]);
 
   // Course scroll handlers
   const scrollCourseLeft = () => {
@@ -127,7 +333,7 @@ const OrderCompleteCourse = () => {
 
     // Using mockup data for now
     try {
-      const reviews = generateReviews(20);
+      const reviews = generateReviews(20, [], []); // Pass empty arrays explicitly
       return reviews.slice(0, limit);
     } catch (error) {
       console.error("Error generating reviews:", error);
@@ -139,19 +345,19 @@ const OrderCompleteCourse = () => {
   const [mockData] = useState(() => {
     try {
       const allCourses = generateCourses(20); // Generate 20 courses for scrolling
-      const allReviews = generateReviews(20); // Generate 20 reviews for scrolling
-      const mentorData = generateMentors(1)[0]; // Generate 1 mentor
+      const allReviews = generateReviews(20, [], []); // Generate 20 reviews for scrolling with empty arrays
+      const fallbackMentorData = generateMentors(1)[0]; // Generate 1 mentor
 
       console.log("Generated mockup data:", {
         coursesCount: allCourses.length,
         reviewsCount: allReviews.length,
-        mentorName: mentorData.name,
+        mentorName: fallbackMentorData.name,
       });
 
       return {
         allCourses,
         allReviews,
-        mentorData,
+        fallbackMentorData,
       };
     } catch (error) {
       console.error("Error generating mockup data:", error);
@@ -323,58 +529,56 @@ const OrderCompleteCourse = () => {
     }
   });
 
-  const { allCourses, allReviews, mentorData } = mockData;
+  const { allCourses, allReviews, fallbackMentorData } = mockData;
 
-  const courseData = {
-    id: "course_123",
-    title: "Programming Fundamental",
-    image:
-      "https://images.unsplash.com/photo-1461749280684-dccba630e2f6?w=800&h=400&fit=crop&crop=center",
-    tabs: ["Details", "Mentor", "Course", "Review"],
-    // Google Drive link for the complete course
-    driveLink:
-      "https://drive.google.com/drive/folders/1ABC123_programming_fundamental_course",
-    description: `Welcome! A big part of programming is about thinking. Technology is so fast that programmers are always going deeper, challenge themselves with harder concepts. We recommend everyone starts with programming fundamental so that you can be ready for a bright future ahead. After this course you should be familiar with variables, operators, loops, conditionals, and functions to start a coding and create professional things that you want.`,
-    keyLearningObjectives: [
-      "Be familiar with the basic programming concepts like variables, loops and conditions.",
-      "Learn how coding and computational logic and general instructions.",
-      "Apply methods, data types, and loops to build programmatic logical patterns.",
-      "Explain and demonstrate how algorithms are developed and how computational thinking works.",
-      "Build a strong foundation for advancing programming language in the future.",
-    ],
-    courseDetails: {
-      duration: "8 hours",
-      level: "Beginner",
-      language: "English",
-      students: "430 students enrolled",
-      lastUpdated: "March 2024",
-      price: "$168.9",
-      category: "Programming",
-    },
-    mentor: {
-      id: "mentor_456",
-      name: mentorData?.name || "John Doe",
-      avatar: mentorData?.avatar || "https://via.placeholder.com/150",
-      title: mentorData?.jobTitle || "Senior Developer",
-      company: mentorData?.company || "Tech Corp",
-      experience: `${
-        mentorData?.yearsExperience || 5
-      }+ years in software development`,
-      students: `${mentorData?.sessionsCompleted || 100} Students`,
-      courses: "239 Courses",
-      rating: (mentorData?.rating || 4.5).toString(),
-      reviews: `${mentorData?.reviewsCount || 50} reviews`,
-      bio:
-        mentorData?.bio ||
-        "Experienced developer with expertise in modern technologies",
-      specialties: mentorData?.skills || ["JavaScript", "React", "Node.js"],
-      profileLink: "/mentor/profile",
-      hourlyRate: mentorData?.hourlyRate || 75,
-      isOnline: mentorData?.isOnline || true,
-    },
-    relatedCourses: allCourses ? allCourses.slice(0, 12) : [],
-    reviews: allReviews ? allReviews.slice(0, 15) : [],
-  };
+  // Loading state
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading course details...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded max-w-md">
+            <strong className="font-bold">Error: </strong>
+            <span className="block sm:inline">{error}</span>
+          </div>
+          <button
+            onClick={() => navigate(-1)}
+            className="mt-4 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+          >
+            Go Back
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // No course data
+  if (!courseData) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-gray-600">No course data available</p>
+          <button
+            onClick={() => navigate(-1)}
+            className="mt-4 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+          >
+            Go Back
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   const renderStars = (rating) => {
     return [...Array(5)].map((_, i) => (
@@ -391,12 +595,63 @@ const OrderCompleteCourse = () => {
 
   // Function to handle course access
   const handleCourseAccess = () => {
-    window.open(courseData.driveLink, "_blank");
+    const courseLink =
+      courseData.link || "https://drive.google.com/drive/folders/example";
+    window.open(courseLink, "_blank");
   };
 
   // Function to navigate to mentor profile
   const handleMentorProfile = () => {
     navigate(courseData.mentor.profileLink);
+  };
+
+  // Function to update course progress
+  const handleUpdateProgress = async (newProgress) => {
+    if (!purchasedCourseData) {
+      toast.warning("Bạn cần mua khóa học để cập nhật tiến độ");
+      return;
+    }
+
+    try {
+      const { response, error } = await purchasedCourseApi.updateProgress({
+        courseId: courseId,
+        progress: newProgress,
+      });
+
+      if (error) {
+        throw new Error(error.message || "Không thể cập nhật tiến độ");
+      }
+
+      setProgress(newProgress);
+      toast.success(`Đã cập nhật tiến độ: ${newProgress}%`);
+    } catch (error) {
+      console.error("Update progress error:", error);
+      toast.error(error.message || "Có lỗi khi cập nhật tiến độ");
+    }
+  };
+
+  // Function to mark course as completed
+  const handleCompleteCourse = async () => {
+    if (!purchasedCourseData) {
+      toast.warning("Bạn cần mua khóa học trước");
+      return;
+    }
+
+    try {
+      const { response, error } = await purchasedCourseApi.completeCourse({
+        courseId: courseId,
+      });
+
+      if (error) {
+        throw new Error(error.message || "Không thể hoàn thành khóa học");
+      }
+
+      setProgress(100);
+      toast.success("🎉 Chúc mừng! Bạn đã hoàn thành khóa học!");
+    } catch (error) {
+      console.error("Complete course error:", error);
+      toast.error(error.message || "Có lỗi khi hoàn thành khóa học");
+    }
   };
 
   // Function to handle rating popup
@@ -452,7 +707,7 @@ const OrderCompleteCourse = () => {
                 Course Overview
               </h3>
               <p className="text-gray-700 mb-8 leading-relaxed text-lg">
-                {courseData.description}
+                {courseData.description || "Course description not available."}
               </p>
             </div>
 
@@ -499,7 +754,14 @@ const OrderCompleteCourse = () => {
                 Key Learning Objectives
               </h4>
               <div className="grid gap-4">
-                {courseData.keyLearningObjectives.map((objective, index) => (
+                {(
+                  courseData.keyLearningObjectives || [
+                    "Master the fundamentals of this subject",
+                    "Apply knowledge to real-world projects",
+                    "Build confidence in your skills",
+                    "Prepare for advanced topics",
+                  ]
+                ).map((objective, index) => (
                   <div
                     key={index}
                     className="flex items-start space-x-4 p-4 bg-gray-50 rounded-lg border-l-4 border-blue-500"
@@ -523,23 +785,23 @@ const OrderCompleteCourse = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {[
                   {
-                    label: "Level",
-                    value: courseData.courseDetails.level,
-                    icon: "📊",
+                    label: "Duration",
+                    value: courseData.duration || "Self-paced",
+                    icon: "⏰",
                   },
                   {
-                    label: "Language",
-                    value: courseData.courseDetails.language,
-                    icon: "🌐",
+                    label: "Lectures",
+                    value: courseData.lectures || "Multiple",
+                    icon: "📚",
                   },
                   {
-                    label: "Students",
-                    value: courseData.courseDetails.students,
-                    icon: "👥",
+                    label: "Rating",
+                    value: `${courseData.rate || "N/A"} ⭐`,
+                    icon: "⭐",
                   },
                   {
                     label: "Category",
-                    value: courseData.courseDetails.category,
+                    value: courseData.category || "General",
                     icon: "📂",
                   },
                 ].map((item, index) => (
@@ -570,19 +832,26 @@ const OrderCompleteCourse = () => {
             <div className="bg-gray-50 rounded-lg p-6 mb-6">
               <div className="flex items-center space-x-6 mb-4">
                 <img
-                  src={courseData.mentor.avatar}
-                  alt={courseData.mentor.name}
+                  src={
+                    mentorData?.avatar ||
+                    "https://via.placeholder.com/80x80/f3f4f6/6b7280?text=M"
+                  }
+                  alt={mentorData?.name || "Mentor"}
                   className="w-20 h-20 rounded-full object-cover border-4 border-white shadow-md"
+                  onError={(e) => {
+                    e.target.src =
+                      "https://via.placeholder.com/80x80/f3f4f6/6b7280?text=M";
+                  }}
                 />
                 <div className="flex-1">
                   <h4 className="text-xl font-bold text-gray-800 mb-1">
-                    {courseData.mentor.name}
+                    {mentorData?.name || "Anonymous Mentor"}
                   </h4>
                   <p className="text-blue-600 font-semibold mb-1">
-                    {courseData.mentor.title}
+                    {mentorData?.title || "Mentor"}
                   </p>
                   <p className="text-gray-600 text-sm">
-                    {courseData.mentor.company}
+                    {mentorData?.email || "Contact information not available"}
                   </p>
                 </div>
                 <button
@@ -597,25 +866,23 @@ const OrderCompleteCourse = () => {
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
                 <div className="text-center p-3 bg-white rounded-lg">
                   <div className="text-lg font-bold text-gray-800">
-                    {courseData.mentor.experience}
+                    Professional
                   </div>
                   <div className="text-xs text-gray-500">Experience</div>
                 </div>
                 <div className="text-center p-3 bg-white rounded-lg">
                   <div className="text-lg font-bold text-gray-800">
-                    {courseData.mentor.students}
+                    Multiple
                   </div>
                   <div className="text-xs text-gray-500">Students</div>
                 </div>
                 <div className="text-center p-3 bg-white rounded-lg">
-                  <div className="text-lg font-bold text-gray-800">
-                    {courseData.mentor.courses}
-                  </div>
+                  <div className="text-lg font-bold text-gray-800">Various</div>
                   <div className="text-xs text-gray-500">Courses</div>
                 </div>
                 <div className="text-center p-3 bg-white rounded-lg">
                   <div className="flex items-center justify-center space-x-1 mb-1">
-                    {renderStars(parseFloat(courseData.mentor.rating))}
+                    {renderStars(5)}
                   </div>
                   <div className="text-xs text-gray-500">Rating</div>
                 </div>
@@ -624,7 +891,8 @@ const OrderCompleteCourse = () => {
               {/* Bio */}
               <div className="mb-4">
                 <p className="text-gray-700 leading-relaxed text-sm">
-                  {courseData.mentor.bio}
+                  {mentorData?.bio ||
+                    "An experienced mentor dedicated to helping students achieve their learning goals."}
                 </p>
               </div>
 
@@ -632,7 +900,13 @@ const OrderCompleteCourse = () => {
               <div>
                 <h5 className="font-medium mb-2 text-gray-800">Specialties:</h5>
                 <div className="flex flex-wrap gap-2">
-                  {courseData.mentor.specialties.map((specialty, index) => (
+                  {(
+                    mentorData?.specialties || [
+                      "Teaching",
+                      "Mentoring",
+                      "Professional Development",
+                    ]
+                  ).map((specialty, index) => (
                     <span
                       key={index}
                       className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium"
@@ -651,7 +925,7 @@ const OrderCompleteCourse = () => {
           <div className="bg-white rounded-lg p-8">
             <div className="flex items-center justify-between mb-8">
               <h3 className="text-2xl font-bold text-gray-800">
-                More Courses by {courseData.mentor.name}
+                More Courses by {mentorData?.name || "This Mentor"}
               </h3>
               <button
                 onClick={handleSeeAllCourses}
@@ -781,6 +1055,7 @@ const OrderCompleteCourse = () => {
         );
 
       case "Review":
+        const mockReviews = allReviews ? allReviews.slice(0, 15) : [];
         return (
           <div className="bg-white rounded-lg p-8">
             <h3 className="text-2xl font-bold mb-8 text-gray-800">
@@ -792,10 +1067,10 @@ const OrderCompleteCourse = () => {
               <div className="flex flex-col md:flex-row items-center md:items-start space-y-4 md:space-y-0 md:space-x-8">
                 <div className="text-center">
                   <div className="text-5xl font-bold text-gray-800 mb-2">
-                    {courseData.mentor.rating}
+                    {courseData.rate || "N/A"}
                   </div>
                   <div className="flex items-center justify-center space-x-1 mb-2">
-                    {renderStars(parseFloat(courseData.mentor.rating))}
+                    {renderStars(parseFloat(courseData.rate || 0))}
                   </div>
                   <p className="text-gray-600 text-sm">Course Rating</p>
                 </div>
@@ -804,17 +1079,16 @@ const OrderCompleteCourse = () => {
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
                     <div className="p-4 bg-white rounded-lg shadow-sm">
                       <div className="text-2xl font-bold text-blue-600">
-                        {courseData.reviews.length}
+                        {mockReviews.length}
                       </div>
                       <div className="text-sm text-gray-600">Total Reviews</div>
                     </div>
                     <div className="p-4 bg-white rounded-lg shadow-sm">
                       <div className="text-2xl font-bold text-green-600">
-                        {courseData.reviews && courseData.reviews.length > 0
+                        {mockReviews.length > 0
                           ? Math.round(
-                              (courseData.reviews.filter((r) => r.rating >= 4)
-                                .length /
-                                courseData.reviews.length) *
+                              (mockReviews.filter((r) => r.rating >= 4).length /
+                                mockReviews.length) *
                                 100
                             )
                           : 0}
@@ -826,13 +1100,13 @@ const OrderCompleteCourse = () => {
                     </div>
                     <div className="p-4 bg-white rounded-lg shadow-sm">
                       <div className="text-2xl font-bold text-purple-600">
-                        {courseData.reviews && courseData.reviews.length > 0
+                        {mockReviews.length > 0
                           ? Math.round(
-                              (courseData.reviews.reduce(
+                              (mockReviews.reduce(
                                 (acc, r) => acc + r.rating,
                                 0
                               ) /
-                                courseData.reviews.length) *
+                                mockReviews.length) *
                                 10
                             ) / 10
                           : 0}
@@ -849,7 +1123,7 @@ const OrderCompleteCourse = () => {
             {/* Reviews List with Custom Scrollbar */}
             <div className="max-h-96 overflow-y-auto pr-2 custom-scrollbar">
               <div className="space-y-6">
-                {courseData.reviews.map((review, index) => (
+                {mockReviews.map((review, index) => (
                   <div
                     key={index}
                     className="bg-gray-50 rounded-xl p-6 border border-gray-200 hover:shadow-md transition-shadow duration-200"
@@ -989,16 +1263,98 @@ const OrderCompleteCourse = () => {
           {/* Course Header */}
           <div className="bg-white rounded-lg overflow-hidden shadow-sm mb-6">
             <img
-              src={courseData.image}
+              src={
+                courseData.imageUrl ||
+                "https://via.placeholder.com/800x300/f3f4f6/6b7280?text=Course+Image"
+              }
               alt={courseData.title}
               className="w-full h-64 object-cover"
+              onError={(e) => {
+                e.target.src =
+                  "https://via.placeholder.com/800x300/f3f4f6/6b7280?text=Course+Image";
+              }}
             />
             <div className="p-6">
               <h1 className="text-2xl font-bold mb-4">{courseData.title}</h1>
 
+              {/* Progress Section - Only show if course is purchased */}
+              {purchasedCourseData && (
+                <div className="mb-6 p-4 bg-blue-50 rounded-lg">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-sm font-medium text-blue-900">
+                      Tiến độ học tập
+                    </span>
+                    <span className="text-sm font-bold text-blue-900">
+                      {progress}%
+                    </span>
+                  </div>
+                  <div className="w-full bg-blue-200 rounded-full h-3 mb-3">
+                    <div
+                      className="bg-blue-600 h-3 rounded-full transition-all duration-300"
+                      style={{ width: `${progress}%` }}
+                    ></div>
+                  </div>
+
+                  <div className="flex gap-2">
+                    {progress < 100 ? (
+                      <>
+                        <button
+                          onClick={() =>
+                            handleUpdateProgress(Math.min(progress + 25, 100))
+                          }
+                          className="text-xs px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 transition"
+                        >
+                          +25% Tiến độ
+                        </button>
+                        <button
+                          onClick={handleCompleteCourse}
+                          className="text-xs px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 transition"
+                        >
+                          Hoàn thành khóa học
+                        </button>
+                      </>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <span className="text-green-600 font-medium text-sm">
+                          🎉 Khóa học đã hoàn thành!
+                        </span>
+                        <button className="text-xs px-3 py-1 bg-yellow-600 text-white rounded hover:bg-yellow-700 transition">
+                          📜 Tải chứng chỉ
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Purchase Status - Show if course is not purchased */}
+              {!purchasedCourseData && (
+                <div className="mb-6 p-4 bg-orange-50 border border-orange-200 rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <svg
+                      className="w-5 h-5 text-orange-600"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"
+                      />
+                    </svg>
+                    <span className="text-sm font-medium text-orange-800">
+                      Bạn đang xem khóa học chưa mua. Một số tính năng có thể bị
+                      hạn chế.
+                    </span>
+                  </div>
+                </div>
+              )}
+
               {/* Tabs */}
               <div className="flex space-x-8 border-b border-gray-200 mb-6">
-                {courseData.tabs.map((tab) => (
+                {["Details", "Mentor", "Course", "Review"].map((tab) => (
                   <button
                     key={tab}
                     onClick={() => setActiveTab(tab)}

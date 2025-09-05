@@ -13,6 +13,59 @@ const CreateCoursePage = () => {
   const [isImageDragOver, setIsImageDragOver] = useState(false);
   const [imageFile, setImageFile] = useState(null);
   const [imageError, setImageError] = useState("");
+  const [customCategory, setCustomCategory] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("");
+
+  // --- AUTH & ROLE CHECK ---
+  React.useEffect(() => {
+    const token =
+      localStorage.getItem("actkn") ||
+      localStorage.getItem("token");
+    const userStr =
+      localStorage.getItem("user") || localStorage.getItem("user");
+    console.log("Token:", token);
+    let user = null;
+    if (!token) {
+      navigate("/auth/signin");
+      return;
+    }
+    // Check user object
+    try {
+      user = userStr ? JSON.parse(userStr) : null;
+    } catch (e) {
+      user = null;
+    }
+    if (!user || !user.role) {
+      navigate("/auth/signin");
+      return;
+    }
+    // Check role
+    if (user.role === "mentor") {
+      return;
+    }
+    if (user.role === "mentee") {
+      navigate("/home");
+      return;
+    }
+    // For admin
+    // if (user.role === "admin") {
+    //   navigate("/admin/profile");
+    //   return;
+    // }
+  }, [navigate]);
+
+  const predefinedCategories = [
+    "Programming",
+    "Design",
+    "Business",
+    "Marketing",
+    "Photography",
+    "Music",
+    "Health & Fitness",
+    "Language",
+    "Academic",
+    "Lifestyle",
+  ];
 
   // Validation schema
   const courseSchema = yup.object({
@@ -58,11 +111,17 @@ const CreateCoursePage = () => {
         return [];
       })
       .test(
-        "is-array",
-        "Tags must be a array type",
-        (value) => Array.isArray(value) && value.length > 0
-      )
-      .required("Tags are required"),
+        "is-required-for-programming",
+        "Programming languages are required for Programming category",
+        function (value) {
+          const { category } = this.parent;
+          const isProgramming = category?.toLowerCase() === "programming";
+          if (isProgramming) {
+            return Array.isArray(value) && value.length > 0;
+          }
+          return true; // Not required for other categories
+        }
+      ),
   });
 
   const {
@@ -70,6 +129,7 @@ const CreateCoursePage = () => {
     handleSubmit,
     formState: { errors, isSubmitting },
     reset,
+    setValue,
   } = useForm({
     resolver: yupResolver(courseSchema),
   });
@@ -396,21 +456,42 @@ const CreateCoursePage = () => {
                     Category <span className="text-red-500">*</span>
                   </label>
                   <select
-                    {...register("category")}
+                    value={selectedCategory}
                     className="w-full px-4 py-3 text-gray-400 border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 bg-white transition-all duration-200 focus:text-gray-700"
+                    onChange={(e) => {
+                      setSelectedCategory(e.target.value);
+                      if (e.target.value !== "Other") {
+                        setCustomCategory("");
+                        setValue("category", e.target.value);
+                      } else {
+                        // When "Other" is selected, we'll update the form value when custom input changes
+                        setValue("category", "");
+                      }
+                    }}
                   >
                     <option value="">Select category</option>
-                    <option value="Programming">Programming</option>
-                    <option value="Design">Design</option>
-                    <option value="Business">Business</option>
-                    <option value="Marketing">Marketing</option>
-                    <option value="Photography">Photography</option>
-                    <option value="Music">Music</option>
-                    <option value="Health & Fitness">Health & Fitness</option>
-                    <option value="Language">Language</option>
-                    <option value="Academic">Academic</option>
-                    <option value="Lifestyle">Lifestyle</option>
+                    {predefinedCategories.map((cat) => (
+                      <option key={cat} value={cat}>
+                        {cat}
+                      </option>
+                    ))}
+                    <option value="Other">Other (Enter custom category)</option>
                   </select>
+
+                  {selectedCategory === "Other" && (
+                    <input
+                      type="text"
+                      value={customCategory}
+                      placeholder="Enter custom category"
+                      className="w-full px-4 py-3 mt-2 border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all duration-200"
+                      onChange={(e) => {
+                        setCustomCategory(e.target.value);
+                        // Update the form value manually
+                        setValue("category", e.target.value);
+                      }}
+                    />
+                  )}
+
                   {errors.category && (
                     <p className="mt-1 text-sm text-red-600">
                       {errors.category.message}
@@ -477,17 +558,42 @@ const CreateCoursePage = () => {
                   )}
                 </div>
 
-                {/* Tags */}
+                {/* Dynamic Field based on Category */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Programing language <span className="text-red-500">*</span>
+                    {selectedCategory?.toLowerCase() === "programming"
+                      ? "Programming Languages"
+                      : "Tools & Technologies"}{" "}
+                    {selectedCategory?.toLowerCase() === "programming" && (
+                      <span className="text-red-500">*</span>
+                    )}
+                    {selectedCategory?.toLowerCase() !== "programming" && (
+                      <span className="text-gray-400">(Optional)</span>
+                    )}
                   </label>
                   <input
                     type="text"
                     {...register("tags")}
-                    placeholder="Enter tags separated by commas (e.g. Python, Backend, Web)"
+                    placeholder={
+                      selectedCategory?.toLowerCase() === "programming"
+                        ? "Enter programming languages separated by commas (e.g. Python, JavaScript, Java)"
+                        : "Enter tools, software, technologies, or certifications separated by commas (e.g. Photoshop, Excel, Google Analytics)"
+                    }
                     className="w-full px-0 py-3 text-gray-900 border-0 border-b border-gray-200 focus:border-blue-500 focus:ring-0 bg-transparent placeholder-gray-400"
                   />
+                  {selectedCategory?.toLowerCase() === "programming" && (
+                    <p className="mt-1 text-xs text-gray-500">
+                      Required for Programming courses. Specify the programming
+                      languages covered.
+                    </p>
+                  )}
+                  {selectedCategory &&
+                    selectedCategory.toLowerCase() !== "programming" && (
+                      <p className="mt-1 text-xs text-gray-500">
+                        List any tools, software, technologies, or
+                        certifications relevant to your course topic.
+                      </p>
+                    )}
                   {errors.tags && (
                     <p className="mt-1 text-sm text-red-600">
                       {errors.tags.message}

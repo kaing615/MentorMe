@@ -8,6 +8,7 @@ import { FaLinkedin } from "react-icons/fa";
 import { FaGoogle } from "react-icons/fa";
 import profileApi from "../api/modules/profile.api";
 import purchasedCourseApi from "../api/modules/purchasedCourse.api";
+import minatoImg from "../assets/minato.jpg";
 
 const MenteeProfile = () => {
   const navigate = useNavigate();
@@ -68,11 +69,21 @@ const MenteeProfile = () => {
 
   // State lưu thông tin profile
   const [profile, setProfile] = useState(null);
+
+  // State cho sidebar (chỉ cập nhật khi save thành công)
+  const [sidebarData, setSidebarData] = useState({
+    firstName: "",
+    lastName: "",
+    avatarUrl: "",
+  });
+
+  // State cho form (thay đổi real-time khi user nhập)
   const [formData, setFormData] = useState({
     userName: "",
     firstName: "",
     lastName: "",
     bio: "",
+    location: "",
     description: "",
     goal: "",
     education: "",
@@ -127,8 +138,9 @@ const MenteeProfile = () => {
       setLoading(true);
       setError(null);
       try {
-        const data = await profileApi().getProfile();
+        const data = await profileApi.getProfile();
         const profileData = data?.data;
+        console.log("Profile API response:", profileData);
         if (!profileData || !profileData.user) {
           setError(
             "Không nhận được dữ liệu profile từ API hoặc thiếu thông tin user."
@@ -150,30 +162,45 @@ const MenteeProfile = () => {
             location: "",
             role: "",
           });
+          setSidebarData({
+            firstName: "",
+            lastName: "",
+            avatarUrl: "",
+          });
           setProfileImage(null);
         } else {
           setProfile(profileData);
           const user = profileData.user || {};
           const profile = profileData.profile || {};
           const links = profile.links || {};
+
+          // Set form data (có thể thay đổi khi user nhập)
           setFormData({
-            userName: user.userName || "",
-            firstName: user.firstName || "",
-            lastName: user.lastName || "",
-            email: user.email || "",
-            bio: profile.bio || user.bio || "",
-            description: profile.description || "",
-            goal: profile.goal || "",
-            education: profile.education || "",
-            website: links.website || "",
-            twitter: links.twitter || "",
-            linkedin: links.linkedin || "",
-            facebook: links.facebook || "",
-            avatarUrl: user.avatarUrl || "",
-            location: user.location || profile.location || "",
-            role: user.role || "",
+            userName: user?.userName || "",
+            firstName: user?.firstName || "",
+            lastName: user?.lastName || "",
+            email: user?.email || "",
+            bio: profile?.bio || user?.bio || "",
+            description: profile?.description || "",
+            goal: profile?.goal || "",
+            education: profile?.education || "",
+            website: links?.website || "",
+            twitter: links?.twitter || "",
+            linkedin: links?.linkedin || "",
+            facebook: links?.facebook || "",
+            avatarUrl: user?.avatarUrl || "",
+            location: user?.location || profile?.location || "",
+            role: user?.role || "",
           });
-          setProfileImage(user.avatarUrl || null);
+
+          // Set sidebar data (chỉ cập nhật khi save thành công)
+          setSidebarData({
+            firstName: user?.firstName || "",
+            lastName: user?.lastName || "",
+            avatarUrl: user?.avatarUrl || "",
+          });
+
+          setProfileImage(user?.avatarUrl || null);
         }
       } catch (error) {
         console.error("[DEBUG] Lỗi khi gọi profileApi.getProfile:", error);
@@ -190,14 +217,43 @@ const MenteeProfile = () => {
   useEffect(() => {
     async function fetchPurchasedCourses() {
       try {
-        const api = purchasedCourseApi();
-        const res = await api.getPurchasedCourses();
-        const data = res.data;
-        if (data && data.data && Array.isArray(data.data.courses)) {
-          setPurchasedCourses(data.data.courses);
+        // Check for mock purchased courses in localStorage first
+        const mockPurchasedCourses = localStorage.getItem(
+          "mockPurchasedCourses"
+        );
+        if (mockPurchasedCourses) {
+          try {
+            const courses = JSON.parse(mockPurchasedCourses);
+            if (Array.isArray(courses) && courses.length > 0) {
+              setPurchasedCourses(courses);
+              return;
+            }
+          } catch (e) {
+            console.warn("Error parsing mock purchased courses:", e);
+          }
+        }
+
+        const { response, error } =
+          await purchasedCourseApi.getPurchasedCourses();
+
+        if (error) {
+          console.error("Purchased courses fetch error:", error);
+          // Don't show error toast, just use empty array
+          setPurchasedCourses([]);
+          return;
+        }
+
+        const courses =
+          response?.data?.courses || response?.data?.purchasedCourses || [];
+        if (Array.isArray(courses)) {
+          setPurchasedCourses(courses);
+        } else {
+          setPurchasedCourses([]);
         }
       } catch (err) {
         console.error("Purchased courses fetch error:", err);
+        // Don't show error toast, just use empty array
+        setPurchasedCourses([]);
       }
     }
     fetchPurchasedCourses();
@@ -394,15 +450,18 @@ const MenteeProfile = () => {
         item.courseInfo.mentor?.firstName
           ?.toLowerCase()
           .includes(searchTerm.toLowerCase()) ||
+        item.courseInfo.mentor?.lastName
+          ?.toLowerCase()
+          .includes(searchTerm.toLowerCase()) ||
         ""
     );
 
     switch (filterBy) {
       case "completed":
-        filtered = filtered.filter((item) => item.isCompleted);
+        filtered = filtered.filter((item) => item.progress === 100);
         break;
       case "available":
-        filtered = filtered.filter((item) => !item.isCompleted);
+        filtered = filtered.filter((item) => item.progress !== 100);
         break;
       default:
         break;
@@ -436,19 +495,61 @@ const MenteeProfile = () => {
     setLoading(true);
     setError(null);
     try {
+      // Gom dữ liệu từ formData và avatar
       const payload = { ...formData };
-      const response = await profileApi.updateMenteeProfile(
-        payload,
-        profileImageFile
-      );
+      if (profileImageFile) {
+        payload.avatar = profileImageFile;
+      }
+
+      const response = await profileApi.updateMenteeProfile(payload);
       if (response && response.data) {
         setProfile(response.data);
-        setProfileImage(null); // Reset local image preview để sidebar lấy avatar từ backend
-        setProfileImageFile(null);
+        setProfileImageFile(null); // Reset file gốc
+
+        // Cập nhật đầy đủ formData từ response để đảm bảo sync với DB
+        const updatedUser = response.data.user;
+        const updatedProfile = response.data.profile;
+        const updatedLinks = updatedProfile?.links || {};
+
+        setFormData({
+          userName: updatedUser?.userName || "",
+          firstName: updatedUser?.firstName || "",
+          lastName: updatedUser?.lastName || "",
+          email: updatedUser?.email || "",
+          bio: updatedProfile?.bio || updatedUser?.bio || "",
+          description: updatedProfile?.description || "",
+          goal: updatedProfile?.goal || "",
+          education: updatedProfile?.education || "",
+          website: updatedLinks?.website || "",
+          twitter: updatedLinks?.twitter || "",
+          linkedin: updatedLinks?.linkedin || "",
+          facebook: updatedLinks?.facebook || "",
+          avatarUrl: updatedUser?.avatarUrl || "",
+          location: updatedUser?.location || updatedProfile?.location || "",
+          role: updatedUser?.role || "",
+        });
+
+        // Cập nhật sidebar data (chỉ khi save thành công)
+        setSidebarData({
+          firstName: updatedUser?.firstName || "",
+          lastName: updatedUser?.lastName || "",
+          avatarUrl: updatedUser?.avatarUrl || "",
+        });
+
+        // Cập nhật avatar hiển thị từ response
+        if (updatedUser && updatedUser.avatarUrl) {
+          setProfileImage(updatedUser.avatarUrl);
+        } else {
+          setProfileImage(null);
+        }
+
         toast.success("Cập nhật profile thành công!", {
           position: "top-right",
           autoClose: 3000,
         });
+
+        // Cuộn lên đầu trang sau khi save thành công
+        window.scrollTo({ top: 0, behavior: "smooth" });
       }
     } catch (error) {
       setError(error.message || "Cập nhật profile thất bại");
@@ -459,7 +560,6 @@ const MenteeProfile = () => {
     }
     setLoading(false);
   };
-
   return (
     <>
       <div className="min-h-screen bg-white-100">
@@ -471,10 +571,10 @@ const MenteeProfile = () => {
             className="bg-slate-50 rounded-2xl shadow-sm p-8 flex flex-col items-center sticky top-10 self-start"
           >
             <div className="w-24 h-24 rounded-full bg-gray-300 flex items-center justify-center mb-4 relative overflow-hidden">
-              {profileImage ? (
+              {sidebarData.avatarUrl ? (
                 <img
-                  src={profileImage}
-                  alt={formData.firstName || "Avatar"}
+                  src={sidebarData.avatarUrl}
+                  alt={sidebarData.firstName || "Avatar"}
                   className="absolute inset-0 w-full h-full object-cover rounded-full"
                 />
               ) : (
@@ -482,8 +582,8 @@ const MenteeProfile = () => {
               )}
             </div>
             <h2 className="font-semibold text-xl text-gray-900 mb-3">
-              {formData.firstName || formData.lastName
-                ? `${formData.firstName} ${formData.lastName}`.trim()
+              {sidebarData.firstName || sidebarData.lastName
+                ? `${sidebarData.firstName} ${sidebarData.lastName}`.trim()
                 : "Mentee"}
             </h2>
             <button className="bg-blue-600 text-white border-none rounded-lg px-6 py-1.5 mb-6 font-medium text-base">
@@ -634,6 +734,18 @@ const MenteeProfile = () => {
                   </div>
                   <div className="mb-4">
                     <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Location
+                    </label>
+                    <input
+                      type="text"
+                      name="location"
+                      value={formData.location}
+                      onChange={handleInputChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
                       Description
                     </label>
                     <textarea
@@ -683,9 +795,9 @@ const MenteeProfile = () => {
                     style={{ minHeight: 120 }}
                     title="Click to upload/change avatar"
                   >
-                    {profileImage ? (
+                    {profileImage || formData.avatarUrl ? (
                       <img
-                        src={profileImage}
+                        src={profileImage || formData.avatarUrl}
                         alt="Preview"
                         className="w-24 h-24 object-cover mx-auto rounded"
                       />
@@ -879,68 +991,196 @@ const MenteeProfile = () => {
                   {/* Course Grid */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {currentCourses.length > 0 ? (
-                      currentCourses.map((course) => (
-                        <div
-                          key={course.id}
-                          className="border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow"
-                        >
-                          <img
-                            src={course.image}
-                            alt={course.title}
-                            className="w-full h-48 object-cover"
-                          />
-                          <div className="p-4">
-                            <div className="flex items-start justify-between mb-2">
-                              <h4 className="font-semibold text-gray-900 mb-1 line-clamp-2 flex-1">
+                      currentCourses.map((item) => {
+                        const course = item.courseInfo;
+                        const mentor = course.mentor;
+                        return (
+                          <div
+                            key={item.courseId}
+                            className="border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow bg-white"
+                          >
+                            {/* Course Image */}
+                            <div className="relative">
+                              <img
+                                src={
+                                  course.thumbnail ||
+                                  course.imageUrl ||
+                                  course.image ||
+                                  "https://via.placeholder.com/300x200/f3f4f6/9ca3af?text=Course+Image"
+                                }
+                                alt={course.title}
+                                className="w-full h-48 object-cover"
+                                onError={(e) => {
+                                  e.target.src =
+                                    "https://via.placeholder.com/300x200/f3f4f6/9ca3af?text=Course+Image";
+                                }}
+                              />
+                              {item.progress === 100 && (
+                                <div className="absolute top-3 right-3">
+                                  <span className="bg-green-500 text-white text-xs px-2 py-1 rounded-full font-medium flex items-center gap-1">
+                                    ✓ Completed
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+
+                            <div className="p-4">
+                              {/* Course Title */}
+                              <h4 className="font-semibold text-gray-900 mb-2 text-lg line-clamp-2">
                                 {course.title}
                               </h4>
-                              {course.isCompleted && (
-                                <span className="ml-2 bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full font-medium">
-                                  ✓ Completed
-                                </span>
-                              )}
-                            </div>
 
-                            <p className="text-sm text-gray-600 mb-2">
-                              By {course.instructor}
-                            </p>
-
-                            <div className="flex items-center gap-2 mb-2">
-                              <div className="flex text-yellow-400 text-sm">
-                                {"★".repeat(Math.floor(course.rating))}
-                                {course.rating % 1 !== 0 && "☆"}
+                              {/* Mentor Info */}
+                              <div className="flex items-center gap-3 mb-3">
+                                <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-200 flex-shrink-0">
+                                  {mentor?.avatarUrl ? (
+                                    <img
+                                      src={mentor.avatarUrl}
+                                      alt={`${mentor.firstName} ${mentor.lastName}`}
+                                      className="w-full h-full object-cover"
+                                      onError={(e) => {
+                                        e.target.src =
+                                          "https://via.placeholder.com/32x32/e5e7eb/9ca3af?text=" +
+                                          (mentor.firstName?.charAt(0) ||
+                                            mentor.lastName?.charAt(0) ||
+                                            "M");
+                                      }}
+                                    />
+                                  ) : (
+                                    <div className="w-full h-full bg-gray-300 flex items-center justify-center text-gray-600 text-xs font-medium">
+                                      {mentor?.firstName?.charAt(0) ||
+                                        mentor?.lastName?.charAt(0) ||
+                                        "M"}
+                                    </div>
+                                  )}
+                                </div>
+                                <div>
+                                  <p className="text-sm font-medium text-gray-800">
+                                    {mentor?.firstName} {mentor?.lastName}
+                                  </p>
+                                  <p className="text-xs text-gray-500">
+                                    Instructor
+                                  </p>
+                                </div>
                               </div>
-                              <span className="text-sm text-gray-600">
-                                ({course.ratingsCount} Ratings)
-                              </span>
-                            </div>
 
-                            <p className="text-sm text-gray-600 mb-3">
-                              {course.totalHours} Total Hours •{" "}
-                              {course.lectures} Lectures • {course.level}
-                            </p>
+                              {/* Rating */}
+                              <div className="flex items-center gap-2 mb-3">
+                                <div className="flex text-yellow-400 text-sm">
+                                  {[...Array(5)].map((_, i) => (
+                                    <span key={i}>
+                                      {i < Math.floor(course.rate || 0)
+                                        ? "★"
+                                        : i < (course.rate || 0)
+                                        ? "☆"
+                                        : "☆"}
+                                    </span>
+                                  ))}
+                                </div>
+                                <span className="text-sm text-gray-600">
+                                  {(course.rate || 0).toFixed(1)} (
+                                  {course.reviews || 0} reviews)
+                                </span>
+                              </div>
 
-                            <div className="flex gap-2">
-                              <button className="flex-1 bg-blue-600 text-white py-2 px-3 rounded-lg hover:bg-blue-700 transition text-sm font-medium">
-                                View Course
-                              </button>
-                              {course.isCompleted && course.certificate && (
-                                <button className="px-3 py-2 border border-green-300 text-green-600 rounded-lg hover:bg-green-50 transition text-sm">
-                                  📜 Certificate
-                                </button>
+                              {/* Course Stats */}
+                              <div className="flex items-center gap-4 mb-3 text-sm text-gray-600">
+                                <span className="flex items-center gap-1">
+                                  🕒 {course.duration || "N/A"}
+                                </span>
+                                <span className="flex items-center gap-1">
+                                  📚 {course.lectures || 0} lectures
+                                </span>
+                              </div>
+
+                              {/* Category */}
+                              <div className="mb-4">
+                                <span className="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full">
+                                  {course.category || "General"}
+                                </span>
+                              </div>
+
+                              {/* Progress Bar */}
+                              {item.progress !== undefined && (
+                                <div className="mb-4">
+                                  <div className="flex justify-between items-center mb-2">
+                                    <span className="text-sm font-medium text-gray-700">
+                                      Progress
+                                    </span>
+                                    <span className="text-sm text-gray-600">
+                                      {item.progress || 0}%
+                                    </span>
+                                  </div>
+                                  <div className="w-full bg-gray-200 rounded-full h-2">
+                                    <div
+                                      className={`h-2 rounded-full transition-all ${
+                                        item.progress === 100
+                                          ? "bg-green-500"
+                                          : "bg-blue-600"
+                                      }`}
+                                      style={{
+                                        width: `${item.progress || 0}%`,
+                                      }}
+                                    ></div>
+                                  </div>
+                                </div>
                               )}
+
+                              {/* Action Buttons */}
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() =>
+                                    navigate(`/order-complete-course`, {
+                                      state: {
+                                        courseId: course._id,
+                                        courseInfo: course,
+                                      },
+                                    })
+                                  }
+                                  className="flex-1 bg-blue-600 text-white py-2 px-3 rounded-lg hover:bg-blue-700 transition text-sm font-medium"
+                                >
+                                  View Course
+                                </button>
+                                <button
+                                  className="px-4 py-2 border border-orange-300 text-orange-600 rounded-lg hover:bg-orange-50 transition text-sm font-medium"
+                                  title="Rate this course"
+                                >
+                                  ⭐ Rate
+                                </button>
+                              </div>
+
+                              {/* Purchase Date */}
+                              <div className="mt-3 pt-3 border-t border-gray-100">
+                                <p className="text-xs text-gray-500">
+                                  Purchased on{" "}
+                                  {new Date(
+                                    item.purchaseDate
+                                  ).toLocaleDateString()}
+                                </p>
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      ))
+                        );
+                      })
                     ) : (
                       <div className="col-span-full text-center py-12">
+                        <div className="text-6xl mb-4">📚</div>
                         <p className="text-gray-500 text-lg mb-2">
                           No courses found
                         </p>
                         <p className="text-gray-400">
-                          Try adjusting your search or filter criteria
+                          {searchTerm || filterBy !== "all"
+                            ? "Try adjusting your search or filter criteria"
+                            : "You haven't purchased any courses yet"}
                         </p>
+                        {!searchTerm && filterBy === "all" && (
+                          <button
+                            onClick={() => navigate("/home")}
+                            className="mt-4 bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition"
+                          >
+                            Browse Courses
+                          </button>
+                        )}
                       </div>
                     )}
                   </div>

@@ -18,6 +18,20 @@ const router = express.Router();
 router.get("/", tokenMiddleware.auth, profileController.getProfile);
 
 /**
+ * @route   GET /api/profile/mentor/:mentorId
+ * @desc    Lấy thông tin profile của mentor theo ID
+ * @access  Public
+ */
+router.get("/mentor/:mentorId", profileController.getMentorById);
+
+/**
+ * @route   GET /api/profile/top-mentors
+ * @desc    Lấy danh sách top mentors
+ * @access  Public
+ */
+router.get("/top-mentors", profileController.getTopMentors);
+
+/**
  * @route   PUT /api/profile/mentor
  * @desc    Cập nhật thông tin profile cho mentor
  * @access  Private (Chỉ mentor)

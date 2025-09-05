@@ -3,7 +3,7 @@ import ImageForSignUp from "../assets/ImageForSignUp.jpg";
 import fb from "../assets/facebook.png";
 import gg from "../assets/google.png";
 import mcs from "../assets/microsoft.png";
-import { authApi } from "../api/modules/auth.api";
+import authApi from "../api/modules/auth.api";
 import { useDispatch } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import { IoArrowForward } from "react-icons/io5";
@@ -31,15 +31,16 @@ const SignUp = () => {
   // Check if user is already logged in
   useEffect(() => {
     const checkAuthStatus = async () => {
-      const token = localStorage.getItem("actkn") || localStorage.getItem("token");
+      const token =
+        localStorage.getItem("actkn") || localStorage.getItem("token");
       const user = localStorage.getItem("user");
       const isLoggedIn = localStorage.getItem("isLoggedIn");
-      
+
       if (token && user && isLoggedIn === "true") {
         try {
           const userData = JSON.parse(user);
-          
-          if (token.split('.').length === 3) {
+
+          if (token.split(".").length === 3) {
             // Redirect based on user role or stored userType
             if (userData.role === "mentor" || userData.userType === "mentor") {
               navigate(`${PATH.MENTOR}/${MENTOR_PATH.HOME}`, { replace: true });
@@ -62,7 +63,7 @@ const SignUp = () => {
         }
       }
     };
-    
+
     checkAuthStatus();
   }, [navigate]);
 
