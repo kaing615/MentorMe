@@ -7,6 +7,8 @@ const mockMentors = [
     firstName: "John",
     lastName: "Doe",
     avatarUrl: "https://via.placeholder.com/100",
+    rating: 4.8,
+    hourlyRate: 85,
     profile: {
       bio: "Experienced software engineer with 10+ years in full-stack development",
       location: "San Francisco, CA",
@@ -21,6 +23,8 @@ const mockMentors = [
     firstName: "Jane",
     lastName: "Smith",
     avatarUrl: "https://via.placeholder.com/100",
+    rating: 4.9,
+    hourlyRate: 120,
     profile: {
       bio: "UI/UX Designer passionate about creating user-centered designs",
       location: "New York, NY",
@@ -35,6 +39,8 @@ const mockMentors = [
     firstName: "Mike",
     lastName: "Johnson",
     avatarUrl: "https://via.placeholder.com/100",
+    rating: 4.6,
+    hourlyRate: 75,
     profile: {
       bio: "Business strategist helping startups scale and grow",
       location: "Austin, TX",
@@ -82,17 +88,22 @@ const mentorApi = {
     } catch (err) {
       console.log('Backend API not available, using mock data');
       
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 300));
-      
+      // Simulate API delay - ADJUST THIS NUMBER TO CHANGE LOADING TIME
+      await new Promise(resolve => setTimeout(resolve, 100)); // 100ms = 0.1 seconds
+
       // Filter mock data based on search criteria
       let filteredMentors = [...mockMentors];
       
       if (name && name.trim()) {
         const searchTerm = name.trim().toLowerCase();
-        filteredMentors = filteredMentors.filter(mentor => 
-          `${mentor.firstName} ${mentor.lastName}`.toLowerCase().includes(searchTerm)
-        );
+        console.log('Searching for:', searchTerm);
+        filteredMentors = filteredMentors.filter(mentor => {
+          const fullName = `${mentor.firstName} ${mentor.lastName}`.toLowerCase();
+          const matches = fullName.includes(searchTerm);
+          console.log(`${mentor.firstName} ${mentor.lastName}: ${fullName} includes "${searchTerm}" = ${matches}`);
+          return matches;
+        });
+        console.log('Filtered mentors:', filteredMentors);
       }
       
       if (category && category.trim()) {
@@ -160,5 +171,9 @@ const mentorApi = {
     }
   }
 };
+
+// Export named functions for easier importing
+export const searchMentors = mentorApi.searchMentors;
+export const getMentorById = mentorApi.getMentorById;
 
 export default mentorApi;

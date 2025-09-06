@@ -8,6 +8,7 @@ import { MdOutlineShoppingCart } from "react-icons/md";
 
 const Header = () => {
   const [showCategories, setShowCategories] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const navigate = useNavigate();
   const location = useLocation();
   const dispatch = useDispatch();
@@ -76,6 +77,36 @@ const Header = () => {
     toast.success("Đăng xuất thành công!");
   };
 
+  // Handle search functionality
+  const handleSearch = () => {
+    if (searchQuery.trim()) {
+      // Navigate to universal search page
+      navigate(`/platform/search?search=${encodeURIComponent(searchQuery.trim())}`);
+    } else {
+      // Navigate to search page without query
+      navigate('/platform/search');
+    }
+  };
+
+  const handleSearchKeyPress = (e) => {
+    if (e.key === 'Enter') {
+      handleSearch();
+    }
+  };
+
+  // Handle search container click to focus input
+  const handleSearchContainerClick = () => {
+    const searchInput = document.querySelector('input[placeholder*="Search courses"]');
+    if (searchInput) {
+      searchInput.focus();
+    }
+  };
+
+  // Handle mentor button click
+  const handleMentorClick = () => {
+    navigate('/all-mentors');
+  };
+
   return (
     <>
       <header className="relative w-full h-16 bg-white">
@@ -93,18 +124,33 @@ const Header = () => {
           </div>
 
           {/* Categories or Mentors */}
-          <div className="hidden md:block text-slate-500 text-[14px] md:text-[16px] font-inter font-light leading-5 mr-6 md:mr-10 whitespace-nowrap cursor-pointer hover:text-slate-600 transition-colors duration-200">
+          <button 
+            onClick={handleMentorClick}
+            className="hidden md:block text-slate-500 text-[14px] md:text-[16px] font-inter font-light leading-5 mr-6 md:mr-10 whitespace-nowrap cursor-pointer hover:text-blue-600 hover:bg-blue-50 px-3 py-1 rounded-md transition-all duration-200"
+          >
             {showCategories ? "Categories" : "Mentors"}
-          </div>
+          </button>
 
           {/* Search Bar */}
-          <div className="flex-1 max-w-full sm:max-w-[400px] md:max-w-[500px] lg:max-w-[580px] xl:max-w-[680px] p-2.5 rounded-lg border border-slate-500 flex items-center gap-2.5 mr-2 sm:mr-4 md:mr-6">
-            <IoSearch className="text-xl text-slate-500" />
+          <div 
+            onClick={handleSearchContainerClick}
+            className="flex-1 max-w-full sm:max-w-[400px] md:max-w-[500px] lg:max-w-[580px] xl:max-w-[680px] p-2.5 rounded-lg border border-slate-500 flex items-center gap-2.5 mr-2 sm:mr-4 md:mr-6 cursor-text hover:border-slate-600 transition-colors duration-200"
+          >
+            <IoSearch className="text-xl text-slate-500 pointer-events-none" />
             <input
               type="text"
-              placeholder="Search courses"
-              className="flex-1 text-sm md:text-base font-medium bg-transparent border-none outline-none text-slate-500 placeholder:text-slate-500"
+              placeholder="Search courses and mentors"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyPress={handleSearchKeyPress}
+              className="flex-1 text-sm md:text-base font-medium bg-transparent border-none outline-none text-slate-500 placeholder:text-slate-500 cursor-text"
             />
+            <button 
+              onClick={handleSearch}
+              className="hover:bg-slate-100 p-1 rounded-md transition-colors duration-200 cursor-pointer"
+            >
+              <IoSearch className="text-lg text-slate-600" />
+            </button>
           </div>
 
           {/* Right section */}

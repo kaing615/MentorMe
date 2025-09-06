@@ -5,6 +5,7 @@ export const PATH = {
 	ADMIN: "/admin",
 	MENTEE: "/",
   MENTOR: "/mentor",
+  PLATFORM: "/platform",
 };
 
 export const AUTH_PATH = {
@@ -23,6 +24,7 @@ export const MENTEE_PATH = {
   ALLCOURSEPAGE: "all-courses",
   MENTOR: "mentor",
   ALLMENTORS: "all-mentors",
+  FINDMENTOR: "find-mentor",
   ORDERCOMPLETECOURSE: "order-complete-course",
   CHECKOUT: "checkout",
   ORDERDETAIL: "order-detail",
@@ -45,4 +47,6 @@ export const MENTOR_PATH = {
 
 export const PLATFORM_PATH = {
   HOMESCREEN: "homescreen",
+  FINDMENTOR: "find-mentor",
+  SEARCH: "search",
 };

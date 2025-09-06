@@ -1,4 +1,4 @@
-import { PATH, AUTH_PATH, MENTEE_PATH, MENTOR_PATH } from "./path";
+import { PATH, AUTH_PATH, MENTEE_PATH, MENTOR_PATH, PLATFORM_PATH } from "./path";
 import { useRoutes } from "react-router-dom";
 
 import WelcomePage from "../pages/WelcomePage";
@@ -11,6 +11,7 @@ import MenteeProfile from "../pages/mentee-profile";
 import AllCoursePage from "../pages/AllCoursepage";
 import AllMentors from "../pages/AllMentors";
 import OrderCompleteCourse from "../pages/order-complete-course";
+import SearchPage from "../pages/SearchPage";
 
 // Mentor pages (nếu các file này còn tồn tại trong repo)
 import MentorProfile from "../pages/mentor-profile";
@@ -77,6 +78,25 @@ const useRouterElements = () => {
         {
           path: MENTEE_PATH.ALLMENTORS,
           element: <AllMentors />,
+        },
+      ],
+    },
+
+    {
+      path: PATH.PLATFORM,
+      element: <AllPagesLayout />,
+      children: [
+        {
+          path: PLATFORM_PATH.HOMESCREEN,
+          element: <HomeScreen />,
+        },
+        {
+          path: PLATFORM_PATH.FINDMENTOR,
+          element: <SearchPage />,
+        },
+        {
+          path: PLATFORM_PATH.SEARCH,
+          element: <SearchPage />,
         },
       ],
     },
