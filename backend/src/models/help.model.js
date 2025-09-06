@@ -4,7 +4,8 @@ const HelpRequestSchema = new mongoose.Schema({
     user: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "User",
-        required: false
+        required: false,
+        index: true
     },
     
     guestEmail: {
@@ -52,8 +53,13 @@ const HelpRequestSchema = new mongoose.Schema({
     
     status: {
         type: String,
-        enum: ["Open", "In Progress", "Resolved", "Closed"],
-        default: "Open"
+        enum: {
+            values: ["Open", "In Progress", "Resolved", "Closed"],
+            message: "{VALUE} is not a valid status"
+        },
+        default: "Open",
+        index: true
+
     },
     
     adminResponse: String,
@@ -67,7 +73,8 @@ const HelpRequestSchema = new mongoose.Schema({
     ipAddress: String,
     ticketNumber: {
         type: String,
-        unique: true
+        unique: true,
+        index: true
     }
 }, {
     timestamps: true,
@@ -82,16 +89,27 @@ HelpRequestSchema.pre("save", function(next) {
         const randomStr = Math.random().toString(36).substring(2, 8).toUpperCase();
         this.ticketNumber = `TICKET-${timestamp}-${randomStr}`;
     }
+
+    if (!this.user && (!this.guestEmail || !this.guestName)) {
+        return next(new Error('Either user reference or guest information is required'));
+    }
+
     next();
 });
 
 
 HelpRequestSchema.virtual("contactEmail").get(function() {
-    return this.user?.email || this.guestEmail;
+    if (this.user && this.populated('user')) {
+        return this.user.email;
+    }
+    return this.guestEmail;
 });
 
 HelpRequestSchema.virtual("contactName").get(function() {
-    return this.user ? `${this.user.firstName} ${this.user.lastName}` : this.guestName;
+    if (this.user && this.populated('user')) {
+        return `${this.user.firstName} ${this.user.lastName}`;
+    }
+    return this.guestName;
 });
 
 HelpRequestSchema.virtual("isRegisteredUser").get(function() {
@@ -102,6 +120,8 @@ HelpRequestSchema.virtual("isRegisteredUser").get(function() {
 HelpRequestSchema.index({ user: 1, createdAt: -1 });
 HelpRequestSchema.index({ guestEmail: 1, createdAt: -1 });
 HelpRequestSchema.index({ status: 1, priorityLevel: 1 });
-HelpRequestSchema.index({ ticketNumber: 1 }, { unique: true });
+HelpRequestSchema.index({ issueCategory: 1, status: 1 });
+HelpRequestSchema.index({ createdAt: -1 });
+HelpRequestSchema.index({ respondedBy: 1, respondedAt: -1 });
 
 export default mongoose.model("HelpRequest", HelpRequestSchema);

@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import HelpRequest from "../models/help.model.js";
 import User from "../models/user.model.js";
 import responseHandler from "../handlers/response.handler.js";
@@ -17,6 +18,7 @@ const calculateResponseTime = (createdAt, respondedAt) => {
 };
 
 const getTimeAgo = (date) => {
+    if (!date) return "Unknown";
     const now = new Date();
     const diff = now - date;
     const hours = Math.floor(diff / (1000 * 60 * 60));
@@ -28,7 +30,7 @@ const getTimeAgo = (date) => {
 };
 
 const getPriorityScore = (priorityLevel) => {
-    const priorities = {"Low ": 1, "Medium": 2, "High": 3, "Urgent": 4};
+    const priorities = {"Low": 1, "Medium": 2, "High": 3, "Urgent": 4};
     return priorities[priorityLevel] || 1;
 };
 
@@ -43,30 +45,49 @@ const getStatusColor = (status) => {
 };
 
 
-const formatTicketForDisplay = (ticket) => ({
-    ...ticket.toObject(),
-    responseTime: calculateResponseTime(ticket.createdAt, ticket.respondedAt),
-    timeAgo: getTimeAgo(ticket.createdAt),
-    priorityScore: getPriorityScore(ticket.priorityLevel),
-    statusColor: getStatusColor(ticket.status),
-    ticketInfo: {
-        number: ticket.ticketNumber,
-        subject: ticket.subject,
-        status: ticket.status,
-        priority: ticket.priorityLevel,
-        timeAgo: getTimeAgo(ticket.createdAt)
-    }
-});
+const formatTicketForDisplay = (ticket) => {
+    if (!ticket) return null;
+    const ticketObj = ticket.toObject ? ticket.toObject() : ticket;
+    return {
+        ...ticketObj,
+        responseTime: calculateResponseTime(ticketObj.createdAt, ticketObj.respondedAt),
+        timeAgo: getTimeAgo(ticketObj.createdAt),
+        priorityScore: getPriorityScore(ticketObj.priorityLevel),
+        statusColor: getStatusColor(ticketObj.status),
+        ticketInfo: {
+            number: ticketObj.ticketNumber,
+            subject: ticketObj.subject,
+            status: ticketObj.status,
+            priority: ticketObj.priorityLevel,
+            timeAgo: getTimeAgo(ticketObj.createdAt)
+        }
+    };
+};
 
+const isUserAdmin = (user) => {
+    return Boolean(
+        user?.role === 'admin' ||
+        user?.isAdmin === true ||
+        user?.permissions?.includes('admin')
+    );
+};
+
+const isValidObjectId = (id) => {
+    return id && mongoose.Types.ObjectId.isValid(id);
+};
+
+const normalizeEmail = (email) => {
+    return email?.toLowerCase()?.trim();
+};
 
 export const createHelpRequest = async (req, res) => {
     try {
-        const userId = req.user ? req.user._id : null;
+        const userId = req.user?._id || req.user?.id;
         const hasUser = Boolean(userId);
 
         const {isValid, errors, data} = validateHelpRequest(req.body, hasUser);
         if (!isValid) {
-            return responseHandler.badRequest(res, errors.join(" "));
+            return responseHandler.badRequest(res, errors.join(", "));
         }
 
         const sanitizedData = sanitizeHelpInput(data);
@@ -89,26 +110,30 @@ export const createHelpRequest = async (req, res) => {
             helpRequestData.guestEmail = sanitizedData.guestEmail;
         }
 
-        const HelpRequest = await HelpRequest.create(helpRequestData);
+        const helpRequestInstance = await HelpRequest.create(helpRequestData);
 
         return responseHandler.created(res, {
             success: true,
             data: {
-                ticketNumber: HelpRequest.ticketNumber,
-                status: HelpRequest.status,
-                message: `Help request submitted successfully! Ticket #${HelpRequest.ticketNumber}`
+                ticketNumber: helpRequestInstance.ticketNumber,
+                status: helpRequestInstance.status,
+                message: `Help request submitted successfully! Ticket #${helpRequestInstance.ticketNumber}`
             }
         });
     } catch (error) {
         console.error("Error creating help request:", error);
-        return responseHandler.internalServerError(res, 
+
+        if (error.code === 11000) {
+            return responseHandler.badRequest(res, "Duplicate ticket number. Please try again.");
+        }
+        return responseHandler.error(res, 
             "An error occurred while submitting your help request. Please try again later.");
     }
 };
 
 export const getHelpRequests = async (req, res) => {
     try {
-        const isAdmin = req.user?.role === 'admin';
+        const isAdmin = isUserAdmin(req.user);
         if (!isAdmin) {
             return responseHandler.forbidden(res, "Access denied.");
         }
@@ -117,18 +142,28 @@ export const getHelpRequests = async (req, res) => {
 
         //Build query object
         const query = {};
-        if (status) query.status = status;
-        if (priorityLevel) query.priorityLevel = priorityLevel;
-        if (issueCategory) query.issueCategory = issueCategory;
-        if (search) {
+
+        const validStatuses = ["Open", "In Progress", "Resolved", "Closed"];
+        const validPriorities = ["Low", "Medium", "High", "Urgent"];
+        const validCategories = [
+            "Account Issues", "Booking Problems", "Payment Issues",
+            "Technical Support", "Course Related", "Mentor Issues",
+            "General Inquiry", "Bug Report", "Feature Request", "Other"
+        ];
+        
+        if (status && validStatuses.includes(status)) query.status = status;
+        if (priorityLevel && validPriorities.includes(priorityLevel)) query.priorityLevel = priorityLevel;
+        if (issueCategory && validCategories.includes(issueCategory)) query.issueCategory = issueCategory;
+        
+        if (search && search.trim()) {
+            const searchTerm = search.trim();
             query.$or = [
-                {subject: {$regex: search, $options: 'i'}},
-                {guestName: {$regex: search, $options: 'i'}},
-                {guestEmail: {$regex: search, $options: 'i'}},
-                {ticketNumber: {$regex: search, $options: 'i'}}
+                {subject: {$regex: searchTerm, $options: 'i'}},
+                {guestName: {$regex: searchTerm, $options: 'i'}},
+                {guestEmail: {$regex: searchTerm, $options: 'i'}},
+                {ticketNumber: {$regex: searchTerm, $options: 'i'}}
             ];
         }
-
         const lim = Math.min(Math.max(Number(limit) || 20, 1), 100);
         const skip = (Math.max(Number(page) || 1, 1) - 1) * lim;
 
@@ -153,8 +188,10 @@ export const getHelpRequests = async (req, res) => {
             });
         }
 
+        const validSortFields = ['createdAt', 'updatedAt', 'status', 'priorityLevel', 'subject'];
+        const sortField = validSortFields.includes(sortBy) ? sortBy : 'createdAt';
         const sortOptions = {};
-        sortOptions[sortBy] = -1; // Descending order
+        sortOptions[sortField] = -1;
 
         const [items, total] = await Promise.all([HelpRequest.find(query)
             .populate("user", "firstName lastName email userName avatarUrl")
@@ -176,12 +213,12 @@ export const getHelpRequests = async (req, res) => {
         });
     } catch (error) {
         console.error("Error fetching help requests:", error);
-        return responseHandler.internalServerError(res, 
+        return responseHandler.error(res, 
             "An error occurred while fetching help requests.");
     }
 };
 
-export const getMyHelpResquests = async (req, res) => {
+export const getMyHelpRequests = async (req, res) => {
     try {
         const userId = req.user?.id || req.user?._id;
         if (!userId) {
@@ -223,32 +260,32 @@ export const getHelpRequestById = async (req, res) => {
     try {
         const {id} = req.params;
         const userId = req.user?.id || req.user?._id;
-        const isAdmin = req.user?.role === 'admin';
+        const isAdmin = isUserAdmin(req.user);
 
-        if (!id) {
-            return responseHandler.badRequest(res, "Ticket ID is required.");
+        if (!isValidObjectId(id)) {
+            return responseHandler.badRequest(res, "Invalid ticket ID format.");
         }
         
-        const helpRequest = await HelpRequest.findById(id)
+        const helpRequestInstance = await HelpRequest.findById(id)
             .populate("user", "firstName lastName email userName avatarUrl")
             .populate("respondedBy", "firstName lastName userName")
             .lean();
 
-        if (!helpRequest) {
+        if (!helpRequestInstance) {
             return responseHandler.notFound(res, "Help request not found.");
         }
 
-        if (!canUserViewTicket(helpRequest, userId, isAdmin)) {
+        if (!canUserViewTicket(helpRequestInstance, userId, isAdmin)) {
             return responseHandler.forbidden(res, 
                 "You do not have permission to view this ticket.");
         }
 
-        const formattedTicket = formatTicketForDisplay(helpRequest);
+        const formattedTicket = formatTicketForDisplay(helpRequestInstance);
 
         return responseHandler.ok(res, formattedTicket);
     } catch (error) {
         console.error("Error fetching help request by ID:", error);
-        return responseHandler.internalServerError(res, 
+        return responseHandler.error(res, 
             "An error occurred while fetching the help request.");
     }
 };
@@ -258,18 +295,18 @@ export const updateHelpRequest = async (req, res) => {
         const {id} = req.params;
         const {status, adminResponse} = req.body;
         const userId = req.user?.id || req.user?._id;
-        const isAdmin = req.user?.role === 'admin';
+        const isAdmin = isUserAdmin(req.user);
 
-        if (!id) {
-            return responseHandler.badRequest(res, "Ticket ID is required.");
+        if (!isValidObjectId(id)) {
+            return responseHandler.badRequest(res, "Invalid ticket ID format.");
         }
 
-        const helpRequest = await HelpRequest.findById(id);
-        if (!helpRequest) {
+        const helpRequestInstance = await HelpRequest.findById(id);
+        if (!helpRequestInstance) {
             return responseHandler.notFound(res, "Help request not found.");
         }
 
-        if (!canUserUpdateTicket(helpRequest, userId, isAdmin)) {
+        if (!canUserUpdateTicket(helpRequestInstance, userId, isAdmin)) {
             return responseHandler.forbidden(res, 
                 "You do not have permission to update this ticket.");
         }
@@ -279,18 +316,23 @@ export const updateHelpRequest = async (req, res) => {
             if (!validStatuses.includes(status)) {
                 return responseHandler.badRequest(res, "Invalid status value.");
             }
-            helpRequest.status = status;
+            helpRequestInstance.status = status;
         }
 
         if (adminResponse !== undefined && isAdmin) {
-            helpRequest.adminResponse = sanitizeHtml(adminResponse.trim(), {
+            if (typeof adminResponse !== 'string') {
+                return responseHandler.badRequest(res, 
+                    "Admin response must be a string.");
+            }
+
+            helpRequestInstance.adminResponse = sanitizeHtml(adminResponse.trim(), {
                 allowedTags: ['p', 'br', 'strong', 'em'], allowedAttributes: {}
             });
-            helpRequest.respondedBy = userId;
-            helpRequest.respondedAt = new Date();
+            helpRequestInstance.respondedBy = userId;
+            helpRequestInstance.respondedAt = new Date();
         }
 
-        await helpRequest.save();
+        await helpRequestInstance.save();
 
         const updatedTicket = await HelpRequest.findById(id)
             .populate("user", "firstName lastName email")
@@ -300,13 +342,13 @@ export const updateHelpRequest = async (req, res) => {
         const formattedTicket = formatTicketForDisplay(updatedTicket);
 
         return responseHandler.ok(res, {
-            sucess: true,
+            success: true,
             data: formattedTicket,
             message: "Help request updated successfully."
         });
     } catch (error) {
         console.error("Error updating help request:", error);
-        return responseHandler.internalServerError(res, 
+        return responseHandler.error(res, 
             "An error occurred while updating the help request.");
     }  
 }; 
@@ -320,10 +362,15 @@ export const getHelpRequestByTicket = async (req, res) => {
             return responseHandler.badRequest(res, "Ticket number and email are required.");
         }
 
-        const helpRequest = await HelpRequest.findOne({
-            ticketNumber,
+        const normalizedEmail = normalizeEmail(email);
+        if (!normalizedEmail) {
+            return responseHandler.badRequest(res, "Invalid email format.");
+        }
+
+        const helpRequestInstance = await HelpRequest.findOne({
+            ticketNumber: ticketNumber.toUpperCase(),
             $or: [
-                {guestEmail: email.trim().toLowerCase()},
+                {guestEmail: normalizedEmail},
                 {user: { $ne: null }}
             ]
         })
@@ -331,21 +378,21 @@ export const getHelpRequestByTicket = async (req, res) => {
         .select('-userAgent -ipAddress')
         .lean();
 
-        if (!helpRequest) {
+        if (!helpRequestInstance) {
             return responseHandler.notFound(res, "Help request not found.");
         }
 
-        if (helpRequest.user && helpRequest.user.email !== email.toLowerCase().trim()) {
+        if (helpRequestInstance.user && helpRequestInstance.user.email !== normalizedEmail) {
             return responseHandler.notFound(res, 
                 "Help request not found or email doesn't match.");
         }
 
-        const formattedTicket = formatTicketForDisplay(helpRequest);
+        const formattedTicket = formatTicketForDisplay(helpRequestInstance);
 
-        return responseHandler.ok(res. formattedTicket);
+        return responseHandler.ok(res, formattedTicket);
     } catch (error) {
         console.error("Error fetching help request by ticket number:", error);
-        return responseHandler.internalServerError(res, 
+        return responseHandler.error(res, 
             "An error occurred while fetching the help request.");
     }
 };
