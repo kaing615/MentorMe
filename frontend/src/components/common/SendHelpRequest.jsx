@@ -131,12 +131,16 @@ const SendHelpRequest = () => {
                       className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
                     >
                       <option value="">-- Select issue type --</option>
-                      <option value="booking">Booking Issues</option>
-                      <option value="payment">Payment Problems</option>
-                      <option value="mentor">Mentor Related</option>
-                      <option value="technical">Technical Issues</option>
-                      <option value="account">Account Problems</option>
-                      <option value="other">Other</option>
+                      <option value="Account Issues">Account Issues</option>
+                      <option value="Booking Problems">Booking Problems</option>
+                      <option value="Payment Issues">Payment Issues</option>
+                      <option value="Technical Support">Technical Support</option>
+                      <option value="Course Related">Course Related</option>
+                      <option value="Mentor Issues">Mentor Issues</option>
+                      <option value="General Inquiry">General Inquiry</option>
+                      <option value="Bug Report">Bug Report</option>
+                      <option value="Feature Request">Feature Request</option>
+                      <option value="Other">Other</option>
                     </select>
                   </div>
                   <div>
