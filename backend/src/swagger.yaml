@@ -771,3 +771,582 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+############################################################################
+#HELP REQUEST ENDPOINTS
+###########################################################################
+/help-requests:
+    post:
+      tags:
+        - Help Requests
+      summary: Tạo yêu cầu hỗ trợ mới
+      description: Gửi yêu cầu hỗ trợ (có thể từ guest hoặc user đã đăng nhập)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - subject
+                - issueDetails
+                - issueCategory
+                - priorityLevel
+              properties:
+                subject:
+                  type: string
+                  maxLength: 200
+                  description: Tiêu đề vấn đề
+                  example: "Không thể đăng nhập vào tài khoản"
+                issueDetails:
+                  type: string
+                  maxLength: 2000
+                  description: Mô tả chi tiết vấn đề
+                  example: "Tôi đã quên mật khẩu và email reset không được gửi đến"
+                issueCategory:
+                  type: string
+                  enum: [Account Issues, Booking Problems, Payment Issues, Technical Support, Course Related, Mentor Issues, General Inquiry, Bug Report, Feature Request, Other]
+                  description: Danh mục vấn đề
+                  example: "Account Issues"
+                priorityLevel:
+                  type: string
+                  enum: [Low, Medium, High, Urgent]
+                  description: Mức độ ưu tiên
+                  example: "Medium"
+                guestName:
+                  type: string
+                  maxLength: 100
+                  description: Tên khách (bắt buộc nếu chưa đăng nhập)
+                  example: "Nguyen Van A"
+                guestEmail:
+                  type: string
+                  format: email
+                  description: Email khách (bắt buộc nếu chưa đăng nhập)
+                  example: "nguyen@example.com"
+      responses:
+        "201":
+          description: Tạo yêu cầu hỗ trợ thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      ticketNumber:
+                        type: string
+                        example: "TICKET-ABC123"
+                      status:
+                        type: string
+                        example: "Open"
+                      message:
+                        type: string
+                        example: "Help request submitted successfully! Ticket #TICKET-ABC123"
+        "400":
+          description: Lỗi validation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: Lỗi server
+
+    get:
+      tags:
+        - Help Requests
+      summary: Lấy tất cả yêu cầu hỗ trợ (Admin)
+      description: Lấy danh sách tất cả yêu cầu hỗ trợ với phân trang và bộ lọc (chỉ admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+          description: Số trang
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+          description: Số item per page
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [Open, In Progress, Resolved, Closed]
+          description: Lọc theo trạng thái
+        - in: query
+          name: issueCategory
+          schema:
+            type: string
+          description: Lọc theo danh mục
+        - in: query
+          name: priorityLevel
+          schema:
+            type: string
+            enum: [Low, Medium, High, Urgent]
+          description: Lọc theo mức độ ưu tiên
+        - in: query
+          name: search
+          schema:
+            type: string
+          description: Tìm kiếm theo subject, guestName, email, ticketNumber
+        - in: query
+          name: sortBy
+          schema:
+            type: string
+            enum: [createdAt, updatedAt, status, priorityLevel, subject, priority]
+            default: createdAt
+          description: Sắp xếp theo field
+      responses:
+        "200":
+          description: Lấy danh sách thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "success"
+                  data:
+                    type: object
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/HelpRequest"
+                      total:
+                        type: integer
+                        example: 50
+                      page:
+                        type: integer
+                        example: 1
+                      limit:
+                        type: integer
+                        example: 20
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden (admin only)
+
+  /help-requests/my:
+    get:
+      tags:
+        - Help Requests
+      summary: Lấy yêu cầu hỗ trợ của tôi
+      description: Lấy tất cả yêu cầu hỗ trợ của user đang đăng nhập
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+          description: Số trang
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 20
+          description: Số item per page
+      responses:
+        "200":
+          description: Lấy danh sách thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "success"
+                  data:
+                    type: object
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/HelpRequest"
+                      total:
+                        type: integer
+                        example: 5
+                      page:
+                        type: integer
+                        example: 1
+                      limit:
+                        type: integer
+                        example: 20
+        "401":
+          description: Unauthorized
+
+  /help-requests/ticket/{ticketNumber}:
+    get:
+      tags:
+        - Help Requests
+      summary: Tra cứu ticket công khai
+      description: Tra cứu thông tin yêu cầu hỗ trợ bằng số ticket (không cần đăng nhập)
+      parameters:
+        - in: path
+          name: ticketNumber
+          required: true
+          schema:
+            type: string
+          description: Số ticket cần tra cứu
+          example: "TICKET-ABC123"
+        - in: query
+          name: email
+          required: true
+          schema:
+            type: string
+            format: email
+          description: Email để xác thực quyền truy cập ticket
+          example: "nguyen@example.com"
+      responses:
+        "200":
+          description: Tìm thấy ticket
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "success"
+                  data:
+                    $ref: "#/components/schemas/HelpRequest"
+        "400":
+          description: Thiếu ticket number hoặc email
+        "404":
+          description: Không tìm thấy ticket hoặc email không khớp
+
+  /help-requests/{id}:
+    get:
+      tags:
+        - Help Requests
+      summary: Lấy chi tiết yêu cầu hỗ trợ
+      description: Lấy thông tin chi tiết yêu cầu hỗ trợ theo ID
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: ID của yêu cầu hỗ trợ
+          example: "507f1f77bcf86cd799439011"
+      responses:
+        "200":
+          description: Lấy thông tin thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "success"
+                  data:
+                    $ref: "#/components/schemas/HelpRequest"
+        "400":
+          description: Invalid ID format
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden - không có quyền xem ticket này
+        "404":
+          description: Không tìm thấy yêu cầu
+
+    put:
+      tags:
+        - Help Requests
+      summary: Cập nhật yêu cầu hỗ trợ
+      description: Cập nhật trạng thái và phản hồi yêu cầu hỗ trợ (admin hoặc chủ sở hữu)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: ID của yêu cầu hỗ trợ
+          example: "507f1f77bcf86cd799439011"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  type: string
+                  enum: [Open, In Progress, Resolved, Closed]
+                  description: Trạng thái mới
+                  example: "Resolved"
+                adminResponse:
+                  type: string
+                  description: Phản hồi từ admin (chỉ admin mới được set)
+                  example: "Đã reset password thành công cho bạn. Vui lòng kiểm tra email."
+      responses:
+        "200":
+          description: Cập nhật thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "success"
+                  data:
+                    $ref: "#/components/schemas/HelpRequest"
+                  message:
+                    type: string
+                    example: "Help request updated successfully."
+        "400":
+          description: Invalid data hoặc ID format
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden - không có quyền update ticket này
+        "404":
+          description: Không tìm thấy yêu cầu          
+
+############################################################################
+#HELP REQUEST SCHEMA
+###########################################################################
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: "JWT token từ API đăng nhập. Format: Bearer <token>"
+
+  schemas:
+    User:
+      type: object
+      properties:
+        _id:
+          type: string
+          example: "507f1f77bcf86cd799439011"
+        firstName:
+          type: string
+          example: "Nguyen"
+        lastName:
+          type: string
+          example: "Van A"
+        userName:
+          type: string
+          example: "testuser123"
+        email:
+          type: string
+          format: email
+          example: "test@example.com"
+        role:
+          type: string
+          enum: [mentee, mentor, admin]
+          example: "mentee"
+        isVerified:
+          type: boolean
+          example: true
+        avatarUrl:
+          type: string
+          example: "https://cloudinary.com/image/abc123.jpg"
+        createdAt:
+          type: string
+          format: date-time
+          example: "2023-12-01T10:30:00Z"
+
+    Profile:
+      type: object
+      properties:
+        _id:
+          type: string
+          example: "507f1f77bcf86cd799439012"
+        userId:
+          type: string
+          example: "507f1f77bcf86cd799439011"
+        jobTitle:
+          type: string
+          example: "Senior Developer"
+        category:
+          type: string
+          example: "Technology"
+        bio:
+          type: string
+          example: "Experienced developer with 5+ years"
+        location:
+          type: string
+          example: "Ho Chi Minh City"
+        skills:
+          type: array
+          items:
+            type: string
+          example: ["JavaScript", "Node.js", "React"]
+        languages:
+          type: array
+          items:
+            type: string
+          example: ["Vietnamese", "English"]
+        timezone:
+          type: string
+          example: "GMT+7"
+        links:
+          type: object
+          properties:
+            linkedin:
+              type: string
+            github:
+              type: string
+            website:
+              type: string
+
+    HelpRequest:
+      type: object
+      properties:
+        _id:
+          type: string
+          example: "507f1f77bcf86cd799439011"
+        user:
+          type: object
+          description: Thông tin user (nếu đã đăng nhập)
+          properties:
+            _id:
+              type: string
+            firstName:
+              type: string
+            lastName:
+              type: string
+            email:
+              type: string
+            userName:
+              type: string
+            avatarUrl:
+              type: string
+        guestEmail:
+          type: string
+          format: email
+          description: Email khách (nếu chưa đăng nhập)
+          example: "guest@example.com"
+        guestName:
+          type: string
+          description: Tên khách (nếu chưa đăng nhập)
+          example: "Nguyen Van A"
+        subject:
+          type: string
+          maxLength: 200
+          description: Tiêu đề vấn đề
+          example: "Không thể đăng nhập vào tài khoản"
+        issueCategory:
+          type: string
+          enum: [Account Issues, Booking Problems, Payment Issues, Technical Support, Course Related, Mentor Issues, General Inquiry, Bug Report, Feature Request, Other]
+          description: Danh mục vấn đề
+          example: "Account Issues"
+        priorityLevel:
+          type: string
+          enum: [Low, Medium, High, Urgent]
+          description: Mức độ ưu tiên
+          example: "Medium"
+        issueDetails:
+          type: string
+          maxLength: 2000
+          description: Mô tả chi tiết vấn đề
+          example: "Tôi đã quên mật khẩu và email reset không được gửi đến"
+        status:
+          type: string
+          enum: [Open, In Progress, Resolved, Closed]
+          description: Trạng thái hiện tại
+          example: "Open"
+        adminResponse:
+          type: string
+          description: Phản hồi từ admin
+          example: "Chúng tôi đã reset password cho bạn"
+        respondedBy:
+          type: object
+          description: Admin đã phản hồi
+          properties:
+            _id:
+              type: string
+            firstName:
+              type: string
+            lastName:
+              type: string
+            userName:
+              type: string
+        respondedAt:
+          type: string
+          format: date-time
+          description: Thời gian phản hồi
+          example: "2023-12-01T15:30:00Z"
+        ticketNumber:
+          type: string
+          description: Số ticket duy nhất
+          example: "TICKET-ABC123"
+        createdAt:
+          type: string
+          format: date-time
+          description: Thời gian tạo
+          example: "2023-12-01T10:30:00Z"
+        updatedAt:
+          type: string
+          format: date-time
+          description: Thời gian cập nhật cuối
+          example: "2023-12-01T15:30:00Z"
+        timeAgo:
+          type: string
+          description: Thời gian tạo theo format readable
+          example: "2 hours ago"
+        responseTime:
+          type: integer
+          description: Thời gian phản hồi (hours)
+          example: 5
+        priorityScore:
+          type: integer
+          description: Điểm ưu tiên (1-4)
+          example: 2
+        statusColor:
+          type: string
+          description: Màu hiển thị cho status
+          example: "#dc3545"
+        contactEmail:
+          type: string
+          description: Email liên hệ (virtual field)
+          example: "contact@example.com"
+        contactName:
+          type: string
+          description: Tên liên hệ (virtual field)
+          example: "Nguyen Van A"
+        isRegisteredUser:
+          type: boolean
+          description: Có phải user đã đăng ký không (virtual field)
+          example: false
+
+    Error:
+      type: object
+      properties:
+        status:
+          type: string
+          example: "error"
+        message:
+          type: string
+          example: "Error message"
+        errors:
+          type: array
+          items:
+            type: string
+          description: Chi tiết lỗi validation
