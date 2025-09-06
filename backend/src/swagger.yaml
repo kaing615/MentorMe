@@ -8,7 +8,75 @@ info:
     email: support@mentorme.com
 
 servers:
-  - url: http://localhost:4000
+  - url: http://localhost:4000/api/v1
+    description: Development server
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+        userName:
+          type: string
+        firstName:
+          type: string
+        lastName:
+          type: string
+        email:
+          type: string
+        role:
+          type: string
+          enum: [mentor, mentee]
+        isVerified:
+          type: boolean
+
+    Profile:
+      type: object
+      properties:
+        id:
+          type: string
+        userId:
+          type: string
+        bio:
+          type: string
+        location:
+          type: string
+        avatarUrl:
+          type: string
+        links:
+          type: object
+        languages:
+          type: array
+          items:
+            type: string
+        timezone:
+          type: string
+
+    Error:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [error]
+        message:
+          type: string
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              field:
+                type: string
+              message:
+                type: string
 
 paths:
   /user/signup:
@@ -767,6 +835,842 @@ paths:
                 $ref: "#/components/schemas/Error"
         "401":
           description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /profile/search/mentors:
+    get:
+      tags:
+        - Profile Management
+      summary: Tìm kiếm mentor theo nhiều tiêu chí
+      description: |
+        Tìm kiếm mentor theo các tiêu chí khác nhau:
+        - Theo tên (firstName + lastName)
+        - Theo ID cụ thể
+        - Theo danh mục/môn học 
+        - Theo kỹ năng
+        - Theo địa điểm
+
+        Kết quả được sắp xếp theo rating và có hỗ trợ phân trang.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: name
+          schema:
+            type: string
+            minLength: 2
+            maxLength: 100
+          description: Tìm kiếm theo tên mentor (tìm kiếm trong firstName và lastName)
+          example: "Nguyen Van"
+        - in: query
+          name: id
+          schema:
+            type: string
+            pattern: "^[0-9a-fA-F]{24}$"
+          description: Tìm kiếm mentor theo ID cụ thể (ObjectId format)
+          example: "64a7b8c9d1e2f3g4h5i6j7k8"
+        - in: query
+          name: category
+          schema:
+            type: string
+            minLength: 2
+            maxLength: 100
+          description: Tìm kiếm theo danh mục/môn học
+          example: "JavaScript"
+        - in: query
+          name: skills
+          schema:
+            type: string
+          description: Tìm kiếm theo kỹ năng (phân cách bởi dấu phay)
+          example: "React,Node.js,MongoDB"
+        - in: query
+          name: location
+          schema:
+            type: string
+            minLength: 2
+            maxLength: 100
+          description: Tìm kiếm theo địa điểm
+          example: "Ho Chi Minh"
+        - in: query
+          name: page
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+          description: Số trang (pagination)
+          example: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 10
+          description: Số lượng kết quả mỗi trang
+          example: 10
+      responses:
+        "200":
+          description: Tìm kiếm mentor thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "success"
+                  data:
+                    type: object
+                    properties:
+                      mentors:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            _id:
+                              type: string
+                              example: "64a7b8c9d1e2f3g4h5i6j7k8"
+                            userName:
+                              type: string
+                              example: "nguyenvana"
+                            firstName:
+                              type: string
+                              example: "Nguyen"
+                            lastName:
+                              type: string
+                              example: "Van A"
+                            email:
+                              type: string
+                              example: "nguyenvana@email.com"
+                            avatarUrl:
+                              type: string
+                              example: "https://cloudinary.com/avatar.jpg"
+                            role:
+                              type: array
+                              items:
+                                type: string
+                              example: ["mentor"]
+                            profile:
+                              type: object
+                              properties:
+                                _id:
+                                  type: string
+                                jobTitle:
+                                  type: string
+                                  example: "Senior Developer"
+                                location:
+                                  type: string
+                                  example: "Ho Chi Minh City"
+                                category:
+                                  type: string
+                                  example: "Web Development"
+                                skills:
+                                  type: array
+                                  items:
+                                    type: string
+                                  example: ["React", "Node.js", "MongoDB"]
+                                bio:
+                                  type: string
+                                  example: "Experienced developer with 5+ years"
+                                headline:
+                                  type: string
+                                  example: "Full Stack JavaScript Developer"
+                                experience:
+                                  type: string
+                                  example: "5 years"
+                                rate:
+                                  type: number
+                                  example: 4.8
+                                reviews:
+                                  type: array
+                                  items:
+                                    type: object
+                            coursesCount:
+                              type: integer
+                              example: 3
+                            subjects:
+                              type: array
+                              items:
+                                type: string
+                              example: ["JavaScript", "React", "Node.js"]
+                            courses:
+                              type: array
+                              items:
+                                type: object
+                                description: "Chi tiết khóa học mà mentor đang dạy"
+                      pagination:
+                        type: object
+                        properties:
+                          currentPage:
+                            type: integer
+                            example: 1
+                          totalPages:
+                            type: integer
+                            example: 5
+                          totalCount:
+                            type: integer
+                            example: 47
+                          limit:
+                            type: integer
+                            example: 10
+                          hasNext:
+                            type: boolean
+                            example: true
+                          hasPrev:
+                            type: boolean
+                            example: false
+                      searchCriteria:
+                        type: object
+                        properties:
+                          name:
+                            type: string
+                            example: "Nguyen"
+                          id:
+                            type: string
+                            example: null
+                          category:
+                            type: string
+                            example: "JavaScript"
+                          skills:
+                            type: string
+                            example: "React,Node.js"
+                          location:
+                            type: string
+                            example: "Ho Chi Minh"
+        "400":
+          description: Lỗi validation tham số tìm kiếm
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "error"
+                  message:
+                    type: string
+                    example: "Tham số tìm kiếm không hợp lệ"
+                  errors:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        field:
+                          type: string
+                          example: "page"
+                        message:
+                          type: string
+                          example: "page must be greater than or equal to 1"
+        "401":
+          description: Unauthorized - Token không hợp lệ
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: Lỗi server khi thực hiện tìm kiếm
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  # ===========================================
+  # PURCHASED COURSES ENDPOINTS
+  # ===========================================
+  /purchased-courses:
+    get:
+      tags:
+        - Purchased Courses
+      summary: Lấy danh sách khóa học đã mua
+      description: Lấy tất cả khóa học mà user đã mua với thông tin chi tiết
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Lấy danh sách thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: number
+                    example: 200
+                  message:
+                    type: string
+                    example: "Lấy danh sách khóa học đã mua thành công."
+                  data:
+                    type: object
+                    properties:
+                      totalCourses:
+                        type: number
+                        example: 5
+                      courses:
+                        type: array
+                        items:
+                          type: object
+        "401":
+          description: Unauthorized - Token không hợp lệ
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Không tìm thấy user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: Lỗi server
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /purchased-courses/stats:
+    get:
+      tags:
+        - Purchased Courses
+      summary: Lấy thống kê học tập
+      description: Lấy thống kê tổng quan về tiến độ học tập của user
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Lấy thống kê thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: number
+                    example: 200
+                  message:
+                    type: string
+                    example: "Lấy thống kê học tập thành công."
+                  data:
+                    type: object
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Không tìm thấy user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /purchased-courses/check/{courseId}:
+    get:
+      tags:
+        - Purchased Courses
+      summary: Kiểm tra trạng thái mua khóa học
+      description: Kiểm tra xem user đã mua khóa học cụ thể này chưa
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: courseId
+          required: true
+          schema:
+            type: string
+            pattern: "^[0-9a-fA-F]{24}$"
+          description: ID của khóa học cần kiểm tra
+          example: "60d5f484f0b4a720e8f8d4a1"
+      responses:
+        "200":
+          description: Kiểm tra thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: number
+                    example: 200
+                  isPurchased:
+                    type: boolean
+                    example: true
+                  courseData:
+                    type: object
+                    nullable: true
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Không tìm thấy user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /purchased-courses/{courseId}/progress:
+    put:
+      tags:
+        - Purchased Courses
+      summary: Cập nhật tiến độ học
+      description: Cập nhật tiến độ học cho khóa học đã mua
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: courseId
+          required: true
+          schema:
+            type: string
+            pattern: "^[0-9a-fA-F]{24}$"
+          description: ID của khóa học
+          example: "60d5f484f0b4a720e8f8d4a1"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - progress
+              properties:
+                progress:
+                  type: number
+                  minimum: 0
+                  maximum: 100
+                  description: Tiến độ học từ 0-100%
+                  example: 85
+      responses:
+        "200":
+          description: Cập nhật tiến độ thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: number
+                    example: 200
+                  message:
+                    type: string
+                    example: "Cập nhật tiến độ học thành công."
+                  data:
+                    type: object
+                    properties:
+                      courseId:
+                        type: string
+                        example: "60d5f484f0b4a720e8f8d4a1"
+                      progress:
+                        type: number
+                        example: 85
+                      isCompleted:
+                        type: boolean
+                        example: false
+        "400":
+          description: Lỗi validation hoặc chưa mua khóa học này
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Không tìm thấy user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /purchased-courses/purchase-success:
+    post:
+      tags:
+        - Purchased Courses
+      summary: Xử lý thanh toán thành công
+      description: Tự động thêm các khóa học từ đơn hàng vào danh sách đã mua khi thanh toán thành công
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - orderId
+              properties:
+                orderId:
+                  type: string
+                  pattern: "^[0-9a-fA-F]{24}$"
+                  description: ID của đơn hàng đã thanh toán
+                  example: "60d5f484f0b4a720e8f8d4a3"
+      responses:
+        "200":
+          description: Xử lý thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: number
+                    example: 200
+                  message:
+                    type: string
+                    example: "Xử lý mua khóa học thành công."
+                  data:
+                    type: object
+                    properties:
+                      orderId:
+                        type: string
+                        example: "60d5f484f0b4a720e8f8d4a3"
+                      coursesAdded:
+                        type: number
+                        description: Số khóa học đã thêm vào danh sách
+                        example: 3
+                      totalCourses:
+                        type: number
+                        description: Tổng số khóa học trong đơn hàng
+                        example: 3
+        "400":
+          description: Đơn hàng chưa thanh toán hoặc lỗi validation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "403":
+          description: Đơn hàng không thuộc về user này
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Không tìm thấy đơn hàng hoặc user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  # ===========================================
+  # CART ENDPOINTS
+  # ===========================================
+  /cart:
+    get:
+      tags:
+        - Shopping Cart
+      summary: Lấy giỏ hàng của user
+      description: Lấy danh sách khóa học trong giỏ hàng với thông tin chi tiết. Giỏ hàng sẽ được tự động tạo nếu chưa tồn tại.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Lấy giỏ hàng thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: number
+                    example: 200
+                  message:
+                    type: string
+                    example: "Lấy giỏ hàng thành công."
+                  data:
+                    type: object
+        "401":
+          description: Unauthorized - Token không hợp lệ
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: Lỗi server
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+    post:
+      tags:
+        - Shopping Cart
+      summary: Thêm khóa học vào giỏ hàng
+      description: Thêm khóa học vào giỏ hàng. Không thể thêm khóa học đã mua hoặc đã có trong giỏ hàng.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - courseId
+              properties:
+                courseId:
+                  type: string
+                  pattern: "^[0-9a-fA-F]{24}$"
+                  description: ID của khóa học (MongoDB ObjectId)
+                  example: "60d5f484f0b4a720e8f8d4a1"
+      responses:
+        "200":
+          description: Thêm vào giỏ hàng thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: number
+                    example: 200
+                  message:
+                    type: string
+                    example: "Thêm khóa học vào giỏ hàng thành công."
+                  data:
+                    type: object
+                    properties:
+                      courseId:
+                        type: string
+                        example: "60d5f484f0b4a720e8f8d4a1"
+                      courseTitle:
+                        type: string
+                        example: "React Advanced Course"
+                      totalCourses:
+                        type: number
+                        example: 3
+                      totalPrice:
+                        type: number
+                        example: 898000
+                      cart:
+                        type: object
+        "400":
+          description: Course ID không hợp lệ (validation middleware), đã mua khóa học, hoặc đã có trong giỏ hàng
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              examples:
+                validation_error:
+                  summary: Lỗi validation
+                  value:
+                    status: 400
+                    message: "Course ID không hợp lệ"
+                already_purchased:
+                  summary: Đã mua khóa học
+                  value:
+                    status: 400
+                    message: "Bạn đã mua khóa học này rồi."
+                already_in_cart:
+                  summary: Đã có trong giỏ hàng
+                  value:
+                    status: 400
+                    message: "Khóa học đã có trong giỏ hàng."
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Không tìm thấy khóa học
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+    delete:
+      tags:
+        - Shopping Cart
+      summary: Xóa toàn bộ giỏ hàng
+      description: Xóa tất cả khóa học khỏi giỏ hàng. Giỏ hàng sẽ được tự động tạo nếu chưa tồn tại.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Xóa giỏ hàng thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: number
+                    example: 200
+                  message:
+                    type: string
+                    example: "Xóa toàn bộ giỏ hàng thành công."
+                  data:
+                    type: object
+                    properties:
+                      totalCourses:
+                        type: number
+                        example: 0
+                      totalPrice:
+                        type: number
+                        example: 0
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Không tìm thấy giỏ hàng
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /cart/{courseId}:
+    delete:
+      tags:
+        - Shopping Cart
+      summary: Xóa khóa học khỏi giỏ hàng
+      description: Xóa một khóa học cụ thể khỏi giỏ hàng
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: courseId
+          required: true
+          schema:
+            type: string
+            pattern: "^[0-9a-fA-F]{24}$"
+          description: ID của khóa học cần xóa
+          example: "60d5f484f0b4a720e8f8d4a1"
+      responses:
+        "200":
+          description: Xóa khóa học thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: number
+                    example: 200
+                  message:
+                    type: string
+                    example: "Xóa khóa học khỏi giỏ hàng thành công."
+                  data:
+                    type: object
+                    properties:
+                      courseId:
+                        type: string
+                        example: "60d5f484f0b4a720e8f8d4a1"
+                      totalCourses:
+                        type: number
+                        example: 2
+                      totalPrice:
+                        type: number
+                        example: 599000
+        "400":
+          description: Course ID không hợp lệ (validation middleware)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                status: 400
+                message: "Course ID không hợp lệ"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Khóa học không có trong giỏ hàng
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                status: 404
+                message: "Khóa học không có trong giỏ hàng."
+
+  /cart/check/{courseId}:
+    get:
+      tags:
+        - Shopping Cart
+      summary: Kiểm tra khóa học có trong giỏ hàng không
+      description: Kiểm tra xem một khóa học cụ thể có trong giỏ hàng của user không. Giỏ hàng sẽ được tự động tạo nếu chưa tồn tại.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: courseId
+          required: true
+          schema:
+            type: string
+            pattern: "^[0-9a-fA-F]{24}$"
+          description: ID của khóa học cần kiểm tra (MongoDB ObjectId)
+          example: "60d5f484f0b4a720e8f8d4a1"
+      responses:
+        "200":
+          description: Kiểm tra thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: number
+                    example: 200
+                  message:
+                    type: string
+                    example: "Kiểm tra giỏ hàng thành công."
+                  data:
+                    type: object
+                    properties:
+                      courseId:
+                        type: string
+                        example: "60d5f484f0b4a720e8f8d4a1"
+                      inCart:
+                        type: boolean
+                        example: true
+        "400":
+          description: Course ID không hợp lệ (validation middleware)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                status: 400
+                message: "Course ID không hợp lệ"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Không tìm thấy khóa học
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                status: 404
+                message: "Không tìm thấy khóa học."
+        "500":
+          description: Lỗi server
           content:
             application/json:
               schema:

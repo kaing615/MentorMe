@@ -71,6 +71,7 @@ export const addToCart = async (req, res) => {
       (pc) => pc.course?.toString() === courseId
     );
     if (alreadyPurchased) {
+      // console.log(`[addToCart] Course already purchased`);
       return responseHandler.badRequest(res, "Bạn đã mua khóa học này rồi.");
     }
 
@@ -81,7 +82,8 @@ export const addToCart = async (req, res) => {
     const exists = cart.courses.some(
       (item) => item.course.toString() === courseId
     );
-    if (exists) {
+
+    if (existingCourse) {
       return responseHandler.badRequest(res, "Khóa học đã có trong giỏ hàng.");
     }
 
@@ -132,7 +134,8 @@ export const removeFromCart = async (req, res) => {
     const idx = cart.courses.findIndex(
       (item) => item.course.toString() === courseId
     );
-    if (idx === -1) {
+
+    if (courseIndex === -1) {
       return responseHandler.notFound(res, "Khóa học không có trong giỏ hàng.");
     }
 

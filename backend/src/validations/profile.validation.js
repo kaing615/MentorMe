@@ -177,4 +177,41 @@ export const updateMenteeProfileSchema = Joi.object({
   }).optional(),
 });
 
-export const changeAvatarSchema = Joi.object({}).unknown(true);
+// Search mentors validation
+export const searchMentorsSchema = Joi.object({
+  name: Joi.string().min(1).max(100).optional().messages({
+    "string.empty": "Tên không được để trống",
+    "string.min": "Tên phải từ 1-100 ký tự",
+    "string.max": "Tên phải từ 1-100 ký tự",
+  }),
+  id: Joi.string().length(24).hex().optional().messages({
+    "string.length": "ID phải có 24 ký tự",
+    "string.hex": "ID phải là hex string hợp lệ",
+  }),
+  category: Joi.string().min(1).max(50).optional().messages({
+    "string.empty": "Danh mục không được để trống",
+    "string.min": "Danh mục phải từ 1-50 ký tự",
+    "string.max": "Danh mục phải từ 1-50 ký tự",
+  }),
+  skills: Joi.string().optional().messages({
+    "string.base": "Kỹ năng phải là chuỗi",
+  }),
+  location: Joi.string().min(1).max(100).optional().messages({
+    "string.empty": "Địa điểm không được để trống",
+    "string.min": "Địa điểm phải từ 1-100 ký tự",
+    "string.max": "Địa điểm phải từ 1-100 ký tự",
+  }),
+  page: Joi.number().integer().min(1).optional().messages({
+    "number.base": "Trang phải là số",
+    "number.integer": "Trang phải là số nguyên",
+    "number.min": "Trang phải lớn hơn 0",
+  }),
+  limit: Joi.number().integer().min(1).max(50).optional().messages({
+    "number.base": "Limit phải là số",
+    "number.integer": "Limit phải là số nguyên",
+    "number.min": "Limit phải lớn hơn 0",
+    "number.max": "Limit không được vượt quá 50",
+  }),
+});
+
+// Change avatar validation (no body validation needed - just file)

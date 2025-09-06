@@ -227,7 +227,7 @@ export const signUp = async (req, res) => {
       password: hashedPassword,
       salt,
       role: "mentee",
-      isVerified: false,
+      isVerified: isTestEnv, // Auto-verify in test environment
       isDeleted: false,
       verifyKey: isTestEnv ? "" : generateToken(),
       verifyKeyExpires: isTestEnv
@@ -444,6 +444,11 @@ export const signUpMentor = async (req, res) => {
       timezone,
       ...rest,
     });
+
+    // Only send email in production
+    if (!isTestEnv) {
+      await sendVerificationEmail(user.email, user.verifyKey, user.userName);
+    }
 
     await user.save();
 

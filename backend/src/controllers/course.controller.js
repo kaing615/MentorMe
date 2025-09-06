@@ -111,8 +111,9 @@ export const getCourseById = async (req, res) => {
       .populate("mentor", "userName avatarUrl jobTitle bio location")
       .populate("mentees", "userName avatarUrl");
 
-    if (!course)
+    if (!course) {
       return responseHandler.notFound(res, "Khóa học không tồn tại!");
+    }
 
     const obj = course.toObject();
     obj.courseId = obj._id;
@@ -167,6 +168,77 @@ export const getRelatedCourses = async (req, res) => {
       delete obj.__v;
       return obj;
     });
+
+    await newCourse.save();
+
+    const populatedCourse = await Course.findById(newCourse._id).populate(
+      "mentor",
+      "firstName lastName avatarUrl jobTitle"
+    );
+
+    return responseHandler.created(res, {
+      message: "Tạo khóa học thành công.",
+      data: populatedCourse,
+    });
+  } catch (err) {
+    console.error("Lỗi tạo khóa học:", err);
+    responseHandler.error(res, err.message);
+  }
+};
+
+/**
+ * @desc Xử lý khi user mua khóa học thành công
+ * @route POST /api/course/purchase-success
+ * @access Private
+ */
+export const handlePurchaseSuccess = async (req, res) => {
+  try {
+    const { orderId } = req.body;
+
+    // Tìm order và populate courses
+    const order = await Order.findById(orderId)
+      .populate("mentee")
+      .populate("courses");
+
+    if (!order) {
+      return responseHandler.notFound(res, "Không tìm thấy đơn hàng.");
+    }
+
+    if (order.status !== "paid") {
+      return responseHandler.badRequest(res, "Đơn hàng chưa được thanh toán.");
+    }
+
+    const user = await User.findById(order.mentee._id);
+    if (!user) {
+      return responseHandler.notFound(res, "Không tìm thấy user.");
+    }
+
+    // Thêm từng khóa học vào danh sách đã mua
+    for (const course of order.courses) {
+      // Kiểm tra xem đã mua chưa
+      const existingPurchase = user.purchasedCourses.find(
+        (item) => item.course.toString() === course._id.toString()
+      );
+
+      if (!existingPurchase) {
+        user.purchasedCourses.push({
+          course: course._id,
+          orderId: orderId,
+          purchaseDate: new Date(),
+          progress: 0,
+          lastAccessDate: new Date(),
+          isCompleted: false,
+        });
+
+        // Thêm user vào danh sách mentees của course
+        if (!course.mentees.includes(user._id)) {
+          course.mentees.push(user._id);
+          await course.save();
+        }
+      }
+    }
+
+    await user.save();
 
     return responseHandler.ok(res, {
       message: "Lấy khoá học liên quan thành công!",
@@ -426,52 +498,6 @@ export const createCourse = async (req, res) => {
   }
 };
 
-export const handlePurchaseSuccess = async (req, res) => {
-  try {
-    const { orderId } = req.body;
-    const order = await Order.findById(orderId)
-      .populate("mentee")
-      .populate("courses");
-    if (!order)
-      return responseHandler.notFound(res, "Không tìm thấy đơn hàng.");
-    if (order.status !== "paid") {
-      return responseHandler.badRequest(res, "Đơn hàng chưa được thanh toán.");
-    }
-
-    const user = await User.findById(order.mentee._id);
-    if (!user) return responseHandler.notFound(res, "Không tìm thấy user.");
-
-    for (const course of order.courses) {
-      const existingPurchase = user.purchasedCourses?.find(
-        (item) => item.course.toString() === course._id.toString()
-      );
-      if (!existingPurchase) {
-        user.purchasedCourses = user.purchasedCourses || [];
-        user.purchasedCourses.push({
-          course: course._id,
-          orderId,
-          purchaseDate: new Date(),
-          progress: 0,
-          lastAccessDate: new Date(),
-          isCompleted: false,
-        });
-        if (!course.mentees.includes(user._id)) {
-          course.mentees.push(user._id);
-          await course.save();
-        }
-      }
-    }
-    await user.save();
-
-    return responseHandler.ok(res, {
-      message: "Xử lý mua khóa học thành công.",
-      data: { orderId, coursesAdded: order.courses.length },
-    });
-  } catch (err) {
-    console.error("Lỗi xử lý mua khóa học:", err);
-    responseHandler.error(res, err.message);
-  }
-};
 
 export const updateCourse = async (req, res) => {
   console.log("[updateCourse] req.body:", req.body);
