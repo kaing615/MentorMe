@@ -12,6 +12,42 @@ import { toast } from "react-toastify";
 const OrderCompleteCourse = () => {
   const navigate = useNavigate();
   const location = useLocation();
+
+  // --- AUTH CHECK (chỉ mentee được phép) ---
+  useEffect(() => {
+    const token =
+      localStorage.getItem("actkn") || localStorage.getItem("token");
+    const userStr =
+      localStorage.getItem("user") || localStorage.getItem("user");
+    console.log("Token:", token);
+    let user = null;
+    if (!token) {
+      navigate("/auth/signin");
+      return;
+    }
+    // Check user object
+    try {
+      user = userStr ? JSON.parse(userStr) : null;
+    } catch (e) {
+      user = null;
+    }
+    if (!user || !user.role) {
+      navigate("/auth/signin");
+      return;
+    }
+    // Check role - chỉ mentee được phép vào order complete
+    if (user.role === "mentee") {
+      return;
+    }
+    // Nếu không phải mentee, redirect về home
+    if (user.role === "mentor") {
+      navigate("/home");
+      return;
+    }
+    navigate("/auth/signin");
+    return;
+  }, [navigate]);
+
   const [activeTab, setActiveTab] = useState("Details");
   const [showRatingPopup, setShowRatingPopup] = useState(false);
   const [userRating, setUserRating] = useState(0);
@@ -45,9 +81,21 @@ const OrderCompleteCourse = () => {
         setError(null);
 
         // Check localStorage for purchased courses first
-        const mockPurchasedCourses = localStorage.getItem(
-          "mockPurchasedCourses"
-        );
+        // Get current user ID for user-specific localStorage
+        const userStr = localStorage.getItem("user");
+        let currentUserId = null;
+        try {
+          const user = userStr ? JSON.parse(userStr) : null;
+          currentUserId = user?.id || user?._id;
+        } catch (e) {
+          console.warn("Error parsing user:", e);
+        }
+
+        const mockKey = currentUserId
+          ? `mockPurchasedCourses_${currentUserId}`
+          : "mockPurchasedCourses";
+        const mockPurchasedCourses = localStorage.getItem(mockKey);
+
         let isPurchasedFromLocalStorage = false;
         let localPurchasedData = null;
 

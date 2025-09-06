@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import "./purchasedCourse.model.js"; // Import to register model
 
 const orderItemSchema = new mongoose.Schema({
   courseId: {
@@ -219,14 +220,20 @@ OrderSchema.methods.grantCourseAccess = async function () {
 
   try {
     const Course = mongoose.model("Course");
+    const PurchasedCourse = mongoose.model("PurchasedCourse");
     const userId = this.mentee || this.userId;
 
     // Get course IDs from items or courses array
     let courseIds = [];
+    let courseItems = [];
+
     if (this.items && this.items.length > 0) {
       courseIds = this.items.map((item) => item.courseId);
+      courseItems = this.items;
     } else if (this.courses && this.courses.length > 0) {
       courseIds = this.courses;
+      // Create items structure if missing
+      courseItems = this.courses.map((courseId) => ({ courseId, price: 0 }));
     }
 
     if (courseIds.length === 0) {
@@ -234,8 +241,12 @@ OrderSchema.methods.grantCourseAccess = async function () {
       return;
     }
 
-    // Add mentee to each course's mentees array
-    for (const courseId of courseIds) {
+    // Add mentee to each course's mentees array AND create purchased course records
+    for (let i = 0; i < courseIds.length; i++) {
+      const courseId = courseIds[i];
+      const courseItem = courseItems[i];
+
+      // Add to course mentees array
       await Course.findByIdAndUpdate(
         courseId,
         {
@@ -244,6 +255,34 @@ OrderSchema.methods.grantCourseAccess = async function () {
         { new: true }
       );
       console.log(`Added mentee ${userId} to course ${courseId}`);
+
+      // Create purchased course record
+      try {
+        const existingPurchase = await PurchasedCourse.findOne({
+          mentee: userId,
+          course: courseId,
+        });
+
+        if (!existingPurchase) {
+          await PurchasedCourse.create({
+            mentee: userId,
+            course: courseId,
+            order: this._id,
+            price: courseItem.price || 0,
+            purchaseDate: new Date(),
+          });
+          console.log(
+            `Created purchased course record for mentee ${userId}, course ${courseId}`
+          );
+        } else {
+          console.log(
+            `Purchased course record already exists for mentee ${userId}, course ${courseId}`
+          );
+        }
+      } catch (purchaseError) {
+        console.error(`Error creating purchased course record:`, purchaseError);
+        // Continue with other courses even if one fails
+      }
     }
 
     // Mark courses as granted

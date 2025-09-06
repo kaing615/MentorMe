@@ -4,6 +4,37 @@ import { useNavigate } from "react-router-dom";
 const AllMentors = () => {
   const navigate = useNavigate();
 
+  // --- AUTH CHECK (mentor và mentee đều được xem) ---
+  useEffect(() => {
+    const token =
+      localStorage.getItem("actkn") || localStorage.getItem("token");
+    const userStr =
+      localStorage.getItem("user") || localStorage.getItem("user");
+    console.log("Token:", token);
+    let user = null;
+    if (!token) {
+      navigate("/auth/signin");
+      return;
+    }
+    // Check user object
+    try {
+      user = userStr ? JSON.parse(userStr) : null;
+    } catch (e) {
+      user = null;
+    }
+    if (!user || !user.role) {
+      navigate("/auth/signin");
+      return;
+    }
+    // Check role - chỉ mentor và mentee được phép vào
+    if (user.role === "mentor" || user.role === "mentee") {
+      return;
+    }
+    // Nếu không phải mentor hoặc mentee, redirect về signin
+    navigate("/auth/signin");
+    return;
+  }, [navigate]);
+
   // State management
   const [mentors, setMentors] = useState([]);
   const [filteredMentors, setFilteredMentors] = useState([]);

@@ -8,6 +8,7 @@ import { FaLinkedin } from "react-icons/fa";
 import { FaGoogle } from "react-icons/fa";
 import profileApi from "../api/modules/profile.api";
 import purchasedCourseApi from "../api/modules/purchasedCourse.api";
+import authUtils from "../utils/auth.utils";
 import minatoImg from "../assets/minato.jpg";
 
 const MenteeProfile = () => {
@@ -15,15 +16,16 @@ const MenteeProfile = () => {
   // --- AUTH & ROLE CHECK ---
   useEffect(() => {
     const token =
-      localStorage.getItem("token") || localStorage.getItem("actkn");
+      localStorage.getItem("actkn") || localStorage.getItem("token");
     const userStr =
       localStorage.getItem("user") || localStorage.getItem("user");
+    console.log("Token:", token);
     let user = null;
     if (!token) {
       navigate("/auth/signin");
       return;
     }
-    //Check user object
+    // Check user object
     try {
       user = userStr ? JSON.parse(userStr) : null;
     } catch (e) {
@@ -33,20 +35,20 @@ const MenteeProfile = () => {
       navigate("/auth/signin");
       return;
     }
-    // 3. Check role
-    if (user.role === "mentee") {
-      return;
-    }
+    // Check role
     if (user.role === "mentor") {
-      navigate("/mentor/home");
       return;
     }
-    if (user.role === "admin") {
-      navigate("/admin/profile");
+    if (user.role === "mentee") {
+      navigate("/home");
       return;
     }
+    // if (user.role === "admin") {
+    //   navigate("/admin/profile");
+    //   return;
+    // }
   }, [navigate]);
-  // Tab logic: luôn vào tab 'profile' khi vào mentee/profile lần đầu, reload thì giữ tab hiện tại
+
   const [activeTab, setActiveTab] = useState(() => {
     return localStorage.getItem("menteeProfileTab") || "profile";
   });
@@ -128,6 +130,17 @@ const MenteeProfile = () => {
         toast.success("Đổi avatar thành công!");
       }
     } catch (err) {
+      console.error("[DEBUG] Lỗi khi change avatar:", err);
+
+      // Handle authentication errors using auth utils
+      if (authUtils.isAuthError(err)) {
+        authUtils.handleAuthFailure(
+          navigate,
+          "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại!"
+        );
+        return;
+      }
+
       toast.error("Đổi avatar thất bại!");
     }
   };
@@ -217,10 +230,22 @@ const MenteeProfile = () => {
   useEffect(() => {
     async function fetchPurchasedCourses() {
       try {
-        // Check for mock purchased courses in localStorage first
-        const mockPurchasedCourses = localStorage.getItem(
-          "mockPurchasedCourses"
-        );
+        // Get current user ID for user-specific localStorage
+        const userStr = localStorage.getItem("user");
+        let currentUserId = null;
+        try {
+          const user = userStr ? JSON.parse(userStr) : null;
+          currentUserId = user?.id || user?._id;
+        } catch (e) {
+          console.warn("Error parsing user:", e);
+        }
+
+        // Check for mock purchased courses in localStorage for current user
+        const mockKey = currentUserId
+          ? `mockPurchasedCourses_${currentUserId}`
+          : "mockPurchasedCourses";
+        const mockPurchasedCourses = localStorage.getItem(mockKey);
+
         if (mockPurchasedCourses) {
           try {
             const courses = JSON.parse(mockPurchasedCourses);
@@ -238,7 +263,17 @@ const MenteeProfile = () => {
 
         if (error) {
           console.error("Purchased courses fetch error:", error);
-          // Don't show error toast, just use empty array
+
+          // Handle authentication errors using auth utils
+          if (authUtils.isAuthError(error)) {
+            authUtils.handleAuthFailure(
+              navigate,
+              "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại!"
+            );
+            return;
+          }
+
+          // Don't show error toast for other errors, just use empty array
           setPurchasedCourses([]);
           return;
         }
@@ -252,7 +287,17 @@ const MenteeProfile = () => {
         }
       } catch (err) {
         console.error("Purchased courses fetch error:", err);
-        // Don't show error toast, just use empty array
+
+        // Handle authentication errors using auth utils
+        if (authUtils.isAuthError(err)) {
+          authUtils.handleAuthFailure(
+            navigate,
+            "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại!"
+          );
+          return;
+        }
+
+        // Don't show error toast for other errors, just use empty array
         setPurchasedCourses([]);
       }
     }

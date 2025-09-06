@@ -38,6 +38,7 @@ const ShoppingCart = () => {
   // Check user authentication and fetch cart from backend
   useEffect(() => {
     const fetchCartData = async () => {
+      console.log("[DEBUG ShoppingCart] Starting fetchCartData");
       // Check authentication
       const token =
         localStorage.getItem("token") || localStorage.getItem("actkn");
@@ -61,37 +62,52 @@ const ShoppingCart = () => {
         return;
       }
 
+      console.log("[DEBUG ShoppingCart] User authenticated:", user.email);
       dispatch(showLoading());
       setLoading(true);
 
       try {
+        console.log("[DEBUG ShoppingCart] Calling cartApi.getCart");
         const { response, error } = await cartApi.getCart(dispatch);
 
         if (error) {
           // If no cart found or error, try localStorage mock cart first
-          console.warn("Cart API error, using localStorage fallback:", error);
+          console.warn(
+            "[DEBUG ShoppingCart] Cart API error, using localStorage fallback:",
+            error
+          );
 
           const mockCartData = localStorage.getItem("mockCart");
           if (mockCartData) {
-            const cartItems = JSON.parse(mockCartData);
-            const mappedCourses = cartItems.map((item, index) => ({
-              ...item,
-              id: item.id || item._id || index,
-              selected: true,
-              quantity: 1,
-              price: parseFloat(item.price) || 0,
-            }));
-            setCourses(mappedCourses);
-            setSelectedCourses(mappedCourses.map((course) => course.id));
-            setSelectAll(true);
+            try {
+              const cartItems = JSON.parse(mockCartData);
+              console.log(
+                "[DEBUG ShoppingCart] Using localStorage cart items:",
+                cartItems
+              );
+              const mappedCourses = cartItems.map((item, index) => ({
+                ...item,
+                id: item.id || item._id || index,
+                selected: true,
+                quantity: 1,
+                price: parseFloat(item.price) || 0,
+              }));
+              setCourses(mappedCourses);
+              setSelectedCourses(mappedCourses.map((course) => course.id));
+              setSelectAll(true);
+            } catch (e) {
+              console.error("Error parsing localStorage cart:", e);
+            }
           } else if (mockCart.user === (user._id || menteeUser._id)) {
             // Fallback to seed data if no localStorage
-            const mappedCourses = mockCart.items.map((item) => ({
-              ...item.courseId,
-              id: item.courseId._id,
-              selected: true,
-              quantity: item.quantity,
-            }));
+            const mappedCourses = mockCart.items
+              .filter((item) => item && item.courseId) // Filter out invalid items
+              .map((item) => ({
+                ...item.courseId,
+                id: item.courseId._id,
+                selected: true,
+                quantity: item.quantity,
+              }));
             setCourses(mappedCourses);
             setSelectedCourses(mappedCourses);
             setSubtotal(mockCart.subtotalAmount || 0);
@@ -105,13 +121,18 @@ const ShoppingCart = () => {
 
         const cart = response?.data?.cart;
         if (cart && cart.courses && cart.courses.length > 0) {
-          const mappedCourses = cart.courses.map((courseRef) => ({
-            ...courseRef.course, // Course details populated from backend
-            id: courseRef.course._id,
-            selected: true,
-            quantity: 1, // Cart model doesn't have quantity per course
-            addedAt: courseRef.addedAt,
-          }));
+          const mappedCourses = cart.courses
+            .filter(
+              (courseRef) =>
+                courseRef && courseRef.course && courseRef.course._id
+            ) // Filter out invalid course references
+            .map((courseRef) => ({
+              ...courseRef.course, // Course details populated from backend
+              id: courseRef.course._id,
+              selected: true,
+              quantity: 1, // Cart model doesn't have quantity per course
+              addedAt: courseRef.addedAt,
+            }));
 
           setCourses(mappedCourses);
           setSelectedCourses(mappedCourses);

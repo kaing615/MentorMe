@@ -16,11 +16,31 @@ const CreateCoursePage = () => {
   const [customCategory, setCustomCategory] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("");
 
+  // State for Key Learning Objectives
+  const [objectives, setObjectives] = useState([""]);
+
+  // Functions to manage objectives
+  const addObjective = () => {
+    setObjectives([...objectives, ""]);
+  };
+
+  const removeObjective = (index) => {
+    if (objectives.length > 1) {
+      const newObjectives = objectives.filter((_, i) => i !== index);
+      setObjectives(newObjectives);
+    }
+  };
+
+  const updateObjective = (index, value) => {
+    const newObjectives = [...objectives];
+    newObjectives[index] = value;
+    setObjectives(newObjectives);
+  };
+
   // --- AUTH & ROLE CHECK ---
   React.useEffect(() => {
     const token =
-      localStorage.getItem("actkn") ||
-      localStorage.getItem("token");
+      localStorage.getItem("actkn") || localStorage.getItem("token");
     const userStr =
       localStorage.getItem("user") || localStorage.getItem("user");
     console.log("Token:", token);
@@ -76,9 +96,6 @@ const CreateCoursePage = () => {
       .positive("Price must be positive")
       .required("Price is required"),
     courseOverview: yup.string().required("Course overview is required"),
-    keyLearningObjectives: yup
-      .string()
-      .required("Key learning objectives are required"),
     lectures: yup
       .number()
       .typeError("Number of lectures must be a number")
@@ -206,6 +223,13 @@ const CreateCoursePage = () => {
 
   const onSubmit = async (data) => {
     try {
+      // Validate objectives
+      const validObjectives = objectives.filter((obj) => obj.trim().length > 0);
+      if (validObjectives.length === 0) {
+        toast.error("Please add at least one learning objective");
+        return;
+      }
+
       // Validate image is required
       if (!imageFile) {
         setImageError("Course image is required");
@@ -240,7 +264,7 @@ const CreateCoursePage = () => {
         formData.append("duration", data.duration);
       }
       formData.append("courseOverview", data.courseOverview);
-      formData.append("keyLearningObjectives", data.keyLearningObjectives);
+      formData.append("keyLearningObjectives", JSON.stringify(validObjectives)); // Send as JSON array
       formData.append("driveLink", data.driveLink);
 
       // Backend validation requires description and link fields
@@ -393,17 +417,37 @@ const CreateCoursePage = () => {
                     Key Learning Objectives{" "}
                     <span className="text-red-500">*</span>
                   </label>
-                  <textarea
-                    {...register("keyLearningObjectives")}
-                    rows={4}
-                    placeholder="List the main objectives students will achieve..."
-                    className="w-full px-0 py-3 text-gray-900 border-0 border-b border-gray-200 focus:border-blue-500 focus:ring-0 bg-transparent placeholder-gray-400 resize-none"
-                  />
-                  {errors.keyLearningObjectives && (
-                    <p className="mt-1 text-sm text-red-600">
-                      {errors.keyLearningObjectives.message}
-                    </p>
-                  )}
+                  <div className="space-y-2">
+                    {objectives.map((objective, index) => (
+                      <div key={index} className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          value={objective}
+                          onChange={(e) =>
+                            updateObjective(index, e.target.value)
+                          }
+                          placeholder={`Learning objective ${index + 1}...`}
+                          className="flex-1 px-3 py-2 text-gray-900 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-1 focus:ring-blue-500 placeholder-gray-400"
+                        />
+                        {objectives.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => removeObjective(index)}
+                            className="px-2 py-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-md"
+                          >
+                            ✕
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={addObjective}
+                      className="w-full px-3 py-2 text-blue-600 border-2 border-dashed border-blue-300 rounded-md hover:border-blue-500 hover:bg-blue-50 transition-colors"
+                    >
+                      + Add Another Objective
+                    </button>
+                  </div>
                 </div>
               </div>
 

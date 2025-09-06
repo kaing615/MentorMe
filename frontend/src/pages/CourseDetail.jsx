@@ -120,10 +120,53 @@ const CourseDetail = () => {
     };
   }, [id, dispatch]);
 
+  // Helper function to check if course is already purchased
+  const isCourseAlreadyPurchased = (courseId) => {
+    const userStr = localStorage.getItem("user");
+    let currentUserId = null;
+    try {
+      const user = userStr ? JSON.parse(userStr) : null;
+      currentUserId = user?.id || user?._id;
+    } catch (e) {
+      return false;
+    }
+
+    const mockKey = currentUserId
+      ? `mockPurchasedCourses_${currentUserId}`
+      : "mockPurchasedCourses";
+    const mockPurchasedCourses = localStorage.getItem(mockKey);
+
+    if (mockPurchasedCourses) {
+      try {
+        const purchasedCourses = JSON.parse(mockPurchasedCourses);
+        return purchasedCourses.some((purchased) => {
+          const purchasedCourseId =
+            purchased.course?._id ||
+            purchased.course?.id ||
+            purchased.courseId ||
+            purchased.courseInfo?._id;
+          return purchasedCourseId === courseId;
+        });
+      } catch (error) {
+        console.error("Error parsing purchased courses:", error);
+        return false;
+      }
+    }
+    return false;
+  };
+
   // Handle Add to Cart
   const handleAddToCart = async () => {
     if (!courseData?._id) {
       toast.error("Không thể thêm khóa học vào giỏ hàng");
+      return;
+    }
+
+    // Check if course is already purchased
+    if (isCourseAlreadyPurchased(courseData._id)) {
+      toast.error(
+        "Bạn đã mua khóa học này rồi! Kiểm tra 'Khóa học của tôi' trong profile."
+      );
       return;
     }
 
@@ -174,6 +217,19 @@ const CourseDetail = () => {
 
   // Handle Buy Now
   const handleBuyNow = async () => {
+    if (!courseData?._id) {
+      toast.error("Không thể mua khóa học");
+      return;
+    }
+
+    // Check if course is already purchased
+    if (isCourseAlreadyPurchased(courseData._id)) {
+      toast.error(
+        "Bạn đã mua khóa học này rồi! Kiểm tra 'Khóa học của tôi' trong profile."
+      );
+      return;
+    }
+
     // Add to cart first, then redirect to checkout
     await handleAddToCart();
     if (!isAddingToCart) {
@@ -536,7 +592,69 @@ const CourseDetail = () => {
                   Key Learning Objectives:
                 </span>
                 <div className="text-gray-600 text-sm leading-relaxed">
-                  {courseData.keyLearningObjectives}
+                  {(() => {
+                    console.log(
+                      "Raw keyLearningObjectives:",
+                      courseData.keyLearningObjectives
+                    );
+                    console.log(
+                      "Type:",
+                      typeof courseData.keyLearningObjectives
+                    );
+
+                    let objectives = courseData.keyLearningObjectives;
+
+                    // If it's already an array, use it directly
+                    if (Array.isArray(objectives)) {
+                      console.log("Already array:", objectives);
+                      return (
+                        <ul className="list-disc list-inside space-y-2">
+                          {objectives.map((objective, index) => (
+                            <li key={index} className="text-gray-600">
+                              {objective}
+                            </li>
+                          ))}
+                        </ul>
+                      );
+                    }
+
+                    // If it's a string, try to parse as JSON first
+                    if (typeof objectives === "string") {
+                      console.log("String detected, trying to parse...");
+
+                      try {
+                        const parsed = JSON.parse(objectives);
+                        console.log("JSON parsed successfully:", parsed);
+
+                        if (Array.isArray(parsed)) {
+                          return (
+                            <ul className="list-disc list-inside space-y-2">
+                              {parsed.map((objective, index) => (
+                                <li key={index} className="text-gray-600">
+                                  {objective}
+                                </li>
+                              ))}
+                            </ul>
+                          );
+                        }
+                      } catch (e) {
+                        console.log(
+                          "JSON parse failed, treating as string:",
+                          e
+                        );
+                      }
+
+                      // If JSON parse fails, treat as single objective
+                      return (
+                        <ul className="list-disc list-inside space-y-2">
+                          <li className="text-gray-600">{objectives}</li>
+                        </ul>
+                      );
+                    }
+
+                    // Fallback: display as is
+                    return <div>{objectives}</div>;
+                  })()}
                 </div>
               </div>
             </div>
@@ -601,21 +719,42 @@ const CourseDetail = () => {
               title="hold button of course"
               className="flex flex-col space-y-3"
             >
-              <button
-                onClick={handleAddToCart}
-                disabled={isAddingToCart}
-                className="w-full bg-slate-950 text-white py-2 rounded-lg hover:bg-slate-500 transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isAddingToCart ? "Đang thêm..." : "Add To Cart"}
-              </button>
+              {isCourseAlreadyPurchased(courseData?._id) ? (
+                <div className="w-full bg-green-100 text-green-800 py-3 rounded-lg text-center font-medium border border-green-300">
+                  <span className="inline-flex items-center">
+                    <svg
+                      className="w-5 h-5 mr-2"
+                      fill="currentColor"
+                      viewBox="0 0 20 20"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                    ✓ Already Purchased
+                  </span>
+                </div>
+              ) : (
+                <>
+                  <button
+                    onClick={handleAddToCart}
+                    disabled={isAddingToCart}
+                    className="w-full bg-slate-950 text-white py-2 rounded-lg hover:bg-slate-500 transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isAddingToCart ? "Đang thêm..." : "Add To Cart"}
+                  </button>
 
-              <button
-                onClick={handleBuyNow}
-                disabled={isAddingToCart}
-                className="w-full text-black py-2 rounded-lg border-2 border-slate-950 hover:bg-slate-100 transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Buy Now
-              </button>
+                  <button
+                    onClick={handleBuyNow}
+                    disabled={isAddingToCart}
+                    className="w-full text-black py-2 rounded-lg border-2 border-slate-950 hover:bg-slate-100 transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Buy Now
+                  </button>
+                </>
+              )}
             </div>
 
             <div

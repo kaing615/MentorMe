@@ -68,7 +68,21 @@ const AllCoursePage = () => {
 
   // Helper function to check if course is already purchased
   const isCourseAlreadyPurchased = (courseId) => {
-    const mockPurchasedCourses = localStorage.getItem("mockPurchasedCourses");
+    // Get current user ID for user-specific localStorage
+    const userStr = localStorage.getItem("user");
+    let currentUserId = null;
+    try {
+      const user = userStr ? JSON.parse(userStr) : null;
+      currentUserId = user?.id || user?._id;
+    } catch (e) {
+      // Ignore parse errors
+    }
+
+    const mockKey = currentUserId
+      ? `mockPurchasedCourses_${currentUserId}`
+      : "mockPurchasedCourses";
+    const mockPurchasedCourses = localStorage.getItem(mockKey);
+
     if (mockPurchasedCourses) {
       try {
         const purchasedCourses = JSON.parse(mockPurchasedCourses);

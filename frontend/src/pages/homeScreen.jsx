@@ -194,6 +194,37 @@ const HomeScreen = () => {
   const navigate = useNavigate();
   const user = useSelector((state) => state.user);
 
+  // --- AUTH CHECK (mentor và mentee đều được xem) ---
+  useEffect(() => {
+    const token =
+      localStorage.getItem("actkn") || localStorage.getItem("token");
+    const userStr =
+      localStorage.getItem("user") || localStorage.getItem("user");
+    console.log("Token:", token);
+    let user = null;
+    if (!token) {
+      navigate("/auth/signin");
+      return;
+    }
+    // Check user object
+    try {
+      user = userStr ? JSON.parse(userStr) : null;
+    } catch (e) {
+      user = null;
+    }
+    if (!user || !user.role) {
+      navigate("/auth/signin");
+      return;
+    }
+    // Check role - chỉ mentor và mentee được phép vào
+    if (user.role === "mentor" || user.role === "mentee") {
+      return;
+    }
+    // Nếu không phải mentor hoặc mentee, redirect về signin
+    navigate("/auth/signin");
+    return;
+  }, [navigate]);
+
   const [topCourses, setTopCourses] = useState([]);
   const [coursesLoading, setCoursesLoading] = useState(false);
   const [topMentors, setTopMentors] = useState([]);
@@ -209,16 +240,46 @@ const HomeScreen = () => {
 
   // Helper function to check if course is already purchased
   const isCourseAlreadyPurchased = (courseId) => {
-    const mockPurchasedCourses = localStorage.getItem("mockPurchasedCourses");
+    // First check localStorage for immediate feedback
+    const userStr = localStorage.getItem("user");
+    let currentUserId = null;
+    try {
+      const user = userStr ? JSON.parse(userStr) : null;
+      currentUserId = user?.id || user?._id;
+    } catch (e) {
+      console.warn("Error parsing user:", e);
+    }
+
+    const mockKey = currentUserId
+      ? `mockPurchasedCourses_${currentUserId}`
+      : "mockPurchasedCourses";
+    const mockPurchasedCourses = localStorage.getItem(mockKey);
+
+    console.log(
+      `[DEBUG] Checking if course ${courseId} is purchased for user ${currentUserId}`
+    );
+    console.log(`[DEBUG] Using localStorage key: ${mockKey}`);
+    console.log(`[DEBUG] localStorage data:`, mockPurchasedCourses);
+
     if (mockPurchasedCourses) {
       try {
         const purchasedCourses = JSON.parse(mockPurchasedCourses);
-        return purchasedCourses.some(
-          (purchased) =>
-            (purchased.course?._id ||
-              purchased.course?.id ||
-              purchased.courseId) === courseId
-        );
+        console.log(`[DEBUG] Parsed purchased courses:`, purchasedCourses);
+
+        const isPurchased = purchasedCourses.some((purchased) => {
+          const purchasedCourseId =
+            purchased.course?._id ||
+            purchased.course?.id ||
+            purchased.courseId ||
+            purchased.courseInfo?._id;
+          console.log(
+            `[DEBUG] Comparing ${courseId} with purchased course ${purchasedCourseId}`
+          );
+          return purchasedCourseId === courseId;
+        });
+
+        console.log(`[DEBUG] Course ${courseId} is purchased: ${isPurchased}`);
+        return isPurchased;
       } catch (error) {
         console.error("Error parsing purchased courses:", error);
         return false;

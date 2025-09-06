@@ -7,6 +7,9 @@ import { toast } from "react-toastify";
 import courseApi from "../api/modules/course.api";
 
 const EditCoursePage = () => {
+  const { id } = useParams();
+  const navigate = useNavigate();
+
   // --- AUTH & ROLE CHECK ---
   useEffect(() => {
     const token =
@@ -44,14 +47,32 @@ const EditCoursePage = () => {
     // }
   }, [navigate]);
 
-  
-  const { id } = useParams();
   const [imagePreview, setImagePreview] = useState(null);
   const [imageFile, setImageFile] = useState(null);
   const [imageError, setImageError] = useState("");
   const [customCategory, setCustomCategory] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("");
-  const navigate = useNavigate();
+
+  // State for Key Learning Objectives
+  const [objectives, setObjectives] = useState([""]);
+
+  // Functions to manage objectives
+  const addObjective = () => {
+    setObjectives([...objectives, ""]);
+  };
+
+  const removeObjective = (index) => {
+    if (objectives.length > 1) {
+      const newObjectives = objectives.filter((_, i) => i !== index);
+      setObjectives(newObjectives);
+    }
+  };
+
+  const updateObjective = (index, value) => {
+    const newObjectives = [...objectives];
+    newObjectives[index] = value;
+    setObjectives(newObjectives);
+  };
 
   const predefinedCategories = [
     "Programming",
@@ -75,9 +96,6 @@ const EditCoursePage = () => {
       .positive("Price must be positive")
       .required("Price is required"),
     courseOverview: yup.string().required("Course overview is required"),
-    keyLearningObjectives: yup
-      .string()
-      .required("Key learning objectives are required"),
     lectures: yup
       .number()
       .typeError("Number of lectures must be a number")
@@ -146,6 +164,29 @@ const EditCoursePage = () => {
           setSelectedCategory("Other");
         }
 
+        // Parse and set objectives
+        let parsedObjectives = [""];
+        if (course.keyLearningObjectives) {
+          if (Array.isArray(course.keyLearningObjectives)) {
+            parsedObjectives =
+              course.keyLearningObjectives.length > 0
+                ? course.keyLearningObjectives
+                : [""];
+          } else if (typeof course.keyLearningObjectives === "string") {
+            try {
+              const parsed = JSON.parse(course.keyLearningObjectives);
+              if (Array.isArray(parsed)) {
+                parsedObjectives = parsed.length > 0 ? parsed : [""];
+              } else {
+                parsedObjectives = [course.keyLearningObjectives];
+              }
+            } catch (e) {
+              parsedObjectives = [course.keyLearningObjectives];
+            }
+          }
+        }
+        setObjectives(parsedObjectives);
+
         reset({
           title: course.title || "",
           price: course.price || "",
@@ -153,7 +194,6 @@ const EditCoursePage = () => {
           level: course.level || "",
           lectures: course.lectures || "",
           courseOverview: course.description || "",
-          keyLearningObjectives: course.keyLearningObjectives || "",
           driveLink: course.link || "",
           duration: course.duration || "",
           tags: (() => {
@@ -234,6 +274,13 @@ const EditCoursePage = () => {
 
   const onSubmit = async (data) => {
     try {
+      // Validate objectives array
+      const validObjectives = objectives.filter((obj) => obj.trim() !== "");
+      if (validObjectives.length === 0) {
+        toast.error("At least one learning objective is required");
+        return;
+      }
+
       // Prepare FormData for multipart/form-data
       const formData = new FormData();
       formData.append("title", data.title);
@@ -242,7 +289,10 @@ const EditCoursePage = () => {
       formData.append("level", data.level);
       formData.append("lectures", data.lectures);
       formData.append("courseOverview", data.courseOverview);
-      formData.append("keyLearningObjectives", data.keyLearningObjectives);
+
+      // Use objectives array instead of form field for keyLearningObjectives
+      formData.append("keyLearningObjectives", JSON.stringify(validObjectives));
+
       formData.append("driveLink", data.driveLink);
       if (imageFile) {
         formData.append("thumbnail", imageFile);
@@ -395,15 +445,66 @@ const EditCoursePage = () => {
                     Key Learning Objectives{" "}
                     <span className="text-red-500">*</span>
                   </label>
-                  <textarea
-                    {...register("keyLearningObjectives")}
-                    rows={4}
-                    placeholder="List the main objectives students will achieve..."
-                    className="w-full px-0 py-3 text-gray-900 border-0 border-b border-gray-200 focus:border-blue-500 focus:ring-0 bg-transparent placeholder-gray-400 resize-none"
-                  />
-                  {errors.keyLearningObjectives && (
+                  <div className="space-y-3">
+                    {objectives.map((objective, index) => (
+                      <div key={index} className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          value={objective}
+                          onChange={(e) =>
+                            updateObjective(index, e.target.value)
+                          }
+                          placeholder={`Learning objective ${index + 1}`}
+                          className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                        />
+                        {objectives.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => removeObjective(index)}
+                            className="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-md transition-colors"
+                          >
+                            <svg
+                              className="w-4 h-4"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M6 18L18 6M6 6l12 12"
+                              />
+                            </svg>
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={addObjective}
+                      className="flex items-center gap-2 px-3 py-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-md transition-colors"
+                    >
+                      <svg
+                        className="w-4 h-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                        />
+                      </svg>
+                      Add another objective
+                    </button>
+                  </div>
+                  {objectives.filter((obj) => obj.trim() !== "").length ===
+                    0 && (
                     <p className="mt-1 text-sm text-red-600">
-                      {errors.keyLearningObjectives.message}
+                      At least one learning objective is required
                     </p>
                   )}
                 </div>
