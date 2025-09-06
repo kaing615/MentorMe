@@ -968,6 +968,38 @@ export const getUserCourses = async (req, res) => {
   }
 };
 
+export const checkCoursePurchaseStatus = async (req, res) => {
+  try {
+    const { courseId } = req.params;
+    const userId = req.user.id;
+
+    if (!courseId) {
+      return responseHandler.badRequest(res, "Course ID is required.");
+    }
+
+    // Tìm course và kiểm tra xem user có trong mảng mentees không
+    const course = await Course.findById(courseId);
+
+    if (!course) {
+      return responseHandler.notFound(res, "Khóa học không tồn tại!");
+    }
+
+    const isPurchased = course.mentees.includes(userId);
+
+    return responseHandler.ok(res, {
+      message: isPurchased
+        ? "Bạn đã mua khóa học này."
+        : "Bạn chưa mua khóa học này.",
+      isPurchased,
+      courseId,
+      courseTitle: course.title,
+    });
+  } catch (err) {
+    console.error("Error checking course purchase status:", err);
+    responseHandler.error(res, err.message);
+  }
+};
+
 export default {
   getCourses,
   getCourseById,
@@ -986,4 +1018,5 @@ export default {
   removeContentFromCourse,
   handlePurchaseSuccess,
   getUserCourses,
+  checkCoursePurchaseStatus,
 };

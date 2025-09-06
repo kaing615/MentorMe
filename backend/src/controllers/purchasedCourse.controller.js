@@ -1,6 +1,7 @@
 import responseHandler from "../handlers/response.handler.js";
 import Order from "../models/order.model.js";
 import User from "../models/user.model.js";
+import Course from "../models/course.model.js";
 
 /**
  * @desc Lấy danh sách khóa học đã mua của user
@@ -9,55 +10,59 @@ import User from "../models/user.model.js";
  */
 const getPurchasedCourses = async (req, res) => {
   try {
-    let userId;
-    if (req.user && req.user.id) {
-      userId = req.user.id;
-    } else {
-      const firstUser = await User.findOne();
-      if (!firstUser) {
-        return responseHandler.notFound(res, "Không tìm thấy user.");
-      }
-      userId = firstUser._id;
-    }
+    const userId = req.user.id || req.user._id;
 
-    // Tìm tất cả các order mà user là mentee
-    const orders = await Order.find({ mentee: userId }).populate({
-      path: "courses",
-      select:
-        "title description price mentor category duration rate link lectures",
-      populate: {
+    console.log("Getting purchased courses for user:", userId);
+
+    // Lấy danh sách courses mà user là mentee
+    const purchasedCourses = await Course.find({
+      mentees: userId,
+    })
+      .populate({
         path: "mentor",
-        select: "firstName lastName avatarUrl jobTitle",
-      },
-    });
+        select: "firstName lastName avatarUrl jobTitle userName email",
+      })
+      .sort({ createdAt: -1 });
 
-    // Gom tất cả các khóa học đã mua từ các order
-    const purchasedCourses = [];
-    orders.forEach((order) => {
-      order.courses.forEach((course) => {
-        purchasedCourses.push({
-          courseId: course._id,
-          courseInfo: course,
-          purchaseDate: order.createdAt,
-          orderInfo: {
-            transactionId: order.transactionId,
-            paymentMethod: order.paymentMethod,
-            createdAt: order.createdAt,
-          },
-        });
-      });
-    });
+    console.log("Found purchased courses:", purchasedCourses.length);
+
+    // Format response
+    const formattedCourses = purchasedCourses.map((course) => ({
+      courseId: course._id,
+      courseInfo: {
+        _id: course._id,
+        title: course.title,
+        description: course.description,
+        price: course.price,
+        mentor: course.mentor,
+        category: course.category,
+        duration: course.duration,
+        rate: course.rate,
+        link: course.link,
+        lectures: course.lectures,
+        thumbnail: course.thumbnail,
+      },
+      purchaseDate: course.createdAt, // Use course creation date as fallback
+      progress: 0, // Default progress
+      lastAccessDate: null,
+      isCompleted: false,
+      orderInfo: {
+        // We could populate order info later if needed
+        transactionId: null,
+        paymentMethod: null,
+        createdAt: course.createdAt,
+        orderNumber: null,
+      },
+    }));
 
     return responseHandler.ok(res, {
       message: "Lấy danh sách khóa học đã mua thành công.",
-      data: {
-        totalCourses: purchasedCourses.length,
-        courses: purchasedCourses,
-      },
+      totalCourses: formattedCourses.length,
+      courses: formattedCourses,
     });
   } catch (err) {
-    console.error("Lỗi lấy danh sách khóa học đã mua:", err);
-    responseHandler.error(res);
+    console.error("Lỗi khi lấy danh sách khóa học đã mua:", err);
+    return responseHandler.error(res, "Lỗi server khi lấy khóa học đã mua.");
   }
 };
 
@@ -68,32 +73,30 @@ const getPurchasedCourses = async (req, res) => {
  */
 const updateCourseProgress = async (req, res) => {
   try {
-    const { id: userId } = req.user;
+    const userId = req.user._id;
     const { courseId } = req.params;
     const { progress } = req.body;
 
     if (progress < 0 || progress > 100) {
-      return responseHandler.badrequest(res, "Tiến độ phải từ 0 đến 100%.");
+      return responseHandler.badRequest(res, "Tiến độ phải từ 0 đến 100%.");
     }
 
-    const user = await User.findById(userId);
-    if (!user) {
-      return responseHandler.notFound(res, "Không tìm thấy user.");
+    // Tìm purchased course từ PurchasedCourse model
+    const purchasedCourse = await PurchasedCourse.findOne({
+      user: userId,
+      course: courseId,
+    });
+
+    if (!purchasedCourse) {
+      return responseHandler.badRequest(res, "Bạn chưa mua khóa học này.");
     }
 
-    const courseIndex = user.purchasedCourses.findIndex(
-      (item) => item.course.toString() === courseId
-    );
+    // Cập nhật tiến độ
+    purchasedCourse.progress = progress;
+    purchasedCourse.lastAccessDate = new Date();
+    purchasedCourse.isCompleted = progress === 100;
 
-    if (courseIndex === -1) {
-      return responseHandler.badrequest(res, "Bạn chưa mua khóa học này.");
-    }
-
-    user.purchasedCourses[courseIndex].progress = progress;
-    user.purchasedCourses[courseIndex].lastAccessDate = new Date();
-    user.purchasedCourses[courseIndex].isCompleted = progress === 100;
-
-    await user.save();
+    await purchasedCourse.save();
 
     return responseHandler.ok(res, {
       message: "Cập nhật tiến độ học thành công.",
@@ -101,6 +104,7 @@ const updateCourseProgress = async (req, res) => {
         courseId,
         progress,
         isCompleted: progress === 100,
+        lastAccessDate: purchasedCourse.lastAccessDate,
       },
     });
   } catch (err) {
@@ -116,17 +120,17 @@ const updateCourseProgress = async (req, res) => {
  */
 const checkCoursePurchase = async (req, res) => {
   try {
-    const { id: userId } = req.user;
+    const userId = req.user._id;
     const { courseId } = req.params;
 
-    const user = await User.findById(userId);
-    if (!user) {
-      return responseHandler.notFound(res, "Không tìm thấy user.");
-    }
-
-    const purchasedCourse = user.purchasedCourses.find(
-      (item) => item.course.toString() === courseId
-    );
+    // Kiểm tra từ PurchasedCourse model
+    const purchasedCourse = await PurchasedCourse.findOne({
+      user: userId,
+      course: courseId,
+    }).populate({
+      path: "course",
+      select: "title description price thumbnail",
+    });
 
     if (!purchasedCourse) {
       return responseHandler.ok(res, {
@@ -139,7 +143,14 @@ const checkCoursePurchase = async (req, res) => {
     return responseHandler.ok(res, {
       message: "Bạn đã mua khóa học này.",
       isPurchased: true,
-      courseData: purchasedCourse,
+      courseData: {
+        courseId: purchasedCourse.course._id,
+        courseInfo: purchasedCourse.course,
+        progress: purchasedCourse.progress,
+        isCompleted: purchasedCourse.isCompleted,
+        purchaseDate: purchasedCourse.purchaseDate,
+        lastAccessDate: purchasedCourse.lastAccessDate,
+      },
     });
   } catch (err) {
     console.error("Lỗi kiểm tra mua khóa học:", err);
@@ -154,24 +165,37 @@ const checkCoursePurchase = async (req, res) => {
  */
 const handlePurchaseSuccess = async (req, res) => {
   try {
-    const { id: userId } = req.user;
+    const userId = req.user._id;
     const { orderId } = req.body;
+
+    if (!orderId) {
+      return responseHandler.badRequest(res, "OrderId is required.");
+    }
 
     // Tìm order và populate courses
     const order = await Order.findById(orderId)
       .populate("mentee")
       .populate("courses");
 
+    console.log("Found order:", order ? "Yes" : "No");
+    console.log("Order ID:", orderId);
+    if (order) {
+      console.log(
+        "Order items:",
+        order.items ? order.items.length : "undefined"
+      );
+      console.log(
+        "Order courses:",
+        order.courses ? order.courses.length : "undefined"
+      );
+    }
+
     if (!order) {
       return responseHandler.notFound(res, "Không tìm thấy đơn hàng.");
     }
 
-    if (order.status !== "paid") {
-      return responseHandler.badrequest(res, "Đơn hàng chưa được thanh toán.");
-    }
-
     // Kiểm tra order có thuộc về user này không
-    if (order.mentee._id.toString() !== userId) {
+    if (order.mentee._id.toString() !== userId.toString()) {
       return responseHandler.forbidden(res, "Đơn hàng không thuộc về bạn.");
     }
 
@@ -182,46 +206,54 @@ const handlePurchaseSuccess = async (req, res) => {
 
     let coursesAdded = 0;
 
-    // Thêm từng khóa học vào danh sách đã mua
-    for (const course of order.courses) {
-      // Kiểm tra xem đã mua chưa
-      const existingPurchase = user.purchasedCourses.find(
-        (item) => item.course.toString() === course._id.toString()
-      );
+    // Lấy danh sách courses từ order - có thể ở items hoặc courses
+    let coursesToAdd = [];
 
-      if (!existingPurchase) {
-        user.purchasedCourses.push({
-          course: course._id,
-          orderId: orderId,
-          purchaseDate: new Date(),
-          progress: 0,
-          lastAccessDate: new Date(),
-          isCompleted: false,
+    if (order.items && order.items.length > 0) {
+      // Nếu có items, lấy courseId từ items
+      coursesToAdd = order.items.map((item) => item.courseId);
+    } else if (order.courses && order.courses.length > 0) {
+      // Nếu có courses array
+      coursesToAdd = order.courses;
+    } else {
+      return responseHandler.badRequest(res, "Đơn hàng không có khóa học nào.");
+    }
+
+    // Thêm từng khóa học vào danh sách đã mua
+    for (const courseId of coursesToAdd) {
+      try {
+        // Kiểm tra xem đã mua chưa
+        const existingPurchase = await PurchasedCourse.findOne({
+          user: userId,
+          course: courseId,
         });
 
-        // Thêm user vào danh sách mentees của course
-        if (!course.mentees.includes(userId)) {
-          course.mentees.push(userId);
-          await course.save();
+        if (!existingPurchase) {
+          // Tạo record purchased course mới
+          await PurchasedCourse.create({
+            user: userId,
+            course: courseId,
+            order: orderId,
+            purchaseDate: new Date(),
+            progress: 0,
+            lastAccessDate: new Date(),
+            isCompleted: false,
+          });
+          coursesAdded++;
         }
-
-        coursesAdded++;
+      } catch (error) {
+        console.error(`Error adding course ${courseId}:`, error);
       }
     }
 
-    await user.save();
-
     return responseHandler.ok(res, {
-      message: "Xử lý mua khóa học thành công.",
-      data: {
-        orderId,
-        coursesAdded,
-        totalCourses: order.courses.length,
-      },
+      message: `Đã thêm ${coursesAdded} khóa học vào danh sách đã mua.`,
+      coursesAdded,
+      totalCourses: coursesToAdd.length,
     });
   } catch (err) {
     console.error("Lỗi xử lý mua khóa học:", err);
-    responseHandler.error(res);
+    return responseHandler.error(res);
   }
 };
 
@@ -232,30 +264,26 @@ const handlePurchaseSuccess = async (req, res) => {
  */
 const getLearningStats = async (req, res) => {
   try {
-    const { id: userId } = req.user;
+    const userId = req.user._id;
 
-    const user = await User.findById(userId);
-    if (!user) {
-      return responseHandler.notFound(res, "Không tìm thấy user.");
-    }
+    // Lấy tất cả purchased courses từ PurchasedCourse model
+    const purchasedCourses = await PurchasedCourse.find({ user: userId });
 
-    const totalCourses = user.purchasedCourses.length;
-    const completedCourses = user.purchasedCourses.filter(
+    const totalCourses = purchasedCourses.length;
+    const completedCourses = purchasedCourses.filter(
       (course) => course.isCompleted
     ).length;
-    const inProgressCourses = user.purchasedCourses.filter(
+    const inProgressCourses = purchasedCourses.filter(
       (course) => course.progress > 0 && !course.isCompleted
     ).length;
-    const notStartedCourses = user.purchasedCourses.filter(
+    const notStartedCourses = purchasedCourses.filter(
       (course) => course.progress === 0
     ).length;
 
     const averageProgress =
       totalCourses > 0
-        ? user.purchasedCourses.reduce(
-            (sum, course) => sum + course.progress,
-            0
-          ) / totalCourses
+        ? purchasedCourses.reduce((sum, course) => sum + course.progress, 0) /
+          totalCourses
         : 0;
 
     return responseHandler.ok(res, {

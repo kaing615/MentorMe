@@ -1175,7 +1175,7 @@ const MenteeProfile = () => {
                         </p>
                         {!searchTerm && filterBy === "all" && (
                           <button
-                            onClick={() => navigate("/home")}
+                            onClick={() => navigate("/all-courses")}
                             className="mt-4 bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition"
                           >
                             Browse Courses

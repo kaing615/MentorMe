@@ -144,6 +144,18 @@ const courseApi = {
     }
   },
 
+  // Kiểm tra xem user đã mua khóa học hay chưa
+  checkPurchaseStatus: async ({ courseId }) => {
+    try {
+      const response = await privateClient.get(
+        `${ep.detail(courseId)}/purchase-status`
+      );
+      return ok(response);
+    } catch (e) {
+      return fail(e);
+    }
+  },
+
   // ===== REVIEWS =====
   getAllReviews: async (params = {}) => {
     try {

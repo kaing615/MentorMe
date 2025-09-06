@@ -887,17 +887,12 @@ const AllCoursePage = () => {
                           ({course.reviewCount || 0} Ratings)
                         </span>
                       </div>
-                      <div
-                        className="text-sm text-gray-700 mb-2"
-                        style={{
-                          display: "-webkit-box",
-                          WebkitLineClamp: 1,
-                          WebkitBoxOrient: "vertical",
-                          overflow: "hidden",
-                        }}
-                      >
-                        {course.duration} • {course.lectures} Lectures •{" "}
-                        {course.category}
+                      <div className="text-sm text-gray-700 mb-1">
+                        {course.duration || "Self-paced"} •{" "}
+                        {course.lectures || 0} Lectures
+                      </div>
+                      <div className="text-sm text-gray-600 mb-2">
+                        {course.category || "General"}
                       </div>
 
                       {/* Hiển thị tags nếu có */}

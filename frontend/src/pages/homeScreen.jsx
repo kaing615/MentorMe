@@ -359,7 +359,7 @@ const HomeScreen = () => {
 
   const handleMentorClick = (mentorId) => {
     window.scrollTo({ top: 0, behavior: "smooth" });
-    navigate(`/${mentorId}`);
+    navigate(`/mentor/mentor/${mentorId}`);
   };
 
   useEffect(() => {
@@ -816,10 +816,12 @@ const HomeScreen = () => {
                                     ({course.numberOfRatings || 0} Ratings)
                                   </span>
                                 </div>
-                                <p className="text-sm text-gray-600 mb-2">
-                                  {hours} Hours. {lectures} Lectures.{" "}
-                                  {course.category}
-                                </p>
+                                <div className="text-sm text-gray-700 mb-1">
+                                  {hours} Total Hours • {lectures} Lectures
+                                </div>
+                                <div className="text-sm text-gray-600 mb-2">
+                                  {course.category || "General"}
+                                </div>
 
                                 {/* Hiển thị tags (Programming Languages) */}
                                 {course.tags && course.tags.length > 0 && (
