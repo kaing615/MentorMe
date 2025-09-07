@@ -1,12 +1,3 @@
-/**
- * Chat Component for Mentor-Mentee Communication
- * 
- * Component chat đầy đủ tích hợp với backend API
- * Hỗ trợ: danh sách conversations, tin nhắn real-time, gửi/nhận messages
- * 
- * Thiết kế: Giao diện hiện đại với màu sắc phù hợp theme tổng thể
- */
-
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import { useChat } from "../hooks/useChat.js";
 
@@ -68,25 +59,10 @@ export default function MentorMenteeChat({ userRole = "mentor" }) {
     totalUnreadCount
   } = useChat(userRole);
   
-  // Debug logging
-  console.log("🎯 MentorMenteeChat - conversations:", conversations);
-  console.log("🎯 MentorMenteeChat - loading:", loading);
-  console.log("🎯 MentorMenteeChat - error:", error);
-  console.log("🎯 MentorMenteeChat - conversations.length:", conversations.length);
-  
   const [draft, setDraft] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
-  const [isAutoRefreshing, setIsAutoRefreshing] = useState(false);
   const messagesContainerRef = useRef(null);
   const messagesEndRef = useRef(null); // Thêm lại ref cho cuối messages
-
-  // Debug logs after state initialization
-  console.log("🎯 MentorMenteeChat - selectedConversationId:", selectedConversationId);
-  console.log("🎯 MentorMenteeChat - selectedConversation:", selectedConversation);
-  console.log("🎯 MentorMenteeChat - selectedMessages:", selectedMessages);
-  console.log("🎯 MentorMenteeChat - draft:", draft);
-  console.log("🎯 MentorMenteeChat - selectedMessages.length:", selectedMessages.length);
-  console.log("🎯 MentorMenteeChat - Should show input?", !!selectedConversationId);
 
   // Helper function để scroll đến cuối - chỉ scroll messages area
   const scrollToBottom = useCallback((immediate = false) => {
@@ -333,7 +309,6 @@ export default function MentorMenteeChat({ userRole = "mentor" }) {
               <div ref={messagesEndRef} className="h-1" />
             </div>
 
-            {/* Message Input - CỐ ĐỊNH như Messenger, không bao giờ bị đẩy xuống */}
             <div 
               className="px-6 py-4 border-t border-gray-200 bg-white flex-shrink-0 sticky bottom-0 shadow-lg"
               style={{ 
