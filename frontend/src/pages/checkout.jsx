@@ -109,8 +109,8 @@ const Checkout = () => {
       const token =
         localStorage.getItem("token") || localStorage.getItem("actkn");
       if (!token) {
-        toast.error("Vui lòng đăng nhập để tiếp tục");
-        navigate("/login");
+        toast.error("Login to proceed to checkout");
+        navigate("/auth/signin");
         return;
       }
 

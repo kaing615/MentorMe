@@ -36,10 +36,10 @@ const MenteeProfile = () => {
       return;
     }
     // Check role
-    if (user.role === "mentor") {
+    if (user.role === "mentee") {
       return;
     }
-    if (user.role === "mentee") {
+    if (user.role === "mentor") {
       navigate("/home");
       return;
     }
@@ -502,11 +502,9 @@ const MenteeProfile = () => {
     );
 
     switch (filterBy) {
-      case "completed":
-        filtered = filtered.filter((item) => item.progress === 100);
-        break;
       case "available":
-        filtered = filtered.filter((item) => item.progress !== 100);
+        // Just show all courses since we removed progress logic
+        filtered = filtered;
         break;
       default:
         break;
@@ -1004,7 +1002,6 @@ const MenteeProfile = () => {
                         className="px-4 py-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                       >
                         <option value="all">All Courses</option>
-                        <option value="completed">Completed</option>
                         <option value="available">Available</option>
                       </select>
                       <button
@@ -1060,13 +1057,6 @@ const MenteeProfile = () => {
                                     "https://via.placeholder.com/300x200/f3f4f6/9ca3af?text=Course+Image";
                                 }}
                               />
-                              {item.progress === 100 && (
-                                <div className="absolute top-3 right-3">
-                                  <span className="bg-green-500 text-white text-xs px-2 py-1 rounded-full font-medium flex items-center gap-1">
-                                    ✓ Completed
-                                  </span>
-                                </div>
-                              )}
                             </div>
 
                             <div className="p-4">
@@ -1144,32 +1134,6 @@ const MenteeProfile = () => {
                                   {course.category || "General"}
                                 </span>
                               </div>
-
-                              {/* Progress Bar */}
-                              {item.progress !== undefined && (
-                                <div className="mb-4">
-                                  <div className="flex justify-between items-center mb-2">
-                                    <span className="text-sm font-medium text-gray-700">
-                                      Progress
-                                    </span>
-                                    <span className="text-sm text-gray-600">
-                                      {item.progress || 0}%
-                                    </span>
-                                  </div>
-                                  <div className="w-full bg-gray-200 rounded-full h-2">
-                                    <div
-                                      className={`h-2 rounded-full transition-all ${
-                                        item.progress === 100
-                                          ? "bg-green-500"
-                                          : "bg-blue-600"
-                                      }`}
-                                      style={{
-                                        width: `${item.progress || 0}%`,
-                                      }}
-                                    ></div>
-                                  </div>
-                                </div>
-                              )}
 
                               {/* Action Buttons */}
                               <div className="flex gap-2">

@@ -142,15 +142,30 @@ export const updateCourseSchema = Joi.object({
   name: Joi.string().optional(),
   title: Joi.string().optional(),
   description: Joi.string().optional().allow(""),
+  courseOverview: Joi.string().optional().allow(""),
   shortDescription: Joi.string().optional().allow(""),
   thumbnail: Joi.string().optional().allow(""),
   price: numberFromString({ min: 0 }).optional(),
   category: Joi.string().optional(),
-  tags: Joi.array().items(Joi.string().allow("")).optional(),
+  level: Joi.string().optional(),
+  lectures: numberFromString({ min: 0, integer: true }).optional(),
   duration: numberFromString({ min: 0, integer: true }).optional(),
+  keyLearningObjectives: Joi.alternatives()
+    .try(Joi.array().items(Joi.string()), Joi.string().allow(""))
+    .optional(),
+
+  // Tag (optional) - có thể là string hoặc array (giống createCourseSchema)
+  tags: Joi.alternatives()
+    .try(Joi.array().items(Joi.string().allow("")), Joi.string().allow(""))
+    .optional(),
+
+  // Language (optional) - có thể là string hoặc array (giống createCourseSchema)
+  language: Joi.alternatives()
+    .try(Joi.array().items(Joi.string().allow("")), Joi.string().allow(""))
+    .optional(),
+
   link: Joi.string().uri().optional().allow(""),
   driveLink: Joi.string().uri().optional().allow(""),
-  lectures: numberFromString({ min: 0, integer: true }).optional(),
   mentors: Joi.array().items(objectId).optional(),
 });
 

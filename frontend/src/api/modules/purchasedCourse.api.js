@@ -20,37 +20,9 @@ const purchasedCourseApi = {
   getPurchasedCourseDetails: async ({ courseId }, dispatch) => {
     try {
       const privateClient = createPrivateClient(dispatch);
+      // Correct backend endpoint is /purchased-courses/check/:courseId
       const response = await privateClient.get(
-        `/purchased-courses/${courseId}`
-      );
-      return ok(response);
-    } catch (e) {
-      return fail(e);
-    }
-  },
-
-  // Cập nhật tiến độ học tập
-  updateProgress: async ({ courseId, progress }, dispatch) => {
-    try {
-      const privateClient = createPrivateClient(dispatch);
-      const response = await privateClient.put(
-        `/purchased-courses/${courseId}/progress`,
-        {
-          progress,
-        }
-      );
-      return ok(response);
-    } catch (e) {
-      return fail(e);
-    }
-  },
-
-  // Đánh dấu hoàn thành khóa học
-  completeCourse: async ({ courseId }, dispatch) => {
-    try {
-      const privateClient = createPrivateClient(dispatch);
-      const response = await privateClient.put(
-        `/purchased-courses/${courseId}/complete`
+        `/purchased-courses/check/${courseId}`
       );
       return ok(response);
     } catch (e) {

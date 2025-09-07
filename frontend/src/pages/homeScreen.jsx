@@ -420,7 +420,7 @@ const HomeScreen = () => {
 
   const handleMentorClick = (mentorId) => {
     window.scrollTo({ top: 0, behavior: "smooth" });
-    navigate(`/mentor/mentor/${mentorId}`);
+    navigate(`/mentor/${mentorId}`);
   };
 
   useEffect(() => {

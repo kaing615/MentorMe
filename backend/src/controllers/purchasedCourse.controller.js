@@ -2,6 +2,7 @@ import responseHandler from "../handlers/response.handler.js";
 import Order from "../models/order.model.js";
 import User from "../models/user.model.js";
 import Course from "../models/course.model.js";
+import PurchasedCourse from "../models/purchasedCourse.model.js";
 
 /**
  * @desc Lấy danh sách khóa học đã mua của user
@@ -83,7 +84,7 @@ const updateCourseProgress = async (req, res) => {
 
     // Tìm purchased course từ PurchasedCourse model
     const purchasedCourse = await PurchasedCourse.findOne({
-      user: userId,
+      mentee: userId,
       course: courseId,
     });
 
@@ -125,7 +126,7 @@ const checkCoursePurchase = async (req, res) => {
 
     // Kiểm tra từ PurchasedCourse model
     const purchasedCourse = await PurchasedCourse.findOne({
-      user: userId,
+      mentee: userId,
       course: courseId,
     }).populate({
       path: "course",
@@ -224,16 +225,21 @@ const handlePurchaseSuccess = async (req, res) => {
       try {
         // Kiểm tra xem đã mua chưa
         const existingPurchase = await PurchasedCourse.findOne({
-          user: userId,
+          mentee: userId,
           course: courseId,
         });
 
         if (!existingPurchase) {
+          // Lấy thông tin course để có price
+          const courseInfo = await Course.findById(courseId).select("price");
+          const coursePrice = courseInfo?.price || 0;
+
           // Tạo record purchased course mới
           await PurchasedCourse.create({
-            user: userId,
+            mentee: userId,
             course: courseId,
             order: orderId,
+            price: coursePrice,
             purchaseDate: new Date(),
             progress: 0,
             lastAccessDate: new Date(),
@@ -267,7 +273,7 @@ const getLearningStats = async (req, res) => {
     const userId = req.user._id;
 
     // Lấy tất cả purchased courses từ PurchasedCourse model
-    const purchasedCourses = await PurchasedCourse.find({ user: userId });
+    const purchasedCourses = await PurchasedCourse.find({ mentee: userId });
 
     const totalCourses = purchasedCourses.length;
     const completedCourses = purchasedCourses.filter(

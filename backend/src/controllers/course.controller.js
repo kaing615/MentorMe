@@ -6,6 +6,7 @@ import responseHandler from "../handlers/response.handler.js";
 import Course from "../models/course.model.js";
 import Order from "../models/order.model.js";
 import User from "../models/user.model.js";
+import Profile from "../models/profile.model.js";
 import Lesson from "../models/lesson.model.js";
 import Review from "../models/review.model.js";
 
@@ -108,14 +109,34 @@ export const getCourseById = async (req, res) => {
   try {
     const id = getParamId(req);
     const course = await Course.findById(id)
-      .populate("mentor", "userName avatarUrl jobTitle bio location")
+      .populate("mentor", "userName firstName lastName avatarUrl")
       .populate("mentees", "userName avatarUrl");
 
     if (!course)
       return responseHandler.notFound(res, "Khóa học không tồn tại!");
 
+    // Get mentor profile data
+    let mentorProfile = null;
+    if (course.mentor) {
+      mentorProfile = await Profile.findOne({ user: course.mentor._id });
+    }
+
     const obj = course.toObject();
     obj.courseId = obj._id;
+
+    // Merge mentor data with profile data
+    if (obj.mentor && mentorProfile) {
+      obj.mentor = {
+        ...obj.mentor,
+        jobTitle: mentorProfile.jobTitle,
+        bio: mentorProfile.bio,
+        location: mentorProfile.location,
+        category: mentorProfile.category,
+        experience: mentorProfile.experience,
+        skills: mentorProfile.skills || [],
+      };
+    }
+
     delete obj.__v;
     return responseHandler.ok(res, {
       message: "Lấy thông tin khóa học thành công!",

@@ -41,8 +41,8 @@ const OrderComplete = () => {
       const token =
         localStorage.getItem("token") || localStorage.getItem("actkn");
       if (!token) {
-        toast.error("Vui lòng đăng nhập để xem đơn hàng");
-        navigate("/login");
+        toast.error("Login to view order");
+        navigate("/auth/signin");
         return;
       }
 
@@ -56,7 +56,7 @@ const OrderComplete = () => {
 
       if (!user || user.role !== "mentee") {
         toast.error("Chỉ mentee mới có thể xem đơn hàng");
-        navigate("/login");
+        navigate("/auth/signin");
         return;
       }
 

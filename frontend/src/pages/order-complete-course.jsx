@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, useLocation, useParams } from "react-router-dom";
 import {
   generateCourses,
   generateReviews,
@@ -10,6 +10,7 @@ import purchasedCourseApi from "../api/modules/purchasedCourse.api";
 import { toast } from "react-toastify";
 
 const OrderCompleteCourse = () => {
+  const { id } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -58,7 +59,6 @@ const OrderCompleteCourse = () => {
   const [courseData, setCourseData] = useState(null);
   const [mentorData, setMentorData] = useState(null);
   const [purchasedCourseData, setPurchasedCourseData] = useState(null);
-  const [progress, setProgress] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -81,7 +81,6 @@ const OrderCompleteCourse = () => {
         setError(null);
 
         // Check localStorage for purchased courses first
-        // Get current user ID for user-specific localStorage
         const userStr = localStorage.getItem("user");
         let currentUserId = null;
         try {
@@ -119,9 +118,7 @@ const OrderCompleteCourse = () => {
               isPurchasedFromLocalStorage = true;
               localPurchasedData = {
                 courseId: purchasedCourse.courseId,
-                progress: purchasedCourse.progress || 0,
                 purchaseDate: purchasedCourse.purchaseDate,
-                isCompleted: purchasedCourse.progress === 100,
                 lastAccessDate: new Date().toISOString(),
               };
               console.log(
@@ -136,57 +133,6 @@ const OrderCompleteCourse = () => {
           }
         }
 
-        // Get course info from location state if available
-        const courseFromState = location.state?.courseInfo;
-
-        // Use course from state if available, otherwise fetch from API
-        if (courseFromState) {
-          setCourseData({
-            id: courseFromState._id,
-            title: courseFromState.title,
-            description: courseFromState.description,
-            price: courseFromState.price,
-            category: courseFromState.category,
-            duration: courseFromState.duration,
-            rate: courseFromState.rate,
-            lectures: courseFromState.lectures,
-            link: courseFromState.link,
-            imageUrl: courseFromState.thumbnail || courseFromState.imageUrl,
-            mentor: courseFromState.mentor,
-            createdAt: courseFromState.createdAt,
-            updatedAt: courseFromState.updatedAt,
-          });
-
-          // Set mentor data from course
-          if (courseFromState.mentor) {
-            setMentorData({
-              id: courseFromState.mentor._id,
-              name: `${courseFromState.mentor.firstName} ${courseFromState.mentor.lastName}`,
-              firstName: courseFromState.mentor.firstName,
-              lastName: courseFromState.mentor.lastName,
-              avatar: courseFromState.mentor.avatarUrl,
-              title: courseFromState.mentor.jobTitle || "Mentor",
-              bio: courseFromState.mentor.bio,
-              email: courseFromState.mentor.email,
-            });
-          }
-
-          // Set purchased data if found in localStorage
-          if (isPurchasedFromLocalStorage) {
-            console.log(
-              "✅ Setting purchasedCourseData from localStorage:",
-              localPurchasedData
-            );
-            setPurchasedCourseData(localPurchasedData);
-            setProgress(localPurchasedData.progress || 0);
-          } else {
-            console.log("❌ No purchased data found in localStorage");
-          }
-
-          setLoading(false);
-          return;
-        }
-
         // Fetch both course details and purchased course details from API
         const [courseResult, purchasedResult] = await Promise.allSettled([
           courseApi.getDetail({ courseId }),
@@ -194,65 +140,131 @@ const OrderCompleteCourse = () => {
         ]);
 
         // Handle course details
-        if (courseResult.status === "fulfilled" && !courseResult.value.error) {
-          const course =
-            courseResult.value.response?.data?.course ||
-            courseResult.value.response?.data?.data ||
-            courseResult.value.response?.data;
-          if (course) {
-            setCourseData({
-              id: course._id,
-              title: course.title,
-              description: course.description,
-              price: course.price,
-              category: course.category,
-              duration: course.duration,
-              rate: course.rate,
-              lectures: course.lectures,
-              link: course.link,
-              imageUrl: course.imageUrl,
-              mentor: course.mentor,
-              createdAt: course.createdAt,
-              updatedAt: course.updatedAt,
-            });
+        if (courseResult.status === "fulfilled") {
+          const { response, error } = courseResult.value;
 
-            // Set mentor data from course
-            if (course.mentor) {
-              setMentorData({
-                id: course.mentor._id,
-                name: `${course.mentor.firstName} ${course.mentor.lastName}`,
-                firstName: course.mentor.firstName,
-                lastName: course.mentor.lastName,
-                avatar: course.mentor.avatarUrl,
-                title: course.mentor.jobTitle || "Mentor",
-                bio: course.mentor.bio,
-                email: course.mentor.email,
-              });
+          if (error || !response?.data?.course) {
+            console.error("Error fetching course:", error);
+            setError("Failed to load course details");
+            toast.error("Không thể tải dữ liệu khóa học");
+            return;
+          }
+
+          // EXACT pattern from EditCoursePage line 155: const course = response.data.course;
+          const course = response.data.course;
+          console.log("🎯 Course data from database:", course);
+
+          // Parse keyLearningObjectives
+          let parsedObjectives = [];
+          if (course.keyLearningObjectives) {
+            if (Array.isArray(course.keyLearningObjectives)) {
+              parsedObjectives = course.keyLearningObjectives;
+            } else if (typeof course.keyLearningObjectives === "string") {
+              try {
+                const parsed = JSON.parse(course.keyLearningObjectives);
+                if (Array.isArray(parsed)) {
+                  parsedObjectives = parsed;
+                } else {
+                  parsedObjectives = [course.keyLearningObjectives];
+                }
+              } catch (e) {
+                parsedObjectives = [course.keyLearningObjectives];
+              }
             }
           }
-        } else {
-          console.error("Error fetching course:", courseResult.reason);
-          setError("Failed to load course details");
+
+          // Parse tags
+          let parsedTags = [];
+          if (course.tags && Array.isArray(course.tags)) {
+            parsedTags = course.tags;
+          }
+
+          // Parse language
+          let parsedLanguage = [];
+          if (course.language && Array.isArray(course.language)) {
+            parsedLanguage = course.language;
+          }
+
+          // Handle thumbnail
+          const imageUrl = course.thumbnail || "";
+
+          setCourseData({
+            id: course._id,
+            title: course.title,
+            description: course.description,
+            price: course.price,
+            category: course.category,
+            duration: course.duration,
+            rate: course.rate,
+            lectures: course.lectures,
+            link: course.link,
+            imageUrl: imageUrl,
+            thumbnail: course.thumbnail,
+            mentor: course.mentor,
+            createdAt: course.createdAt,
+            updatedAt: course.updatedAt,
+            level: course.level,
+            // Parsed arrays for display
+            keyLearningObjectives: parsedObjectives,
+            tags: parsedTags,
+            language: parsedLanguage,
+          });
+
+          // Set mentor data
+          if (course.mentor) {
+            setMentorData({
+              id: course.mentor._id,
+              name: course.mentor.userName || "Mentor",
+              firstName: course.mentor.firstName,
+              lastName: course.mentor.lastName,
+              userName: course.mentor.userName,
+              avatar: course.mentor.avatarUrl,
+              title: course.mentor.jobTitle || "Mentor",
+              bio: course.mentor.bio,
+              email: course.mentor.email,
+              location: course.mentor.location,
+              category: course.mentor.category || "IT",
+              experience: course.mentor.experience || "Professional",
+              skills: course.mentor.skills || [],
+              totalCourses: "5+", // Demo value - could fetch from API
+              totalStudents: "100+", // Demo value as requested
+            });
+          }
         }
 
         // Handle purchased course details (prioritize localStorage over API)
         if (isPurchasedFromLocalStorage) {
+          console.log(
+            "✅ Setting purchasedCourseData from localStorage:",
+            localPurchasedData
+          );
           setPurchasedCourseData(localPurchasedData);
-          setProgress(localPurchasedData.progress || 0);
         } else if (
           purchasedResult.status === "fulfilled" &&
           !purchasedResult.value.error
         ) {
-          const purchasedCourse =
-            purchasedResult.value.response?.data?.purchasedCourse ||
-            purchasedResult.value.response?.data;
-          if (purchasedCourse) {
-            setPurchasedCourseData(purchasedCourse);
-            setProgress(purchasedCourse.progress || 0);
+          const apiData = purchasedResult.value.response?.data;
+          if (apiData?.isPurchased && apiData?.courseData) {
+            console.log(
+              "✅ Setting purchasedCourseData from API (check endpoint):",
+              apiData.courseData
+            );
+            setPurchasedCourseData({
+              courseId:
+                apiData.courseData.courseId ||
+                apiData.courseData.courseInfo?._id,
+              purchaseDate: apiData.courseData.purchaseDate,
+              progress: apiData.courseData.progress,
+              lastAccessDate: apiData.courseData.lastAccessDate,
+            });
+          } else {
+            console.log(
+              "ℹ️ Course not purchased according to API check endpoint"
+            );
           }
         } else {
           console.warn(
-            "Purchased course data not available:",
+            "❌ Purchased course data not available:",
             purchasedResult.reason
           );
           // This is not a critical error, user might be viewing course details without purchasing
@@ -260,13 +272,14 @@ const OrderCompleteCourse = () => {
       } catch (err) {
         console.error("Error in fetchCourseDetails:", err);
         setError("An unexpected error occurred");
+        toast.error("Lỗi khi tải dữ liệu khóa học");
       } finally {
         setLoading(false);
       }
     };
 
     fetchCourseDetails();
-  }, [courseId, location.state]);
+  }, [courseId]);
 
   // Course scroll handlers
   const scrollCourseLeft = () => {
@@ -650,55 +663,8 @@ const OrderCompleteCourse = () => {
 
   // Function to navigate to mentor profile
   const handleMentorProfile = () => {
-    navigate(courseData.mentor.profileLink);
-  };
-
-  // Function to update course progress
-  const handleUpdateProgress = async (newProgress) => {
-    if (!purchasedCourseData) {
-      toast.warning("Bạn cần mua khóa học để cập nhật tiến độ");
-      return;
-    }
-
-    try {
-      const { response, error } = await purchasedCourseApi.updateProgress({
-        courseId: courseId,
-        progress: newProgress,
-      });
-
-      if (error) {
-        throw new Error(error.message || "Không thể cập nhật tiến độ");
-      }
-
-      setProgress(newProgress);
-      toast.success(`Đã cập nhật tiến độ: ${newProgress}%`);
-    } catch (error) {
-      console.error("Update progress error:", error);
-      toast.error(error.message || "Có lỗi khi cập nhật tiến độ");
-    }
-  };
-
-  // Function to mark course as completed
-  const handleCompleteCourse = async () => {
-    if (!purchasedCourseData) {
-      toast.warning("Bạn cần mua khóa học trước");
-      return;
-    }
-
-    try {
-      const { response, error } = await purchasedCourseApi.completeCourse({
-        courseId: courseId,
-      });
-
-      if (error) {
-        throw new Error(error.message || "Không thể hoàn thành khóa học");
-      }
-
-      setProgress(100);
-      toast.success("🎉 Chúc mừng! Bạn đã hoàn thành khóa học!");
-    } catch (error) {
-      console.error("Complete course error:", error);
-      toast.error(error.message || "Có lỗi khi hoàn thành khóa học");
+    if (mentorData?.id) {
+      navigate(`/mentor/${mentorData.id}`);
     }
   };
 
@@ -833,24 +799,46 @@ const OrderCompleteCourse = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {[
                   {
+                    label: "Category",
+                    value: courseData.category || "General",
+                    icon: "📂",
+                  },
+                  {
+                    label: "Level",
+                    value: courseData.level || "All Levels",
+                    icon: "📊",
+                  },
+                  {
                     label: "Duration",
-                    value: courseData.duration || "Self-paced",
+                    value: courseData.duration
+                      ? `${courseData.duration} hour${
+                          courseData.duration > 1 ? "s" : ""
+                        }`
+                      : "Self-paced",
                     icon: "⏰",
                   },
                   {
                     label: "Lectures",
-                    value: courseData.lectures || "Multiple",
+                    value: courseData.lectures
+                      ? `${courseData.lectures} lecture${
+                          courseData.lectures > 1 ? "s" : ""
+                        }`
+                      : "Multiple",
                     icon: "📚",
                   },
                   {
-                    label: "Rating",
-                    value: `${courseData.rate || "N/A"} ⭐`,
-                    icon: "⭐",
+                    label: "Language",
+                    value:
+                      courseData.language && courseData.language.length > 0
+                        ? courseData.language.join(", ")
+                        : "Not specified",
+                    icon: "🌐",
                   },
+
                   {
-                    label: "Category",
-                    value: courseData.category || "General",
-                    icon: "📂",
+                    label: "Students",
+                    value: "430+ enrolled", // Demo value as requested
+                    icon: "👥",
                   },
                 ].map((item, index) => (
                   <div
@@ -893,13 +881,16 @@ const OrderCompleteCourse = () => {
                 />
                 <div className="flex-1">
                   <h4 className="text-xl font-bold text-gray-800 mb-1">
-                    {mentorData?.name || "Anonymous Mentor"}
+                    {mentorData?.firstName &&
+                    mentorData?.lastName &&
+                    mentorData?.userName
+                      ? `${mentorData.firstName} ${mentorData.lastName} (${mentorData.userName})`
+                      : mentorData?.userName ||
+                        mentorData?.name ||
+                        "Anonymous Mentor"}
                   </h4>
                   <p className="text-blue-600 font-semibold mb-1">
                     {mentorData?.title || "Mentor"}
-                  </p>
-                  <p className="text-gray-600 text-sm">
-                    {mentorData?.email || "Contact information not available"}
                   </p>
                 </div>
                 <button
@@ -914,31 +905,33 @@ const OrderCompleteCourse = () => {
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
                 <div className="text-center p-3 bg-white rounded-lg">
                   <div className="text-lg font-bold text-gray-800">
-                    Professional
+                    {mentorData?.experience || "Professional"}
                   </div>
                   <div className="text-xs text-gray-500">Experience</div>
                 </div>
                 <div className="text-center p-3 bg-white rounded-lg">
                   <div className="text-lg font-bold text-gray-800">
-                    Multiple
+                    {mentorData?.category || "IT"}
                   </div>
-                  <div className="text-xs text-gray-500">Students</div>
+                  <div className="text-xs text-gray-500">Category</div>
                 </div>
                 <div className="text-center p-3 bg-white rounded-lg">
-                  <div className="text-lg font-bold text-gray-800">Various</div>
+                  <div className="text-lg font-bold text-gray-800">
+                    {mentorData?.totalCourses || "5+"}
+                  </div>
                   <div className="text-xs text-gray-500">Courses</div>
                 </div>
                 <div className="text-center p-3 bg-white rounded-lg">
-                  <div className="flex items-center justify-center space-x-1 mb-1">
-                    {renderStars(5)}
+                  <div className="text-lg font-bold text-gray-800">
+                    {mentorData?.totalStudents || "100+"}
                   </div>
-                  <div className="text-xs text-gray-500">Rating</div>
+                  <div className="text-xs text-gray-500">Students</div>
                 </div>
               </div>
 
               {/* Bio */}
               <div className="mb-4">
-                <p className="text-gray-700 leading-relaxed text-sm">
+                <p className="text-gray-700 leading-relaxed text-sm text-justify break-words overflow-wrap-anywhere hyphens-auto">
                   {mentorData?.bio ||
                     "An experienced mentor dedicated to helping students achieve their learning goals."}
                 </p>
@@ -946,20 +939,19 @@ const OrderCompleteCourse = () => {
 
               {/* Specialties */}
               <div>
-                <h5 className="font-medium mb-2 text-gray-800">Specialties:</h5>
+                <h5 className="font-medium mb-2 text-gray-800">
+                  Area of Expertise:
+                </h5>
                 <div className="flex flex-wrap gap-2">
-                  {(
-                    mentorData?.specialties || [
-                      "Teaching",
-                      "Mentoring",
-                      "Professional Development",
-                    ]
-                  ).map((specialty, index) => (
+                  {(mentorData?.skills && mentorData.skills.length > 0
+                    ? mentorData.skills
+                    : ["Teaching", "Mentoring", "Professional Development"]
+                  ).map((skill, index) => (
                     <span
                       key={index}
-                      className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium"
+                      className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium break-words"
                     >
-                      {specialty}
+                      {skill}
                     </span>
                   ))}
                 </div>
@@ -1003,60 +995,66 @@ const OrderCompleteCourse = () => {
                 className="flex space-x-6 overflow-x-auto pb-4 scrollbar-hide"
                 style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
               >
-                {courseData.relatedCourses.map((course, index) => (
-                  <div
-                    key={index}
-                    className="flex-shrink-0 w-80 bg-white border border-gray-200 rounded-xl overflow-hidden hover:shadow-lg transition-all duration-300 cursor-pointer group"
-                  >
-                    <div className="relative">
-                      <img
-                        src={course.image}
-                        alt={course.title}
-                        className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300"
-                      />
-                      <div className="absolute top-3 right-3 bg-white bg-opacity-90 backdrop-blur-sm px-2 py-1 rounded-full">
-                        <span className="text-sm font-bold text-gray-800">
-                          ${course.price}
-                        </span>
-                      </div>
-                      <div className="absolute bottom-3 left-3 bg-black bg-opacity-60 text-white px-2 py-1 rounded text-xs">
-                        {course.level}
-                      </div>
-                    </div>
-                    <div className="p-6">
-                      <h4 className="font-bold text-lg mb-2 text-gray-800 line-clamp-2 group-hover:text-blue-600 transition-colors">
-                        {course.title}
-                      </h4>
-                      <p className="text-sm text-gray-600 mb-3">
-                        by {course.instructor}
-                      </p>
-
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center space-x-1">
-                          {renderStars(course.rating)}
-                          <span className="text-sm font-medium text-gray-700">
-                            {course.rating}
-                          </span>
-                          <span className="text-xs text-gray-500">
-                            ({course.ratingsCount})
+                {(allCourses && allCourses.length > 0 ? allCourses : []).map(
+                  (course, index) => (
+                    <div
+                      key={index}
+                      className="flex-shrink-0 w-80 bg-white border border-gray-200 rounded-xl overflow-hidden hover:shadow-lg transition-all duration-300 cursor-pointer group"
+                    >
+                      <div className="relative">
+                        <img
+                          src={course.image}
+                          alt={course.title}
+                          className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300"
+                          onError={(e) => {
+                            e.target.src =
+                              "https://via.placeholder.com/320x192/f3f4f6/6b7280?text=Course+Image";
+                          }}
+                        />
+                        <div className="absolute top-3 right-3 bg-white bg-opacity-90 backdrop-blur-sm px-2 py-1 rounded-full">
+                          <span className="text-sm font-bold text-gray-800">
+                            ${course.price}
                           </span>
                         </div>
-                        <span className="text-xs text-gray-500">
-                          {course.students} students
-                        </span>
+                        <div className="absolute bottom-3 left-3 bg-black bg-opacity-60 text-white px-2 py-1 rounded text-xs">
+                          {course.level}
+                        </div>
                       </div>
+                      <div className="p-6">
+                        <h4 className="font-bold text-lg mb-2 text-gray-800 line-clamp-2 group-hover:text-blue-600 transition-colors">
+                          {course.title}
+                        </h4>
+                        <p className="text-sm text-gray-600 mb-3">
+                          by {course.instructor}
+                        </p>
 
-                      <div className="flex items-center justify-between text-xs text-gray-500 mb-4">
-                        <span>📚 {course.lectures} lectures</span>
-                        <span>⏱️ {course.totalHours}h total</span>
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center space-x-1">
+                            {renderStars(course.rating)}
+                            <span className="text-sm font-medium text-gray-700">
+                              {course.rating}
+                            </span>
+                            <span className="text-xs text-gray-500">
+                              ({course.ratingsCount})
+                            </span>
+                          </div>
+                          <span className="text-xs text-gray-500">
+                            {course.students} students
+                          </span>
+                        </div>
+
+                        <div className="flex items-center justify-between text-xs text-gray-500 mb-4">
+                          <span>📚 {course.lectures} lectures</span>
+                          <span>⏱️ {course.totalHours}h total</span>
+                        </div>
+
+                        <button className="w-full bg-gradient-to-r from-blue-500 to-indigo-600 text-white py-2 px-4 rounded-lg hover:from-blue-600 hover:to-indigo-700 transition-all duration-200 font-medium">
+                          Add to Cart
+                        </button>
                       </div>
-
-                      <button className="w-full bg-gradient-to-r from-blue-500 to-indigo-600 text-white py-2 px-4 rounded-lg hover:from-blue-600 hover:to-indigo-700 transition-all duration-200 font-medium">
-                        Add to Cart
-                      </button>
                     </div>
-                  </div>
-                ))}
+                  )
+                )}
               </div>
 
               {/* Navigation buttons for better UX */}
@@ -1324,56 +1322,6 @@ const OrderCompleteCourse = () => {
             />
             <div className="p-6">
               <h1 className="text-2xl font-bold mb-4">{courseData.title}</h1>
-
-              {/* Progress Section - Only show if course is purchased */}
-              {purchasedCourseData && (
-                <div className="mb-6 p-4 bg-blue-50 rounded-lg">
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="text-sm font-medium text-blue-900">
-                      Tiến độ học tập
-                    </span>
-                    <span className="text-sm font-bold text-blue-900">
-                      {progress}%
-                    </span>
-                  </div>
-                  <div className="w-full bg-blue-200 rounded-full h-3 mb-3">
-                    <div
-                      className="bg-blue-600 h-3 rounded-full transition-all duration-300"
-                      style={{ width: `${progress}%` }}
-                    ></div>
-                  </div>
-
-                  <div className="flex gap-2">
-                    {progress < 100 ? (
-                      <>
-                        <button
-                          onClick={() =>
-                            handleUpdateProgress(Math.min(progress + 25, 100))
-                          }
-                          className="text-xs px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 transition"
-                        >
-                          +25% Tiến độ
-                        </button>
-                        <button
-                          onClick={handleCompleteCourse}
-                          className="text-xs px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 transition"
-                        >
-                          Hoàn thành khóa học
-                        </button>
-                      </>
-                    ) : (
-                      <div className="flex items-center gap-2">
-                        <span className="text-green-600 font-medium text-sm">
-                          🎉 Khóa học đã hoàn thành!
-                        </span>
-                        <button className="text-xs px-3 py-1 bg-yellow-600 text-white rounded hover:bg-yellow-700 transition">
-                          📜 Tải chứng chỉ
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
 
               {/* Purchase Status - Show if course is not purchased */}
               {!purchasedCourseData && (

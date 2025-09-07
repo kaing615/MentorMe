@@ -43,8 +43,8 @@ const ShoppingCart = () => {
       const token =
         localStorage.getItem("token") || localStorage.getItem("actkn");
       if (!token) {
-        toast.error("Vui lòng đăng nhập để xem giỏ hàng");
-        navigate("/login");
+        toast.error("Login to view cart");
+        navigate("/auth/signin");
         return;
       }
 
@@ -58,7 +58,7 @@ const ShoppingCart = () => {
 
       if (!user || user.role !== "mentee") {
         toast.error("Chỉ mentee mới có thể xem giỏ hàng");
-        navigate("/login");
+        navigate("/auth/signin");
         return;
       }
 

@@ -281,6 +281,21 @@ const EditCoursePage = () => {
         return;
       }
 
+      // Xử lý tags khi submit (giống CreateCoursePage)
+      if (typeof data.tags === "string") {
+        data.tags = data.tags
+          .split(",")
+          .map((tag) => tag.trim())
+          .filter(Boolean);
+      }
+      // Xử lý language khi submit (giống CreateCoursePage)
+      if (typeof data.language === "string") {
+        data.language = data.language
+          .split(",")
+          .map((lang) => lang.trim())
+          .filter(Boolean);
+      }
+
       // Prepare FormData for multipart/form-data
       const formData = new FormData();
       formData.append("title", data.title);
@@ -300,36 +315,22 @@ const EditCoursePage = () => {
       if (data.duration) {
         formData.append("duration", data.duration);
       }
-      // Đảm bảo tags gửi lên backend là array
-      if (typeof data.tags === "string") {
-        const tagsArray = data.tags
-          .split(",")
-          .map((tag) => tag.trim())
-          .filter((tag) => tag.length > 0);
-        formData.append("tags", JSON.stringify(tagsArray));
-      } else if (Array.isArray(data.tags)) {
-        formData.append("tags", JSON.stringify(data.tags));
-      } else {
-        formData.append("tags", "[]");
-      }
-      // Đảm bảo language gửi lên backend là array
-      if (typeof data.language === "string") {
-        const langArray = data.language
-          .split(",")
-          .map((lang) => lang.trim())
-          .filter((lang) => lang.length > 0);
-        formData.append("language", JSON.stringify(langArray));
-      } else if (Array.isArray(data.language)) {
-        formData.append("language", JSON.stringify(data.language));
-      } else {
-        formData.append("language", "[]");
-      }
+
+      // Backend validation requires description and link fields (giống CreateCoursePage)
+      formData.append("description", data.courseOverview); // Use courseOverview as description
+      formData.append("link", data.driveLink); // Use driveLink as link
+
+      formData.append("tags", JSON.stringify(data.tags)); // Send tags as JSON string
+      formData.append("language", JSON.stringify(data.language)); // Send language as JSON string
+
       const { response, error } = await courseApi.updateCourse({
         courseId: id,
         courseData: formData,
       });
       if (error) {
-        toast.error("Cập nhật khóa học thất bại");
+        console.error("Error updating course:", error);
+        const errorMessage = error.message || "Cập nhật khóa học thất bại";
+        toast.error(errorMessage);
         return;
       }
       toast.success("Cập nhật khóa học thành công!");
@@ -338,7 +339,12 @@ const EditCoursePage = () => {
         window.scrollTo({ top: 0, behavior: "smooth" });
       }, 800);
     } catch (error) {
-      toast.error("Lỗi khi cập nhật khóa học");
+      console.error("Error updating course:", error);
+      const errorMessage =
+        error.response?.data?.message ||
+        error.message ||
+        "Lỗi khi cập nhật khóa học";
+      toast.error(errorMessage);
     }
   };
 
