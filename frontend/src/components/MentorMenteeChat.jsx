@@ -1,13 +1,12 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import { useChat } from "../hooks/useChat.js";
 
-// Utility: format thời gian hiển thị
+// Format thời gian hiển thị
 function formatTime(timestamp) {
   if (!timestamp) return "";
   
   const date = new Date(timestamp);
   
-  // Kiểm tra xem date có hợp lệ không
   if (isNaN(date.getTime())) {
     console.warn("Invalid timestamp:", timestamp);
     return "Invalid Date";
@@ -16,13 +15,12 @@ function formatTime(timestamp) {
   return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
-// Utility: format ngày tháng
+// Format ngày tháng
 function formatDate(timestamp) {
   if (!timestamp) return "";
   
   const date = new Date(timestamp);
   
-  // Kiểm tra xem date có hợp lệ không
   if (isNaN(date.getTime())) {
     console.warn("Invalid timestamp:", timestamp);
     return "Invalid Date";
@@ -41,9 +39,7 @@ function formatDate(timestamp) {
   }
 }
 
-/**
- * Component chính cho Chat
- */
+// Component chính cho Chat
 export default function MentorMenteeChat({ userRole = "mentor" }) {
   const {
     conversations,
@@ -52,9 +48,11 @@ export default function MentorMenteeChat({ userRole = "mentor" }) {
     loading,
     sending,
     error,
+    isSocketConnected,
     selectConversation,
     sendNewMessage,
     searchChats,
+    markConversationAsRead,
     selectedConversationId,
     totalUnreadCount
   } = useChat(userRole);
@@ -133,6 +131,15 @@ export default function MentorMenteeChat({ userRole = "mentor" }) {
     setSearchQuery(query);
     searchChats(query);
   };
+
+  // Xử lý chọn conversation và đánh dấu đã đọc
+  const handleSelectConversation = useCallback((peerId) => {
+    selectConversation(peerId);
+    // Đánh dấu tin nhắn đã đọc khi chọn conversation
+    if (peerId) {
+      markConversationAsRead(peerId);
+    }
+  }, [selectConversation, markConversationAsRead]);
 
   // Loading state
   if (loading && conversations.length === 0) {
@@ -241,7 +248,7 @@ export default function MentorMenteeChat({ userRole = "mentor" }) {
                   key={conversation.peerId}
                   conversation={conversation}
                   isActive={conversation.peerId === selectedConversationId}
-                  onClick={() => selectConversation(conversation.peerId)}
+                  onClick={() => handleSelectConversation(conversation.peerId)}
                 />
               ))}
             </div>
@@ -373,19 +380,19 @@ export default function MentorMenteeChat({ userRole = "mentor" }) {
                 <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6">
                   <div className="flex items-center justify-center gap-2 text-sm text-blue-700 mb-2">
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                     </svg>
-                    <span className="font-medium">Cập nhật tự động</span>
+                    <span className="font-medium">Tin nhắn</span>
                   </div>
                   <p className="text-xs text-blue-600">
-                    Tin nhắn được cập nhật tự động mỗi 3 giây
+                    Chọn cuộc trò chuyện để bắt đầu nhắn tin
                   </p>
                 </div>
               )}
               
               <div className="text-sm text-gray-500">
-                <p>💬 Trò chuyện trực tiếp với {userRole === "mentor" ? "học viên" : "mentor"}</p>
-                <p className="mt-1">🔄 Đồng bộ thời gian thực</p>
+                <p>💬 Trò chuyện với {userRole === "mentor" ? "học viên" : "mentor"}</p>
+                <p className="mt-1">� WebSocket connection - không delay</p>
               </div>
             </div>
           </div>

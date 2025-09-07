@@ -1,10 +1,4 @@
-/**
- * Custom Hook for Chat/Message functionality
- * 
- * Cung cấp state management và API calls cho chức năng chat
- * Bao gồm: conversations, messages, sending, real-time updates
- */
-
+// Custom Hook for Chat functionality
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { 
   getConversations, 
@@ -13,12 +7,9 @@ import {
   markMessagesAsRead,
   searchConversations 
 } from "../api/modules/message.api.js";
+import socketService from "../services/socket.service.js";
 
-/**
- * Hook chính cho chat functionality
- * @param {string} userRole - Role của user hiện tại ('mentor' | 'mentee')
- * @returns {Object} Chat state và functions
- */
+// Hook chính cho chat functionality
 export const useChat = (userRole = 'mentor') => {
   // State management
   const [conversations, setConversations] = useState([]);
@@ -27,10 +18,37 @@ export const useChat = (userRole = 'mentor') => {
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState(null);
+  const [isSocketConnected, setIsSocketConnected] = useState(false);
 
   // Ref để tránh stale closure
   const selectedConversationIdRef = useRef(selectedConversationId);
   selectedConversationIdRef.current = selectedConversationId;
+
+  // Initialize WebSocket connection
+  useEffect(() => {
+    const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
+    const userId = currentUser._id || currentUser.id;
+    
+    if (userId) {
+      console.log("🔌 Initializing socket connection for user:", userId);
+      socketService.connect(userId);
+      
+      // Check connection status
+      const checkConnection = () => {
+        setIsSocketConnected(socketService.isSocketConnected());
+      };
+      
+      checkConnection();
+      const interval = setInterval(checkConnection, 1000);
+      
+      return () => {
+        clearInterval(interval);
+        socketService.off('message:new');
+        socketService.off('message:peerRead');
+        socketService.off('message:delivered');
+      };
+    }
+  }, []);
 
   // Tính toán conversation được chọn
   const selectedConversation = useMemo(() => {
@@ -205,10 +223,13 @@ export const useChat = (userRole = 'mentor') => {
   }, [messages, loadMessages]);
 
   /**
-   * Gửi tin nhắn mới
+   * Gửi tin nhắn mới qua WebSocket
    */
   const sendNewMessage = useCallback(async (peerId, content) => {
-    if (!peerId || !content.trim()) return;
+    if (!peerId || !content.trim() || sending) {
+      console.log("❌ Cannot send message:", { peerId: !!peerId, content: !!content.trim(), sending });
+      return;
+    }
     
     setSending(true);
     const tempId = `temp-${Date.now()}`;
@@ -233,61 +254,91 @@ export const useChat = (userRole = 'mentor') => {
       isFromCurrentUser: true // Luôn true cho optimistic message
     };
     
+    console.log("🔮 Adding optimistic message:", optimisticMessage);
+    
     setMessages(prev => ({
       ...prev,
       [peerId]: [...(prev[peerId] || []), optimisticMessage]
     }));
     
     try {
-      // Gửi lên server
-      console.log("📡 Sending message to server:", { peerId, content });
-      const savedMessage = await sendMessage(peerId, content);
-      console.log("📡 Server response:", savedMessage);
-      console.log("📡 Server message sentAt:", savedMessage.sentAt);
-      console.log("📡 Server message sentAt type:", typeof savedMessage.sentAt);
+      // Gửi qua WebSocket thay vì HTTP API
+      console.log("� Sending message via WebSocket:", { peerId, content });
       
-      // Parse sentAt carefully
-      let messageTimestamp;
-      if (savedMessage.sentAt) {
-        messageTimestamp = new Date(savedMessage.sentAt).getTime();
-        console.log("📡 Parsed timestamp:", messageTimestamp);
-        console.log("📡 Is valid timestamp:", !isNaN(messageTimestamp));
+      if (socketService.isSocketConnected()) {
+        console.log("🚀 Attempting to send via WebSocket...");
+        
+        try {
+          const savedMessage = await socketService.sendMessage({
+            receiver: peerId,
+            messageType: 'text',
+            content: content.trim()
+          });
+          
+          console.log("✅ WebSocket message sent successfully:", savedMessage);
+          
+          // Validate savedMessage structure
+          if (!savedMessage || !savedMessage._id) {
+            throw new Error("Invalid response from server - missing message data");
+          }
+          
+          // Parse sentAt carefully
+          let messageTimestamp;
+          if (savedMessage.sentAt) {
+            messageTimestamp = new Date(savedMessage.sentAt).getTime();
+          } else {
+            messageTimestamp = Date.now();
+          }
+          
+          // Xác định sender cho saved message
+          const isFromCurrentUser = savedMessage.sender === currentUserId;
+          
+          // Thay thế optimistic message bằng message thật từ server
+          console.log("🔄 Replacing optimistic message with server message:", {
+            tempId,
+            savedMessage: savedMessage._id,
+            content: savedMessage.content
+          });
+          
+          setMessages(prev => ({
+            ...prev,
+            [peerId]: prev[peerId]?.map(msg => 
+              msg.id === tempId ? {
+                id: savedMessage._id,
+                sender: isFromCurrentUser ? userRole : (userRole === 'mentor' ? 'mentee' : 'mentor'),
+                text: savedMessage.content,
+                at: messageTimestamp,
+                messageType: savedMessage.messageType,
+                attachments: savedMessage.attachments,
+                isFromCurrentUser: isFromCurrentUser
+              } : msg
+            ) || []
+          }));
+          
+          // Cập nhật lastMessage trong conversations (chỉ khi có đầy đủ dữ liệu)
+          if (savedMessage.content && savedMessage.sentAt) {
+            setConversations(prev => prev.map(conv => 
+              conv.peerId === peerId ? {
+                ...conv,
+                lastMessage: {
+                  content: savedMessage.content,
+                  sentAt: savedMessage.sentAt,
+                  sender: savedMessage.sender
+                },
+                updatedAt: savedMessage.sentAt
+              } : conv
+            ));
+          }
+          
+        } catch (socketError) {
+          console.error("❌ WebSocket send error:", socketError);
+          throw new Error(`WebSocket error: ${socketError.message}`);
+        }
+        
       } else {
-        messageTimestamp = Date.now();
-        console.log("📡 Using fallback timestamp:", messageTimestamp);
+        // Nếu socket không kết nối, báo lỗi
+        throw new Error("Kết nối thời gian thực bị gián đoạn. Vui lòng tải lại trang.");
       }
-      
-      // Xác định sender cho saved message
-      const isFromCurrentUser = savedMessage.sender === currentUserId;
-      
-      // Thay thế optimistic message bằng message thật từ server
-      setMessages(prev => ({
-        ...prev,
-        [peerId]: prev[peerId]?.map(msg => 
-          msg.id === tempId ? {
-            id: savedMessage._id,
-            sender: isFromCurrentUser ? userRole : (userRole === 'mentor' ? 'mentee' : 'mentor'),
-            text: savedMessage.content,
-            at: messageTimestamp,
-            messageType: savedMessage.messageType,
-            attachments: savedMessage.attachments,
-            isFromCurrentUser: isFromCurrentUser
-          } : msg
-        ) || []
-      }));
-      
-      // Cập nhật lastMessage trong conversations
-      setConversations(prev => prev.map(conv => 
-        conv.peerId === peerId ? {
-          ...conv,
-          lastMessage: {
-            content: savedMessage.content,
-            sentAt: savedMessage.sentAt,
-            sender: savedMessage.sender
-          },
-          updatedAt: savedMessage.sentAt
-        } : conv
-      ));
       
     } catch (err) {
       console.error("❌ Error sending message:", err);
@@ -349,7 +400,9 @@ export const useChat = (userRole = 'mentor') => {
     }
   }, [selectedConversationId, loadMessages]);
 
-  // Auto-refresh conversations và messages mỗi 3 giây - tối ưu cho browser và performance
+  // Auto-refresh đã được thay thế bằng WebSocket real-time messaging
+  // Không cần thiết auto-refresh nữa vì tin nhắn được cập nhật real-time qua socket
+  /*
   useEffect(() => {
     const intervalId = setInterval(() => {
       // Chỉ refresh nếu không đang gửi tin nhắn và không đang loading để tránh xung đột
@@ -372,6 +425,112 @@ export const useChat = (userRole = 'mentor') => {
       clearInterval(intervalId);
     };
   }, [sending, loading]); // Thêm loading vào dependency để re-create interval khi loading thay đổi
+  */
+
+  /**
+   * Đánh dấu tin nhắn đã đọc qua WebSocket
+   */
+  const markConversationAsRead = useCallback(async (peerId) => {
+    if (!peerId) return;
+    
+    try {
+      if (socketService.isSocketConnected()) {
+        await socketService.markAsRead(peerId);
+        console.log("✅ Marked messages as read via WebSocket for peer:", peerId);
+      } else {
+        // Fallback to HTTP API
+        await markMessagesAsRead(peerId);
+        console.log("✅ Marked messages as read via HTTP API for peer:", peerId);
+      }
+      
+      // Refresh conversations để cập nhật unread count
+      loadConversations();
+    } catch (error) {
+      console.error("❌ Error marking messages as read:", error);
+    }
+  }, [loadConversations]);
+
+  // Setup lại socket listeners sau khi tất cả functions đã được định nghĩa
+  useEffect(() => {
+    if (socketService.isSocketConnected()) {
+      // Cleanup previous listeners
+      socketService.off('message:new');
+      socketService.off('message:peerRead');
+      socketService.off('message:delivered');
+      
+      // Setup new listeners với proper functions
+      socketService.onNewMessage((newMessage) => {
+        console.log("📨 Received new message via socket:", newMessage);
+        
+        const senderId = newMessage.sender;
+        const receiverId = newMessage.receiver;
+        const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
+        const currentUserId = currentUser._id || currentUser.id;
+        
+        // CHỈ xử lý tin nhắn từ người khác, không xử lý tin nhắn của chính mình
+        // Vì tin nhắn của mình đã được xử lý qua optimistic update + WebSocket response
+        if (senderId === currentUserId) {
+          console.log("🚫 Ignoring own message from socket event to avoid duplicate");
+          return;
+        }
+        
+        // Xác định peerId (người gửi tin nhắn)
+        const peerId = senderId;
+        
+        // Transform message để match với UI format
+        const transformedMessage = {
+          id: newMessage._id,
+          sender: userRole === 'mentor' ? 'mentee' : 'mentor', // Người gửi là role ngược lại
+          text: newMessage.content || '', // Đảm bảo không undefined
+          at: new Date(newMessage.sentAt).getTime(),
+          messageType: newMessage.messageType,
+          attachments: newMessage.attachments,
+          isFromCurrentUser: false // Luôn false vì là tin nhắn từ người khác
+        };
+        
+        console.log("📥 Adding incoming message:", transformedMessage);
+        
+        // Chỉ thêm message nếu có nội dung
+        if (!transformedMessage.text.trim() && (!transformedMessage.attachments || transformedMessage.attachments.length === 0)) {
+          console.log("🚫 Skipping empty message");
+          return;
+        }
+        
+        // Cập nhật messages state - kiểm tra duplicate trước khi thêm
+        setMessages(prev => {
+          const currentMessages = prev[peerId] || [];
+          
+          // Kiểm tra xem message đã tồn tại chưa (theo _id)
+          const messageExists = currentMessages.some(msg => msg.id === transformedMessage.id);
+          
+          if (messageExists) {
+            console.log("🚫 Message already exists, skipping duplicate:", transformedMessage.id);
+            return prev;
+          }
+          
+          return {
+            ...prev,
+            [peerId]: [...currentMessages, transformedMessage].sort((a, b) => a.at - b.at)
+          };
+        });
+        
+        // Chỉ refresh conversations nếu tin nhắn không phải từ current user
+        if (senderId !== currentUserId) {
+          setTimeout(() => {
+            loadConversations();
+          }, 500);
+        }
+      });
+
+      socketService.onMessageRead((data) => {
+        console.log("👁 Message read notification:", data);
+      });
+
+      socketService.onMessageDelivered((data) => {
+        console.log("✅ Message delivered notification:", data);
+      });
+    }
+  }, [isSocketConnected, loadConversations]);
 
   return {
     // State
@@ -381,12 +540,14 @@ export const useChat = (userRole = 'mentor') => {
     loading,
     sending,
     error,
+    isSocketConnected,
     
     // Actions
     selectConversation,
     sendNewMessage: sendNewMessage,
     searchChats,
     loadConversations,
+    markConversationAsRead,
     
     // Computed
     selectedConversationId,

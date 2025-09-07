@@ -8,6 +8,7 @@ import http from "http";
 import routes from "./routes/index.js";
 import YAML from "yamljs";
 import swaggerUi from "swagger-ui-express";
+import attachSocket from "./socket/index.js"; // Import socket functionality
 
 // ⬇️ THÊM CÁC IMPORT THIẾU CHO ESM
 import path from "path";
@@ -44,6 +45,10 @@ app.get("/", (_req, res) => {
 });
 
 const server = http.createServer(app);
+
+// Attach Socket.IO to the server
+const io = attachSocket(server);
+console.log("🔌 Socket.IO server initialized");
 
 mongoose
   .connect(process.env.MONGO_URL || "mongodb://localhost:27017/mentorme")
