@@ -16,6 +16,7 @@ import { ImQuotesLeft } from "react-icons/im";
 import { showLoading, hideLoading } from "../redux/features/loading.slice";
 import courseApi from "../api/modules/course.api";
 import cartApi from "../api/modules/cart.api";
+import purchasedCourseApi from "../api/modules/purchasedCourse.api";
 import { toast } from "react-toastify";
 import { MENTEE_PATH, MENTOR_PATH, PATH } from "../routes/path";
 
@@ -732,22 +733,45 @@ const CourseDetail = () => {
               className="flex flex-col space-y-3"
             >
               {isCourseAlreadyPurchased(courseData?._id) ? (
-                <div className="w-full bg-green-100 text-green-800 py-3 rounded-lg text-center font-medium border border-green-300">
-                  <span className="inline-flex items-center">
-                    <svg
-                      className="w-5 h-5 mr-2"
-                      fill="currentColor"
-                      viewBox="0 0 20 20"
+                <>
+                  <div className="w-full bg-green-100 text-green-800 py-3 rounded-lg text-center font-medium border border-green-300">
+                    <span className="inline-flex items-center">
+                      <svg
+                        className="w-5 h-5 mr-2"
+                        fill="currentColor"
+                        viewBox="0 0 20 20"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                      ✓ Already Purchased
+                    </span>
+                  </div>
+                  
+                  {/* View Course Button - Only show for mentees */}
+                  {currentUser?.role === "mentee" && (
+                    <button
+                      onClick={() => {
+                        // Navigate to course learning page
+                        navigate(`/course-learning/${courseData._id}`, {
+                          state: { 
+                            courseData,
+                            courseId: courseData._id
+                          }
+                        });
+                      }}
+                      className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition-colors font-medium flex items-center justify-center gap-2"
                     >
-                      <path
-                        fillRule="evenodd"
-                        d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
-                    ✓ Already Purchased
-                  </span>
-                </div>
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h1m4 0h1m-6 4h1m4 0h1m1-10a2 2 0 012 2v12a2 2 0 01-2 2H4a2 2 0 01-2-2V6a2 2 0 012-2h16z" />
+                      </svg>
+                      View Course
+                    </button>
+                  )}
+                </>
               ) : currentUser?.role === "mentor" ? (
                 <div className="w-full bg-blue-100 text-blue-800 py-3 rounded-lg text-center font-medium border border-blue-300">
                   <span className="inline-flex items-center">

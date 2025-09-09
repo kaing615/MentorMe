@@ -8,15 +8,6 @@ import orderApi from "../api/modules/order.api";
 import purchasedCourseApi from "../api/modules/purchasedCourse.api";
 import cartApi from "../api/modules/cart.api";
 import vnpayLogo from "../assets/Icon VNPAY.png";
-import {
-  cart as seedCart,
-  coupon as seedCoupon,
-  coupon2 as seedCoupon2,
-  menteeUser as seedUser,
-  order,
-} from "../data/seedData";
-
-const seedCoupons = [seedCoupon, seedCoupon2];
 
 // Local currency formatter (USD)
 function formatCurrency(amount) {
@@ -148,16 +139,19 @@ const Checkout = () => {
           return;
         }
 
-        // Create mock checkout session (bypass cart operations to avoid errors)
-        const mockSession = {
-          _id: "mock_session_" + Date.now(),
-          userId: user.id,
+        // Create checkout session
+        const sessionResponse = await checkoutApi.createCheckoutSession({
           courses: coursesToUse.map((c) => c._id),
-          subtotal: coursesToUse.reduce((sum, c) => sum + (c.price || 0), 0),
-          totalPrice: coursesToUse.reduce((sum, c) => sum + (c.price || 0), 0),
-          expiresAt: new Date(Date.now() + 30 * 60 * 1000), // 30 minutes
-        };
-        setCheckoutSession(mockSession);
+          dispatch,
+        });
+
+        if (sessionResponse.error) {
+          throw new Error(
+            sessionResponse.error.message || "Failed to create checkout session"
+          );
+        }
+
+        setCheckoutSession(sessionResponse.response.data.session);
 
         setSelectedCourses(coursesToUse);
         setCartData(cartDataFromState);
@@ -314,8 +308,8 @@ const Checkout = () => {
         const paymentData = await paymentResponse.json();
         console.log("Payment processed successfully:", paymentData);
 
-        // Save purchased courses to localStorage
-        await savePurchasedCoursesToLocalStorage();
+        // Save purchased courses to database
+        await savePurchasedCoursesToDB();
 
         // Remove purchased courses from cart
         await removePurchasedCoursesFromCart();
@@ -342,8 +336,8 @@ const Checkout = () => {
         });
       } catch (paymentError) {
         console.error("Payment processing failed:", paymentError);
-        // If payment fails, still save to localStorage as fallback
-        await savePurchasedCoursesToLocalStorage();
+        // If payment fails, still try to save to database
+        await savePurchasedCoursesToDB();
         await removePurchasedCoursesFromCart();
 
         toast.success("Đặt hàng thành công! (Sử dụng dữ liệu local)");
@@ -363,86 +357,31 @@ const Checkout = () => {
       }
     } catch (error) {
       console.error("Checkout error:", error);
-
-      // Fallback to mock order if backend fails
-      console.log("Backend failed, using mock order as fallback");
-      await createMockOrder();
+      toast.error("Có lỗi xảy ra trong quá trình thanh toán");
     } finally {
       setProcessingPayment(false);
       dispatch(hideLoading());
     }
   };
 
-  // Helper function to save purchased courses to localStorage
-  const savePurchasedCoursesToLocalStorage = async () => {
+  // Helper function to save purchased courses via API
+  const savePurchasedCoursesToDB = async () => {
     try {
-      // Get current user ID for user-specific localStorage
-      const userStr = localStorage.getItem("user");
-      let currentUserId = null;
-      try {
-        const user = userStr ? JSON.parse(userStr) : null;
-        currentUserId = user?.id || user?._id;
-      } catch (e) {
-        console.warn("Error parsing user:", e);
-      }
+      for (const course of selectedCourses) {
+        const { response, error } = await purchasedCourseApi.purchaseCourse({
+          courseId: course._id,
+          paymentMethod: paymentMethod,
+          dispatch,
+        });
 
-      const mockKey = currentUserId
-        ? `mockPurchasedCourses_${currentUserId}`
-        : "mockPurchasedCourses";
-      const existingPurchased = localStorage.getItem(mockKey);
-      let purchasedCourses = [];
-
-      if (existingPurchased) {
-        try {
-          purchasedCourses = JSON.parse(existingPurchased);
-        } catch (e) {
-          purchasedCourses = [];
+        if (error) {
+          console.error("Error saving purchased course:", error);
+          toast.error(`Failed to save purchase for ${course.title}`);
         }
       }
-
-      // Add new courses to purchased list
-      selectedCourses.forEach((course) => {
-        // Check if course already exists
-        const exists = purchasedCourses.some(
-          (pc) =>
-            pc.courseId === course._id || pc.courseInfo?._id === course._id
-        );
-
-        if (!exists) {
-          purchasedCourses.push({
-            courseId: course._id,
-            courseInfo: {
-              _id: course._id,
-              title: course.title,
-              description: course.description,
-              price: course.price,
-              mentor: course.mentor,
-              category: course.category,
-              duration: course.duration,
-              rate: course.rate,
-              lectures: course.lectures,
-              thumbnail: course.thumbnail,
-            },
-            purchaseDate: new Date().toISOString(),
-            progress: 0, // Starting progress
-            lastAccessDate: new Date().toISOString(),
-            isCompleted: false,
-            orderInfo: {
-              transactionId: `MOCK_${Date.now()}`,
-              paymentMethod: paymentMethod,
-              createdAt: new Date().toISOString(),
-            },
-          });
-        }
-      });
-
-      localStorage.setItem(mockKey, JSON.stringify(purchasedCourses));
-      console.log(
-        `Saved purchased courses to localStorage (${mockKey}):`,
-        purchasedCourses.length
-      );
     } catch (err) {
       console.error("Error saving purchased courses:", err);
+      toast.error("Some courses may not have been properly recorded");
     }
   };
 
@@ -523,92 +462,53 @@ const Checkout = () => {
     }
   };
 
-  // Mock order creation as fallback
-  const createMockOrder = async () => {
-    const mockOrderInfo = {
-      orderNumber: "ORD" + Date.now(),
-      formattedOrderNumber: `ORD-${Date.now()}`,
-      items: selectedCourses.map((course) => ({
-        courseId: course._id,
-        title: course.title,
-        price: course.price,
-        quantity: 1,
-        thumbnail: course.thumbnail,
-      })),
-      courses: selectedCourses.map((c) => c._id),
-      summary: {
-        subtotal: subtotal,
-        discount: discount,
-        total: total,
-      },
-      billingInfo: {
-        email: "mentee@example.com",
-        firstName: "Mock",
-        lastName: "User",
-        country: formData.country,
-        address: formData.address || "Mock Address",
-      },
-      status: "paid",
-      createdAt: new Date().toISOString(),
-    };
-
-    await savePurchasedCoursesToLocalStorage();
-    await removePurchasedCoursesFromCart();
-
-    toast.success("Đặt hàng thành công!");
-
-    // Navigate to order complete page
-    navigate(`/order-detail?orderId=${mockOrderInfo.orderNumber}`, {
-      state: {
-        orderInfo: {
-          ...mockOrderInfo,
-          selectedCourses,
-          subtotal,
-          discount,
-          tax,
-          total,
-          appliedCoupon,
-          status: "Completed",
-        },
-      },
-    });
-  };
-
-  // Apply coupon code (ready for DB/seed test)
-  // TODO: Replace with API call to fetch coupon from DB
-  const applyCouponCode = () => {
+  // Apply coupon code
+  const applyCouponCode = async () => {
     if (!showCouponInput) {
       setShowCouponInput(true);
       setCouponMessage("");
     } else if (couponCode.trim()) {
-      // Find matching coupon in seedCoupons
-      const foundCoupon = seedCoupons.find(
-        (c) =>
-          c.code.toUpperCase() === couponCode.trim().toUpperCase() && c.isActive
-      );
-      if (foundCoupon) {
-        // Calculate coupon discount
-        let couponDiscount = 0;
-        if (foundCoupon.discountType === "percent") {
-          couponDiscount = Math.round(
-            (subtotal * foundCoupon.discountValue) / 100
-          );
-        } else {
-          couponDiscount = foundCoupon.discountValue;
+      try {
+        const { response, error } = await checkoutApi.validateCoupon({
+          code: couponCode.trim(),
+          dispatch,
+        });
+
+        if (error) {
+          setCouponMessage("Invalid or inactive coupon code.");
+          setCouponMessageType("error");
+          return;
         }
-        // Total discount = base + coupon
-        const totalDiscount = BASE_DISCOUNT + couponDiscount;
-        setDiscount(totalDiscount);
-        const newTax = (subtotal - totalDiscount) * TAX_RATE;
-        setTax(newTax);
-        setTotal(subtotal - totalDiscount + newTax);
-        setAppliedCoupon({ ...foundCoupon, discount: couponDiscount });
-        setCouponMessage("Coupon applied successfully!");
-        setCouponMessageType("success");
-        setShowCouponInput(false);
-        setCouponCode("");
-      } else {
-        setCouponMessage("Invalid or inactive coupon code.");
+
+        const foundCoupon = response.data.coupon;
+        if (foundCoupon) {
+          // Calculate coupon discount
+          let couponDiscount = 0;
+          if (foundCoupon.discountType === "percent") {
+            couponDiscount = Math.round(
+              (subtotal * foundCoupon.discountValue) / 100
+            );
+          } else {
+            couponDiscount = foundCoupon.discountValue;
+          }
+          // Total discount = base + coupon
+          const totalDiscount = BASE_DISCOUNT + couponDiscount;
+          setDiscount(totalDiscount);
+          const newTax = (subtotal - totalDiscount) * TAX_RATE;
+          setTax(newTax);
+          setTotal(subtotal - totalDiscount + newTax);
+          setAppliedCoupon({ ...foundCoupon, discount: couponDiscount });
+          setCouponMessage("Coupon applied successfully!");
+          setCouponMessageType("success");
+          setShowCouponInput(false);
+          setCouponCode("");
+        } else {
+          setCouponMessage("Invalid or inactive coupon code.");
+          setCouponMessageType("error");
+        }
+      } catch (error) {
+        console.error("Error validating coupon:", error);
+        setCouponMessage("Error validating coupon code.");
         setCouponMessageType("error");
       }
     }

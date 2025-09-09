@@ -4,6 +4,7 @@ import { useDispatch, useSelector } from "react-redux";
 import profileApi from "../api/modules/profile.api";
 import courseApi from "../api/modules/course.api";
 import cartApi from "../api/modules/cart.api";
+import purchasedCourseApi from "../api/modules/purchasedCourse.api";
 import { toast } from "react-toastify";
 import { showLoading, hideLoading } from "../redux/features/loading.slice";
 
@@ -55,38 +56,34 @@ const MentorPage = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
+  // Fetch purchased courses from API on component mount
+  useEffect(() => {
+    const fetchPurchasedCourses = async () => {
+      if (!user) return;
+
+      try {
+        const { response, error } =
+          await purchasedCourseApi.getPurchasedCourses(dispatch);
+
+        if (response && response.data && response.data.courses) {
+          console.log(
+            "Fetched purchased courses from API:",
+            response.data.courses.length
+          );
+        } else if (error) {
+          console.warn("Failed to fetch purchased courses:", error);
+        }
+      } catch (err) {
+        console.error("Error fetching purchased courses:", err);
+      }
+    };
+
+    fetchPurchasedCourses();
+  }, [user, dispatch]);
+
   // Helper function to check if course is already purchased
   const isCourseAlreadyPurchased = (courseId) => {
-    // Get current user ID for user-specific localStorage
-    const userStr = localStorage.getItem("user");
-    let currentUserId = null;
-    try {
-      const user = userStr ? JSON.parse(userStr) : null;
-      currentUserId = user?.id || user?._id;
-    } catch (e) {
-      // Ignore parse errors
-    }
-
-    const mockKey = currentUserId
-      ? `mockPurchasedCourses_${currentUserId}`
-      : "mockPurchasedCourses";
-    const mockPurchasedCourses = localStorage.getItem(mockKey);
-
-    if (mockPurchasedCourses) {
-      try {
-        const purchasedCourses = JSON.parse(mockPurchasedCourses);
-        return purchasedCourses.some(
-          (purchased) =>
-            (purchased.course?._id ||
-              purchased.course?.id ||
-              purchased.courseId) === courseId
-        );
-      } catch (error) {
-        console.error("Error parsing purchased courses:", error);
-        return false;
-      }
-    }
-    return false;
+    return purchasedCourseApi.isCourseAlreadyPurchased(courseId);
   };
 
   // Add to Cart function
@@ -131,35 +128,8 @@ const MentorPage = () => {
           throw new Error(error.message || "API failed");
         }
       } catch (apiError) {
-        console.log("API failed, using localStorage fallback:", apiError);
-
-        // Fallback to localStorage
-        const existingCart = localStorage.getItem("mockCart");
-        let cartItems = existingCart ? JSON.parse(existingCart) : [];
-
-        // Check if course already in cart
-        const alreadyInCart = cartItems.some(
-          (item) => (item._id || item.id) === courseId
-        );
-
-        if (alreadyInCart) {
-          toast.info("Course is already in your cart");
-          return;
-        }
-
-        // Add course to cart
-        cartItems.push({
-          id: courseId,
-          _id: courseId,
-          title: course.title,
-          price: course.price,
-          image: course.thumbnail,
-          mentor: course.authorName || course.mentorName || "Unknown Mentor",
-          addedAt: new Date().toISOString(),
-        });
-
-        localStorage.setItem("mockCart", JSON.stringify(cartItems));
-        toast.success("Course added to cart successfully!");
+        console.error("Failed to add course to cart:", apiError);
+        toast.error("Failed to add course to cart");
       }
     } catch (error) {
       console.error("Add to cart error:", error);

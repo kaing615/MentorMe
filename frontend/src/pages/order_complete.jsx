@@ -22,7 +22,6 @@ import { useDispatch } from "react-redux";
 import { showLoading, hideLoading } from "../redux/features/loading.slice";
 import { toast } from "react-toastify";
 import orderApi from "../api/modules/order.api";
-import { order } from "../data/seedData";
 
 const OrderComplete = () => {
   const navigate = useNavigate();
