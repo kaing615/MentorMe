@@ -831,6 +831,62 @@ export const confirmBooking = async (req, res) => {
       );
     }
 
+    // Update availability slot status to "booked" after confirming booking
+    try {
+      const dateKey = new Date(existing.date).toISOString().slice(0, 10);
+      const dayKey = new Date(`${dateKey}T00:00:00.000Z`);
+
+      let slotUpdated = null;
+
+      // Try to update slot by slotId first
+      if (existing.slotId) {
+        slotUpdated = await Availability.updateOne(
+          {
+            mentor: existing.mentor,
+            date: dayKey,
+            "slots._id": existing.slotId,
+            "slots.status": "open",
+          },
+          {
+            $set: { 
+              "slots.$.status": "booked",
+              "slots.$.bookedBy": existing.mentee,
+              "slots.$.bookingId": existing._id
+            }
+          }
+        );
+      }
+
+      // Fallback: find slot by time if slotId didn't work
+      if (!slotUpdated || slotUpdated.modifiedCount === 0) {
+        slotUpdated = await Availability.updateOne(
+          {
+            mentor: existing.mentor,
+            date: dayKey,
+            "slots.start": existing.start,
+            "slots.end": existing.end,
+            "slots.status": "open",
+          },
+          {
+            $set: { 
+              "slots.$.status": "booked",
+              "slots.$.bookedBy": existing.mentee,
+              "slots.$.bookingId": existing._id
+            }
+          }
+        );
+      }
+
+      if (slotUpdated && slotUpdated.modifiedCount > 0) {
+        console.log(`[confirmBooking] Slot marked as booked for booking ${existing._id}`);
+      } else {
+        console.warn(`[confirmBooking] Could not update slot status for booking ${existing._id}`);
+      }
+    } catch (slotError) {
+      console.error("[confirmBooking] Error updating slot status:", slotError);
+      // Don't fail the entire operation, just log the error
+    }
+
     return responseHandler.ok(res, { message: "Booking confirmed", booking });
   } catch (err) {
     console.error("confirmBooking error:", err);

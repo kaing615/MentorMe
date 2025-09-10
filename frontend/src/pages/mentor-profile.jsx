@@ -101,13 +101,29 @@ function MentorAvailabilityBuilder({ onBack, onSave, editingSchedule }) {
   const [pickedForDay, setPickedForDay] = useState(new Set()); // working selection
   const [availability, setAvailability] = useState({}); // committed while editing
   const [savedSnapshot, setSavedSnapshot] = useState(null); // what we "persisted"
+  const [bookedSlots, setBookedSlots] = useState({}); // Track booked slots by date
 
   // Load editing data when component mounts or editingSchedule changes
   useEffect(() => {
     if (editingSchedule) {
       setAvailability(editingSchedule.availability || {});
+      
+      // Extract booked slots info if editing
+      if (editingSchedule.slots) {
+        const booked = {};
+        const dateKey = editingSchedule.date;
+        booked[dateKey] = editingSchedule.slots
+          .filter(slot => slot.status === 'booked')
+          .map(slot => ({
+            time: slot.start,
+            bookingId: slot.bookingId,
+            bookedBy: slot.bookedBy
+          }));
+        setBookedSlots(booked);
+      }
     } else {
       setAvailability({});
+      setBookedSlots({});
     }
   }, [editingSchedule]);
 
@@ -128,10 +144,21 @@ function MentorAvailabilityBuilder({ onBack, onSave, editingSchedule }) {
     const saved = availability[v] || [];
     // Filter out past times if it's today
     const validSavedTimes = saved.filter((time) => !isTimeInPast(time, v));
-    setPickedForDay(new Set(validSavedTimes));
+    
+    // Auto-include booked slots for this date (they cannot be unselected)
+    const bookedTimes = bookedSlots[v]?.map(slot => slot.time) || [];
+    const allSelectedTimes = [...new Set([...validSavedTimes, ...bookedTimes])];
+    
+    setPickedForDay(new Set(allSelectedTimes));
   }
 
   function toggleTime(t) {
+    // Check if this time slot is booked (cannot be toggled off)
+    const isBooked = bookedSlots[selectedDate]?.find(slot => slot.time === t);
+    if (isBooked) {
+      return; // Do nothing for booked slots
+    }
+    
     const next = new Set(pickedForDay);
     if (next.has(t)) next.delete(t);
     else next.add(t);
@@ -328,6 +355,17 @@ function MentorAvailabilityBuilder({ onBack, onSave, editingSchedule }) {
                   ? "Modify your existing schedule by adding/removing dates and time slots."
                   : "Pick a date, toggle the available times, then submit that day."}
               </p>
+              {editingSchedule && Object.values(bookedSlots).some(slots => slots.length > 0) && (
+                <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
+                  <div className="flex items-center gap-2 text-red-700">
+                    <span className="text-lg">⚠️</span>
+                    <div className="text-sm">
+                      <p className="font-semibold">Protected Bookings</p>
+                      <p>Red slots with 🔒 have active bookings and cannot be removed. They will be preserved automatically.</p>
+                    </div>
+                  </div>
+                </div>
+              )}
             </header>
 
             {/* Date */}
@@ -417,21 +455,31 @@ function MentorAvailabilityBuilder({ onBack, onSave, editingSchedule }) {
                   {times.map((t) => {
                     const active = pickedForDay.has(t);
                     const isPastTime = isTimeInPast(t, selectedDate);
+                    const isBooked = bookedSlots[selectedDate]?.find(slot => slot.time === t);
+                    
                     return (
                       <button
                         key={t}
                         type="button"
                         onClick={() => toggleTime(t)}
-                        disabled={isPastTime}
-                        className={`rounded-lg border px-3 py-2.5 text-sm text-center transition-all duration-200 font-medium ${
+                        disabled={isPastTime || isBooked}
+                        title={isBooked ? "This slot has an active booking and cannot be removed" : undefined}
+                        className={`rounded-lg border px-3 py-2.5 text-sm text-center transition-all duration-200 font-medium relative ${
                           isPastTime
                             ? "bg-gray-100 text-gray-400 cursor-not-allowed border-gray-200"
+                            : isBooked
+                            ? "bg-red-100 text-red-800 border-red-300 cursor-not-allowed shadow-sm"
                             : active
                             ? "border-blue-600 bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-md transform scale-105"
                             : "border-gray-300 bg-white hover:bg-blue-50 hover:border-blue-300 hover:shadow-sm"
                         }`}
                       >
                         {t}
+                        {isBooked && (
+                          <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full flex items-center justify-center">
+                            <span className="text-white text-xs">🔒</span>
+                          </span>
+                        )}
                       </button>
                     );
                   })}
@@ -1052,7 +1100,26 @@ const MentorProfile = () => {
 
   // Function to handle editing a schedule
   const handleEditSchedule = (schedule) => {
-    setEditingSchedule(schedule);
+    // Transform schedule data to format expected by MentorAvailabilityBuilder
+    const availability = {};
+    if (schedule.date && schedule.slots) {
+      // Convert slots to time strings array
+      const timeSlots = schedule.slots.map(slot => slot.start).sort();
+      availability[schedule.date] = timeSlots;
+    }
+    
+    const editingData = {
+      ...schedule,
+      availability: availability,
+      name: `Schedule for ${new Date(schedule.date).toLocaleDateString("vi-VN", {
+        weekday: "long",
+        year: "numeric", 
+        month: "long",
+        day: "numeric"
+      })}`
+    };
+    
+    setEditingSchedule(editingData);
     setScheduleMode("builder");
   };
 
@@ -1065,14 +1132,32 @@ const MentorProfile = () => {
     return `${endHours.toString().padStart(2, '0')}:${adjustedMinutes.toString().padStart(2, '0')}`;
   };
 
-  // Function to save edited schedule
+  // Function to save edited schedule with booking protection
   const handleSaveEditedSchedule = async (scheduleData) => {
     try {
-      // Transform scheduleData.slots to backend format
+      // Transform scheduleData.slots to backend format with booking protection
       const availabilityPromises = Object.entries(scheduleData.slots).map(async ([date, times]) => {
-        const slots = [];
+        // First, get existing schedule for this date to check for bookings
+        console.log("Looking for existing schedule for date:", date);
+        console.log("mySchedules structure:", mySchedules);
         
-        // Convert times to 30-minute slots
+        const existingSchedule = mySchedules?.schedulesByMonth
+          ?.flatMap(month => month.schedules)
+          ?.find(schedule => {
+            const normalizedScheduleDate = schedule.date.split('T')[0]; // Remove time part
+            const normalizedTargetDate = date.split('T')[0]; // Remove time part
+            console.log("Comparing dates:", normalizedScheduleDate, "vs", normalizedTargetDate);
+            return normalizedScheduleDate === normalizedTargetDate;
+          });
+          
+        console.log("Found existing schedule:", existingSchedule);
+
+        const newSlots = [];
+        
+        console.log("Processing times for date", date, ":", times);
+        console.log("Existing schedule slots:", existingSchedule?.slots);
+        
+        // Convert new times to 30-minute slots
         times.forEach(time => {
           const [hours, minutes] = time.split(':').map(Number);
           const startTime = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
@@ -1081,40 +1166,55 @@ const MentorProfile = () => {
           const adjustedMinutes = endMinutes >= 60 ? endMinutes - 60 : endMinutes;
           const endTime = `${endHours.toString().padStart(2, '0')}:${adjustedMinutes.toString().padStart(2, '0')}`;
           
-          slots.push({
+          // Always add the slot - backend will handle preservation of booking status
+          console.log(`Adding slot: ${startTime}`);
+          newSlots.push({
             start: startTime,
             end: endTime,
-            status: "open"
+            status: "open" // Always send as 'open' - backend will preserve booked status
           });
         });
 
+        // Note: Backend will automatically preserve booked/held slots
+        // and delete pending/canceled bookings for removed slots
+
+        // Sort slots by start time and log final payload
+        newSlots.sort((a, b) => a.start.localeCompare(b.start));
+        console.log("Final slots payload for", date, ":", newSlots);
+
         // Call API to create/update availability
-        const { response, error } = await availabilityApi.createOrUpdateAvailability({
+        const payload = {
           date,
-          slots,
+          slots: newSlots,
           timezone: "Asia/Ho_Chi_Minh"
-        });
+        };
+        console.log("API payload:", payload);
+        
+        const { response, error } = await availabilityApi.createOrUpdateAvailability(payload);
 
         if (error) {
-          throw new Error(`Lỗi tạo availability cho ngày ${date}: ${error.message}`);
+          console.error("API error for date", date, ":", error);
+          throw new Error(`Lỗi cập nhật availability cho ngày ${date}: ${JSON.stringify(error)}`);
         }
 
+        console.log("API success for date", date, ":", response);
         return response;
       });
 
       await Promise.all(availabilityPromises);
       
-      toast.success("Lưu lịch thành công!");
+      toast.success("Cập nhật lịch thành công! Các booking pending/cancelled đã bị xóa.");
       setScheduleMode("list");
       setEditingSchedule(null);
       
-      // Reload availability overview
+      // Reload all data to refresh UI
       await loadAvailabilityOverview();
       await loadMySchedules();
+      await loadMentorBookings(); // Refresh bookings - deleted bookings should disappear
       
     } catch (error) {
       console.error("Error saving schedule:", error);
-      toast.error(error.message || "Lỗi khi lưu lịch");
+      toast.error(error.message || "Lỗi khi cập nhật lịch");
     }
   };
 
@@ -1176,6 +1276,7 @@ const MentorProfile = () => {
         // Transform backend data to match frontend format
         const transformedBookings = (Array.isArray(response.data) ? response.data : []).map(booking => ({
           id: booking._id,
+          avatarUrl: booking.mentee?.avatarUrl || '',
           menteeName: booking.mentee ? `${booking.mentee.firstName || ''} ${booking.mentee.lastName || ''}`.trim() : 'Unknown',
           menteeEmail: booking.mentee?.email || 'No email',
           date: new Date(booking.date).toISOString().split('T')[0],
@@ -1221,7 +1322,7 @@ const MentorProfile = () => {
         return;
       }
 
-      // Update local state
+      // Update bookings state
       setBookings((prev) =>
         prev.map((booking) =>
           booking.id === bookingId
@@ -1233,6 +1334,47 @@ const MentorProfile = () => {
             : booking
         )
       );
+
+      // Update mySchedules slots color immediately for better UX
+      const acceptedBooking = bookings.find(b => b.id === bookingId);
+      
+      if (acceptedBooking) {
+        setMySchedules((prev) => {
+          if (!prev || !prev.schedulesByMonth) return prev;
+          
+          return {
+            ...prev,
+            schedulesByMonth: prev.schedulesByMonth.map(monthGroup => ({
+              ...monthGroup,
+              schedules: monthGroup.schedules.map(schedule => {
+                // Normalize dates to YYYY-MM-DD format for comparison
+                const scheduleDate = schedule.date.split('T')[0];
+                const bookingDate = acceptedBooking.date.split('T')[0];
+                if (scheduleDate === bookingDate) {
+                  return {
+                    ...schedule,
+                    slots: schedule.slots.map(slot => {
+                      if (slot.start === acceptedBooking.time) {
+                        return { ...slot, status: 'booked' };
+                      }
+                      return slot;
+                    })
+                  };
+                }
+                return schedule;
+              })
+            }))
+          };
+        });
+      }
+
+      // Refresh availability data with slight delay to ensure backend update completes
+      setTimeout(async () => {
+        await Promise.all([
+          loadAvailabilityOverview(),
+          loadMySchedules()
+        ]);
+      }, 1000); // Wait 1 second for backend to complete slot update
       
       toast.success("Đã chấp nhận booking thành công!");
     } catch (err) {
@@ -1252,7 +1394,7 @@ const MentorProfile = () => {
         return;
       }
 
-      // Update local state
+      // Update bookings state
       setBookings((prev) =>
         prev.map((booking) =>
           booking.id === bookingId
@@ -1264,11 +1406,93 @@ const MentorProfile = () => {
             : booking
         )
       );
+
+      // Update mySchedules slots color immediately for better UX
+      const declinedBooking = bookings.find(b => b.id === bookingId);
       
-      toast.success("Đã từ chối booking thành công!");
+      if (declinedBooking) {
+        setMySchedules((prev) => {
+          if (!prev || !prev.schedulesByMonth) return prev;
+          
+          return {
+            ...prev,
+            schedulesByMonth: prev.schedulesByMonth.map(monthGroup => ({
+              ...monthGroup,
+              schedules: monthGroup.schedules.map(schedule => {
+                // Normalize dates to YYYY-MM-DD format for comparison
+                const scheduleDate = schedule.date.split('T')[0];
+                const bookingDate = declinedBooking.date.split('T')[0];
+                if (scheduleDate === bookingDate) {
+                  return {
+                    ...schedule,
+                    slots: schedule.slots.map(slot => {
+                      if (slot.start === declinedBooking.time) {
+                        return { ...slot, status: 'open' };
+                      }
+                      return slot;
+                    })
+                  };
+                }
+                return schedule;
+              })
+            }))
+          };
+        });
+      }
+
+      // Refresh availability data để slot trở lại trạng thái available
+      setTimeout(async () => {
+        await Promise.all([
+          loadAvailabilityOverview(),
+          loadMySchedules()
+        ]);
+      }, 1000); // Wait 1 second for backend to complete slot update
+      
+      toast.success("Đã từ chối booking thành công! Thời gian đã trở lại trạng thái có thể đặt lịch.");
     } catch (err) {
       console.error("Error in handleDeclineBooking:", err);
       toast.error("Lỗi khi từ chối booking");
+    }
+  };
+
+  const handleDeleteSchedule = async (scheduleId) => {
+    try {
+      const { response, error } = await availabilityApi.deleteAvailability(scheduleId);
+      if (error) {
+        console.error("Error deleting schedule:", error);
+        toast.error("Không thể xóa lịch trình");
+        return;
+      }
+
+      // Update local state - remove from mySchedules
+      setMySchedules((prev) => {
+        if (!prev || !prev.schedulesByMonth) return prev;
+        
+        const updatedSchedulesByMonth = prev.schedulesByMonth.map(monthGroup => ({
+          ...monthGroup,
+          schedules: monthGroup.schedules.filter(schedule => schedule._id !== scheduleId)
+        })).filter(monthGroup => monthGroup.schedules.length > 0); // Remove empty months
+        
+        return {
+          ...prev,
+          schedulesByMonth: updatedSchedulesByMonth,
+          // Update totals
+          totalSchedules: prev.totalSchedules - 1,
+        };
+      });
+
+      // Refresh availability overview data (chỉ refresh overview, không cần refresh mySchedules vì đã update local state)
+      loadAvailabilityOverview();
+      
+      // Fallback: nếu UI không update, refresh lại data sau 500ms
+      setTimeout(() => {
+        loadMySchedules();
+      }, 500);
+      
+      toast.success("Đã xóa lịch trình thành công!");
+    } catch (err) {
+      console.error("Error in handleDeleteSchedule:", err);
+      toast.error("Lỗi khi xóa lịch trình");
     }
   };
 
@@ -3016,9 +3240,11 @@ const MentorProfile = () => {
                                       key={slotIndex}
                                       className={`text-xs py-2 rounded-lg font-medium transition-all flex items-center justify-center ${
                                         slot.status === 'open' 
-                                          ? 'bg-green-100 text-green-800 border border-green-200'
+                                          ? 'bg-green-100 text-green-800 border border-green-200 shadow-sm'
                                           : slot.status === 'booked'
-                                          ? 'bg-orange-100 text-orange-800 border border-orange-200'
+                                          ? 'bg-red-100 text-red-800 border border-red-200 shadow-sm'
+                                          : slot.status === 'held'
+                                          ? 'bg-yellow-100 text-yellow-800 border border-yellow-200 shadow-sm'
                                           : 'bg-gray-100 text-gray-600 border border-gray-200'
                                       }`}
                                     >
@@ -3120,6 +3346,29 @@ const MentorProfile = () => {
                         {/* Debug logging */}
                         {console.log("Rendering mySchedules:", mySchedules)}
 
+                        {/* Time Slots Legend */}
+                        <div className="mb-6 p-4 bg-gray-50 rounded-lg border">
+                          <h4 className="text-sm font-semibold text-gray-700 mb-3">Time Slots Status Legend</h4>
+                          <div className="flex flex-wrap gap-4">
+                            <div className="flex items-center gap-2">
+                              <div className="w-4 h-4 bg-green-100 border border-green-200 rounded shadow-sm"></div>
+                              <span className="text-sm text-gray-700">Available</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <div className="w-4 h-4 bg-red-100 border border-red-200 rounded shadow-sm"></div>
+                              <span className="text-sm text-gray-700">Booked</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <div className="w-4 h-4 bg-yellow-100 border border-yellow-200 rounded shadow-sm"></div>
+                              <span className="text-sm text-gray-700">On Hold</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <div className="w-4 h-4 bg-gray-100 border border-gray-200 rounded"></div>
+                              <span className="text-sm text-gray-700">Blocked</span>
+                            </div>
+                          </div>
+                        </div>
+
                         {/* Schedules by Month */}
                         <div className="space-y-8">
                           {mySchedules.schedulesByMonth.map((monthGroup, monthIndex) => (
@@ -3199,9 +3448,7 @@ const MentorProfile = () => {
                                     {/* Action Buttons */}
                                     <div className="flex gap-3">
                                       <button
-                                        onClick={() => {
-                                          console.log("Edit schedule:", schedule._id);
-                                        }}
+                                        onClick={() => handleEditSchedule(schedule)}
                                         className="flex items-center gap-1 px-3 py-2 text-sm font-medium border border-blue-300 text-blue-600 rounded-lg hover:bg-blue-50 transition-all duration-200"
                                       >
                                         <span className="text-xs">✏️</span> Edit
@@ -3209,8 +3456,8 @@ const MentorProfile = () => {
                                       {schedule.canDelete && (
                                         <button
                                           onClick={() => {
-                                            if (window.confirm("Are you sure you want to delete this schedule?")) {
-                                              console.log("Delete schedule:", schedule._id);
+                                            if (window.confirm("Bạn có chắc chắn muốn xóa lịch trình này không?")) {
+                                              handleDeleteSchedule(schedule._id);
                                             }
                                           }}
                                           className="flex items-center gap-1 px-3 py-2 text-sm font-medium border border-red-300 text-red-600 rounded-lg hover:bg-red-50 transition-all duration-200"
@@ -3229,9 +3476,11 @@ const MentorProfile = () => {
                                             key={index}
                                             className={`text-xs py-2 rounded-lg font-medium transition-all flex items-center justify-center ${
                                               slot.status === 'open' 
-                                                ? 'bg-green-100 text-green-800 border border-green-200'
+                                                ? 'bg-green-100 text-green-800 border border-green-200 shadow-sm'
                                                 : slot.status === 'booked'
-                                                ? 'bg-orange-100 text-orange-800 border border-orange-200'
+                                                ? 'bg-red-100 text-red-800 border border-red-200 shadow-sm'
+                                                : slot.status === 'held'
+                                                ? 'bg-yellow-100 text-yellow-800 border border-yellow-200 shadow-sm'
                                                 : 'bg-gray-100 text-gray-600 border border-gray-200'
                                             }`}
                                           >
@@ -3478,7 +3727,7 @@ const MentorProfile = () => {
                       }`}
                     >
                       <span className="w-2 h-2 bg-current rounded-full"></span>
-                      Accepted ({bookings.filter((b) => b.status === "accepted").length})
+                      Accepted ({bookings.filter((b) => b.status === "active").length})
                     </button>
                     <button
                       onClick={() => setBookingFilter("declined")}
@@ -3489,7 +3738,7 @@ const MentorProfile = () => {
                       }`}
                     >
                       <span className="w-2 h-2 bg-current rounded-full"></span>
-                      Declined ({bookings.filter((b) => b.status === "declined").length})
+                      Declined ({bookings.filter((b) => b.status === "cancelled").length})
                     </button>
                   </div>
 
@@ -3530,12 +3779,13 @@ const MentorProfile = () => {
                               <span className={`px-3 py-1 rounded-full text-sm font-bold ${
                                 booking.status === "pending"
                                   ? "bg-orange-100 text-orange-800"
-                                  : booking.status === "accepted"
+                                  : booking.status === "active"
                                   ? "bg-green-100 text-green-800"
                                   : "bg-red-100 text-red-800"
                               }`}>
                                 {booking.status === "pending" ? "⏳ PENDING" : 
-                                 booking.status === "accepted" ? "✅ ACCEPTED" : "❌ DECLINED"}
+                                 booking.status === "active" ? "✅ ACCEPTED" : 
+                                 booking.status === "cancelled" ? "❌ DECLINED" : "❓ " + booking.status.toUpperCase()}
                               </span>
                               <span className="text-xs text-gray-500">
                                 {new Date(booking.createdAt).toLocaleDateString()}
@@ -3545,12 +3795,23 @@ const MentorProfile = () => {
                             <div className="flex items-start justify-between mb-6">
                               <div className="flex-1">
                                 <div className="flex items-center gap-4 mb-4">
-                                  <div className="w-12 h-12 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-full flex items-center justify-center">
-                                    <span className="text-indigo-700 font-bold text-lg">
-                                      {booking.menteeName
-                                        .split(" ")
-                                        .map((n) => n[0])
-                                        .join("")}
+                                  <div className="w-12 h-12 rounded-full overflow-hidden bg-gradient-to-br from-indigo-100 to-purple-100 flex items-center justify-center">
+                                    {booking.avatarUrl ? (
+                                      <img
+                                        src={booking.avatarUrl}
+                                        alt={booking.menteeName}
+                                        className="w-full h-full object-cover"
+                                        onError={(e) => {
+                                          e.target.style.display = 'none';
+                                          e.target.nextSibling.style.display = 'flex';
+                                        }}
+                                      />
+                                    ) : null}
+                                    <span 
+                                      className="text-indigo-700 font-bold text-lg"
+                                      style={{ display: booking.avatarUrl ? 'none' : 'flex' }}
+                                    >
+                                      {booking.menteeName?.charAt(0) || 'M'}
                                     </span>
                                   </div>
                                   <div>
@@ -3605,13 +3866,13 @@ const MentorProfile = () => {
                             {booking.status === "pending" && (
                               <div className="flex justify-center gap-3 pt-4 border-t border-gray-200">
                                 <button
-                                  onClick={() => handleBookingAction(booking.id, "accepted")}
+                                  onClick={() => handleAcceptBooking(booking.id)}
                                   className="flex items-center gap-2 px-6 py-3 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors duration-200"
                                 >
                                   Accept
                                 </button>
                                 <button
-                                  onClick={() => handleBookingAction(booking.id, "declined")}
+                                  onClick={() => handleDeclineBooking(booking.id)}
                                   className="flex items-center gap-2 px-6 py-3 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition-colors duration-200"
                                 >
                                   Decline

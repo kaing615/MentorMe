@@ -1,6 +1,7 @@
 import responseHandler from "../handlers/response.handler.js";
 import Availability from "../models/availability.model.js";
 import User from "../models/user.model.js";
+import Booking from "../models/booking.model.js";
 
 /**
  * Mentor tạo hoặc cập nhật availability cho một ngày
@@ -220,15 +221,84 @@ export const createOrUpdateAvailability = async (req, res) => {
     console.log("Existing availability found:", !!availability);
 
     if (availability) {
-      console.log("Replacing existing availability");
-      // Replace toàn bộ slots thay vì merge để tránh conflict
-      availability.slots = slots.map((slot) => ({
+      console.log("Updating existing availability with booking protection");
+      
+      // Preserve existing booked/held slots and their booking info
+      // Note: held slots (pending bookings) can be removed by mentor
+      const existingBookedSlots = availability.slots.filter(slot => 
+        ["booked", "held"].includes(slot.status)
+      );
+      console.log("Found booked/held slots to preserve:", existingBookedSlots);
+      
+      // Find slots that will be removed (excluding booked slots which must be preserved)
+      const removedSlots = availability.slots.filter(slot => {
+        const stillExists = slots.find(newSlot => newSlot.start === slot.start);
+        return !stillExists && slot.status !== "booked"; // Don't remove booked slots
+      });
+      
+      console.log("Slots to be removed (will also check for associated bookings):", removedSlots);
+      
+      // Delete associated bookings for removed slots
+      if (removedSlots.length > 0) {
+        for (const removedSlot of removedSlots) {
+          try {
+            // Method 1: Delete by bookingId if available
+            if (removedSlot.bookingId) {
+              const existingBooking = await Booking.findById(removedSlot.bookingId);
+              if (existingBooking && ["pending", "cancelled"].includes(existingBooking.status)) {
+                await Booking.findByIdAndDelete(removedSlot.bookingId);
+                console.log(`Deleted ${existingBooking.status} booking ${removedSlot.bookingId} for removed slot ${removedSlot.start}`);
+              }
+            }
+            
+            // Method 2: Also find and delete by date + time + mentor (in case bookingId is missing)
+            const bookingsToDelete = await Booking.find({
+              mentor: mentorId,
+              date: normalizedDate,
+              start: removedSlot.start,
+              status: { $in: ["pending", "cancelled"] } // Delete pending/cancelled bookings
+            });
+            
+            console.log(`Found ${bookingsToDelete.length} pending/cancelled bookings for removed slot ${removedSlot.start}`);
+            
+            for (const booking of bookingsToDelete) {
+              await Booking.findByIdAndDelete(booking._id);
+              console.log(`Deleted ${booking.status} booking ${booking._id} for removed slot ${removedSlot.start}`);
+            }
+          } catch (error) {
+            console.error(`Failed to delete bookings for slot ${removedSlot.start}:`, error);
+          }
+        }
+      }
+      
+      // Create new slots array from incoming slots  
+      const newSlots = slots.map((slot) => ({
         start: slot.start,
         end: slot.end,
         status: slot.status || "open",
       }));
+      
+      // Merge: add existing booked slots that don't conflict with new slots
+      existingBookedSlots.forEach(bookedSlot => {
+        const conflictingNewSlot = newSlots.find(newSlot => newSlot.start === bookedSlot.start);
+        if (conflictingNewSlot) {
+          // Replace the new slot with the existing booked slot to preserve booking info
+          const index = newSlots.findIndex(newSlot => newSlot.start === bookedSlot.start);
+          newSlots[index] = bookedSlot;
+          console.log(`Preserved booked slot at ${bookedSlot.start}`);
+        } else {
+          // Add the booked slot that wasn't in new slots (force preserve)
+          newSlots.push(bookedSlot);
+          console.log(`Force added booked slot at ${bookedSlot.start}`);
+        }
+      });
+      
+      // Sort by start time
+      newSlots.sort((a, b) => a.start.localeCompare(b.start));
+      
+      availability.slots = newSlots;
       availability.timezone = timezone;
-      console.log("Slots replaced with", availability.slots.length, "new slots");
+      console.log("Slots updated with", availability.slots.length, "total slots (including preserved bookings)");
     } else {
       console.log("Creating new availability");
       // Tạo mới
