@@ -22,6 +22,7 @@ import { useDispatch } from "react-redux";
 import { showLoading, hideLoading } from "../redux/features/loading.slice";
 import { toast } from "react-toastify";
 import orderApi from "../api/modules/order.api";
+import { order } from "../data/seedData";
 
 const OrderComplete = () => {
   const navigate = useNavigate();
@@ -40,8 +41,8 @@ const OrderComplete = () => {
       const token =
         localStorage.getItem("token") || localStorage.getItem("actkn");
       if (!token) {
-        toast.error("Login to view order");
-        navigate("/auth/signin");
+        toast.error("Vui lòng đăng nhập để xem đơn hàng");
+        navigate("/login");
         return;
       }
 
@@ -55,7 +56,7 @@ const OrderComplete = () => {
 
       if (!user || user.role !== "mentee") {
         toast.error("Chỉ mentee mới có thể xem đơn hàng");
-        navigate("/auth/signin");
+        navigate("/login");
         return;
       }
 
@@ -102,7 +103,7 @@ const OrderComplete = () => {
   }, [navigate, dispatch, orderInfo, searchParams]);
 
   const handleContinueShopping = () => {
-    navigate("/mentee/courses");
+    navigate("/mentee/all-courses");
   };
 
   const handleBackToHome = () => {

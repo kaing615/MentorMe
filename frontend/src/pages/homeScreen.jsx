@@ -200,7 +200,7 @@ const HomeScreen = () => {
     const token =
       localStorage.getItem("actkn") || localStorage.getItem("token");
     const userStr =
-      localStorage.getItem("user") || localStorage.getItem("user");
+      localStorage.getItem("user");
     console.log("Token:", token);
     let user = null;
     if (!token) {

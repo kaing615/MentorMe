@@ -67,31 +67,6 @@ const AllCoursePage = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [coursesPerPage] = useState(9);
 
-  // Fetch purchased courses from API on component mount
-  useEffect(() => {
-    const fetchPurchasedCourses = async () => {
-      if (!user) return;
-
-      try {
-        const { response, error } =
-          await purchasedCourseApi.getPurchasedCourses(dispatch);
-
-        if (response && response.data && response.data.courses) {
-          console.log(
-            "Fetched purchased courses from API:",
-            response.data.courses.length
-          );
-        } else if (error) {
-          console.warn("Failed to fetch purchased courses:", error);
-        }
-      } catch (err) {
-        console.error("Error fetching purchased courses:", err);
-      }
-    };
-
-    fetchPurchasedCourses();
-  }, [user, dispatch]);
-
   // Helper function to check if course is already purchased
   const isCourseAlreadyPurchased = (courseId) => {
     return purchasedCourseApi.isCourseAlreadyPurchased(courseId);
@@ -114,7 +89,7 @@ const AllCoursePage = () => {
 
     const courseId = course._id || course.id;
 
-    // Check if course is already purchased
+    // Check if course is already purchased (sync check first for quick feedback)
     if (isCourseAlreadyPurchased(courseId)) {
       toast.info(
         "You have already purchased this course! Check 'My Courses' in your profile."
@@ -136,11 +111,52 @@ const AllCoursePage = () => {
           toast.success("Course added to cart successfully!");
           return;
         } else if (error) {
-          throw new Error(error.message || "API failed");
+          // Simply show the error message from backend
+          const errorMessage =
+            error.data?.message ||
+            error.message ||
+            "Failed to add course to cart";
+          toast.error(errorMessage);
+          return;
         }
       } catch (apiError) {
-        console.error("Failed to add course to cart:", apiError);
-        toast.error("Failed to add course to cart");
+        // If it's a 400 error (business logic error), show message and don't fallback
+        if (apiError.status === 400 || apiError.data?.status === 400) {
+          const errorMessage =
+            apiError.data?.message || apiError.message || "Bad request";
+          toast.error(errorMessage);
+          return;
+        }
+
+        console.log("API failed, using localStorage fallback:", apiError);
+
+        // Fallback to localStorage
+        const existingCart = localStorage.getItem("mockCart");
+        let cartItems = existingCart ? JSON.parse(existingCart) : [];
+
+        // Check if course already in cart
+        const alreadyInCart = cartItems.some(
+          (item) => (item._id || item.id) === courseId
+        );
+
+        if (alreadyInCart) {
+          toast.info("Course is already in your cart");
+          return;
+        }
+
+        // Add course to cart
+        cartItems.push({
+          id: courseId,
+          _id: courseId,
+          title: course.title,
+          price: course.price,
+          image: course.image,
+          mentor: course.mentor || "Unknown Mentor",
+          addedAt: new Date().toISOString(),
+        });
+
+        localStorage.setItem("mockCart", JSON.stringify(cartItems));
+        toast.success("Course added to cart successfully!");
       }
     } catch (error) {
       console.error("Add to cart error:", error);
@@ -871,12 +887,17 @@ const AllCoursePage = () => {
                           ({course.reviewCount || 0} Ratings)
                         </span>
                       </div>
-                      <div className="text-sm text-gray-700 mb-1">
-                        {course.duration || "Self-paced"} •{" "}
-                        {course.lectures || 0} Lectures
-                      </div>
-                      <div className="text-sm text-gray-600 mb-2">
-                        {course.category || "General"}
+                      <div
+                        className="text-sm text-gray-700 mb-2"
+                        style={{
+                          display: "-webkit-box",
+                          WebkitLineClamp: 1,
+                          WebkitBoxOrient: "vertical",
+                          overflow: "hidden",
+                        }}
+                      >
+                        {course.duration} • {course.lectures} Lectures •{" "}
+                        {course.category}
                       </div>
 
                       {/* Hiển thị tags nếu có */}

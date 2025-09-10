@@ -6,9 +6,9 @@ const fail = (error) => ({ error, err: error });
 
 const checkoutApi = {
   // Tạo checkout session
-  createCheckoutSession: async () => {
+  createCheckoutSession: async (dispatch = null) => {
     try {
-      const privateClient = createPrivateClient();
+      const privateClient = createPrivateClient(dispatch);
       const response = await privateClient.post("/checkout");
       return ok(response);
     } catch (e) {
@@ -17,9 +17,9 @@ const checkoutApi = {
   },
 
   // Validate checkout trước khi thanh toán
-  validateCheckout: async ({ sessionId }) => {
+  validateCheckout: async ({ sessionId, dispatch = null }) => {
     try {
-      const privateClient = createPrivateClient();
+      const privateClient = createPrivateClient(dispatch);
       const response = await privateClient.post("/checkout/validate", {
         sessionId,
       });
@@ -30,13 +30,68 @@ const checkoutApi = {
   },
 
   // Process payment với payment gateway
-  processPayment: async ({ sessionId, paymentMethod, billingInfo }) => {
+  processPayment: async ({
+    sessionId,
+    paymentMethod,
+    billingInfo,
+    dispatch = null,
+  }) => {
     try {
-      const privateClient = createPrivateClient();
+      const privateClient = createPrivateClient(dispatch);
       const response = await privateClient.post("/checkout/payment", {
         sessionId,
         paymentMethod,
         billingInfo,
+      });
+      return ok(response);
+    } catch (e) {
+      return fail(e);
+    }
+  },
+
+  // Get available discount codes
+  getAvailableDiscounts: async (dispatch = null) => {
+    try {
+      const privateClient = createPrivateClient(dispatch);
+      const response = await privateClient.get("/checkout/discounts");
+      return ok(response);
+    } catch (e) {
+      return fail(e);
+    }
+  },
+
+  // Apply discount code
+  applyDiscount: async ({ code, cartTotal, dispatch = null }) => {
+    try {
+      const privateClient = createPrivateClient(dispatch);
+      const response = await privateClient.post("/checkout/discount/apply", {
+        code,
+        cartTotal,
+      });
+      return ok(response);
+    } catch (e) {
+      return fail(e);
+    }
+  },
+
+  // Remove discount code
+  removeDiscount: async (dispatch = null) => {
+    try {
+      const privateClient = createPrivateClient(dispatch);
+      const response = await privateClient.delete("/checkout/discount");
+      return ok(response);
+    } catch (e) {
+      return fail(e);
+    }
+  },
+
+  // Validate coupon (alias for applyDiscount for backwards compatibility)
+  validateCoupon: async ({ code, cartTotal, dispatch = null }) => {
+    try {
+      const privateClient = createPrivateClient(dispatch);
+      const response = await privateClient.post("/checkout/discount/apply", {
+        code,
+        cartTotal,
       });
       return ok(response);
     } catch (e) {

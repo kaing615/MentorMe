@@ -5,22 +5,120 @@ const ok = (response) => ({ response });
 const fail = (error) => ({ error, err: error });
 
 const purchasedCourseApi = {
+  // Helper function to get current user ID consistently
+  getCurrentUserId: () => {
+    try {
+      const userStr =
+        localStorage.getItem("user") || sessionStorage.getItem("user");
+      if (!userStr) return null;
+
+      const user = JSON.parse(userStr);
+      // Try multiple possible ID fields to ensure we get the correct ID
+      return user?._id || user?.id || user?.userId || null;
+    } catch (e) {
+      console.error("Error parsing user for ID:", e);
+      return null;
+    }
+  },
+
+  // Helper function to clear mock data that might cause data mixing
+  clearMockDataForUser: (userId) => {
+    try {
+      if (!userId) return;
+
+      // Clear both user-specific and generic mock data keys
+      const mockKeys = [
+        `mockPurchasedCourses_${userId}`,
+        "mockPurchasedCourses",
+        `purchasedCourses_cache_${userId}_mock`,
+      ];
+
+      mockKeys.forEach((key) => {
+        if (localStorage.getItem(key)) {
+          localStorage.removeItem(key);
+          console.log("[DEBUG] Removed mock data key:", key);
+        }
+      });
+    } catch (e) {
+      console.error("Error clearing mock data:", e);
+    }
+  },
+
+  // Helper function to clear all cached data for user (useful when switching users)
+  clearUserCache: (userId) => {
+    try {
+      if (!userId) return;
+
+      const cacheKey = `purchasedCourses_cache_${userId}`;
+      localStorage.removeItem(cacheKey);
+      console.log("[DEBUG] Cleared cache for user:", userId);
+    } catch (e) {
+      console.error("Error clearing user cache:", e);
+    }
+  },
+
+  // Function to detect and fix data corruption issues
+  validateAndCleanCache: () => {
+    try {
+      const currentUserId = purchasedCourseApi.getCurrentUserId();
+      if (!currentUserId) return;
+
+      // Get all localStorage keys that might contain course data
+      const allKeys = Object.keys(localStorage);
+      const courseKeys = allKeys.filter(
+        (key) =>
+          key.includes("purchasedCourses") ||
+          key.includes("mockPurchasedCourses")
+      );
+
+      console.log("[DEBUG] Found course-related keys:", courseKeys);
+
+      // Remove any keys that don't belong to current user
+      courseKeys.forEach((key) => {
+        if (key.includes("_") && !key.includes(`_${currentUserId}`)) {
+          console.log("[DEBUG] Removing foreign user cache:", key);
+          localStorage.removeItem(key);
+        }
+      });
+
+      // Validate current user's cache
+      const userCacheKey = `purchasedCourses_cache_${currentUserId}`;
+      const userCache = localStorage.getItem(userCacheKey);
+
+      if (userCache) {
+        try {
+          const cacheData = JSON.parse(userCache);
+          if (cacheData.userId && cacheData.userId !== currentUserId) {
+            console.log(
+              "[DEBUG] Cache user mismatch, clearing:",
+              cacheData.userId,
+              "vs",
+              currentUserId
+            );
+            localStorage.removeItem(userCacheKey);
+          }
+        } catch (e) {
+          console.log("[DEBUG] Corrupted cache detected, clearing");
+          localStorage.removeItem(userCacheKey);
+        }
+      }
+    } catch (error) {
+      console.error("Error validating cache:", error);
+    }
+  },
+
   // Helper function to check if course is already purchased (sync version for immediate use)
   isCourseAlreadyPurchased: (courseId) => {
     try {
       // Get current user ID for user-specific localStorage cache
-      const userStr = localStorage.getItem("user");
-      let currentUserId = null;
-      try {
-        const user = userStr ? JSON.parse(userStr) : null;
-        currentUserId = user?.id || user?._id;
-      } catch (e) {
-        // Ignore parse errors
+      const currentUserId = purchasedCourseApi.getCurrentUserId();
+
+      if (!currentUserId) {
+        console.warn("[DEBUG] No user ID found for checking purchased course");
+        return false;
       }
 
-      const cacheKey = currentUserId
-        ? `purchasedCourses_cache_${currentUserId}`
-        : "purchasedCourses_cache";
+      const cacheKey = `purchasedCourses_cache_${currentUserId}`;
       const cachedData = localStorage.getItem(cacheKey);
 
       if (cachedData) {
@@ -36,6 +134,8 @@ const purchasedCourseApi = {
           }
         } catch (error) {
           console.error("Error parsing cached purchased courses:", error);
+          // Remove corrupted cache
+          localStorage.removeItem(cacheKey);
           return false;
         }
       }
@@ -70,26 +170,30 @@ const purchasedCourseApi = {
       if (response && response.data && response.data.courses) {
         try {
           // Get current user ID for user-specific localStorage
-          const userStr = localStorage.getItem("user");
-          let currentUserId = null;
-          try {
-            const user = userStr ? JSON.parse(userStr) : null;
-            currentUserId = user?.id || user?._id;
-          } catch (e) {
-            // Ignore parse errors
+          const currentUserId = purchasedCourseApi.getCurrentUserId();
+
+          if (currentUserId) {
+            const cacheKey = `purchasedCourses_cache_${currentUserId}`;
+
+            // Store real API data in localStorage cache with timestamp and user ID for validation
+            const cacheData = {
+              userId: currentUserId, // Store user ID for validation
+              courses: response.data.courses,
+              timestamp: new Date().getTime(),
+              source: "api",
+            };
+            localStorage.setItem(cacheKey, JSON.stringify(cacheData));
+            console.log(
+              "[DEBUG] Cached purchased courses for user:",
+              currentUserId,
+              "Courses count:",
+              response.data.courses.length
+            );
+          } else {
+            console.warn(
+              "[DEBUG] No user ID available, cannot cache purchased courses"
+            );
           }
-
-          const cacheKey = currentUserId
-            ? `purchasedCourses_cache_${currentUserId}`
-            : "purchasedCourses_cache";
-
-          // Store real API data in localStorage cache with timestamp
-          const cacheData = {
-            courses: response.data.courses,
-            timestamp: new Date().getTime(),
-            source: "api",
-          };
-          localStorage.setItem(cacheKey, JSON.stringify(cacheData));
         } catch (storageError) {
           console.warn(
             "Failed to cache purchased courses to localStorage:",
@@ -105,27 +209,42 @@ const purchasedCourseApi = {
       // Fallback to localStorage cache if API fails
       try {
         // Get current user ID for user-specific localStorage
-        const userStr = localStorage.getItem("user");
-        let currentUserId = null;
-        try {
-          const user = userStr ? JSON.parse(userStr) : null;
-          currentUserId = user?.id || user?._id;
-        } catch (e) {
-          // Ignore parse errors
+        const currentUserId = purchasedCourseApi.getCurrentUserId();
+
+        if (!currentUserId) {
+          console.warn("[DEBUG] No user ID for cache fallback");
+          return fail(apiError);
         }
 
-        const cacheKey = currentUserId
-          ? `purchasedCourses_cache_${currentUserId}`
-          : "purchasedCourses_cache";
+        const cacheKey = `purchasedCourses_cache_${currentUserId}`;
         const cachedData = localStorage.getItem(cacheKey);
 
         if (cachedData) {
           const cacheObject = JSON.parse(cachedData);
+
+          // Validate cache belongs to current user
+          if (cacheObject.userId !== currentUserId) {
+            console.warn(
+              "[DEBUG] Cache user ID mismatch, removing cache:",
+              cacheObject.userId,
+              "vs",
+              currentUserId
+            );
+            localStorage.removeItem(cacheKey);
+            return fail(apiError);
+          }
+
           // Check if cache is not too old (24 hours)
           const cacheAge = new Date().getTime() - cacheObject.timestamp;
           const maxCacheAge = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
 
           if (cacheAge < maxCacheAge && cacheObject.courses) {
+            console.log(
+              "[DEBUG] Using cached purchased courses for user:",
+              currentUserId,
+              "Courses count:",
+              cacheObject.courses.length
+            );
             // Return cached real data in API response format
             const cacheResponse = {
               data: {
@@ -137,6 +256,10 @@ const purchasedCourseApi = {
             return ok(cacheResponse);
           } else {
             // Cache is too old, remove it
+            console.log(
+              "[DEBUG] Cache too old, removing for user:",
+              currentUserId
+            );
             localStorage.removeItem(cacheKey);
           }
         }
@@ -206,21 +329,18 @@ const purchasedCourseApi = {
   addPurchasedCourseToCache: (courseData) => {
     try {
       // Get current user ID for user-specific localStorage
-      const userStr = localStorage.getItem("user");
-      let currentUserId = null;
-      try {
-        const user = userStr ? JSON.parse(userStr) : null;
-        currentUserId = user?.id || user?._id;
-      } catch (e) {
-        // Ignore parse errors
+      const currentUserId = purchasedCourseApi.getCurrentUserId();
+
+      if (!currentUserId) {
+        console.warn("[DEBUG] No user ID available, cannot add to cache");
+        return;
       }
 
-      const cacheKey = currentUserId
-        ? `purchasedCourses_cache_${currentUserId}`
-        : "purchasedCourses_cache";
+      const cacheKey = `purchasedCourses_cache_${currentUserId}`;
 
       // Get existing cached data
       let cacheObject = {
+        userId: currentUserId,
         courses: [],
         timestamp: new Date().getTime(),
         source: "api",
@@ -230,11 +350,32 @@ const purchasedCourseApi = {
       if (existingCache) {
         try {
           cacheObject = JSON.parse(existingCache);
+
+          // Validate cache belongs to current user
+          if (cacheObject.userId !== currentUserId) {
+            console.warn(
+              "[DEBUG] Cache user ID mismatch during add, creating new cache"
+            );
+            cacheObject = {
+              userId: currentUserId,
+              courses: [],
+              timestamp: new Date().getTime(),
+              source: "api",
+            };
+          }
+
           if (!cacheObject.courses) {
             cacheObject.courses = [];
           }
         } catch (e) {
           console.warn("Failed to parse existing cache:", e);
+          // Create new cache object
+          cacheObject = {
+            userId: currentUserId,
+            courses: [],
+            timestamp: new Date().getTime(),
+            source: "api",
+          };
         }
       }
 
@@ -258,12 +399,18 @@ const purchasedCourseApi = {
           ...courseData,
         });
 
-        // Update timestamp
+        // Update timestamp and ensure user ID is set
         cacheObject.timestamp = new Date().getTime();
+        cacheObject.userId = currentUserId;
 
         // Save back to localStorage cache
         localStorage.setItem(cacheKey, JSON.stringify(cacheObject));
-        console.log("Added purchased course to cache:", courseId);
+        console.log(
+          "[DEBUG] Added purchased course to cache for user:",
+          currentUserId,
+          "Course:",
+          courseId
+        );
       }
     } catch (error) {
       console.error("Failed to add purchased course to cache:", error);

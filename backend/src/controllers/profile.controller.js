@@ -207,30 +207,30 @@ export const updateMenteeProfile = async (req, res) => {
     if (avatarUrl !== undefined) updateFields.avatarUrl = avatarUrl;
     if (avatarPublicId !== undefined)
       updateFields.avatarPublicId = avatarPublicId;
-    if (bio !== undefined) updateFields.bio = bio;
-    if (location !== undefined) updateFields.location = location;
+    if (bio !== undefined) updateFields.bio = bio || ""; // Allow empty string
+    if (location !== undefined) updateFields.location = location || ""; // Allow empty string
 
     const updatedUser = await User.findByIdAndUpdate(userId, updateFields, {
       new: true,
-      runValidators: true,
+      runValidators: false, // Disable mongoose validation to allow empty strings
     });
 
     let profile = await Profile.findOne({ user: userId });
     if (!profile) profile = new Profile({ user: userId });
 
-    // Only update profile fields if they are provided
-    if (bio !== undefined) profile.bio = bio;
-    if (location !== undefined) profile.location = location;
-    if (description !== undefined) profile.description = description;
-    if (goal !== undefined) profile.goal = goal;
-    if (education !== undefined) profile.education = education;
+    // Only update profile fields if they are provided - Allow empty strings
+    if (bio !== undefined) profile.bio = bio || "";
+    if (location !== undefined) profile.location = location || "";
+    if (description !== undefined) profile.description = description || ""; // Allow empty
+    if (goal !== undefined) profile.goal = goal || ""; // Allow empty
+    if (education !== undefined) profile.education = education || ""; // Allow empty
     if (languages !== undefined) profile.languages = parseArrayish(languages);
-    if (timezone !== undefined) profile.timezone = timezone;
+    if (timezone !== undefined) profile.timezone = timezone || "";
     if (links && Object.keys(links).length > 0) {
       profile.links = { ...(profile.links || {}), ...links };
     }
 
-    await profile.save();
+    await profile.save({ validateBeforeSave: false }); // Disable mongoose validation to allow empty strings
 
     return responseHandler.ok(res, {
       message: "Cập nhật thông tin mentee thành công!",

@@ -151,6 +151,17 @@ const MenteeProfile = () => {
       setLoading(true);
       setError(null);
       try {
+        // Clear cache from other users when mounting profile
+        const currentUserId = purchasedCourseApi.getCurrentUserId();
+        if (currentUserId) {
+          // Clear any generic cache that might exist from previous sessions
+          localStorage.removeItem("purchasedCourses_cache");
+          console.log(
+            "[DEBUG] Cleared generic cache for user session:",
+            currentUserId
+          );
+        }
+
         const data = await profileApi.getProfile();
         const profileData = data?.data;
         console.log("Profile API response:", profileData);
@@ -230,34 +241,86 @@ const MenteeProfile = () => {
   useEffect(() => {
     async function fetchPurchasedCourses() {
       try {
-        // Get current user ID for user-specific localStorage
+        // Validate and clean cache first to prevent data mixing
+        purchasedCourseApi.validateAndCleanCache();
+
+        // Get current user ID for user-specific localStorage - FIXED to get correct user ID
         const userStr = localStorage.getItem("user");
         let currentUserId = null;
+        let currentUserRole = null;
         try {
           const user = userStr ? JSON.parse(userStr) : null;
-          currentUserId = user?.id || user?._id;
+          if (user) {
+            // Try multiple possible ID fields to ensure we get the correct ID
+            currentUserId = user._id || user.id || user.userId;
+            currentUserRole = user.role;
+            console.log(
+              "[DEBUG] Current user ID for cache:",
+              currentUserId,
+              "Role:",
+              currentUserRole
+            );
+          }
         } catch (e) {
           console.warn("Error parsing user:", e);
         }
 
-        // Check for mock purchased courses in localStorage for current user
-        const mockKey = currentUserId
-          ? `mockPurchasedCourses_${currentUserId}`
-          : "mockPurchasedCourses";
+        // Only proceed if we have a valid user ID and user is mentee
+        if (!currentUserId) {
+          console.error(
+            "[DEBUG] No valid user ID found, cannot fetch purchased courses"
+          );
+          setPurchasedCourses([]);
+          return;
+        }
+
+        if (currentUserRole !== "mentee") {
+          console.error(
+            "[DEBUG] User is not a mentee, cannot fetch purchased courses"
+          );
+          setPurchasedCourses([]);
+          return;
+        }
+
+        // Clear any mock data that might cause confusion
+        purchasedCourseApi.clearMockDataForUser(currentUserId);
+
+        // Check for mock purchased courses in localStorage for current user (user-specific key)
+        // NOTE: This should be removed in production - mock data only for development
+        const mockKey = `mockPurchasedCourses_${currentUserId}`;
         const mockPurchasedCourses = localStorage.getItem(mockKey);
 
         if (mockPurchasedCourses) {
           try {
             const courses = JSON.parse(mockPurchasedCourses);
             if (Array.isArray(courses) && courses.length > 0) {
-              setPurchasedCourses(courses);
+              console.log(
+                "[DEBUG] Using mock purchased courses from localStorage for user:",
+                currentUserId
+              );
+              // Validate mock data belongs to current user
+              const validCourses = courses.filter((course) => {
+                // Ensure mock course data has proper structure and user association
+                return (
+                  course && (course.userId === currentUserId || !course.userId)
+                );
+              });
+              setPurchasedCourses(validCourses);
               return;
             }
           } catch (e) {
             console.warn("Error parsing mock purchased courses:", e);
+            // Remove corrupted mock data
+            localStorage.removeItem(mockKey);
+            purchasedCourseApi.clearMockDataForUser(currentUserId);
           }
         }
 
+        // Fetch from API with proper user authentication
+        console.log(
+          "[DEBUG] Fetching purchased courses from API for user:",
+          currentUserId
+        );
         const { response, error } =
           await purchasedCourseApi.getPurchasedCourses();
 
@@ -281,8 +344,13 @@ const MenteeProfile = () => {
         const courses =
           response?.data?.courses || response?.data?.purchasedCourses || [];
         if (Array.isArray(courses)) {
+          console.log(
+            "[DEBUG] Successfully fetched purchased courses from API:",
+            courses.length
+          );
           setPurchasedCourses(courses);
         } else {
+          console.warn("[DEBUG] API returned non-array courses data:", courses);
           setPurchasedCourses([]);
         }
       } catch (err) {
@@ -302,7 +370,7 @@ const MenteeProfile = () => {
       }
     }
     fetchPurchasedCourses();
-  }, []);
+  }, [navigate]);
 
   // Course management state
   const [searchTerm, setSearchTerm] = useState("");

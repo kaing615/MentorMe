@@ -1,29 +1,26 @@
 import Joi from "joi";
 
 const profileBase = {
-  firstName: Joi.string().min(1).max(50).required().messages({
-    "string.empty": "Họ không được để trống",
+  firstName: Joi.string().min(1).max(50).optional().messages({
+    "string.empty": "Họ không được để trống nếu được cung cấp",
     "string.min": "Họ phải từ 1-50 ký tự",
     "string.max": "Họ phải từ 1-50 ký tự",
-    "any.required": "Họ là bắt buộc",
   }),
-  lastName: Joi.string().min(1).max(50).required().messages({
-    "string.empty": "Tên không được để trống",
+  lastName: Joi.string().min(1).max(50).optional().messages({
+    "string.empty": "Tên không được để trống nếu được cung cấp",
     "string.min": "Tên phải từ 1-50 ký tự",
     "string.max": "Tên phải từ 1-50 ký tự",
-    "any.required": "Tên là bắt buộc",
   }),
   userName: Joi.string()
     .min(3)
     .max(30)
     .pattern(/^[a-zA-Z0-9_]+$/)
-    .required()
+    .optional()
     .messages({
-      "string.empty": "Tên người dùng không được để trống",
+      "string.empty": "Tên người dùng không được để trống nếu được cung cấp",
       "string.min": "Tên người dùng phải từ 3-30 ký tự",
       "string.max": "Tên người dùng phải từ 3-30 ký tự",
       "string.pattern.base": "Tên người dùng chỉ chứa chữ, số và dấu gạch dưới",
-      "any.required": "Tên người dùng là bắt buộc",
     }),
 };
 
@@ -117,24 +114,24 @@ export const updateMentorProfileSchema = Joi.object({
 export const updateMenteeProfileSchema = Joi.object({
   ...profileBase,
 
-  bio: Joi.string().min(10).optional().messages({
-    "string.min": "Bio phải từ 10",
+  bio: Joi.string().optional().allow("").messages({
+    "string.base": "Bio phải là chuỗi",
   }),
-  location: Joi.string().min(1).optional().messages({
-    "string.empty": "Location không được để trống",
+  location: Joi.string().optional().allow("").messages({
+    "string.base": "Location phải là chuỗi",
   }),
 
-  description: Joi.string().min(10).max(500).optional().messages({
-    "string.min": "Description phải từ 10-500 ký tự",
-    "string.max": "Description phải từ 10-500 ký tự",
+  description: Joi.string().optional().allow("").max(500).messages({
+    "string.max": "Description tối đa 500 ký tự",
+    "string.base": "Description phải là chuỗi",
   }),
-  goal: Joi.string().min(10).max(300).optional().messages({
-    "string.min": "Goal phải từ 10-300 ký tự",
-    "string.max": "Goal phải từ 10-300 ký tự",
+  goal: Joi.string().optional().allow("").max(300).messages({
+    "string.max": "Goal tối đa 300 ký tự",
+    "string.base": "Goal phải là chuỗi",
   }),
-  education: Joi.string().min(5).max(200).optional().messages({
-    "string.min": "Education phải từ 5-200 ký tự",
-    "string.max": "Education phải từ 5-200 ký tự",
+  education: Joi.string().optional().allow("").max(200).messages({
+    "string.max": "Education tối đa 200 ký tự",
+    "string.base": "Education phải là chuỗi",
   }),
 
   languages: Joi.alternatives()

@@ -3,8 +3,7 @@ import axios from "axios";
 axios.interceptors.request.use((config) => {
   const token =
     localStorage.getItem("token") ||
-    localStorage.getItem("actkn") ||
-    localStorage.getItem("token");
+    localStorage.getItem("actkn");
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }

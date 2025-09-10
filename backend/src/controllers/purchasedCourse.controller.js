@@ -14,45 +14,59 @@ const getPurchasedCourses = async (req, res) => {
     const userId = req.user.id || req.user._id;
 
     console.log("Getting purchased courses for user:", userId);
+    console.log("User role:", req.user.role);
+    console.log("User email:", req.user.email);
 
-    // Lấy danh sách courses mà user là mentee
-    const purchasedCourses = await Course.find({
-      mentees: userId,
+    // Lấy danh sách khóa học đã mua từ PurchasedCourse model để đảm bảo chính xác user-specific data
+    const purchasedCourses = await PurchasedCourse.find({
+      mentee: userId,
     })
       .populate({
-        path: "mentor",
-        select: "firstName lastName avatarUrl jobTitle userName email",
+        path: "course",
+        select:
+          "title description price category duration rate link lectures thumbnail mentor",
+        populate: {
+          path: "mentor",
+          select: "firstName lastName avatarUrl jobTitle userName email",
+        },
       })
-      .sort({ createdAt: -1 });
+      .populate({
+        path: "order",
+        select: "orderNumber transactionId paymentMethod createdAt",
+      })
+      .sort({ purchaseDate: -1 });
 
     console.log("Found purchased courses:", purchasedCourses.length);
 
-    // Format response
-    const formattedCourses = purchasedCourses.map((course) => ({
-      courseId: course._id,
+    // Format response với dữ liệu chính xác từ PurchasedCourse
+    const formattedCourses = purchasedCourses.map((purchasedCourse) => ({
+      courseId: purchasedCourse.course._id,
       courseInfo: {
-        _id: course._id,
-        title: course.title,
-        description: course.description,
-        price: course.price,
-        mentor: course.mentor,
-        category: course.category,
-        duration: course.duration,
-        rate: course.rate,
-        link: course.link,
-        lectures: course.lectures,
-        thumbnail: course.thumbnail,
+        _id: purchasedCourse.course._id,
+        title: purchasedCourse.course.title,
+        description: purchasedCourse.course.description,
+        price: purchasedCourse.course.price,
+        mentor: purchasedCourse.course.mentor,
+        category: purchasedCourse.course.category,
+        duration: purchasedCourse.course.duration,
+        rate: purchasedCourse.course.rate,
+        link: purchasedCourse.course.link,
+        lectures: purchasedCourse.course.lectures,
+        thumbnail: purchasedCourse.course.thumbnail,
       },
-      purchaseDate: course.createdAt, // Use course creation date as fallback
-      progress: 0, // Default progress
-      lastAccessDate: null,
-      isCompleted: false,
+      purchaseDate: purchasedCourse.purchaseDate,
+      progress: purchasedCourse.progress,
+      lastAccessDate: purchasedCourse.lastAccessDate,
+      isCompleted: purchasedCourse.isCompleted,
+      completedAt: purchasedCourse.completedAt,
+      price: purchasedCourse.price, // Giá thực tế đã mua (có thể khác với giá hiện tại)
+      rating: purchasedCourse.rating,
+      review: purchasedCourse.review,
       orderInfo: {
-        // We could populate order info later if needed
-        transactionId: null,
-        paymentMethod: null,
-        createdAt: course.createdAt,
-        orderNumber: null,
+        transactionId: purchasedCourse.order?.transactionId,
+        paymentMethod: purchasedCourse.order?.paymentMethod,
+        createdAt: purchasedCourse.order?.createdAt,
+        orderNumber: purchasedCourse.order?.orderNumber,
       },
     }));
 

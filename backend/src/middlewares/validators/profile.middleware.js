@@ -108,38 +108,60 @@ const updateMenteeProfileValidator = [
   // Các field optional cho mentee
   body("bio")
     .optional()
-    .notEmpty()
+    .allow("")
+    .empty("")
     .withMessage("Bio không được để trống")
     .isLength({ min: 10, max: 300 })
     .withMessage("Bio phải từ 10-300 ký tự"),
   body("location")
     .optional()
-    .notEmpty()
+    .allow("")
+    .empty("")
     .withMessage("Location không được để trống"),
   body("linkedinUrl")
     .optional()
+    .allow("")
+    .empty("")
     .isURL()
     .withMessage("LinkedIn URL không hợp lệ"),
 
   // Profile Model fields cho mentee
   body("description")
-    .optional()
+    .allow("")
+    .empty("")
     .isLength({ min: 10, max: 500 })
+    .optional()
     .withMessage("Description phải từ 10-500 ký tự"),
   body("goal")
     .optional()
+    .allow("")
+    .empty("")
     .isLength({ min: 10, max: 300 })
     .withMessage("Goal phải từ 10-300 ký tự"),
   body("education")
     .optional()
+    .allow("")
+    .empty("")
     .isLength({ min: 5, max: 200 })
     .withMessage("Education phải từ 5-200 ký tự"),
-  body("languages").optional().isArray().withMessage("Languages phải là mảng"),
+  body("languages")
+    .optional()
+    .allow("")
+    .empty("")
+    .isArray()
+    .withMessage("Languages phải là mảng"),
   body("timezone")
     .optional()
+    .allow("")
+    .empty("")
     .notEmpty()
     .withMessage("Timezone không được để trống"),
-  body("links").optional().isObject().withMessage("Links phải là object"),
+  body("links")
+    .optional()
+    .allow("")
+    .empty("")
+    .isObject()
+    .withMessage("Links phải là object"),
 ];
 export default {
   updateMentorProfileValidator,

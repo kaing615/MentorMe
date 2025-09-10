@@ -54,15 +54,19 @@ export const addToCart = async (req, res) => {
     const userId = req.user.id || req.user._id;
     const { courseId } = req.body;
 
+    console.log(`Add to cart - User: ${userId}, Course: ${courseId}`);
+
     // 1) Khóa học tồn tại?
     const course = await Course.findById(courseId);
     if (!course) {
+      console.log(`Course not found: ${courseId}`);
       return responseHandler.notFound(res, "Không tìm thấy khóa học.");
     }
 
     // 2) Người dùng tồn tại?
     const user = await User.findById(userId);
     if (!user) {
+      console.log(`User not found: ${userId}`);
       return responseHandler.notFound(res, "Không tìm thấy người dùng.");
     }
 
@@ -71,6 +75,9 @@ export const addToCart = async (req, res) => {
       (menteeId) => menteeId.toString() === userId.toString()
     );
     if (alreadyPurchased) {
+      console.log(
+        `Course already purchased - User: ${userId}, Course: ${courseId}`
+      );
       return responseHandler.badRequest(res, "Bạn đã mua khóa học này rồi.");
     }
 
@@ -82,6 +89,9 @@ export const addToCart = async (req, res) => {
       (item) => item.course.toString() === courseId
     );
     if (exists) {
+      console.log(
+        `Course already in cart - User: ${userId}, Course: ${courseId}`
+      );
       return responseHandler.badRequest(res, "Khóa học đã có trong giỏ hàng.");
     }
 
@@ -103,6 +113,10 @@ export const addToCart = async (req, res) => {
         select: "firstName lastName avatarUrl jobTitle",
       },
     });
+
+    console.log(
+      `Course added successfully - User: ${userId}, Course: ${courseId}, Total courses: ${cart.courses.length}`
+    );
 
     return responseHandler.ok(res, {
       message: "Thêm khóa học vào giỏ hàng thành công.",

@@ -6,7 +6,14 @@ const router = Router();
 
 /**
  * @swagger
- * /api/checkout/session:
+ * /api/ch// Checkout routes
+router.post("/", checkoutController.createCheckoutSession);         // POST /api/checkout (frontend compatibility)
+router.post("/session", checkoutController.createCheckoutSession);  // POST /api/checkout/session
+router.post("/validate", checkoutController.validateCheckout);      // POST /api/checkout/validate
+router.post("/payment", checkoutController.processPayment);         // POST /api/checkout/payment (new endpoint)
+router.get("/discounts", checkoutController.getAvailableDiscounts); // GET /api/checkout/discounts (get available coupons)
+router.post("/discount/apply", checkoutController.applyDiscount);   // POST /api/checkout/discount/apply
+router.delete("/discount", checkoutController.removeDiscount);      // DELETE /api/checkout/discountsession:
  *   post:
  *     summary: Tạo checkout session
  *     description: Tạo session checkout từ giỏ hàng với thông tin thanh toán
@@ -228,13 +235,18 @@ const router = Router();
  *                           example: "Đã xóa mã giảm giá!"
  */
 
-// Tất cả routes đều cần authentication
+// Public routes (không cần auth)
+router.get("/discounts", checkoutController.getAvailableDiscounts); // GET /api/checkout/discounts
+
+// Tất cả routes khác đều cần authentication
 router.use(tokenMiddleware.auth);
 
 // Checkout routes
-router.post("/session", checkoutController.createCheckoutSession);  // POST /api/checkout/session
-router.post("/validate", checkoutController.validateCheckout);      // POST /api/checkout/validate
-router.post("/discount/apply", checkoutController.applyDiscount);   // POST /api/checkout/discount/apply
-router.delete("/discount", checkoutController.removeDiscount);      // DELETE /api/checkout/discount
+router.post("/", checkoutController.createCheckoutSession); // POST /api/checkout (frontend compatibility)
+router.post("/session", checkoutController.createCheckoutSession); // POST /api/checkout/session
+router.post("/validate", checkoutController.validateCheckout); // POST /api/checkout/validate
+router.post("/payment", checkoutController.processPayment); // POST /api/checkout/payment (new endpoint)
+router.post("/discount/apply", checkoutController.applyDiscount); // POST /api/checkout/discount/apply
+router.delete("/discount", checkoutController.removeDiscount); // DELETE /api/checkout/discount
 
 export default router;

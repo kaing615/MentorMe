@@ -23,7 +23,14 @@ const cartApi = {
       const response = await privateClient.post("/cart", { courseId });
       return ok(response);
     } catch (e) {
-      return fail(e);
+      // Ensure we pass the complete error information
+      const errorObj = {
+        message: e.message || "Unknown error",
+        status: e.status || e.response?.status,
+        response: e.response,
+        ...e,
+      };
+      return fail(errorObj);
     }
   },
 

@@ -1,6 +1,7 @@
 import express from "express";
 
 import cartRoute from "./cart.route.js";
+import checkoutRoute from "./checkout.route.js";
 import courseRoute from "./course.route.js";
 import orderRoute from "./order.route.js";
 import paymentRoute from "./payment.route.js";
@@ -13,6 +14,7 @@ const router = express.Router();
 router.use("/user", userRoute);
 router.use("/profile", profileRoute);
 router.use("/course", courseRoute);
+router.use("/checkout", checkoutRoute);
 router.use("/orders", orderRoute);
 router.use("/payment", paymentRoute);
 router.use("/purchased-courses", purchasedCourseRoute);

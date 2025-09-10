@@ -3,7 +3,9 @@ import axios from "axios";
 import queryString from "query-string";
 import { logout } from "../../redux/features/auth.slice.js";
 
-const API_ROOT = (import.meta.env.VITE_API_URL || "").replace(/\/+$/, "");
+const API_ROOT = (
+  import.meta.env.VITE_API_URL || "http://localhost:4000"
+).replace(/\/+$/, "");
 const baseURL = /\/api\/v1$/i.test(API_ROOT) ? API_ROOT : `${API_ROOT}/api/v1`;
 
 const createPrivateClient = (dispatch) => {
@@ -57,7 +59,16 @@ const createPrivateClient = (dispatch) => {
       if (status === 403) {
         console.warn("403 Forbidden – insufficient permission");
       }
-      throw error.response?.data || error;
+
+      // Create a comprehensive error object
+      const errorObj = {
+        ...error.response?.data,
+        status: error.response?.status || error.status,
+        response: error.response,
+        originalError: error,
+      };
+
+      throw errorObj;
     }
   );
 
