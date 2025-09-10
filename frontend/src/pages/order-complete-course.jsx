@@ -1,18 +1,18 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation, useParams } from "react-router-dom";
-import { useDispatch, useSelector } from "react-redux";
-import { showLoading, hideLoading } from "../redux/features/loading.slice";
+import {
+  generateCourses,
+  generateReviews,
+  generateMentors,
+} from "../utils/mockData";
 import courseApi from "../api/modules/course.api";
 import purchasedCourseApi from "../api/modules/purchasedCourse.api";
-import cartApi from "../api/modules/cart.api";
 import { toast } from "react-toastify";
 
 const OrderCompleteCourse = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
-  const dispatch = useDispatch();
-  const user = useSelector((state) => state.user);
 
   // --- AUTH CHECK (chỉ mentee được phép) ---
   useEffect(() => {
@@ -49,11 +49,7 @@ const OrderCompleteCourse = () => {
     return;
   }, [navigate]);
 
-  // Initialize activeTab from localStorage or default to "Details"
-  const [activeTab, setActiveTab] = useState(() => {
-    const savedTab = localStorage.getItem("orderCompletePageActiveTab");
-    return savedTab || "Details";
-  });
+  const [activeTab, setActiveTab] = useState("Details");
   const [showRatingPopup, setShowRatingPopup] = useState(false);
   const [userRating, setUserRating] = useState(0);
   const [userComment, setUserComment] = useState("");
@@ -63,54 +59,8 @@ const OrderCompleteCourse = () => {
   const [courseData, setCourseData] = useState(null);
   const [mentorData, setMentorData] = useState(null);
   const [purchasedCourseData, setPurchasedCourseData] = useState(null);
-  const [mentorCourseCount, setMentorCourseCount] = useState(0);
-  const [mentorCourses, setMentorCourses] = useState([]);
-  const [purchasedCourseIds, setPurchasedCourseIds] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-
-  // User data will come from Redux selector above
-
-  // Fetch purchased courses from API on component mount
-  useEffect(() => {
-    const fetchPurchasedCourses = async () => {
-      if (!user) return;
-
-      try {
-        const { response, error } =
-          await purchasedCourseApi.getPurchasedCourses(dispatch);
-
-        if (response && response.data && response.data.courses) {
-          console.log(
-            "Fetched purchased courses from API:",
-            response.data.courses.length
-          );
-          // Extract course IDs for quick lookup
-          const purchasedIds = response.data.courses
-            .map((item) => item.course?._id || item.course?.id || item.courseId)
-            .filter(Boolean);
-          setPurchasedCourseIds(purchasedIds);
-        } else if (error) {
-          console.warn("Failed to fetch purchased courses:", error);
-        }
-      } catch (err) {
-        console.error("Error fetching purchased courses:", err);
-      }
-    };
-
-    fetchPurchasedCourses();
-  }, [user, dispatch]);
-
-  // Scroll to top when component mounts
-  useEffect(() => {
-    window.scrollTo(0, 0);
-  }, []);
-
-  // Handle tab change and save to localStorage
-  const handleTabChange = (newTab) => {
-    setActiveTab(newTab);
-    localStorage.setItem("orderCompletePageActiveTab", newTab);
-  };
 
   // Get courseId from location state or URL params
   const courseId =
@@ -130,41 +80,57 @@ const OrderCompleteCourse = () => {
         setLoading(true);
         setError(null);
 
-        // Check if course is purchased via API
-        let isPurchasedFromAPI = false;
-        let apiPurchasedData = null;
-
+        // Check localStorage for purchased courses first
+        const userStr = localStorage.getItem("user");
+        let currentUserId = null;
         try {
-          const { response, error } =
-            await purchasedCourseApi.getPurchasedCourses(dispatch);
+          const user = userStr ? JSON.parse(userStr) : null;
+          currentUserId = user?.id || user?._id;
+        } catch (e) {
+          console.warn("Error parsing user:", e);
+        }
 
-          if (!error && response?.data?.courses) {
-            const purchasedCourses = response.data.courses;
-            console.log("🔍 Checking API - Current courseId:", courseId);
+        const mockKey = currentUserId
+          ? `mockPurchasedCourses_${currentUserId}`
+          : "mockPurchasedCourses";
+        const mockPurchasedCourses = localStorage.getItem(mockKey);
+
+        let isPurchasedFromLocalStorage = false;
+        let localPurchasedData = null;
+
+        if (mockPurchasedCourses) {
+          try {
+            const purchasedCourses = JSON.parse(mockPurchasedCourses);
+            console.log(
+              "🔍 Checking localStorage - Current courseId:",
+              courseId
+            );
             console.log("🔍 Available purchased courses:", purchasedCourses);
 
             const purchasedCourse = purchasedCourses.find(
               (item) =>
-                item.courseId === courseId ||
-                item.course?._id === courseId ||
-                item.courseInfo?._id === courseId
+                item.courseId === courseId || item.courseInfo?._id === courseId
             );
 
+            console.log("🔍 Found purchased course:", purchasedCourse);
+
             if (purchasedCourse) {
-              isPurchasedFromAPI = true;
-              apiPurchasedData = {
-                courseId: purchasedCourse.courseId || courseId,
-                purchaseDate:
-                  purchasedCourse.purchaseDate || purchasedCourse.createdAt,
+              isPurchasedFromLocalStorage = true;
+              localPurchasedData = {
+                courseId: purchasedCourse.courseId,
+                purchaseDate: purchasedCourse.purchaseDate,
                 lastAccessDate: new Date().toISOString(),
               };
-              console.log("✅ Course is purchased from API:", apiPurchasedData);
+              console.log(
+                "✅ Course is purchased from localStorage:",
+                localPurchasedData
+              );
             } else {
-              console.log("❌ Course not found in API purchases");
+              console.log("❌ Course not found in localStorage");
             }
+          } catch (e) {
+            console.warn("Error parsing localStorage purchased courses:", e);
           }
-        } catch (apiError) {
-          console.error("Error checking purchased courses from API:", apiError);
         }
 
         // Fetch both course details and purchased course details from API
@@ -244,105 +210,8 @@ const OrderCompleteCourse = () => {
             language: parsedLanguage,
           });
 
-          // Set mentor data and fetch their course count
+          // Set mentor data
           if (course.mentor) {
-            const mentorId = course.mentor._id;
-
-            // Fetch mentor's courses specifically
-            try {
-              // Try to fetch mentor courses specifically first
-              let coursesResponse = await courseApi.getAllCourses({
-                filterBy: JSON.stringify({ mentorId: mentorId }),
-                limit: 100,
-                dispatch,
-              });
-
-              // If filterBy mentorId doesn't work, fallback to get all courses and filter
-              if (
-                coursesResponse.error ||
-                !coursesResponse.response?.data?.courses?.length
-              ) {
-                console.log(
-                  "🔄 MentorId filter failed, falling back to manual filtering..."
-                );
-                coursesResponse = await courseApi.getAllCourses({
-                  limit: 500, // Get more courses to ensure we get mentor's courses
-                  dispatch,
-                });
-              }
-              if (
-                !coursesResponse.error &&
-                coursesResponse.response?.data?.courses
-              ) {
-                const allCourses = coursesResponse.response.data.courses;
-
-                // Filter mentor courses manually if needed
-                const mentorCourses = allCourses.filter(
-                  (course) =>
-                    course.mentor?._id === mentorId ||
-                    course.mentor === mentorId ||
-                    course.mentorId === mentorId
-                );
-
-                // Transform courses to match AllCoursepage format
-                const transformedCourses = mentorCourses.map((course) => ({
-                  id: course._id || course.courseId,
-                  title: course.title || "Untitled Course",
-                  instructor: course.mentor?.userName
-                    ? course.mentor.userName
-                    : course.mentor?.firstName || course.mentor?.lastName
-                    ? `${course.mentor.firstName || ""} ${
-                        course.mentor.lastName || ""
-                      }`.trim()
-                    : "Unknown Instructor",
-                  category: course.category || "General",
-                  level: course.level || "Beginner",
-                  rating: parseFloat(course.rate || course.rating || 0),
-                  reviewCount:
-                    course.ratingsCount || course.numberOfRatings || 0,
-                  studentCount:
-                    course.studentsCount || course.enrolledStudents || 0,
-                  price: parseFloat(course.price || 0),
-                  originalPrice: parseFloat(
-                    course.originalPrice || course.price || 0
-                  ),
-                  duration: `${
-                    course.duration || course.totalHours || 0
-                  } Total Hours`,
-                  lectures: course.lectures || course.totalLectures || 0,
-                  image:
-                    course.thumbnail ||
-                    course.image ||
-                    "/api/placeholder/300/200",
-                  description:
-                    course.description ||
-                    course.courseOverview ||
-                    "No description available",
-                  bestseller: course.bestseller || false,
-                  lastUpdated:
-                    course.updatedAt ||
-                    course.createdAt ||
-                    new Date().toISOString(),
-                  tags: course.tags || [],
-                  language: course.language || [],
-                  mentorInfo: course.mentor || {},
-                  courseId: course._id || course.courseId,
-                  _id: course._id,
-                }));
-
-                setMentorCourses(transformedCourses);
-                setMentorCourseCount(transformedCourses.length);
-                console.log(
-                  `🎯 Fetched ${transformedCourses.length} courses for mentor ${mentorId}`
-                );
-                console.log("📚 Mentor courses:", transformedCourses);
-              }
-            } catch (error) {
-              console.error("Error fetching mentor courses:", error);
-              console.error("❌ Failed to fetch courses for mentor:", mentorId);
-              setMentorCourseCount(0);
-            }
-
             setMentorData({
               id: course.mentor._id,
               name: course.mentor.userName || "Mentor",
@@ -357,19 +226,19 @@ const OrderCompleteCourse = () => {
               category: course.mentor.category || "IT",
               experience: course.mentor.experience || "Professional",
               skills: course.mentor.skills || [],
-              totalCourses: "0", // Will be updated by useEffect when mentorCourseCount changes
+              totalCourses: "5+", // Demo value - could fetch from API
               totalStudents: "100+", // Demo value as requested
             });
           }
         }
 
-        // Handle purchased course details
-        if (isPurchasedFromAPI) {
+        // Handle purchased course details (prioritize localStorage over API)
+        if (isPurchasedFromLocalStorage) {
           console.log(
-            "✅ Setting purchasedCourseData from API:",
-            apiPurchasedData
+            "✅ Setting purchasedCourseData from localStorage:",
+            localPurchasedData
           );
-          setPurchasedCourseData(apiPurchasedData);
+          setPurchasedCourseData(localPurchasedData);
         } else if (
           purchasedResult.status === "fulfilled" &&
           !purchasedResult.value.error
@@ -411,125 +280,6 @@ const OrderCompleteCourse = () => {
 
     fetchCourseDetails();
   }, [courseId]);
-
-  // Update mentor data when course count changes
-  useEffect(() => {
-    if (mentorData && mentorCourseCount >= 0) {
-      setMentorData((prev) => ({
-        ...prev,
-        totalCourses: mentorCourseCount > 0 ? `${mentorCourseCount}` : "0",
-      }));
-    }
-  }, [mentorCourseCount]);
-
-  // Fetch purchased courses for button states
-  useEffect(() => {
-    const fetchPurchasedCourses = async () => {
-      if (!user || user.role !== "mentee") return;
-
-      try {
-        const { response, error } =
-          await purchasedCourseApi.getPurchasedCourses(dispatch);
-
-        if (!error && response?.data?.courses) {
-          const purchasedIds = response.data.courses.map(
-            (item) => item.course?._id || item.course?.id || item.courseId
-          );
-          setPurchasedCourseIds(purchasedIds);
-        }
-      } catch (error) {
-        console.error("Error fetching purchased courses:", error);
-      }
-    };
-
-    fetchPurchasedCourses();
-  }, [user, dispatch]);
-
-  // Helper function to check if course is already purchased
-  const isCourseAlreadyPurchased = (courseId) => {
-    return purchasedCourseApi.isCourseAlreadyPurchased(courseId);
-  };
-
-  // Add to Cart function
-  const handleAddToCart = async (e, course) => {
-    e.stopPropagation();
-
-    if (!user) {
-      toast.error("Please login to add courses to cart");
-      navigate("/auth/signin");
-      return;
-    }
-
-    if (user.role !== "mentee") {
-      toast.error("Only mentees can purchase courses");
-      return;
-    }
-
-    const courseId = course._id || course.id;
-
-    // Check if course is already purchased
-    if (isCourseAlreadyPurchased(courseId)) {
-      toast.info(
-        "You have already purchased this course! Check 'My Courses' in your profile."
-      );
-      return;
-    }
-
-    try {
-      dispatch(showLoading());
-
-      // Try API first, fallback to localStorage
-      try {
-        const { response, error } = await cartApi.addToCart(
-          { courseId },
-          dispatch
-        );
-
-        if (response) {
-          toast.success("Course added to cart successfully!");
-          return;
-        } else if (error) {
-          throw new Error(error.message || "API failed");
-        }
-      } catch (apiError) {
-        console.error("Failed to add course to cart:", apiError);
-        toast.error("Failed to add course to cart");
-      }
-    } catch (error) {
-      console.error("Add to cart error:", error);
-      toast.error("Failed to add course to cart");
-    } finally {
-      dispatch(hideLoading());
-    }
-  };
-
-  // Buy Now function
-  const handleBuyNow = (e, course) => {
-    e.stopPropagation();
-
-    if (!user) {
-      toast.error("Please login to purchase courses");
-      navigate("/auth/signin");
-      return;
-    }
-
-    if (user.role !== "mentee") {
-      toast.error("Only mentees can purchase courses");
-      return;
-    }
-
-    const courseId = course._id || course.id;
-
-    // Check if course is already purchased
-    if (isCourseAlreadyPurchased(courseId)) {
-      toast.info(
-        "You have already purchased this course! Check 'My Courses' in your profile."
-      );
-      return;
-    }
-
-    navigate(`/course-detail/${courseId}`);
-  };
 
   // Course scroll handlers
   const scrollCourseLeft = () => {
@@ -652,38 +402,195 @@ const OrderCompleteCourse = () => {
     }
   };
 
-  // State for API data
-  const [allCourses, setAllCourses] = useState([]);
-  const [allReviews, setAllReviews] = useState([]);
+  // Generate mockup data for demo using useState to prevent re-render
+  const [mockData] = useState(() => {
+    try {
+      const allCourses = generateCourses(20); // Generate 20 courses for scrolling
+      const allReviews = generateReviews(20, [], []); // Generate 20 reviews for scrolling with empty arrays
+      const fallbackMentorData = generateMentors(1)[0]; // Generate 1 mentor
 
-  // Fetch real data from APIs
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        // Fetch courses
-        const coursesResponse = await courseApi.getAllCourses({ dispatch });
-        if (!coursesResponse.error) {
-          setAllCourses(coursesResponse.response.data.courses || []);
-        }
+      console.log("Generated mockup data:", {
+        coursesCount: allCourses.length,
+        reviewsCount: allReviews.length,
+        mentorName: fallbackMentorData.name,
+      });
 
-        // Fetch reviews
-        // const reviewsResponse = await reviewApi.getAllReviews({ dispatch });
-        // if (!reviewsResponse.error) {
-        //   setAllReviews(reviewsResponse.response.data.reviews || []);
-        // }
+      return {
+        allCourses,
+        allReviews,
+        fallbackMentorData,
+      };
+    } catch (error) {
+      console.error("Error generating mockup data:", error);
+      // Create fallback data with at least 6 courses and 6 reviews
+      return {
+        allCourses: [
+          {
+            id: 1,
+            title: "JavaScript Fundamentals",
+            instructor: "John Doe",
+            image:
+              "https://images.unsplash.com/photo-1627398242454-45a1465c2479?w=400&h=250&fit=crop",
+            price: 89.99,
+            rating: 4.5,
+            ratingsCount: 245,
+            students: 1200,
+            lectures: 25,
+            totalHours: 8,
+            level: "Beginner",
+          },
+          {
+            id: 2,
+            title: "React Advanced Patterns",
+            instructor: "Jane Smith",
+            image:
+              "https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=400&h=250&fit=crop",
+            price: 129.99,
+            rating: 4.8,
+            ratingsCount: 189,
+            students: 850,
+            lectures: 35,
+            totalHours: 12,
+            level: "Advanced",
+          },
+          {
+            id: 3,
+            title: "Node.js Backend Development",
+            instructor: "Mike Johnson",
+            image:
+              "https://images.unsplash.com/photo-1558494949-ef010cbdcc31?w=400&h=250&fit=crop",
+            price: 99.99,
+            rating: 4.6,
+            ratingsCount: 320,
+            students: 950,
+            lectures: 30,
+            totalHours: 10,
+            level: "Intermediate",
+          },
+          {
+            id: 4,
+            title: "Python Data Science",
+            instructor: "Sarah Wilson",
+            image:
+              "https://images.unsplash.com/photo-1526379879527-8559ecfcaec0?w=400&h=250&fit=crop",
+            price: 149.99,
+            rating: 4.7,
+            ratingsCount: 410,
+            students: 1500,
+            lectures: 40,
+            totalHours: 15,
+            level: "Intermediate",
+          },
+          {
+            id: 5,
+            title: "Database Design & SQL",
+            instructor: "David Brown",
+            image:
+              "https://images.unsplash.com/photo-1544383835-bda2bc66a55d?w=400&h=250&fit=crop",
+            price: 79.99,
+            rating: 4.4,
+            ratingsCount: 156,
+            students: 680,
+            lectures: 22,
+            totalHours: 7,
+            level: "Beginner",
+          },
+          {
+            id: 6,
+            title: "Machine Learning Basics",
+            instructor: "Emily Davis",
+            image:
+              "https://images.unsplash.com/photo-1555949963-aa79dcee981c?w=400&h=250&fit=crop",
+            price: 179.99,
+            rating: 4.9,
+            ratingsCount: 298,
+            students: 1100,
+            lectures: 45,
+            totalHours: 18,
+            level: "Advanced",
+          },
+        ],
+        allReviews: [
+          {
+            id: 1,
+            studentName: "Alex Thompson",
+            rating: 5,
+            reviewDate: "2024-07-15",
+            reviewText:
+              "Excellent course! The instructor explains complex concepts in a very understandable way. I learned so much and feel confident applying these skills in real projects.",
+            courseName: "Programming Fundamental",
+            helpfulCount: 42,
+          },
+          {
+            id: 2,
+            studentName: "Maria Garcia",
+            rating: 4,
+            reviewDate: "2024-07-10",
+            reviewText:
+              "Great content and well-structured lessons. The examples are practical and relevant. Would recommend to anyone starting their programming journey.",
+            courseName: "Programming Fundamental",
+            helpfulCount: 38,
+          },
+          {
+            id: 3,
+            studentName: "James Wilson",
+            rating: 5,
+            reviewDate: "2024-07-08",
+            reviewText:
+              "Outstanding course! The step-by-step approach makes learning programming concepts so much easier. The instructor is knowledgeable and engaging.",
+            courseName: "Programming Fundamental",
+            helpfulCount: 55,
+          },
+          {
+            id: 4,
+            studentName: "Lisa Chen",
+            rating: 4,
+            reviewDate: "2024-07-05",
+            reviewText:
+              "Very comprehensive course covering all the fundamentals. The assignments help reinforce the learning. Highly recommended for beginners.",
+            courseName: "Programming Fundamental",
+            helpfulCount: 29,
+          },
+          {
+            id: 5,
+            studentName: "Robert Johnson",
+            rating: 5,
+            reviewDate: "2024-07-02",
+            reviewText:
+              "Perfect introduction to programming! The course is well-paced and the examples are clear. I went from zero knowledge to building my first programs.",
+            courseName: "Programming Fundamental",
+            helpfulCount: 67,
+          },
+          {
+            id: 6,
+            studentName: "Sophie Anderson",
+            rating: 4,
+            reviewDate: "2024-06-28",
+            reviewText:
+              "Solid foundation course. The instructor covers all important topics thoroughly. Great value for money and excellent support from the community.",
+            courseName: "Programming Fundamental",
+            helpfulCount: 34,
+          },
+        ],
+        mentorData: {
+          name: "John Doe",
+          avatar: "https://via.placeholder.com/150",
+          jobTitle: "Senior Developer",
+          company: "Tech Corp",
+          yearsExperience: 5,
+          sessionsCompleted: 100,
+          rating: 4.5,
+          reviewsCount: 50,
+          bio: "Experienced developer with 5+ years in the industry",
+          skills: ["JavaScript", "React", "Node.js"],
+          hourlyRate: 75,
+          isOnline: true,
+        },
+      };
+    }
+  });
 
-        // Fetch mentor data if needed
-        // const mentorResponse = await mentorApi.getMentorById({ id: course?.mentorId, dispatch });
-        // if (!mentorResponse.error) {
-        //   setMentorData(mentorResponse.response.data.mentor);
-        // }
-      } catch (error) {
-        console.error("Error fetching data:", error);
-      }
-    };
-
-    fetchData();
-  }, [dispatch]);
+  const { allCourses, allReviews, fallbackMentorData } = mockData;
 
   // Loading state
   if (loading) {
@@ -995,40 +902,30 @@ const OrderCompleteCourse = () => {
               </div>
 
               {/* Mentor Stats */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-6">
-                <div className="text-center p-6 bg-gradient-to-br from-blue-50 to-blue-100 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 border border-blue-200/50">
-                  <div className="text-sm font-medium text-blue-600 mb-2 uppercase tracking-wide">
-                    Experience
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                <div className="text-center p-3 bg-white rounded-lg">
+                  <div className="text-lg font-bold text-gray-800">
+                    {mentorData?.experience || "Professional"}
                   </div>
-                  <div className="text-sm font-bold text-gray-900 whitespace-nowrap overflow-hidden text-ellipsis">
-                    {mentorData?.experience}
-                  </div>
+                  <div className="text-xs text-gray-500">Experience</div>
                 </div>
-                <div className="text-center p-6 bg-gradient-to-br from-emerald-50 to-emerald-100 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 border border-emerald-200/50">
-                  <div className="text-sm font-medium text-emerald-600 mb-2 uppercase tracking-wide">
-                    Category
+                <div className="text-center p-3 bg-white rounded-lg">
+                  <div className="text-lg font-bold text-gray-800">
+                    {mentorData?.category || "IT"}
                   </div>
-                  <div className="text-sm font-bold text-gray-900 whitespace-nowrap overflow-hidden text-ellipsis">
-                    {mentorData?.category}
-                  </div>
+                  <div className="text-xs text-gray-500">Category</div>
                 </div>
-                <div className="text-center p-6 bg-gradient-to-br from-purple-50 to-purple-100 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 border border-purple-200/50">
-                  <div className="text-sm font-medium text-purple-600 mb-2 uppercase tracking-wide">
-                    Courses
+                <div className="text-center p-3 bg-white rounded-lg">
+                  <div className="text-lg font-bold text-gray-800">
+                    {mentorData?.totalCourses || "5+"}
                   </div>
-                  <div className="text-sm font-bold text-gray-900 whitespace-nowrap overflow-hidden text-ellipsis">
-                    {mentorCourseCount >= 0
-                      ? mentorCourseCount
-                      : mentorData?.totalCourses}
-                  </div>
+                  <div className="text-xs text-gray-500">Courses</div>
                 </div>
-                <div className="text-center p-6 bg-gradient-to-br from-orange-50 to-orange-100 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 border border-orange-200/50">
-                  <div className="text-sm font-medium text-orange-600 mb-2 uppercase tracking-wide">
-                    Students
-                  </div>
-                  <div className="text-sm font-bold text-gray-900 whitespace-nowrap overflow-hidden text-ellipsis">
+                <div className="text-center p-3 bg-white rounded-lg">
+                  <div className="text-lg font-bold text-gray-800">
                     {mentorData?.totalStudents || "100+"}
                   </div>
+                  <div className="text-xs text-gray-500">Students</div>
                 </div>
               </div>
 
@@ -1098,196 +995,65 @@ const OrderCompleteCourse = () => {
                 className="flex space-x-6 overflow-x-auto pb-4 scrollbar-hide"
                 style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
               >
-                {mentorCourses.length > 0 ? (
-                  mentorCourses.map((course, index) => (
+                {(allCourses && allCourses.length > 0 ? allCourses : []).map(
+                  (course, index) => (
                     <div
-                      key={course.id || index}
-                      onClick={() => navigate(`/course-detail/${course.id}`)}
+                      key={index}
                       className="flex-shrink-0 w-80 bg-white border border-gray-200 rounded-xl overflow-hidden hover:shadow-lg transition-all duration-300 cursor-pointer group"
-                      style={{ minHeight: "480px" }}
                     >
-                      {/* Course Image */}
-                      <div className="h-[140px] w-full bg-gray-100 rounded-t-xl flex items-center justify-center">
+                      <div className="relative">
                         <img
                           src={course.image}
                           alt={course.title}
-                          className="object-cover h-[120px] w-[92%] rounded-xl"
-                          style={{ marginTop: "4px", marginBottom: "4px" }}
+                          className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300"
                           onError={(e) => {
-                            e.target.src = "/api/placeholder/300/200";
+                            e.target.src =
+                              "https://via.placeholder.com/320x192/f3f4f6/6b7280?text=Course+Image";
                           }}
                         />
-                        {course.bestseller && (
-                          <span className="absolute top-2 left-2 bg-orange-500 text-white text-xs font-bold px-2 py-1 rounded">
-                            Bestseller
+                        <div className="absolute top-3 right-3 bg-white bg-opacity-90 backdrop-blur-sm px-2 py-1 rounded-full">
+                          <span className="text-sm font-bold text-gray-800">
+                            ${course.price}
                           </span>
-                        )}
+                        </div>
+                        <div className="absolute bottom-3 left-3 bg-black bg-opacity-60 text-white px-2 py-1 rounded text-xs">
+                          {course.level}
+                        </div>
                       </div>
-
-                      {/* Course Content */}
-                      <div className="flex flex-col p-4 flex-1">
-                        {/* Title */}
-                        <div
-                          className="font-bold text-[16px] text-gray-900 mb-2 leading-tight"
-                          style={{
-                            display: "-webkit-box",
-                            WebkitLineClamp: 2,
-                            WebkitBoxOrient: "vertical",
-                            overflow: "hidden",
-                          }}
-                        >
+                      <div className="p-6">
+                        <h4 className="font-bold text-lg mb-2 text-gray-800 line-clamp-2 group-hover:text-blue-600 transition-colors">
                           {course.title}
-                        </div>
+                        </h4>
+                        <p className="text-sm text-gray-600 mb-3">
+                          by {course.instructor}
+                        </p>
 
-                        {/* Instructor */}
-                        <div
-                          className="text-sm text-gray-700 font-normal mb-2"
-                          style={{
-                            display: "-webkit-box",
-                            WebkitLineClamp: 1,
-                            WebkitBoxOrient: "vertical",
-                            overflow: "hidden",
-                          }}
-                        >
-                          By {course.instructor}
-                        </div>
-
-                        {/* Rating */}
-                        <div className="flex items-center gap-1 text-sm mb-2">
-                          {[...Array(5)].map((_, i) => (
-                            <span
-                              key={i}
-                              className={`text-base ${
-                                i < Math.floor(course.rating || 0)
-                                  ? "text-yellow-400"
-                                  : "text-gray-300"
-                              }`}
-                            >
-                              ★
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center space-x-1">
+                            {renderStars(course.rating)}
+                            <span className="text-sm font-medium text-gray-700">
+                              {course.rating}
                             </span>
-                          ))}
-                          <span className="text-sm text-gray-700 ml-2">
-                            ({course.reviewCount || 0} Ratings)
+                            <span className="text-xs text-gray-500">
+                              ({course.ratingsCount})
+                            </span>
+                          </div>
+                          <span className="text-xs text-gray-500">
+                            {course.students} students
                           </span>
                         </div>
 
-                        {/* Duration, Lectures, Category */}
-                        <div className="text-sm text-gray-700 mb-1">
-                          {course.duration || "Self-paced"} •{" "}
-                          {course.lectures || 0} Lectures
-                        </div>
-                        <div className="text-sm text-gray-600 mb-2">
-                          {course.category || "General"}
+                        <div className="flex items-center justify-between text-xs text-gray-500 mb-4">
+                          <span>📚 {course.lectures} lectures</span>
+                          <span>⏱️ {course.totalHours}h total</span>
                         </div>
 
-                        {/* Hiển thị tags nếu có */}
-                        {course.tags && course.tags.length > 0 && (
-                          <div className="mb-2">
-                            <div className="flex flex-wrap gap-1">
-                              {course.tags.slice(0, 3).map((tag, index) => (
-                                <span
-                                  key={index}
-                                  className="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full font-medium max-w-[90px] truncate"
-                                >
-                                  {tag}
-                                </span>
-                              ))}
-                              {course.tags.length > 3 && (
-                                <span className="inline-block bg-gray-100 text-gray-600 text-xs px-2 py-1 rounded-full">
-                                  +{course.tags.length - 3} more
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Hiển thị languages nếu có */}
-                        {course.language && course.language.length > 0 && (
-                          <div className="mb-2">
-                            <p className="text-xs text-gray-500 mb-1">
-                              Languages:
-                            </p>
-                            <div className="flex flex-wrap gap-1">
-                              {course.language
-                                .slice(0, 2)
-                                .map((lang, index) => (
-                                  <span
-                                    key={index}
-                                    className="inline-block bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full font-medium max-w-[90px] truncate"
-                                  >
-                                    {lang}
-                                  </span>
-                                ))}
-                              {course.language.length > 2 && (
-                                <span className="inline-block bg-gray-100 text-gray-600 text-xs px-2 py-1 rounded-full">
-                                  +{course.language.length - 2} more
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Hiển thị level nếu có */}
-                        {course.level && (
-                          <p className="text-green-500 text-xs mb-2">
-                            <b>Level:</b> {course.level}
-                          </p>
-                        )}
-
-                        {/* Price */}
-                        <div className="font-bold text-xl text-gray-900 mt-auto">
-                          $
-                          {(() => {
-                            const price =
-                              typeof course.price === "number"
-                                ? course.price
-                                : parseFloat(course.price || 0);
-                            return price % 1 === 0
-                              ? price.toLocaleString("en-US")
-                              : price.toLocaleString("en-US", {
-                                  minimumFractionDigits: 1,
-                                  maximumFractionDigits: 2,
-                                });
-                          })()}
-                        </div>
-
-                        {/* Add to Cart and Buy Now buttons for mentees */}
-                        {user && user.role === "mentee" && (
-                          <div className="flex gap-2 mt-3 mb-3 px-4">
-                            {isCourseAlreadyPurchased(course.id) ? (
-                              <div className="w-full bg-green-100 text-green-700 py-2 px-3 rounded-md text-sm font-medium text-center">
-                                ✓ Already Purchased
-                              </div>
-                            ) : (
-                              <>
-                                <button
-                                  onClick={(e) => handleAddToCart(e, course)}
-                                  className="flex-1 bg-blue-100 text-blue-600 py-2 px-3 rounded-md text-sm font-medium hover:bg-blue-200 transition-colors"
-                                >
-                                  Add to Cart
-                                </button>
-                                <button
-                                  onClick={(e) => handleBuyNow(e, course)}
-                                  className="flex-1 bg-blue-600 text-white py-2 px-3 rounded-md text-sm font-medium hover:bg-blue-700 transition-colors"
-                                >
-                                  Buy Now
-                                </button>
-                              </>
-                            )}
-                          </div>
-                        )}
+                        <button className="w-full bg-gradient-to-r from-blue-500 to-indigo-600 text-white py-2 px-4 rounded-lg hover:from-blue-600 hover:to-indigo-700 transition-all duration-200 font-medium">
+                          Add to Cart
+                        </button>
                       </div>
                     </div>
-                  ))
-                ) : (
-                  <div className="w-full text-center py-12">
-                    <div className="text-gray-400 text-lg mb-2">
-                      No courses available
-                    </div>
-                    <p className="text-gray-500">
-                      This mentor hasn't created any courses yet.
-                    </p>
-                  </div>
+                  )
                 )}
               </div>
 
@@ -1335,7 +1101,7 @@ const OrderCompleteCourse = () => {
         );
 
       case "Review":
-        const reviews = allReviews ? allReviews.slice(0, 15) : [];
+        const mockReviews = allReviews ? allReviews.slice(0, 15) : [];
         return (
           <div className="bg-white rounded-lg p-8">
             <h3 className="text-2xl font-bold mb-8 text-gray-800">
@@ -1359,16 +1125,16 @@ const OrderCompleteCourse = () => {
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
                     <div className="p-4 bg-white rounded-lg shadow-sm">
                       <div className="text-2xl font-bold text-blue-600">
-                        {reviews.length}
+                        {mockReviews.length}
                       </div>
                       <div className="text-sm text-gray-600">Total Reviews</div>
                     </div>
                     <div className="p-4 bg-white rounded-lg shadow-sm">
                       <div className="text-2xl font-bold text-green-600">
-                        {reviews.length > 0
+                        {mockReviews.length > 0
                           ? Math.round(
-                              (reviews.filter((r) => r.rating >= 4).length /
-                                reviews.length) *
+                              (mockReviews.filter((r) => r.rating >= 4).length /
+                                mockReviews.length) *
                                 100
                             )
                           : 0}
@@ -1380,10 +1146,13 @@ const OrderCompleteCourse = () => {
                     </div>
                     <div className="p-4 bg-white rounded-lg shadow-sm">
                       <div className="text-2xl font-bold text-purple-600">
-                        {reviews.length > 0
+                        {mockReviews.length > 0
                           ? Math.round(
-                              (reviews.reduce((acc, r) => acc + r.rating, 0) /
-                                reviews.length) *
+                              (mockReviews.reduce(
+                                (acc, r) => acc + r.rating,
+                                0
+                              ) /
+                                mockReviews.length) *
                                 10
                             ) / 10
                           : 0}
@@ -1400,7 +1169,7 @@ const OrderCompleteCourse = () => {
             {/* Reviews List with Custom Scrollbar */}
             <div className="max-h-96 overflow-y-auto pr-2 custom-scrollbar">
               <div className="space-y-6">
-                {reviews.map((review, index) => (
+                {mockReviews.map((review, index) => (
                   <div
                     key={index}
                     className="bg-gray-50 rounded-xl p-6 border border-gray-200 hover:shadow-md transition-shadow duration-200"
@@ -1555,7 +1324,7 @@ const OrderCompleteCourse = () => {
                 {["Details", "Mentor", "Course", "Review"].map((tab) => (
                   <button
                     key={tab}
-                    onClick={() => handleTabChange(tab)}
+                    onClick={() => setActiveTab(tab)}
                     className={`pb-2 text-sm font-medium border-b-2 transition-colors ${
                       activeTab === tab
                         ? "border-blue-500 text-blue-600"
