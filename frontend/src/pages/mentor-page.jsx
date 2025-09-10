@@ -1,10 +1,16 @@
 import React, { useEffect, useState, useRef } from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
+import { useDispatch, useSelector } from "react-redux";
 import profileApi from "../api/modules/profile.api";
 import courseApi from "../api/modules/course.api";
+import cartApi from "../api/modules/cart.api";
+import { toast } from "react-toastify";
+import { showLoading, hideLoading } from "../redux/features/loading.slice";
 
 const MentorPage = () => {
   const navigate = useNavigate();
+  const dispatch = useDispatch();
+  const user = useSelector((state) => state.user);
   const { id } = useParams(); // Lấy ID mentor từ URL
   const location = useLocation(); // Lấy state từ navigation
   // --- AUTH CHECK (mentor hoặc mentee đều được xem) ---
@@ -48,6 +54,149 @@ const MentorPage = () => {
   const [reviews, setReviews] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+
+  // Helper function to check if course is already purchased
+  const isCourseAlreadyPurchased = (courseId) => {
+    // Get current user ID for user-specific localStorage
+    const userStr = localStorage.getItem("user");
+    let currentUserId = null;
+    try {
+      const user = userStr ? JSON.parse(userStr) : null;
+      currentUserId = user?.id || user?._id;
+    } catch (e) {
+      // Ignore parse errors
+    }
+
+    const mockKey = currentUserId
+      ? `mockPurchasedCourses_${currentUserId}`
+      : "mockPurchasedCourses";
+    const mockPurchasedCourses = localStorage.getItem(mockKey);
+
+    if (mockPurchasedCourses) {
+      try {
+        const purchasedCourses = JSON.parse(mockPurchasedCourses);
+        return purchasedCourses.some(
+          (purchased) =>
+            (purchased.course?._id ||
+              purchased.course?.id ||
+              purchased.courseId) === courseId
+        );
+      } catch (error) {
+        console.error("Error parsing purchased courses:", error);
+        return false;
+      }
+    }
+    return false;
+  };
+
+  // Add to Cart function
+  const handleAddToCart = async (e, course) => {
+    e.stopPropagation();
+
+    if (!user) {
+      toast.error("Please login to add courses to cart");
+      navigate("/login");
+      return;
+    }
+
+    if (user.role !== "mentee") {
+      toast.error("Only mentees can purchase courses");
+      return;
+    }
+
+    const courseId = course._id || course.id;
+
+    // Check if course is already purchased
+    if (isCourseAlreadyPurchased(courseId)) {
+      toast.info(
+        "You have already purchased this course! Check 'My Courses' in your profile."
+      );
+      return;
+    }
+
+    try {
+      dispatch(showLoading());
+
+      // Try API first, fallback to localStorage
+      try {
+        const { response, error } = await cartApi.addToCart(
+          { courseId },
+          dispatch
+        );
+
+        if (response) {
+          toast.success("Course added to cart successfully!");
+          return;
+        } else if (error) {
+          throw new Error(error.message || "API failed");
+        }
+      } catch (apiError) {
+        console.log("API failed, using localStorage fallback:", apiError);
+
+        // Fallback to localStorage
+        const existingCart = localStorage.getItem("mockCart");
+        let cartItems = existingCart ? JSON.parse(existingCart) : [];
+
+        // Check if course already in cart
+        const alreadyInCart = cartItems.some(
+          (item) => (item._id || item.id) === courseId
+        );
+
+        if (alreadyInCart) {
+          toast.info("Course is already in your cart");
+          return;
+        }
+
+        // Add course to cart
+        cartItems.push({
+          id: courseId,
+          _id: courseId,
+          title: course.title,
+          price: course.price,
+          image: course.thumbnail,
+          mentor: course.authorName || course.mentorName || "Unknown Mentor",
+          addedAt: new Date().toISOString(),
+        });
+
+        localStorage.setItem("mockCart", JSON.stringify(cartItems));
+        toast.success("Course added to cart successfully!");
+      }
+    } catch (error) {
+      console.error("Add to cart error:", error);
+      toast.error("Failed to add course to cart");
+    } finally {
+      dispatch(hideLoading());
+    }
+  };
+
+  // Buy Now function
+  // Buy Now function
+  const handleBuyNow = (e, course) => {
+    e.stopPropagation();
+
+    if (!user) {
+      toast.error("Please login to purchase courses");
+      navigate("/login");
+      return;
+    }
+
+    if (user.role !== "mentee") {
+      toast.error("Only mentees can purchase courses");
+      return;
+    }
+
+    const courseId = course._id || course.id;
+
+    // Check if course is already purchased
+    if (isCourseAlreadyPurchased(courseId)) {
+      toast.info(
+        "You have already purchased this course! Check 'My Courses' in your profile."
+      );
+      return;
+    }
+
+    navigate(`/course-detail/${courseId}`);
+  };
 
   // Fetch data from backend API and overwrite default data if available
   useEffect(() => {
@@ -422,9 +571,11 @@ const MentorPage = () => {
               >
                 <div className="inline-flex gap-6 pb-2">
                   {courses.map((course, idx) => (
-                    <a
+                    <div
                       key={course._id || course.id || idx}
-                      href={`/mentor/course-detail/${course._id || course.id}`}
+                      onClick={() =>
+                        navigate(`/course-detail/${course._id || course.id}`)
+                      }
                       className="course-card bg-white rounded-xl border border-gray-200 shadow-lg flex flex-col min-w-[300px] max-w-[340px] w-full transition-all duration-200 hover:shadow-xl hover:-translate-y-1 cursor-pointer overflow-hidden"
                       style={{
                         scrollSnapAlign: "start",
@@ -472,9 +623,12 @@ const MentorPage = () => {
                           </span>
                         </div>
                         <div className="text-sm text-gray-700 mb-2 line-clamp-1">
-                          {course.duration || course.totalHours || 0} Hours.{" "}
-                          {course.lectures || course.totalLectures || 0}{" "}
-                          Lectures. {course.category}
+                          {course.duration || course.totalHours || 0} Total
+                          Hours • {course.lectures || course.totalLectures || 0}{" "}
+                          Lectures
+                        </div>
+                        <div className="text-sm text-gray-600 mb-2">
+                          {course.category || "General"}
                         </div>
 
                         {/* Hiển thị tags (Programming Languages) */}
@@ -546,8 +700,36 @@ const MentorPage = () => {
                                 });
                           })()}
                         </div>
+
+                        {/* Add to Cart and Buy Now buttons for mentees */}
+                        {user && user.role === "mentee" && (
+                          <div className="flex gap-2 mt-3">
+                            {isCourseAlreadyPurchased(
+                              course._id || course.id
+                            ) ? (
+                              <div className="w-full bg-green-100 text-green-700 py-2 px-3 rounded-md text-sm font-medium text-center">
+                                ✓ Already Purchased
+                              </div>
+                            ) : (
+                              <>
+                                <button
+                                  onClick={(e) => handleAddToCart(e, course)}
+                                  className="flex-1 bg-blue-100 text-blue-600 py-2 px-3 rounded-md text-sm font-medium hover:bg-blue-200 transition-colors"
+                                >
+                                  Add to Cart
+                                </button>
+                                <button
+                                  onClick={(e) => handleBuyNow(e, course)}
+                                  className="flex-1 bg-blue-600 text-white py-2 px-3 rounded-md text-sm font-medium hover:bg-blue-700 transition-colors"
+                                >
+                                  Buy Now
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        )}
                       </div>
-                    </a>
+                    </div>
                   ))}
                 </div>
               </div>

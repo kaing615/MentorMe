@@ -1,18 +1,285 @@
-import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useState, useEffect } from "react";
+import { useNavigate, useLocation, useParams } from "react-router-dom";
 import {
   generateCourses,
   generateReviews,
   generateMentors,
 } from "../utils/mockData";
+import courseApi from "../api/modules/course.api";
+import purchasedCourseApi from "../api/modules/purchasedCourse.api";
+import { toast } from "react-toastify";
 
 const OrderCompleteCourse = () => {
+  const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // --- AUTH CHECK (chỉ mentee được phép) ---
+  useEffect(() => {
+    const token =
+      localStorage.getItem("actkn") || localStorage.getItem("token");
+    const userStr =
+      localStorage.getItem("user") || localStorage.getItem("user");
+    console.log("Token:", token);
+    let user = null;
+    if (!token) {
+      navigate("/auth/signin");
+      return;
+    }
+    // Check user object
+    try {
+      user = userStr ? JSON.parse(userStr) : null;
+    } catch (e) {
+      user = null;
+    }
+    if (!user || !user.role) {
+      navigate("/auth/signin");
+      return;
+    }
+    // Check role - chỉ mentee được phép vào order complete
+    if (user.role === "mentee") {
+      return;
+    }
+    // Nếu không phải mentee, redirect về home
+    if (user.role === "mentor") {
+      navigate("/home");
+      return;
+    }
+    navigate("/auth/signin");
+    return;
+  }, [navigate]);
+
   const [activeTab, setActiveTab] = useState("Details");
   const [showRatingPopup, setShowRatingPopup] = useState(false);
   const [userRating, setUserRating] = useState(0);
   const [userComment, setUserComment] = useState("");
   const [courseScrollPosition, setCourseScrollPosition] = useState(0);
+
+  // Course data state
+  const [courseData, setCourseData] = useState(null);
+  const [mentorData, setMentorData] = useState(null);
+  const [purchasedCourseData, setPurchasedCourseData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  // Get courseId from location state or URL params
+  const courseId =
+    location.state?.courseId ||
+    new URLSearchParams(location.search).get("courseId");
+
+  // Fetch course data on component mount
+  useEffect(() => {
+    const fetchCourseDetails = async () => {
+      if (!courseId) {
+        setError("Course ID not provided");
+        setLoading(false);
+        return;
+      }
+
+      try {
+        setLoading(true);
+        setError(null);
+
+        // Check localStorage for purchased courses first
+        const userStr = localStorage.getItem("user");
+        let currentUserId = null;
+        try {
+          const user = userStr ? JSON.parse(userStr) : null;
+          currentUserId = user?.id || user?._id;
+        } catch (e) {
+          console.warn("Error parsing user:", e);
+        }
+
+        const mockKey = currentUserId
+          ? `mockPurchasedCourses_${currentUserId}`
+          : "mockPurchasedCourses";
+        const mockPurchasedCourses = localStorage.getItem(mockKey);
+
+        let isPurchasedFromLocalStorage = false;
+        let localPurchasedData = null;
+
+        if (mockPurchasedCourses) {
+          try {
+            const purchasedCourses = JSON.parse(mockPurchasedCourses);
+            console.log(
+              "🔍 Checking localStorage - Current courseId:",
+              courseId
+            );
+            console.log("🔍 Available purchased courses:", purchasedCourses);
+
+            const purchasedCourse = purchasedCourses.find(
+              (item) =>
+                item.courseId === courseId || item.courseInfo?._id === courseId
+            );
+
+            console.log("🔍 Found purchased course:", purchasedCourse);
+
+            if (purchasedCourse) {
+              isPurchasedFromLocalStorage = true;
+              localPurchasedData = {
+                courseId: purchasedCourse.courseId,
+                purchaseDate: purchasedCourse.purchaseDate,
+                lastAccessDate: new Date().toISOString(),
+              };
+              console.log(
+                "✅ Course is purchased from localStorage:",
+                localPurchasedData
+              );
+            } else {
+              console.log("❌ Course not found in localStorage");
+            }
+          } catch (e) {
+            console.warn("Error parsing localStorage purchased courses:", e);
+          }
+        }
+
+        // Fetch both course details and purchased course details from API
+        const [courseResult, purchasedResult] = await Promise.allSettled([
+          courseApi.getDetail({ courseId }),
+          purchasedCourseApi.getPurchasedCourseDetails({ courseId }),
+        ]);
+
+        // Handle course details
+        if (courseResult.status === "fulfilled") {
+          const { response, error } = courseResult.value;
+
+          if (error || !response?.data?.course) {
+            console.error("Error fetching course:", error);
+            setError("Failed to load course details");
+            toast.error("Không thể tải dữ liệu khóa học");
+            return;
+          }
+
+          // EXACT pattern from EditCoursePage line 155: const course = response.data.course;
+          const course = response.data.course;
+          console.log("🎯 Course data from database:", course);
+
+          // Parse keyLearningObjectives
+          let parsedObjectives = [];
+          if (course.keyLearningObjectives) {
+            if (Array.isArray(course.keyLearningObjectives)) {
+              parsedObjectives = course.keyLearningObjectives;
+            } else if (typeof course.keyLearningObjectives === "string") {
+              try {
+                const parsed = JSON.parse(course.keyLearningObjectives);
+                if (Array.isArray(parsed)) {
+                  parsedObjectives = parsed;
+                } else {
+                  parsedObjectives = [course.keyLearningObjectives];
+                }
+              } catch (e) {
+                parsedObjectives = [course.keyLearningObjectives];
+              }
+            }
+          }
+
+          // Parse tags
+          let parsedTags = [];
+          if (course.tags && Array.isArray(course.tags)) {
+            parsedTags = course.tags;
+          }
+
+          // Parse language
+          let parsedLanguage = [];
+          if (course.language && Array.isArray(course.language)) {
+            parsedLanguage = course.language;
+          }
+
+          // Handle thumbnail
+          const imageUrl = course.thumbnail || "";
+
+          setCourseData({
+            id: course._id,
+            title: course.title,
+            description: course.description,
+            price: course.price,
+            category: course.category,
+            duration: course.duration,
+            rate: course.rate,
+            lectures: course.lectures,
+            link: course.link,
+            imageUrl: imageUrl,
+            thumbnail: course.thumbnail,
+            mentor: course.mentor,
+            createdAt: course.createdAt,
+            updatedAt: course.updatedAt,
+            level: course.level,
+            // Parsed arrays for display
+            keyLearningObjectives: parsedObjectives,
+            tags: parsedTags,
+            language: parsedLanguage,
+          });
+
+          // Set mentor data
+          if (course.mentor) {
+            setMentorData({
+              id: course.mentor._id,
+              name: course.mentor.userName || "Mentor",
+              firstName: course.mentor.firstName,
+              lastName: course.mentor.lastName,
+              userName: course.mentor.userName,
+              avatar: course.mentor.avatarUrl,
+              title: course.mentor.jobTitle || "Mentor",
+              bio: course.mentor.bio,
+              email: course.mentor.email,
+              location: course.mentor.location,
+              category: course.mentor.category || "IT",
+              experience: course.mentor.experience || "Professional",
+              skills: course.mentor.skills || [],
+              totalCourses: "5+", // Demo value - could fetch from API
+              totalStudents: "100+", // Demo value as requested
+            });
+          }
+        }
+
+        // Handle purchased course details (prioritize localStorage over API)
+        if (isPurchasedFromLocalStorage) {
+          console.log(
+            "✅ Setting purchasedCourseData from localStorage:",
+            localPurchasedData
+          );
+          setPurchasedCourseData(localPurchasedData);
+        } else if (
+          purchasedResult.status === "fulfilled" &&
+          !purchasedResult.value.error
+        ) {
+          const apiData = purchasedResult.value.response?.data;
+          if (apiData?.isPurchased && apiData?.courseData) {
+            console.log(
+              "✅ Setting purchasedCourseData from API (check endpoint):",
+              apiData.courseData
+            );
+            setPurchasedCourseData({
+              courseId:
+                apiData.courseData.courseId ||
+                apiData.courseData.courseInfo?._id,
+              purchaseDate: apiData.courseData.purchaseDate,
+              progress: apiData.courseData.progress,
+              lastAccessDate: apiData.courseData.lastAccessDate,
+            });
+          } else {
+            console.log(
+              "ℹ️ Course not purchased according to API check endpoint"
+            );
+          }
+        } else {
+          console.warn(
+            "❌ Purchased course data not available:",
+            purchasedResult.reason
+          );
+          // This is not a critical error, user might be viewing course details without purchasing
+        }
+      } catch (err) {
+        console.error("Error in fetchCourseDetails:", err);
+        setError("An unexpected error occurred");
+        toast.error("Lỗi khi tải dữ liệu khóa học");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchCourseDetails();
+  }, [courseId]);
 
   // Course scroll handlers
   const scrollCourseLeft = () => {
@@ -127,7 +394,7 @@ const OrderCompleteCourse = () => {
 
     // Using mockup data for now
     try {
-      const reviews = generateReviews(20);
+      const reviews = generateReviews(20, [], []); // Pass empty arrays explicitly
       return reviews.slice(0, limit);
     } catch (error) {
       console.error("Error generating reviews:", error);
@@ -139,19 +406,19 @@ const OrderCompleteCourse = () => {
   const [mockData] = useState(() => {
     try {
       const allCourses = generateCourses(20); // Generate 20 courses for scrolling
-      const allReviews = generateReviews(20); // Generate 20 reviews for scrolling
-      const mentorData = generateMentors(1)[0]; // Generate 1 mentor
+      const allReviews = generateReviews(20, [], []); // Generate 20 reviews for scrolling with empty arrays
+      const fallbackMentorData = generateMentors(1)[0]; // Generate 1 mentor
 
       console.log("Generated mockup data:", {
         coursesCount: allCourses.length,
         reviewsCount: allReviews.length,
-        mentorName: mentorData.name,
+        mentorName: fallbackMentorData.name,
       });
 
       return {
         allCourses,
         allReviews,
-        mentorData,
+        fallbackMentorData,
       };
     } catch (error) {
       console.error("Error generating mockup data:", error);
@@ -323,58 +590,56 @@ const OrderCompleteCourse = () => {
     }
   });
 
-  const { allCourses, allReviews, mentorData } = mockData;
+  const { allCourses, allReviews, fallbackMentorData } = mockData;
 
-  const courseData = {
-    id: "course_123",
-    title: "Programming Fundamental",
-    image:
-      "https://images.unsplash.com/photo-1461749280684-dccba630e2f6?w=800&h=400&fit=crop&crop=center",
-    tabs: ["Details", "Mentor", "Course", "Review"],
-    // Google Drive link for the complete course
-    driveLink:
-      "https://drive.google.com/drive/folders/1ABC123_programming_fundamental_course",
-    description: `Welcome! A big part of programming is about thinking. Technology is so fast that programmers are always going deeper, challenge themselves with harder concepts. We recommend everyone starts with programming fundamental so that you can be ready for a bright future ahead. After this course you should be familiar with variables, operators, loops, conditionals, and functions to start a coding and create professional things that you want.`,
-    keyLearningObjectives: [
-      "Be familiar with the basic programming concepts like variables, loops and conditions.",
-      "Learn how coding and computational logic and general instructions.",
-      "Apply methods, data types, and loops to build programmatic logical patterns.",
-      "Explain and demonstrate how algorithms are developed and how computational thinking works.",
-      "Build a strong foundation for advancing programming language in the future.",
-    ],
-    courseDetails: {
-      duration: "8 hours",
-      level: "Beginner",
-      language: "English",
-      students: "430 students enrolled",
-      lastUpdated: "March 2024",
-      price: "$168.9",
-      category: "Programming",
-    },
-    mentor: {
-      id: "mentor_456",
-      name: mentorData?.name || "John Doe",
-      avatar: mentorData?.avatar || "https://via.placeholder.com/150",
-      title: mentorData?.jobTitle || "Senior Developer",
-      company: mentorData?.company || "Tech Corp",
-      experience: `${
-        mentorData?.yearsExperience || 5
-      }+ years in software development`,
-      students: `${mentorData?.sessionsCompleted || 100} Students`,
-      courses: "239 Courses",
-      rating: (mentorData?.rating || 4.5).toString(),
-      reviews: `${mentorData?.reviewsCount || 50} reviews`,
-      bio:
-        mentorData?.bio ||
-        "Experienced developer with expertise in modern technologies",
-      specialties: mentorData?.skills || ["JavaScript", "React", "Node.js"],
-      profileLink: "/mentor/profile",
-      hourlyRate: mentorData?.hourlyRate || 75,
-      isOnline: mentorData?.isOnline || true,
-    },
-    relatedCourses: allCourses ? allCourses.slice(0, 12) : [],
-    reviews: allReviews ? allReviews.slice(0, 15) : [],
-  };
+  // Loading state
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading course details...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded max-w-md">
+            <strong className="font-bold">Error: </strong>
+            <span className="block sm:inline">{error}</span>
+          </div>
+          <button
+            onClick={() => navigate(-1)}
+            className="mt-4 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+          >
+            Go Back
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // No course data
+  if (!courseData) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-gray-600">No course data available</p>
+          <button
+            onClick={() => navigate(-1)}
+            className="mt-4 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+          >
+            Go Back
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   const renderStars = (rating) => {
     return [...Array(5)].map((_, i) => (
@@ -391,12 +656,16 @@ const OrderCompleteCourse = () => {
 
   // Function to handle course access
   const handleCourseAccess = () => {
-    window.open(courseData.driveLink, "_blank");
+    const courseLink =
+      courseData.link || "https://drive.google.com/drive/folders/example";
+    window.open(courseLink, "_blank");
   };
 
   // Function to navigate to mentor profile
   const handleMentorProfile = () => {
-    navigate(courseData.mentor.profileLink);
+    if (mentorData?.id) {
+      navigate(`/mentor/${mentorData.id}`);
+    }
   };
 
   // Function to handle rating popup
@@ -452,7 +721,7 @@ const OrderCompleteCourse = () => {
                 Course Overview
               </h3>
               <p className="text-gray-700 mb-8 leading-relaxed text-lg">
-                {courseData.description}
+                {courseData.description || "Course description not available."}
               </p>
             </div>
 
@@ -499,7 +768,14 @@ const OrderCompleteCourse = () => {
                 Key Learning Objectives
               </h4>
               <div className="grid gap-4">
-                {courseData.keyLearningObjectives.map((objective, index) => (
+                {(
+                  courseData.keyLearningObjectives || [
+                    "Master the fundamentals of this subject",
+                    "Apply knowledge to real-world projects",
+                    "Build confidence in your skills",
+                    "Prepare for advanced topics",
+                  ]
+                ).map((objective, index) => (
                   <div
                     key={index}
                     className="flex items-start space-x-4 p-4 bg-gray-50 rounded-lg border-l-4 border-blue-500"
@@ -523,24 +799,46 @@ const OrderCompleteCourse = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {[
                   {
+                    label: "Category",
+                    value: courseData.category || "General",
+                    icon: "📂",
+                  },
+                  {
                     label: "Level",
-                    value: courseData.courseDetails.level,
+                    value: courseData.level || "All Levels",
                     icon: "📊",
                   },
                   {
+                    label: "Duration",
+                    value: courseData.duration
+                      ? `${courseData.duration} hour${
+                          courseData.duration > 1 ? "s" : ""
+                        }`
+                      : "Self-paced",
+                    icon: "⏰",
+                  },
+                  {
+                    label: "Lectures",
+                    value: courseData.lectures
+                      ? `${courseData.lectures} lecture${
+                          courseData.lectures > 1 ? "s" : ""
+                        }`
+                      : "Multiple",
+                    icon: "📚",
+                  },
+                  {
                     label: "Language",
-                    value: courseData.courseDetails.language,
+                    value:
+                      courseData.language && courseData.language.length > 0
+                        ? courseData.language.join(", ")
+                        : "Not specified",
                     icon: "🌐",
                   },
+
                   {
                     label: "Students",
-                    value: courseData.courseDetails.students,
+                    value: "430+ enrolled", // Demo value as requested
                     icon: "👥",
-                  },
-                  {
-                    label: "Category",
-                    value: courseData.courseDetails.category,
-                    icon: "📂",
                   },
                 ].map((item, index) => (
                   <div
@@ -570,19 +868,29 @@ const OrderCompleteCourse = () => {
             <div className="bg-gray-50 rounded-lg p-6 mb-6">
               <div className="flex items-center space-x-6 mb-4">
                 <img
-                  src={courseData.mentor.avatar}
-                  alt={courseData.mentor.name}
+                  src={
+                    mentorData?.avatar ||
+                    "https://via.placeholder.com/80x80/f3f4f6/6b7280?text=M"
+                  }
+                  alt={mentorData?.name || "Mentor"}
                   className="w-20 h-20 rounded-full object-cover border-4 border-white shadow-md"
+                  onError={(e) => {
+                    e.target.src =
+                      "https://via.placeholder.com/80x80/f3f4f6/6b7280?text=M";
+                  }}
                 />
                 <div className="flex-1">
                   <h4 className="text-xl font-bold text-gray-800 mb-1">
-                    {courseData.mentor.name}
+                    {mentorData?.firstName &&
+                    mentorData?.lastName &&
+                    mentorData?.userName
+                      ? `${mentorData.firstName} ${mentorData.lastName} (${mentorData.userName})`
+                      : mentorData?.userName ||
+                        mentorData?.name ||
+                        "Anonymous Mentor"}
                   </h4>
                   <p className="text-blue-600 font-semibold mb-1">
-                    {courseData.mentor.title}
-                  </p>
-                  <p className="text-gray-600 text-sm">
-                    {courseData.mentor.company}
+                    {mentorData?.title || "Mentor"}
                   </p>
                 </div>
                 <button
@@ -597,47 +905,53 @@ const OrderCompleteCourse = () => {
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
                 <div className="text-center p-3 bg-white rounded-lg">
                   <div className="text-lg font-bold text-gray-800">
-                    {courseData.mentor.experience}
+                    {mentorData?.experience || "Professional"}
                   </div>
                   <div className="text-xs text-gray-500">Experience</div>
                 </div>
                 <div className="text-center p-3 bg-white rounded-lg">
                   <div className="text-lg font-bold text-gray-800">
-                    {courseData.mentor.students}
+                    {mentorData?.category || "IT"}
                   </div>
-                  <div className="text-xs text-gray-500">Students</div>
+                  <div className="text-xs text-gray-500">Category</div>
                 </div>
                 <div className="text-center p-3 bg-white rounded-lg">
                   <div className="text-lg font-bold text-gray-800">
-                    {courseData.mentor.courses}
+                    {mentorData?.totalCourses || "5+"}
                   </div>
                   <div className="text-xs text-gray-500">Courses</div>
                 </div>
                 <div className="text-center p-3 bg-white rounded-lg">
-                  <div className="flex items-center justify-center space-x-1 mb-1">
-                    {renderStars(parseFloat(courseData.mentor.rating))}
+                  <div className="text-lg font-bold text-gray-800">
+                    {mentorData?.totalStudents || "100+"}
                   </div>
-                  <div className="text-xs text-gray-500">Rating</div>
+                  <div className="text-xs text-gray-500">Students</div>
                 </div>
               </div>
 
               {/* Bio */}
               <div className="mb-4">
-                <p className="text-gray-700 leading-relaxed text-sm">
-                  {courseData.mentor.bio}
+                <p className="text-gray-700 leading-relaxed text-sm text-justify break-words overflow-wrap-anywhere hyphens-auto">
+                  {mentorData?.bio ||
+                    "An experienced mentor dedicated to helping students achieve their learning goals."}
                 </p>
               </div>
 
               {/* Specialties */}
               <div>
-                <h5 className="font-medium mb-2 text-gray-800">Specialties:</h5>
+                <h5 className="font-medium mb-2 text-gray-800">
+                  Area of Expertise:
+                </h5>
                 <div className="flex flex-wrap gap-2">
-                  {courseData.mentor.specialties.map((specialty, index) => (
+                  {(mentorData?.skills && mentorData.skills.length > 0
+                    ? mentorData.skills
+                    : ["Teaching", "Mentoring", "Professional Development"]
+                  ).map((skill, index) => (
                     <span
                       key={index}
-                      className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium"
+                      className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium break-words"
                     >
-                      {specialty}
+                      {skill}
                     </span>
                   ))}
                 </div>
@@ -651,7 +965,7 @@ const OrderCompleteCourse = () => {
           <div className="bg-white rounded-lg p-8">
             <div className="flex items-center justify-between mb-8">
               <h3 className="text-2xl font-bold text-gray-800">
-                More Courses by {courseData.mentor.name}
+                More Courses by {mentorData?.name || "This Mentor"}
               </h3>
               <button
                 onClick={handleSeeAllCourses}
@@ -681,60 +995,66 @@ const OrderCompleteCourse = () => {
                 className="flex space-x-6 overflow-x-auto pb-4 scrollbar-hide"
                 style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
               >
-                {courseData.relatedCourses.map((course, index) => (
-                  <div
-                    key={index}
-                    className="flex-shrink-0 w-80 bg-white border border-gray-200 rounded-xl overflow-hidden hover:shadow-lg transition-all duration-300 cursor-pointer group"
-                  >
-                    <div className="relative">
-                      <img
-                        src={course.image}
-                        alt={course.title}
-                        className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300"
-                      />
-                      <div className="absolute top-3 right-3 bg-white bg-opacity-90 backdrop-blur-sm px-2 py-1 rounded-full">
-                        <span className="text-sm font-bold text-gray-800">
-                          ${course.price}
-                        </span>
-                      </div>
-                      <div className="absolute bottom-3 left-3 bg-black bg-opacity-60 text-white px-2 py-1 rounded text-xs">
-                        {course.level}
-                      </div>
-                    </div>
-                    <div className="p-6">
-                      <h4 className="font-bold text-lg mb-2 text-gray-800 line-clamp-2 group-hover:text-blue-600 transition-colors">
-                        {course.title}
-                      </h4>
-                      <p className="text-sm text-gray-600 mb-3">
-                        by {course.instructor}
-                      </p>
-
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center space-x-1">
-                          {renderStars(course.rating)}
-                          <span className="text-sm font-medium text-gray-700">
-                            {course.rating}
-                          </span>
-                          <span className="text-xs text-gray-500">
-                            ({course.ratingsCount})
+                {(allCourses && allCourses.length > 0 ? allCourses : []).map(
+                  (course, index) => (
+                    <div
+                      key={index}
+                      className="flex-shrink-0 w-80 bg-white border border-gray-200 rounded-xl overflow-hidden hover:shadow-lg transition-all duration-300 cursor-pointer group"
+                    >
+                      <div className="relative">
+                        <img
+                          src={course.image}
+                          alt={course.title}
+                          className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300"
+                          onError={(e) => {
+                            e.target.src =
+                              "https://via.placeholder.com/320x192/f3f4f6/6b7280?text=Course+Image";
+                          }}
+                        />
+                        <div className="absolute top-3 right-3 bg-white bg-opacity-90 backdrop-blur-sm px-2 py-1 rounded-full">
+                          <span className="text-sm font-bold text-gray-800">
+                            ${course.price}
                           </span>
                         </div>
-                        <span className="text-xs text-gray-500">
-                          {course.students} students
-                        </span>
+                        <div className="absolute bottom-3 left-3 bg-black bg-opacity-60 text-white px-2 py-1 rounded text-xs">
+                          {course.level}
+                        </div>
                       </div>
+                      <div className="p-6">
+                        <h4 className="font-bold text-lg mb-2 text-gray-800 line-clamp-2 group-hover:text-blue-600 transition-colors">
+                          {course.title}
+                        </h4>
+                        <p className="text-sm text-gray-600 mb-3">
+                          by {course.instructor}
+                        </p>
 
-                      <div className="flex items-center justify-between text-xs text-gray-500 mb-4">
-                        <span>📚 {course.lectures} lectures</span>
-                        <span>⏱️ {course.totalHours}h total</span>
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center space-x-1">
+                            {renderStars(course.rating)}
+                            <span className="text-sm font-medium text-gray-700">
+                              {course.rating}
+                            </span>
+                            <span className="text-xs text-gray-500">
+                              ({course.ratingsCount})
+                            </span>
+                          </div>
+                          <span className="text-xs text-gray-500">
+                            {course.students} students
+                          </span>
+                        </div>
+
+                        <div className="flex items-center justify-between text-xs text-gray-500 mb-4">
+                          <span>📚 {course.lectures} lectures</span>
+                          <span>⏱️ {course.totalHours}h total</span>
+                        </div>
+
+                        <button className="w-full bg-gradient-to-r from-blue-500 to-indigo-600 text-white py-2 px-4 rounded-lg hover:from-blue-600 hover:to-indigo-700 transition-all duration-200 font-medium">
+                          Add to Cart
+                        </button>
                       </div>
-
-                      <button className="w-full bg-gradient-to-r from-blue-500 to-indigo-600 text-white py-2 px-4 rounded-lg hover:from-blue-600 hover:to-indigo-700 transition-all duration-200 font-medium">
-                        Add to Cart
-                      </button>
                     </div>
-                  </div>
-                ))}
+                  )
+                )}
               </div>
 
               {/* Navigation buttons for better UX */}
@@ -781,6 +1101,7 @@ const OrderCompleteCourse = () => {
         );
 
       case "Review":
+        const mockReviews = allReviews ? allReviews.slice(0, 15) : [];
         return (
           <div className="bg-white rounded-lg p-8">
             <h3 className="text-2xl font-bold mb-8 text-gray-800">
@@ -792,10 +1113,10 @@ const OrderCompleteCourse = () => {
               <div className="flex flex-col md:flex-row items-center md:items-start space-y-4 md:space-y-0 md:space-x-8">
                 <div className="text-center">
                   <div className="text-5xl font-bold text-gray-800 mb-2">
-                    {courseData.mentor.rating}
+                    {courseData.rate || "N/A"}
                   </div>
                   <div className="flex items-center justify-center space-x-1 mb-2">
-                    {renderStars(parseFloat(courseData.mentor.rating))}
+                    {renderStars(parseFloat(courseData.rate || 0))}
                   </div>
                   <p className="text-gray-600 text-sm">Course Rating</p>
                 </div>
@@ -804,17 +1125,16 @@ const OrderCompleteCourse = () => {
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
                     <div className="p-4 bg-white rounded-lg shadow-sm">
                       <div className="text-2xl font-bold text-blue-600">
-                        {courseData.reviews.length}
+                        {mockReviews.length}
                       </div>
                       <div className="text-sm text-gray-600">Total Reviews</div>
                     </div>
                     <div className="p-4 bg-white rounded-lg shadow-sm">
                       <div className="text-2xl font-bold text-green-600">
-                        {courseData.reviews && courseData.reviews.length > 0
+                        {mockReviews.length > 0
                           ? Math.round(
-                              (courseData.reviews.filter((r) => r.rating >= 4)
-                                .length /
-                                courseData.reviews.length) *
+                              (mockReviews.filter((r) => r.rating >= 4).length /
+                                mockReviews.length) *
                                 100
                             )
                           : 0}
@@ -826,13 +1146,13 @@ const OrderCompleteCourse = () => {
                     </div>
                     <div className="p-4 bg-white rounded-lg shadow-sm">
                       <div className="text-2xl font-bold text-purple-600">
-                        {courseData.reviews && courseData.reviews.length > 0
+                        {mockReviews.length > 0
                           ? Math.round(
-                              (courseData.reviews.reduce(
+                              (mockReviews.reduce(
                                 (acc, r) => acc + r.rating,
                                 0
                               ) /
-                                courseData.reviews.length) *
+                                mockReviews.length) *
                                 10
                             ) / 10
                           : 0}
@@ -849,7 +1169,7 @@ const OrderCompleteCourse = () => {
             {/* Reviews List with Custom Scrollbar */}
             <div className="max-h-96 overflow-y-auto pr-2 custom-scrollbar">
               <div className="space-y-6">
-                {courseData.reviews.map((review, index) => (
+                {mockReviews.map((review, index) => (
                   <div
                     key={index}
                     className="bg-gray-50 rounded-xl p-6 border border-gray-200 hover:shadow-md transition-shadow duration-200"
@@ -955,50 +1275,53 @@ const OrderCompleteCourse = () => {
 
   return (
     <>
-      {/* Header */}
-      <header className="w-full bg-slate-800 text-white py-3 px-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center">
-            <h1
-              className="text-lg font-bold cursor-pointer hover:text-gray-300 transition-colors"
-              onClick={() => navigate("/home")}
-            >
-              MentorMe
-            </h1>
-          </div>
-          <div className="flex items-center space-x-4">
-            <span
-              className="flex items-center space-x-2 cursor-pointer hover:text-gray-300 transition-colors"
-              onClick={handleShowRatingPopup}
-            >
-              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                <path
-                  fillRule="evenodd"
-                  d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"
-                  clipRule="evenodd"
-                />
-              </svg>
-              <span className="text-sm">Provide Rating</span>
-            </span>
-          </div>
-        </div>
-      </header>
-
       <div className="min-h-screen bg-gray-50">
         <div className="max-w-5xl mx-auto px-4 py-8">
           {/* Course Header */}
           <div className="bg-white rounded-lg overflow-hidden shadow-sm mb-6">
             <img
-              src={courseData.image}
+              src={
+                courseData.imageUrl ||
+                "https://via.placeholder.com/800x300/f3f4f6/6b7280?text=Course+Image"
+              }
               alt={courseData.title}
               className="w-full h-64 object-cover"
+              onError={(e) => {
+                e.target.src =
+                  "https://via.placeholder.com/800x300/f3f4f6/6b7280?text=Course+Image";
+              }}
             />
             <div className="p-6">
               <h1 className="text-2xl font-bold mb-4">{courseData.title}</h1>
 
+              {/* Purchase Status - Show if course is not purchased */}
+              {!purchasedCourseData && (
+                <div className="mb-6 p-4 bg-orange-50 border border-orange-200 rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <svg
+                      className="w-5 h-5 text-orange-600"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"
+                      />
+                    </svg>
+                    <span className="text-sm font-medium text-orange-800">
+                      Bạn đang xem khóa học chưa mua. Một số tính năng có thể bị
+                      hạn chế.
+                    </span>
+                  </div>
+                </div>
+              )}
+
               {/* Tabs */}
               <div className="flex space-x-8 border-b border-gray-200 mb-6">
-                {courseData.tabs.map((tab) => (
+                {["Details", "Mentor", "Course", "Review"].map((tab) => (
                   <button
                     key={tab}
                     onClick={() => setActiveTab(tab)}
