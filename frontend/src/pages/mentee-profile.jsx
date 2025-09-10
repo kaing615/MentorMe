@@ -8,6 +8,7 @@ import { FaLinkedin } from "react-icons/fa";
 import { FaGoogle } from "react-icons/fa";
 import profileApi from "../api/modules/profile.api";
 import purchasedCourseApi from "../api/modules/purchasedCourse.api";
+import authUtils from "../utils/auth.utils";
 import minatoImg from "../assets/minato.jpg";
 import MentorMenteeChat from "../components/MentorMenteeChat";
 
@@ -16,15 +17,16 @@ const MenteeProfile = () => {
   // --- AUTH & ROLE CHECK ---
   useEffect(() => {
     const token =
-      localStorage.getItem("token") || localStorage.getItem("actkn");
+      localStorage.getItem("actkn") || localStorage.getItem("token");
     const userStr =
       localStorage.getItem("user") || localStorage.getItem("user");
+    console.log("Token:", token);
     let user = null;
     if (!token) {
       navigate("/auth/signin");
       return;
     }
-    //Check user object
+    // Check user object
     try {
       user = userStr ? JSON.parse(userStr) : null;
     } catch (e) {
@@ -34,20 +36,20 @@ const MenteeProfile = () => {
       navigate("/auth/signin");
       return;
     }
-    // 3. Check role
+    // Check role
     if (user.role === "mentee") {
       return;
     }
     if (user.role === "mentor") {
-      navigate("/mentor/home");
+      navigate("/home");
       return;
     }
-    if (user.role === "admin") {
-      navigate("/admin/profile");
-      return;
-    }
+    // if (user.role === "admin") {
+    //   navigate("/admin/profile");
+    //   return;
+    // }
   }, [navigate]);
-  // Tab logic: luôn vào tab 'profile' khi vào mentee/profile lần đầu, reload thì giữ tab hiện tại
+
   const [activeTab, setActiveTab] = useState(() => {
     return localStorage.getItem("menteeProfileTab") || "profile";
   });
@@ -129,6 +131,17 @@ const MenteeProfile = () => {
         toast.success("Đổi avatar thành công!");
       }
     } catch (err) {
+      console.error("[DEBUG] Lỗi khi change avatar:", err);
+
+      // Handle authentication errors using auth utils
+      if (authUtils.isAuthError(err)) {
+        authUtils.handleAuthFailure(
+          navigate,
+          "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại!"
+        );
+        return;
+      }
+
       toast.error("Đổi avatar thất bại!");
     }
   };
@@ -218,10 +231,22 @@ const MenteeProfile = () => {
   useEffect(() => {
     async function fetchPurchasedCourses() {
       try {
-        // Check for mock purchased courses in localStorage first
-        const mockPurchasedCourses = localStorage.getItem(
-          "mockPurchasedCourses"
-        );
+        // Get current user ID for user-specific localStorage
+        const userStr = localStorage.getItem("user");
+        let currentUserId = null;
+        try {
+          const user = userStr ? JSON.parse(userStr) : null;
+          currentUserId = user?.id || user?._id;
+        } catch (e) {
+          console.warn("Error parsing user:", e);
+        }
+
+        // Check for mock purchased courses in localStorage for current user
+        const mockKey = currentUserId
+          ? `mockPurchasedCourses_${currentUserId}`
+          : "mockPurchasedCourses";
+        const mockPurchasedCourses = localStorage.getItem(mockKey);
+
         if (mockPurchasedCourses) {
           try {
             const courses = JSON.parse(mockPurchasedCourses);
@@ -239,7 +264,17 @@ const MenteeProfile = () => {
 
         if (error) {
           console.error("Purchased courses fetch error:", error);
-          // Don't show error toast, just use empty array
+
+          // Handle authentication errors using auth utils
+          if (authUtils.isAuthError(error)) {
+            authUtils.handleAuthFailure(
+              navigate,
+              "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại!"
+            );
+            return;
+          }
+
+          // Don't show error toast for other errors, just use empty array
           setPurchasedCourses([]);
           return;
         }
@@ -253,7 +288,17 @@ const MenteeProfile = () => {
         }
       } catch (err) {
         console.error("Purchased courses fetch error:", err);
-        // Don't show error toast, just use empty array
+
+        // Handle authentication errors using auth utils
+        if (authUtils.isAuthError(err)) {
+          authUtils.handleAuthFailure(
+            navigate,
+            "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại!"
+          );
+          return;
+        }
+
+        // Don't show error toast for other errors, just use empty array
         setPurchasedCourses([]);
       }
     }
@@ -403,11 +448,9 @@ const MenteeProfile = () => {
     );
 
     switch (filterBy) {
-      case "completed":
-        filtered = filtered.filter((item) => item.progress === 100);
-        break;
       case "available":
-        filtered = filtered.filter((item) => item.progress !== 100);
+        // Just show all courses since we removed progress logic
+        filtered = filtered;
         break;
       default:
         break;
@@ -902,7 +945,6 @@ const MenteeProfile = () => {
                         className="px-4 py-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                       >
                         <option value="all">All Courses</option>
-                        <option value="completed">Completed</option>
                         <option value="available">Available</option>
                       </select>
                       <button
@@ -958,13 +1000,6 @@ const MenteeProfile = () => {
                                     "https://via.placeholder.com/300x200/f3f4f6/9ca3af?text=Course+Image";
                                 }}
                               />
-                              {item.progress === 100 && (
-                                <div className="absolute top-3 right-3">
-                                  <span className="bg-green-500 text-white text-xs px-2 py-1 rounded-full font-medium flex items-center gap-1">
-                                    ✓ Completed
-                                  </span>
-                                </div>
-                              )}
                             </div>
 
                             <div className="p-4">
@@ -1043,32 +1078,6 @@ const MenteeProfile = () => {
                                 </span>
                               </div>
 
-                              {/* Progress Bar */}
-                              {item.progress !== undefined && (
-                                <div className="mb-4">
-                                  <div className="flex justify-between items-center mb-2">
-                                    <span className="text-sm font-medium text-gray-700">
-                                      Progress
-                                    </span>
-                                    <span className="text-sm text-gray-600">
-                                      {item.progress || 0}%
-                                    </span>
-                                  </div>
-                                  <div className="w-full bg-gray-200 rounded-full h-2">
-                                    <div
-                                      className={`h-2 rounded-full transition-all ${
-                                        item.progress === 100
-                                          ? "bg-green-500"
-                                          : "bg-blue-600"
-                                      }`}
-                                      style={{
-                                        width: `${item.progress || 0}%`,
-                                      }}
-                                    ></div>
-                                  </div>
-                                </div>
-                              )}
-
                               {/* Action Buttons */}
                               <div className="flex gap-2">
                                 <button
@@ -1118,7 +1127,7 @@ const MenteeProfile = () => {
                         </p>
                         {!searchTerm && filterBy === "all" && (
                           <button
-                            onClick={() => navigate("/home")}
+                            onClick={() => navigate("/all-courses")}
                             className="mt-4 bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition"
                           >
                             Browse Courses

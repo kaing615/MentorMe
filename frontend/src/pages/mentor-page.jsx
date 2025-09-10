@@ -57,7 +57,21 @@ const MentorPage = () => {
 
   // Helper function to check if course is already purchased
   const isCourseAlreadyPurchased = (courseId) => {
-    const mockPurchasedCourses = localStorage.getItem("mockPurchasedCourses");
+    // Get current user ID for user-specific localStorage
+    const userStr = localStorage.getItem("user");
+    let currentUserId = null;
+    try {
+      const user = userStr ? JSON.parse(userStr) : null;
+      currentUserId = user?.id || user?._id;
+    } catch (e) {
+      // Ignore parse errors
+    }
+
+    const mockKey = currentUserId
+      ? `mockPurchasedCourses_${currentUserId}`
+      : "mockPurchasedCourses";
+    const mockPurchasedCourses = localStorage.getItem(mockKey);
+
     if (mockPurchasedCourses) {
       try {
         const purchasedCourses = JSON.parse(mockPurchasedCourses);
@@ -609,9 +623,12 @@ const MentorPage = () => {
                           </span>
                         </div>
                         <div className="text-sm text-gray-700 mb-2 line-clamp-1">
-                          {course.duration || course.totalHours || 0} Hours.{" "}
-                          {course.lectures || course.totalLectures || 0}{" "}
-                          Lectures. {course.category}
+                          {course.duration || course.totalHours || 0} Total
+                          Hours • {course.lectures || course.totalLectures || 0}{" "}
+                          Lectures
+                        </div>
+                        <div className="text-sm text-gray-600 mb-2">
+                          {course.category || "General"}
                         </div>
 
                         {/* Hiển thị tags (Programming Languages) */}
