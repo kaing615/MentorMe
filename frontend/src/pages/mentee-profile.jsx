@@ -373,11 +373,6 @@ const MenteeProfile = () => {
     setMentorCurrentPage(page);
   };
 
-  const handleConnectMentor = (mentorId) => {
-    console.log("Connect to mentor:", mentorId);
-    // TODO: Implement connect functionality
-  };
-
   const handleStartChat = (mentor) => {
     // TODO: Replace with API call to start/fetch chat
     // const startChat = async (mentorId) => {

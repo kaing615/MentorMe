@@ -1147,6 +1147,9 @@ const Checkout = () => {
                         <p className="text-xs text-gray-600 mb-1">
                           {course.lectures} Lectures • {course.duration} Hours
                         </p>
+                        <p className="text-xs text-gray-600 mb-1">
+                          {course.category}
+                        </p>
                         <p className="text-sm font-bold text-gray-900">
                           {formatCurrency(course.price)}
                         </p>

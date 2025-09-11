@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, use } from "react";
 import { useNavigate, useLocation, Outlet } from "react-router-dom";
 import { useSelector, useDispatch } from "react-redux";
 import { clearUser } from "../../redux/features/user.slice";
@@ -29,7 +29,7 @@ const Header = () => {
       setShowCategories(savedMentorMode === "true");
     }
   }, []);
-
+  
   useEffect(() => {
     // Chỉ thay đổi giao diện khi user logout hoặc chưa đăng nhập
     if (!isLoggedIn) {

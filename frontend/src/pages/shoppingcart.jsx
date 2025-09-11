@@ -292,16 +292,16 @@ const ShoppingCart = () => {
               </svg>
             </div>
             <h3 className="text-lg font-medium text-gray-900 mb-2">
-              Giỏ hàng trống
+              Empty cart
             </h3>
             <p className="text-gray-500 mb-6">
-              Bạn chưa có khóa học nào trong giỏ hàng
+              You don't have any courses in cart
             </p>
             <button
               onClick={() => navigate("/all-courses")}
               className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition duration-200"
             >
-              Khám phá khóa học
+              Explore courses
             </button>
           </div>
         </div>
@@ -396,17 +396,14 @@ const ShoppingCart = () => {
                             {/* Course Info */}
                             <p className="text-sm text-gray-600 mb-3">
                               {course.duration} Total Hours • {course.lectures}{" "}
-                              Lectures • {course.level}
+                              Lectures {course.level}
+                            </p>
+                            <p className="text-sm text-gray-600 mb-3">
+                              {course.category}
                             </p>
 
                             {/* Action Buttons */}
                             <div className="flex items-center gap-4">
-                              <button
-                                onClick={() => handleSaveForLater(course.id)}
-                                className="text-sm text-blue-600 hover:text-blue-700"
-                              >
-                                Save for later
-                              </button>
                               <button
                                 onClick={() => handleRemoveCourse(course.id)}
                                 className="text-sm text-red-600 hover:text-red-700"

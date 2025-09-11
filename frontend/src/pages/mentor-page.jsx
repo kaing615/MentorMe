@@ -703,13 +703,29 @@ const MentorPage = () => {
 
                         {/* Add to Cart and Buy Now buttons for mentees */}
                         {user && user.role === "mentee" && (
-                          <div className="flex gap-2 mt-3">
+                          <div className="flex flex-col gap-2 mt-3">
                             {isCourseAlreadyPurchased(
                               course._id || course.id
                             ) ? (
-                              <div className="w-full bg-green-100 text-green-700 py-2 px-3 rounded-md text-sm font-medium text-center">
-                                ✓ Already Purchased
-                              </div>
+                              <>
+                                <div className="w-full bg-green-100 text-green-700 py-2 px-3 rounded-md text-sm font-medium text-center">
+                                  ✓ Already Purchased
+                                </div>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    navigate(`/order-complete-course`, {
+                                      state: {
+                                        courseId: course._id || course.id,
+                                        courseInfo: course,
+                                      },
+                                    });
+                                  }}
+                                  className="w-full bg-blue-600 text-white py-2 px-3 rounded-md text-sm font-medium hover:bg-blue-700 transition-colors"
+                                >
+                                  View Course
+                                </button>
+                              </>
                             ) : (
                               <>
                                 <button

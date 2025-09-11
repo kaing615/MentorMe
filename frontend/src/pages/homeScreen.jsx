@@ -14,6 +14,7 @@ import BoImg from "../assets/Bơ.jpg";
 
 import { MENTEE_PATH } from "../routes/path";
 import { showLoading, hideLoading } from "../redux/features/loading.slice";
+import { clearUser } from "../redux/features/user.slice";
 import courseApi from "../api/modules/course.api.js";
 import profileApi from "../api/modules/profile.api.js";
 import cartApi from "../api/modules/cart.api.js";
@@ -959,11 +960,27 @@ const HomeScreen = () => {
 
                               {/* Add to Cart and Buy Now buttons for mentees */}
                               {user && user.role === "mentee" && (
-                                <div className="flex gap-2 mt-2 mb-4">
+                                <div className="flex flex-col gap-2 mt-2 mb-4">
                                   {isCourseAlreadyPurchased(courseId) ? (
-                                    <div className="w-full bg-green-100 text-green-700 py-2 px-3 rounded-md text-sm font-medium text-center">
-                                      ✓ Already Purchased
-                                    </div>
+                                    <>
+                                      <div className="w-full bg-green-100 text-green-700 py-2 px-3 rounded-md text-sm font-medium text-center">
+                                        ✓ Already Purchased
+                                      </div>
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          navigate(`/order-complete-course`, {
+                                            state: {
+                                              courseId: courseId,
+                                              courseInfo: course,
+                                            },
+                                          });
+                                        }}
+                                        className="w-full bg-blue-600 text-white py-2 px-3 rounded-md text-sm font-medium hover:bg-blue-700 transition-colors"
+                                      >
+                                        View Course
+                                      </button>
+                                    </>
                                   ) : (
                                     <>
                                       <button
@@ -1312,8 +1329,23 @@ const HomeScreen = () => {
               <div className="flex justify-end md:justify-start">
                 <button
                   onClick={() => {
+                    // Clear user data using Redux action (will also clear localStorage)
+                    dispatch(clearUser());
+                    // Clear all authentication related data from both localStorage and sessionStorage
+                    localStorage.removeItem("user");
+                    localStorage.removeItem("token");
+                    localStorage.removeItem("actkn");
+                    localStorage.removeItem("isLoggedIn");
+                    sessionStorage.removeItem("user");
+                    sessionStorage.removeItem("token");
+                    sessionStorage.removeItem("actkn");
+                    sessionStorage.removeItem("isLoggedIn");
+                    // Reset header về trạng thái mặc định khi đăng xuất
+                    localStorage.setItem("mentorMode", "false");
+                    // Navigate to apply as mentor page
                     navigate("/auth/apply-as-men");
                     window.scrollTo(0, 0);
+                    toast.success("Redirecting to mentor application!");
                   }}
                   className="group flex items-center gap-2 px-6 py-3 bg-[#1A2233] text-white rounded-xl font-semibold shadow-lg hover:bg-gradient-to-r hover:from-blue-600 hover:to-purple-600 hover:shadow-2xl hover:shadow-blue-500/40 hover:scale-110 hover:-translate-y-3 active:scale-95 active:translate-y-0 transition-all duration-400 ease-out text-base md:text-lg relative overflow-hidden transform"
                 >
@@ -1352,9 +1384,10 @@ const HomeScreen = () => {
               <div className="flex justify-start">
                 <button
                   onClick={handleSeeAllCourses}
-                  className="flex items-center gap-2 px-6 py-3 bg-[#1A2233] text-white rounded-xl font-semibold shadow hover:bg-blue-700 transition text-base md:text-lg"
+                  className="group flex items-center gap-2 px-6 py-3 bg-[#1A2233] text-white rounded-xl font-semibold shadow-lg hover:bg-gradient-to-r hover:from-blue-600 hover:to-purple-600 hover:shadow-2xl hover:shadow-blue-500/40 hover:scale-110 hover:-translate-y-3 active:scale-95 active:translate-y-0 transition-all duration-400 ease-out text-base md:text-lg relative overflow-hidden transform"
                 >
-                  Checkout Courses
+                  <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700 ease-out"></span>
+                  <span className="relative z-10">Checkout Courses</span>
                   <svg
                     width="20"
                     height="20"
@@ -1362,6 +1395,7 @@ const HomeScreen = () => {
                     stroke="currentColor"
                     strokeWidth="2"
                     viewBox="0 0 24 24"
+                    className="relative z-10 transition-transform duration-400 group-hover:translate-x-2 group-hover:scale-125"
                   >
                     <path
                       strokeLinecap="round"
