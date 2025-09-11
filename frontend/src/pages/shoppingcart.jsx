@@ -393,14 +393,20 @@ const ShoppingCart = () => {
                               </span>
                             </div>
 
-                            {/* Course Info */}
-                            <p className="text-sm text-gray-600 mb-3">
-                              {course.duration} Total Hours • {course.lectures}{" "}
-                              Lectures {course.level}
-                            </p>
-                            <p className="text-sm text-gray-600 mb-3">
-                              {course.category}
-                            </p>
+                            {/* Course Details */}
+                            <div className="text-sm text-gray-700 mb-2 line-clamp-1">
+                              {course.duration || course.totalHours || 0} Total
+                              Hours •{" "}
+                              {course.lectures || course.totalLectures || 0}{" "}
+                              Lectures
+                            </div>
+
+                            {/* Category */}
+                            <div className="mb-3">
+                              <span className="inline-block bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full font-medium">
+                                Category: {course.category || "General"}
+                              </span>
+                            </div>
 
                             {/* Action Buttons */}
                             <div className="flex items-center gap-4">

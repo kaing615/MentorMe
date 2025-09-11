@@ -195,7 +195,7 @@ const MentorPage = () => {
       return;
     }
 
-    navigate(`/course-detail/${courseId}`);
+    navigate(`/shoppingcart`);
   };
 
   // Fetch data from backend API and overwrite default data if available
@@ -622,32 +622,42 @@ const MentorPage = () => {
                             Ratings)
                           </span>
                         </div>
+
+                        {/* Course Details */}
                         <div className="text-sm text-gray-700 mb-2 line-clamp-1">
                           {course.duration || course.totalHours || 0} Total
                           Hours • {course.lectures || course.totalLectures || 0}{" "}
                           Lectures
                         </div>
-                        <div className="text-sm text-gray-600 mb-2">
-                          {course.category || "General"}
+
+                        {/* Category */}
+                        <div className="mb-3">
+                          <span className="inline-block bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full font-medium">
+                            Category: {course.category || "General"}
+                          </span>
                         </div>
 
-                        {/* Hiển thị tags (Programming Languages) */}
+                        {/* Tags (Programming Languages and Tools) */}
                         {course.tags && course.tags.length > 0 && (
-                          <div className="mb-2">
+                          <div className="mb-3">
+                            <p className="text-xs text-gray-500 mb-1">
+                              {course.category === "Programming"
+                                ? "Programming Languages:"
+                                : "Tools:"}
+                            </p>
                             <div className="flex flex-wrap gap-1">
-                              {course.tags.slice(0, 3).map((tag, index) => (
+                              {course.tags.slice(0, 2).map((tag, tagIndex) => (
                                 <span
-                                  key={index}
-                                  className="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full font-medium max-w-[90px] truncate"
+                                  key={tagIndex}
+                                  className={`inline-block text-xs px-2 py-1 rounded-full font-medium ${
+                                    course.category === "Programming"
+                                      ? "bg-blue-100 text-blue-800"
+                                      : "bg-purple-100 text-purple-800"
+                                  }`}
                                 >
                                   {tag}
                                 </span>
                               ))}
-                              {course.tags.length > 3 && (
-                                <span className="inline-block bg-gray-100 text-gray-600 text-xs px-2 py-1 rounded-full">
-                                  +{course.tags.length - 3} more
-                                </span>
-                              )}
                             </div>
                           </div>
                         )}

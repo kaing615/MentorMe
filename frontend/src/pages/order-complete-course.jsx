@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation, useParams } from "react-router-dom";
+import { useDispatch, useSelector } from "react-redux";
 import {
   generateCourses,
   generateReviews,
@@ -7,12 +8,16 @@ import {
 } from "../utils/mockData";
 import courseApi from "../api/modules/course.api";
 import purchasedCourseApi from "../api/modules/purchasedCourse.api";
+import cartApi from "../api/modules/cart.api";
+import { showLoading, hideLoading } from "../redux/features/loading.slice";
 import { toast } from "react-toastify";
 
 const OrderCompleteCourse = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
+  const dispatch = useDispatch();
+  const user = useSelector((state) => state.user);
 
   // --- AUTH CHECK (chỉ mentee được phép) ---
   useEffect(() => {
@@ -54,6 +59,8 @@ const OrderCompleteCourse = () => {
   const [userRating, setUserRating] = useState(0);
   const [userComment, setUserComment] = useState("");
   const [courseScrollPosition, setCourseScrollPosition] = useState(0);
+  const [categoryExpanded, setCategoryExpanded] = useState(false);
+  const [mentorCourses, setMentorCourses] = useState([]); // Add mentor courses state
 
   // Course data state
   const [courseData, setCourseData] = useState(null);
@@ -66,6 +73,148 @@ const OrderCompleteCourse = () => {
   const courseId =
     location.state?.courseId ||
     new URLSearchParams(location.search).get("courseId");
+
+  // Helper function to check if course is already purchased (from mentor-page.jsx)
+  const isCourseAlreadyPurchased = (courseId) => {
+    // Get current user ID for user-specific localStorage
+    const userStr = localStorage.getItem("user");
+    let currentUserId = null;
+    try {
+      const user = userStr ? JSON.parse(userStr) : null;
+      currentUserId = user?.id || user?._id;
+    } catch (e) {
+      // Ignore parse errors
+    }
+
+    const mockKey = currentUserId
+      ? `mockPurchasedCourses_${currentUserId}`
+      : "mockPurchasedCourses";
+    const mockPurchasedCourses = localStorage.getItem(mockKey);
+
+    if (mockPurchasedCourses) {
+      try {
+        const purchasedCourses = JSON.parse(mockPurchasedCourses);
+        return purchasedCourses.some(
+          (purchased) =>
+            (purchased.course?._id ||
+              purchased.course?.id ||
+              purchased.courseId) === courseId
+        );
+      } catch (error) {
+        console.error("Error parsing purchased courses:", error);
+        return false;
+      }
+    }
+    return false;
+  };
+
+  // Add to Cart function (from mentor-page.jsx)
+  const handleAddToCart = async (e, course) => {
+    e.stopPropagation();
+
+    if (!user) {
+      toast.error("Please login to add courses to cart");
+      navigate("/login");
+      return;
+    }
+
+    if (user.role !== "mentee") {
+      toast.error("Only mentees can purchase courses");
+      return;
+    }
+
+    const courseId = course._id || course.id;
+
+    // Check if course is already purchased
+    if (isCourseAlreadyPurchased(courseId)) {
+      toast.info(
+        "You have already purchased this course! Check 'My Courses' in your profile."
+      );
+      return;
+    }
+
+    try {
+      dispatch(showLoading());
+
+      // Try API first, fallback to localStorage
+      try {
+        const { response, error } = await cartApi.addToCart(
+          { courseId },
+          dispatch
+        );
+
+        if (response) {
+          toast.success("Course added to cart successfully!");
+          return;
+        } else if (error) {
+          throw new Error(error.message || "API failed");
+        }
+      } catch (apiError) {
+        console.log("API failed, using localStorage fallback:", apiError);
+
+        // Fallback to localStorage
+        const existingCart = localStorage.getItem("mockCart");
+        let cartItems = existingCart ? JSON.parse(existingCart) : [];
+
+        // Check if course already in cart
+        const alreadyInCart = cartItems.some(
+          (item) => (item._id || item.id) === courseId
+        );
+
+        if (alreadyInCart) {
+          toast.info("Course is already in your cart");
+          return;
+        }
+
+        // Add course to cart
+        cartItems.push({
+          id: courseId,
+          _id: courseId,
+          title: course.title,
+          price: course.price,
+          image: course.thumbnail,
+          mentor: course.authorName || course.mentorName || "Unknown Mentor",
+          addedAt: new Date().toISOString(),
+        });
+
+        localStorage.setItem("mockCart", JSON.stringify(cartItems));
+        toast.success("Course added to cart successfully!");
+      }
+    } catch (error) {
+      console.error("Add to cart error:", error);
+      toast.error("Failed to add course to cart");
+    } finally {
+      dispatch(hideLoading());
+    }
+  };
+
+  // Buy Now function (from mentor-page.jsx)
+  const handleBuyNow = (e, course) => {
+    e.stopPropagation();
+
+    if (!user) {
+      toast.error("Please login to purchase courses");
+      navigate("/login");
+      return;
+    }
+
+    if (user.role !== "mentee") {
+      toast.error("Only mentees can purchase courses");
+      return;
+    }
+
+    const courseId = course._id || course.id;
+
+    // Check if course is already purchased
+    if (isCourseAlreadyPurchased(courseId)) {
+      toast.info(
+        "You have already purchased this course! Check 'My Courses' in your profile."
+      );
+      return;
+    }
+
+    navigate(`/shoppingcart`);
+  };
 
   // Fetch course data on component mount
   useEffect(() => {
@@ -210,8 +359,56 @@ const OrderCompleteCourse = () => {
             language: parsedLanguage,
           });
 
-          // Set mentor data
+          // Set mentor data with real API stats
           if (course.mentor) {
+            // Fetch real mentor stats
+            const fetchMentorStats = async (mentorId) => {
+              try {
+                console.log("🔍 Fetching courses for mentor ID:", mentorId);
+
+                // Try to get real mentor courses count - getCoursesByMentor returns array directly
+                const courses = await courseApi.getCoursesByMentor(mentorId);
+
+                console.log("📊 Mentor courses array:", courses);
+
+                // Save courses to state for Course tab (similar to mentor-page.jsx)
+                if (Array.isArray(courses)) {
+                  setMentorCourses(courses);
+                  console.log(
+                    "✅ Saved mentor courses to state:",
+                    courses.length
+                  );
+                }
+
+                const totalCourses = Array.isArray(courses)
+                  ? courses.length
+                  : 0;
+                console.log("🎯 Final totalCourses count:", totalCourses);
+
+                // Use data from course.mentor (no separate mentor API needed)
+                return {
+                  totalCourses: totalCourses, // Return exact number
+                  totalStudents: "100+", // Default fallback since no mentor API
+                  experience: course.mentor.experience || "Professional",
+                  category: course.mentor.category || "IT",
+                };
+              } catch (error) {
+                console.warn(
+                  "Failed to fetch mentor stats, using defaults:",
+                  error
+                );
+                return {
+                  totalCourses: 0, // Return 0 if failed to fetch
+                  totalStudents: "100+",
+                  experience: course.mentor.experience || "Professional",
+                  category: course.mentor.category || "IT",
+                };
+              }
+            };
+
+            // Get mentor stats and set data
+            const mentorStats = await fetchMentorStats(course.mentor._id);
+
             setMentorData({
               id: course.mentor._id,
               name: course.mentor.userName || "Mentor",
@@ -223,11 +420,11 @@ const OrderCompleteCourse = () => {
               bio: course.mentor.bio,
               email: course.mentor.email,
               location: course.mentor.location,
-              category: course.mentor.category || "IT",
-              experience: course.mentor.experience || "Professional",
+              category: mentorStats.category,
+              experience: mentorStats.experience,
               skills: course.mentor.skills || [],
-              totalCourses: "5+", // Demo value - could fetch from API
-              totalStudents: "100+", // Demo value as requested
+              totalCourses: mentorStats.totalCourses,
+              totalStudents: mentorStats.totalStudents,
             });
           }
         }
@@ -904,28 +1101,121 @@ const OrderCompleteCourse = () => {
               {/* Mentor Stats */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
                 <div className="text-center p-3 bg-white rounded-lg">
-                  <div className="text-lg font-bold text-gray-800">
-                    {mentorData?.experience || "Professional"}
+                  <div className="text-base font-bold text-gray-800 mb-1">
+                    Experience
                   </div>
-                  <div className="text-xs text-gray-500">Experience</div>
+                  <div className="text-sm text-gray-600">
+                    {mentorData?.experience}
+                  </div>
+                </div>
+                <div
+                  className={`text-center p-3 bg-white rounded-lg transition-all duration-200 relative ${
+                    // Only show cursor pointer and hover effect if there are multiple categories
+                    mentorData?.category &&
+                    ((Array.isArray(mentorData.category) &&
+                      mentorData.category.length > 1) ||
+                      (!Array.isArray(mentorData.category) &&
+                        mentorData.category.includes(",")))
+                      ? "cursor-pointer hover:bg-gray-50"
+                      : ""
+                  }`}
+                  onClick={() => {
+                    // Only allow click if there are multiple categories
+                    const hasMultipleCategories =
+                      mentorData?.category &&
+                      ((Array.isArray(mentorData.category) &&
+                        mentorData.category.length > 1) ||
+                        (!Array.isArray(mentorData.category) &&
+                          mentorData.category.includes(",")));
+                    if (hasMultipleCategories) {
+                      setCategoryExpanded(!categoryExpanded);
+                    }
+                  }}
+                >
+                  <div className="text-base font-bold text-gray-800 mb-1 flex items-center justify-center gap-1">
+                    Category
+                    {/* Only show arrow if there are multiple categories */}
+                    {mentorData?.category &&
+                      ((Array.isArray(mentorData.category) &&
+                        mentorData.category.length > 1) ||
+                        (!Array.isArray(mentorData.category) &&
+                          mentorData.category.includes(","))) && (
+                        <svg
+                          className={`w-4 h-4 transition-transform duration-200 ${
+                            categoryExpanded ? "rotate-180" : ""
+                          }`}
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M19 9l-7 7-7-7"
+                          />
+                        </svg>
+                      )}
+                  </div>
+                  <div className="text-sm text-gray-600">
+                    {mentorData?.category
+                      ? Array.isArray(mentorData.category)
+                        ? mentorData.category[0]
+                        : mentorData.category.split(",")[0].trim()
+                      : "web-development"}
+                  </div>
+
+                  {/* Expandable Categories - Absolute positioned */}
+                  {categoryExpanded && (
+                    <div className="absolute top-full left-0 right-0 mt-2 p-3 bg-white border border-gray-200 rounded-lg shadow-lg space-y-1 z-50">
+                      {mentorData?.category ? (
+                        Array.isArray(mentorData.category) ? (
+                          mentorData.category.slice(1).map((cat, index) => (
+                            <div
+                              key={index}
+                              className="text-xs text-gray-700 px-2 py-1 bg-gray-100 rounded"
+                            >
+                              {cat}
+                            </div>
+                          ))
+                        ) : (
+                          mentorData.category
+                            .split(",")
+                            .slice(1)
+                            .map((cat, index) => (
+                              <div
+                                key={index}
+                                className="text-xs text-gray-700 px-2 py-1 bg-gray-100 rounded"
+                              >
+                                {cat.trim()}
+                              </div>
+                            ))
+                        )
+                      ) : (
+                        <div className="text-xs text-gray-500">
+                          No additional categories
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
                 <div className="text-center p-3 bg-white rounded-lg">
-                  <div className="text-lg font-bold text-gray-800">
-                    {mentorData?.category || "IT"}
+                  <div className="text-base font-bold text-gray-800 mb-1">
+                    Courses
                   </div>
-                  <div className="text-xs text-gray-500">Category</div>
+                  <div className="text-sm text-gray-600">
+                    {mentorData?.totalCourses !== undefined
+                      ? mentorData.totalCourses
+                      : "0"}
+                  </div>
                 </div>
                 <div className="text-center p-3 bg-white rounded-lg">
-                  <div className="text-lg font-bold text-gray-800">
-                    {mentorData?.totalCourses || "5+"}
+                  <div className="text-base font-bold text-gray-800 mb-1">
+                    Students
                   </div>
-                  <div className="text-xs text-gray-500">Courses</div>
-                </div>
-                <div className="text-center p-3 bg-white rounded-lg">
-                  <div className="text-lg font-bold text-gray-800">
+                  <div className="text-sm text-gray-600">
                     {mentorData?.totalStudents || "100+"}
                   </div>
-                  <div className="text-xs text-gray-500">Students</div>
                 </div>
               </div>
 
@@ -995,65 +1285,231 @@ const OrderCompleteCourse = () => {
                 className="flex space-x-6 overflow-x-auto pb-4 scrollbar-hide"
                 style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
               >
-                {(allCourses && allCourses.length > 0 ? allCourses : []).map(
-                  (course, index) => (
+                {(mentorCourses && mentorCourses.length > 0
+                  ? mentorCourses
+                  : []
+                ).map((course, index) => {
+                  const isPurchased = isCourseAlreadyPurchased(
+                    course._id || course.id
+                  );
+
+                  return (
                     <div
-                      key={index}
-                      className="flex-shrink-0 w-80 bg-white border border-gray-200 rounded-xl overflow-hidden hover:shadow-lg transition-all duration-300 cursor-pointer group"
+                      key={course._id || course.id || index}
+                      className="flex-shrink-0 w-80 bg-white border border-gray-200 rounded-xl overflow-hidden hover:shadow-xl transition-all duration-300 cursor-pointer group"
+                      onClick={() =>
+                        navigate(`/course-detail/${course._id || course.id}`)
+                      }
                     >
+                      {/* Course Image */}
                       <div className="relative">
                         <img
-                          src={course.image}
+                          src={
+                            course.thumbnail ||
+                            course.image ||
+                            "https://via.placeholder.com/320x200/f3f4f6/6b7280?text=Course+Image"
+                          }
                           alt={course.title}
                           className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300"
                           onError={(e) => {
                             e.target.src =
-                              "https://via.placeholder.com/320x192/f3f4f6/6b7280?text=Course+Image";
+                              "https://via.placeholder.com/320x200/f3f4f6/6b7280?text=Course+Image";
                           }}
                         />
-                        <div className="absolute top-3 right-3 bg-white bg-opacity-90 backdrop-blur-sm px-2 py-1 rounded-full">
+                        <div className="absolute top-3 right-3 bg-white bg-opacity-95 backdrop-blur-sm px-3 py-1 rounded-full shadow-md">
                           <span className="text-sm font-bold text-gray-800">
-                            ${course.price}
+                            ${course.price || "170"}
                           </span>
                         </div>
-                        <div className="absolute bottom-3 left-3 bg-black bg-opacity-60 text-white px-2 py-1 rounded text-xs">
-                          {course.level}
-                        </div>
                       </div>
-                      <div className="p-6">
+
+                      {/* Course Content */}
+                      <div className="p-4">
+                        {/* Course Title */}
                         <h4 className="font-bold text-lg mb-2 text-gray-800 line-clamp-2 group-hover:text-blue-600 transition-colors">
                           {course.title}
                         </h4>
+
+                        {/* Author */}
                         <p className="text-sm text-gray-600 mb-3">
-                          by {course.instructor}
+                          By{" "}
+                          {course.authorName ||
+                            course.mentorName ||
+                            (course.mentor?.firstName && course.mentor?.lastName
+                              ? `${course.mentor.firstName} ${course.mentor.lastName}`
+                              : course.mentor?.userName) ||
+                            "Mentor"}
                         </p>
 
-                        <div className="flex items-center justify-between mb-3">
+                        {/* Rating */}
+                        <div className="flex items-center mb-3">
                           <div className="flex items-center space-x-1">
-                            {renderStars(course.rating)}
-                            <span className="text-sm font-medium text-gray-700">
-                              {course.rating}
-                            </span>
-                            <span className="text-xs text-gray-500">
-                              ({course.ratingsCount})
+                            {renderStars(course.rate || course.rating || 0)}
+                            <span className="text-sm font-medium text-gray-700 ml-1">
+                              (
+                              {course.ratingsCount ||
+                                course.numberOfRatings ||
+                                0}{" "}
+                              Ratings)
                             </span>
                           </div>
-                          <span className="text-xs text-gray-500">
-                            {course.students} students
+                        </div>
+
+                        {/* Course Details */}
+                        <div className="text-sm text-gray-700 mb-2 line-clamp-1">
+                          {course.duration || course.totalHours || 0} Total
+                          Hours • {course.lectures || course.totalLectures || 0}{" "}
+                          Lectures
+                        </div>
+
+                        {/* Category */}
+                        <div className="mb-3">
+                          <span className="inline-block bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full font-medium">
+                            Category: {course.category || "General"}
                           </span>
                         </div>
 
-                        <div className="flex items-center justify-between text-xs text-gray-500 mb-4">
-                          <span>📚 {course.lectures} lectures</span>
-                          <span>⏱️ {course.totalHours}h total</span>
+                        {/* Tags (Programming Languages and Tools) */}
+                        {course.tags && course.tags.length > 0 && (
+                          <div className="mb-3">
+                            <p className="text-xs text-gray-500 mb-1">
+                              {course.category === "Programming"
+                                ? "Programming Languages:"
+                                : "Tools:"}
+                            </p>
+                            <div className="flex flex-wrap gap-1">
+                              {course.tags.slice(0, 2).map((tag, tagIndex) => (
+                                <span
+                                  key={tagIndex}
+                                  className={`inline-block text-xs px-2 py-1 rounded-full font-medium ${
+                                    course.category === "Programming"
+                                      ? "bg-blue-100 text-blue-800"
+                                      : "bg-purple-100 text-purple-800"
+                                  }`}
+                                >
+                                  {tag}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Hiển thị languages */}
+                        {course.language && course.language.length > 0 && (
+                          <div className="mb-2">
+                            <p className="text-xs text-gray-500 mb-1">
+                              Languages:
+                            </p>
+                            <div className="flex flex-wrap gap-1">
+                              {course.language
+                                .slice(0, 2)
+                                .map((lang, index) => (
+                                  <span
+                                    key={index}
+                                    className="inline-block bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full font-medium max-w-[90px] truncate"
+                                  >
+                                    {lang}
+                                  </span>
+                                ))}
+                              {course.language.length > 2 && (
+                                <span className="inline-block bg-gray-100 text-gray-600 text-xs px-2 py-1 rounded-full">
+                                  +{course.language.length - 2} more
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Level */}
+                        {course.level && (
+                          <div className="mb-4">
+                            <span className="text-sm text-gray-600">
+                              <span className="font-medium">Level: </span>
+                              <span className="text-green-600 font-medium">
+                                {course.level}
+                              </span>
+                            </span>
+                          </div>
+                        )}
+
+                        {/* Price Display */}
+                        <div className="mb-4">
+                          <span className="text-2xl font-bold text-gray-800">
+                            ${course.price || "170"}
+                          </span>
                         </div>
 
-                        <button className="w-full bg-gradient-to-r from-blue-500 to-indigo-600 text-white py-2 px-4 rounded-lg hover:from-blue-600 hover:to-indigo-700 transition-all duration-200 font-medium">
-                          Add to Cart
-                        </button>
+                        {/* Add to Cart and Buy Now buttons for mentees */}
+                        {user && user.role === "mentee" && (
+                          <div className="flex flex-col gap-2 mt-3">
+                            {isCourseAlreadyPurchased(
+                              course._id || course.id
+                            ) ? (
+                              <>
+                                <div className="w-full bg-green-100 text-green-700 py-2 px-3 rounded-md text-sm font-medium text-center">
+                                  ✓ Already Purchased
+                                </div>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    navigate(`/order-complete-course`, {
+                                      state: {
+                                        courseId: course._id || course.id,
+                                        courseInfo: course,
+                                      },
+                                    });
+                                  }}
+                                  className="w-full bg-blue-600 text-white py-2 px-3 rounded-md text-sm font-medium hover:bg-blue-700 transition-colors"
+                                >
+                                  View Course
+                                </button>
+                              </>
+                            ) : (
+                              <>
+                                <button
+                                  onClick={(e) => handleAddToCart(e, course)}
+                                  className="flex-1 bg-blue-100 text-blue-600 py-2 px-3 rounded-md text-sm font-medium hover:bg-blue-200 transition-colors"
+                                >
+                                  Add to Cart
+                                </button>
+                                <button
+                                  onClick={(e) => handleBuyNow(e, course)}
+                                  className="flex-1 bg-blue-600 text-white py-2 px-3 rounded-md text-sm font-medium hover:bg-blue-700 transition-colors"
+                                >
+                                  Buy Now
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </div>
-                  )
+                  );
+                })}
+
+                {/* Show message if no courses (similar to mentor-page empty state) */}
+                {(!mentorCourses || mentorCourses.length === 0) && (
+                  <div className="w-full text-center py-12">
+                    <div className="text-gray-500">
+                      <svg
+                        className="w-16 h-16 mx-auto mb-4 text-gray-300"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
+                        />
+                      </svg>
+                      <p className="text-lg font-medium mb-2">No Courses Yet</p>
+                      <p className="text-sm">
+                        This mentor hasn't created any courses yet.
+                      </p>
+                    </div>
+                  </div>
                 )}
               </div>
 
