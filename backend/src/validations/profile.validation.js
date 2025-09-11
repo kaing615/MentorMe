@@ -117,22 +117,20 @@ export const updateMentorProfileSchema = Joi.object({
 export const updateMenteeProfileSchema = Joi.object({
   ...profileBase,
 
-  bio: Joi.string().min(10).optional().messages({
+  bio: Joi.string().optional().allow("").messages({
     "string.min": "Bio phải từ 10",
   }),
-  location: Joi.string().min(1).optional().messages({
+  location: Joi.string().optional().allow("").messages({
     "string.empty": "Location không được để trống",
   }),
 
-  description: Joi.string().min(10).max(500).optional().messages({
-    "string.min": "Description phải từ 10-500 ký tự",
-    "string.max": "Description phải từ 10-500 ký tự",
+  description: Joi.string().optional().allow("").messages({
   }),
-  goal: Joi.string().min(10).max(300).optional().messages({
+  goal: Joi.string().optional().allow("").messages({
     "string.min": "Goal phải từ 10-300 ký tự",
     "string.max": "Goal phải từ 10-300 ký tự",
   }),
-  education: Joi.string().min(5).max(200).optional().messages({
+  education: Joi.string().optional().allow("").messages({
     "string.min": "Education phải từ 5-200 ký tự",
     "string.max": "Education phải từ 5-200 ký tự",
   }),
