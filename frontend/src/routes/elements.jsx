@@ -55,6 +55,10 @@ const useRouterElements = () => {
           element: <OrderCompleteCourse />,
         },
         {
+          path: `${MENTEE_PATH.ORDERCOMPLETECOURSE}/:id`,
+          element: <OrderCompleteCourse />,
+        },
+        {
           path: MENTEE_PATH.CHECKOUT,
           element: <Checkout />,
         },

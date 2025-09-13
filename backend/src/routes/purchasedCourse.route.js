@@ -18,14 +18,6 @@ router.use(tokenMiddleware.auth);
 router.get("/", purchasedCourseController.getPurchasedCourses);
 
 /**
- * @route   GET /api/purchased-courses/stats
- * @desc    Lấy thống kê học tập của user
- * @access  Private
- * @returns {Object} data - Thống kê tổng quan về tiến độ học tập
- */
-router.get("/stats", purchasedCourseController.getLearningStats);
-
-/**
  * @route   GET /api/purchased-courses/check/:courseId
  * @desc    Kiểm tra xem user đã mua khóa học này chưa
  * @access  Private
@@ -35,18 +27,15 @@ router.get("/stats", purchasedCourseController.getLearningStats);
 router.get("/check/:courseId", purchasedCourseController.checkCoursePurchase);
 
 /**
- * @route   PUT /api/purchased-courses/:courseId/progress
- * @desc    Cập nhật tiến độ học khóa học
+ * @route   GET /api/purchased-courses/details/:purchasedCourseId
+ * @desc    Lấy chi tiết purchased course theo purchasedCourseId
  * @access  Private
- * @middleware validateBody(courseProgressSchema) - Joi validation cho progress
- * @params {String} courseId - ID của khóa học
- * @body {Number} progress - Tiến độ học từ 0-100%
- * @returns {Object} data - Thông tin tiến độ đã cập nhật
+ * @params {String} purchasedCourseId - ID của purchased course
+ * @returns {Object} data - Chi tiết purchased course với thông tin course và mentor
  */
-router.put(
-  "/:courseId/progress",
-  validateBody(userValidation.courseProgressSchema),
-  purchasedCourseController.updateCourseProgress
+router.get(
+  "/details/:purchasedCourseId",
+  purchasedCourseController.getPurchasedCourseById
 );
 
 /**

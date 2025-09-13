@@ -1052,6 +1052,16 @@ const MenteeProfile = () => {
                                     "https://via.placeholder.com/300x200/f3f4f6/9ca3af?text=Course+Image";
                                 }}
                               />
+                              {/* Progress Badge */}
+                              {item.purchasedCourseId ? (
+                                <div className="absolute top-3 right-3 bg-green-500 text-white px-2 py-1 rounded-full text-xs font-medium">
+                                  📊 {item.progress || 0}% Complete
+                                </div>
+                              ) : (
+                                <div className="absolute top-3 right-3 bg-gray-500 text-white px-2 py-1 rounded-full text-xs font-medium">
+                                  📚 Legacy Course
+                                </div>
+                              )}
                             </div>
 
                             <div className="p-4">
@@ -1133,14 +1143,35 @@ const MenteeProfile = () => {
                               {/* Action Buttons */}
                               <div className="flex gap-2">
                                 <button
-                                  onClick={() =>
-                                    navigate(`/order-complete-course`, {
-                                      state: {
-                                        courseId: course._id,
-                                        courseInfo: course,
-                                      },
-                                    })
-                                  }
+                                  onClick={() => {
+                                    // Smart navigation: Nếu có purchasedCourseId thì dùng, không thì dùng courseId
+                                    if (item.purchasedCourseId) {
+                                      // NEW: Navigate với purchasedCourseId
+                                      navigate(
+                                        `/order-complete-course/${item.purchasedCourseId}`,
+                                        {
+                                          state: {
+                                            purchasedCourseId:
+                                              item.purchasedCourseId,
+                                            courseId: course._id,
+                                            courseInfo: course,
+                                          },
+                                        }
+                                      );
+                                    } else {
+                                      // LEGACY: Navigate với courseId (cho courses cũ)
+                                      navigate(
+                                        `/order-complete-course/${course._id}`,
+                                        {
+                                          state: {
+                                            courseId: course._id,
+                                            courseInfo: course,
+                                            isLegacyCourse: true, // Flag để biết đây là legacy
+                                          },
+                                        }
+                                      );
+                                    }
+                                  }}
                                   className="flex-1 bg-blue-600 text-white py-2 px-3 rounded-lg hover:bg-blue-700 transition text-sm font-medium"
                                 >
                                   View Course
@@ -1153,14 +1184,47 @@ const MenteeProfile = () => {
                                 </button>
                               </div>
 
+                              {/* Progress Bar (only for courses with purchasedCourseId) */}
+                              {item.purchasedCourseId && (
+                                <div className="mb-3">
+                                  <div className="flex justify-between items-center mb-1">
+                                    <span className="text-xs text-gray-600">
+                                      Progress
+                                    </span>
+                                    <span className="text-xs font-medium text-gray-700">
+                                      {item.progress || 0}%
+                                    </span>
+                                  </div>
+                                  <div className="w-full bg-gray-200 rounded-full h-2">
+                                    <div
+                                      className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                                      style={{
+                                        width: `${item.progress || 0}%`,
+                                      }}
+                                    ></div>
+                                  </div>
+                                </div>
+                              )}
+
                               {/* Purchase Date */}
                               <div className="mt-3 pt-3 border-t border-gray-100">
-                                <p className="text-xs text-gray-500">
-                                  Purchased on{" "}
-                                  {new Date(
-                                    item.purchaseDate
-                                  ).toLocaleDateString()}
-                                </p>
+                                <div className="flex justify-between items-center">
+                                  <p className="text-xs text-gray-500">
+                                    Purchased on{" "}
+                                    {new Date(
+                                      item.purchaseDate
+                                    ).toLocaleDateString()}
+                                  </p>
+                                  {item.purchasedCourseId ? (
+                                    <span className="text-xs text-green-600 font-medium">
+                                      ✓ Trackable
+                                    </span>
+                                  ) : (
+                                    <span className="text-xs text-gray-500">
+                                      Legacy
+                                    </span>
+                                  )}
+                                </div>
                               </div>
                             </div>
                           </div>

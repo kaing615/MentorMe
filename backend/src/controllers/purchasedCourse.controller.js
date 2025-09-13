@@ -15,8 +15,61 @@ const getPurchasedCourses = async (req, res) => {
 
     console.log("Getting purchased courses for user:", userId);
 
-    // Lấy danh sách courses mà user là mentee
-    const purchasedCourses = await Course.find({
+    // Lấy purchased courses từ PurchasedCourse model (NEW)
+    const purchasedCourses = await PurchasedCourse.find({
+      mentee: userId,
+    })
+      .populate({
+        path: "course",
+        select:
+          "title description price category duration rate link lectures thumbnail mentor",
+        populate: {
+          path: "mentor",
+          select: "firstName lastName avatarUrl jobTitle userName email",
+        },
+      })
+      .populate({
+        path: "order",
+        select: "orderNumber totalAmount paymentMethod createdAt",
+      })
+      .sort({ purchaseDate: -1 });
+
+    console.log("Found PurchasedCourse records:", purchasedCourses.length);
+
+    // Format purchased courses với purchasedCourseId
+    const formattedPurchasedCourses = purchasedCourses.map(
+      (purchasedCourse) => ({
+        purchasedCourseId: purchasedCourse._id, // ⭐ ID của purchased course (NEW way)
+        courseId: purchasedCourse.course._id, // ID của course gốc
+        courseInfo: {
+          _id: purchasedCourse.course._id,
+          title: purchasedCourse.course.title,
+          description: purchasedCourse.course.description,
+          price: purchasedCourse.price, // Giá lúc mua
+          mentor: purchasedCourse.course.mentor,
+          category: purchasedCourse.course.category,
+          duration: purchasedCourse.course.duration,
+          rate: purchasedCourse.course.rate,
+          link: purchasedCourse.course.link,
+          lectures: purchasedCourse.course.lectures,
+          thumbnail: purchasedCourse.course.thumbnail,
+        },
+        purchaseDate: purchasedCourse.purchaseDate,
+        lastAccessDate: purchasedCourse.lastAccessDate,
+        rating: purchasedCourse.rating,
+        review: purchasedCourse.review,
+        orderInfo: {
+          orderNumber: purchasedCourse.order?.orderNumber,
+          totalAmount: purchasedCourse.order?.totalAmount,
+          paymentMethod: purchasedCourse.order?.paymentMethod,
+          createdAt: purchasedCourse.order?.createdAt,
+        },
+        hasRealPurchasedRecord: true, // Flag để biết đây là purchased course thật
+      })
+    );
+
+    // Lấy courses từ Course.mentees array (LEGACY support)
+    const legacyCourses = await Course.find({
       mentees: userId,
     })
       .populate({
@@ -25,11 +78,25 @@ const getPurchasedCourses = async (req, res) => {
       })
       .sort({ createdAt: -1 });
 
-    console.log("Found purchased courses:", purchasedCourses.length);
+    console.log("Found legacy Course.mentees records:", legacyCourses.length);
 
-    // Format response
-    const formattedCourses = purchasedCourses.map((course) => ({
-      courseId: course._id,
+    // Lọc out những courses đã có trong PurchasedCourse để tránh duplicate
+    const existingCourseIds = new Set(
+      purchasedCourses.map((pc) => pc.course._id.toString())
+    );
+    const uniqueLegacyCourses = legacyCourses.filter(
+      (course) => !existingCourseIds.has(course._id.toString())
+    );
+
+    console.log(
+      "Unique legacy courses (not in PurchasedCourse):",
+      uniqueLegacyCourses.length
+    );
+
+    // Format legacy courses KHÔNG có purchasedCourseId
+    const formattedLegacyCourses = uniqueLegacyCourses.map((course) => ({
+      purchasedCourseId: null, // ⭐ KHÔNG có purchasedCourseId cho legacy
+      courseId: course._id, // Chỉ có courseId
       courseInfo: {
         _id: course._id,
         title: course.title,
@@ -44,22 +111,30 @@ const getPurchasedCourses = async (req, res) => {
         thumbnail: course.thumbnail,
       },
       purchaseDate: course.createdAt, // Use course creation date as fallback
-      progress: 0, // Default progress
       lastAccessDate: null,
-      isCompleted: false,
+      rating: null,
+      review: null,
       orderInfo: {
-        // We could populate order info later if needed
-        transactionId: null,
+        orderNumber: null,
+        totalAmount: null,
         paymentMethod: null,
         createdAt: course.createdAt,
-        orderNumber: null,
       },
+      hasRealPurchasedRecord: false, // Flag để biết đây là legacy
     }));
+
+    // Combine cả hai loại
+    const allCourses = [
+      ...formattedPurchasedCourses,
+      ...formattedLegacyCourses,
+    ];
 
     return responseHandler.ok(res, {
       message: "Lấy danh sách khóa học đã mua thành công.",
-      totalCourses: formattedCourses.length,
-      courses: formattedCourses,
+      totalCourses: allCourses.length,
+      purchasedCoursesCount: formattedPurchasedCourses.length, // Courses với purchasedCourseId
+      legacyCoursesCount: formattedLegacyCourses.length, // Legacy courses chỉ có courseId
+      courses: allCourses,
     });
   } catch (err) {
     console.error("Lỗi khi lấy danh sách khóa học đã mua:", err);
@@ -68,48 +143,62 @@ const getPurchasedCourses = async (req, res) => {
 };
 
 /**
- * @desc Cập nhật tiến độ học khóa học
- * @route PUT /api/purchased-courses/:courseId/progress
+ * @desc Lấy chi tiết purchased course theo purchasedCourseId
+ * @route GET /api/purchased-courses/details/:purchasedCourseId
  * @access Private
  */
-const updateCourseProgress = async (req, res) => {
+const getPurchasedCourseById = async (req, res) => {
   try {
     const userId = req.user._id;
-    const { courseId } = req.params;
-    const { progress } = req.body;
+    const { purchasedCourseId } = req.params;
 
-    if (progress < 0 || progress > 100) {
-      return responseHandler.badRequest(res, "Tiến độ phải từ 0 đến 100%.");
-    }
-
-    // Tìm purchased course từ PurchasedCourse model
+    // Lấy purchased course theo ID và kiểm tra ownership
     const purchasedCourse = await PurchasedCourse.findOne({
-      mentee: userId,
-      course: courseId,
-    });
+      _id: purchasedCourseId,
+      mentee: userId, // Đảm bảo chỉ user sở hữu mới access được
+    })
+      .populate({
+        path: "course",
+        select:
+          "title description price thumbnail category duration rate lectures link mentor",
+        populate: {
+          path: "mentor",
+          select:
+            "firstName lastName userName avatarUrl jobTitle bio email skills experience category",
+        },
+      })
+      .populate({
+        path: "order",
+        select: "orderNumber purchaseDate totalAmount paymentMethod",
+      });
 
     if (!purchasedCourse) {
-      return responseHandler.badRequest(res, "Bạn chưa mua khóa học này.");
+      return responseHandler.notFound(
+        res,
+        "Không tìm thấy khóa học đã mua hoặc bạn không có quyền truy cập."
+      );
     }
 
-    // Cập nhật tiến độ
-    purchasedCourse.progress = progress;
+    // Update last access date
     purchasedCourse.lastAccessDate = new Date();
-    purchasedCourse.isCompleted = progress === 100;
-
     await purchasedCourse.save();
 
     return responseHandler.ok(res, {
-      message: "Cập nhật tiến độ học thành công.",
+      message: "Lấy chi tiết khóa học đã mua thành công.",
       data: {
-        courseId,
-        progress,
-        isCompleted: progress === 100,
+        purchasedCourseId: purchasedCourse._id,
+        courseId: purchasedCourse.course._id,
+        courseInfo: purchasedCourse.course,
+        purchaseDate: purchasedCourse.purchaseDate,
         lastAccessDate: purchasedCourse.lastAccessDate,
+        rating: purchasedCourse.rating,
+        review: purchasedCourse.review,
+        orderInfo: purchasedCourse.order,
+        completedAt: purchasedCourse.completedAt,
       },
     });
   } catch (err) {
-    console.error("Lỗi cập nhật tiến độ học:", err);
+    console.error("Lỗi lấy chi tiết purchased course:", err);
     responseHandler.error(res);
   }
 };
@@ -147,8 +236,6 @@ const checkCoursePurchase = async (req, res) => {
       courseData: {
         courseId: purchasedCourse.course._id,
         courseInfo: purchasedCourse.course,
-        progress: purchasedCourse.progress,
-        isCompleted: purchasedCourse.isCompleted,
         purchaseDate: purchasedCourse.purchaseDate,
         lastAccessDate: purchasedCourse.lastAccessDate,
       },
@@ -241,9 +328,7 @@ const handlePurchaseSuccess = async (req, res) => {
             order: orderId,
             price: coursePrice,
             purchaseDate: new Date(),
-            progress: 0,
             lastAccessDate: new Date(),
-            isCompleted: false,
           });
           coursesAdded++;
         }
@@ -263,59 +348,9 @@ const handlePurchaseSuccess = async (req, res) => {
   }
 };
 
-/**
- * @desc Lấy thống kê học tập của user
- * @route GET /api/purchased-courses/stats
- * @access Private
- */
-const getLearningStats = async (req, res) => {
-  try {
-    const userId = req.user._id;
-
-    // Lấy tất cả purchased courses từ PurchasedCourse model
-    const purchasedCourses = await PurchasedCourse.find({ mentee: userId });
-
-    const totalCourses = purchasedCourses.length;
-    const completedCourses = purchasedCourses.filter(
-      (course) => course.isCompleted
-    ).length;
-    const inProgressCourses = purchasedCourses.filter(
-      (course) => course.progress > 0 && !course.isCompleted
-    ).length;
-    const notStartedCourses = purchasedCourses.filter(
-      (course) => course.progress === 0
-    ).length;
-
-    const averageProgress =
-      totalCourses > 0
-        ? purchasedCourses.reduce((sum, course) => sum + course.progress, 0) /
-          totalCourses
-        : 0;
-
-    return responseHandler.ok(res, {
-      message: "Lấy thống kê học tập thành công.",
-      data: {
-        totalCourses,
-        completedCourses,
-        inProgressCourses,
-        notStartedCourses,
-        averageProgress: Math.round(averageProgress * 100) / 100,
-        completionRate:
-          totalCourses > 0
-            ? Math.round((completedCourses / totalCourses) * 100)
-            : 0,
-      },
-    });
-  } catch (err) {
-    console.error("Lỗi lấy thống kê học tập:", err);
-    responseHandler.error(res);
-  }
-};
-
 export default {
   getPurchasedCourses,
-  updateCourseProgress,
+  getPurchasedCourseById,
   checkCoursePurchase,
   handlePurchaseSuccess,
-  getLearningStats,
 };

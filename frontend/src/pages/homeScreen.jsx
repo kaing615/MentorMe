@@ -18,6 +18,7 @@ import { clearUser } from "../redux/features/user.slice";
 import courseApi from "../api/modules/course.api.js";
 import profileApi from "../api/modules/profile.api.js";
 import cartApi from "../api/modules/cart.api.js";
+import purchasedCourseApi from "../api/modules/purchasedCourse.api.js";
 import { toast } from "react-toastify";
 
 const categories = [
@@ -230,6 +231,7 @@ const HomeScreen = () => {
   const [coursesLoading, setCoursesLoading] = useState(false);
   const [topMentors, setTopMentors] = useState([]);
   const [mentorsLoading, setMentorsLoading] = useState(false);
+  const [purchasedCoursesMap, setPurchasedCoursesMap] = useState(new Map());
 
   const coursesRef = useRef(null);
   const mentorsRef = useRef(null);
@@ -287,6 +289,30 @@ const HomeScreen = () => {
       }
     }
     return false;
+  };
+
+  // Helper function to get purchased course ID if it exists
+  const getPurchasedCourseId = (courseId) => {
+    return purchasedCoursesMap.get(courseId);
+  };
+
+  // Smart navigation function for View Course button
+  const handleSmartViewCourse = (e, course) => {
+    e.stopPropagation();
+    const courseId = course._id || course.id;
+    const purchasedCourseId = getPurchasedCourseId(courseId);
+
+    if (purchasedCourseId) {
+      // Navigate with purchasedCourseId for new purchased courses
+      navigate(`/order-complete-course/${purchasedCourseId}`, {
+        state: { purchasedCourseId, courseInfo: course },
+      });
+    } else {
+      // Fallback to courseId for legacy courses
+      navigate(`/order-complete-course/${courseId}`, {
+        state: { courseId, courseInfo: course },
+      });
+    }
   };
 
   // Add to Cart function
@@ -533,6 +559,38 @@ const HomeScreen = () => {
     };
     fetchTopMentors();
   }, []);
+
+  // Fetch purchased courses for smart navigation
+  useEffect(() => {
+    const fetchPurchasedCourses = async () => {
+      if (!user || user.role !== "mentee") return;
+
+      try {
+        const { response, err } =
+          await purchasedCourseApi.getPurchasedCourses();
+        if (response?.data?.purchasedCourses) {
+          const coursesMap = new Map();
+          response.data.purchasedCourses.forEach((purchasedCourse) => {
+            const courseId =
+              purchasedCourse.course?._id ||
+              purchasedCourse.course?.id ||
+              purchasedCourse.courseId ||
+              purchasedCourse.courseInfo?._id;
+            const purchasedCourseId = purchasedCourse._id || purchasedCourse.id;
+
+            if (courseId && purchasedCourseId) {
+              coursesMap.set(courseId, purchasedCourseId);
+            }
+          });
+          setPurchasedCoursesMap(coursesMap);
+        }
+      } catch (error) {
+        console.error("Error fetching purchased courses:", error);
+      }
+    };
+
+    fetchPurchasedCourses();
+  }, [user]);
 
   const renderStars = (rating = 0) => {
     const stars = [];
@@ -967,15 +1025,9 @@ const HomeScreen = () => {
                                         ✓ Already Purchased
                                       </div>
                                       <button
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          navigate(`/order-complete-course`, {
-                                            state: {
-                                              courseId: courseId,
-                                              courseInfo: course,
-                                            },
-                                          });
-                                        }}
+                                        onClick={(e) =>
+                                          handleSmartViewCourse(e, course)
+                                        }
                                         className="w-full bg-blue-600 text-white py-2 px-3 rounded-md text-sm font-medium hover:bg-blue-700 transition-colors"
                                       >
                                         View Course

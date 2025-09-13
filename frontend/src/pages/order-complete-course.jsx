@@ -69,10 +69,21 @@ const OrderCompleteCourse = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Get courseId from location state or URL params
+  // Get courseId or purchasedCourseId from URL params, location state, or URL search
+  // Logic: URL param 'id' could be either purchasedCourseId (24 chars) or courseId (24 chars)
+  // We'll determine which one it is based on context and API response
+
+  const urlId = id; // The ID from URL params (/order-complete-course/:id)
+
+  const purchasedCourseId =
+    location.state?.purchasedCourseId ||
+    new URLSearchParams(location.search).get("purchasedCourseId") ||
+    urlId; // Assume URL id is purchasedCourseId first
+
   const courseId =
     location.state?.courseId ||
-    new URLSearchParams(location.search).get("courseId");
+    new URLSearchParams(location.search).get("courseId") ||
+    (!location.state?.purchasedCourseId ? urlId : null); // Fallback: treat urlId as courseId
 
   // Helper function to check if course is already purchased (from mentor-page.jsx)
   const isCourseAlreadyPurchased = (courseId) => {
@@ -219,8 +230,9 @@ const OrderCompleteCourse = () => {
   // Fetch course data on component mount
   useEffect(() => {
     const fetchCourseDetails = async () => {
-      if (!courseId) {
-        setError("Course ID not provided");
+      // Priority: Try purchasedCourseId first, then fallback to courseId
+      if (!purchasedCourseId && !courseId) {
+        setError("Course ID or Purchased Course ID not provided");
         setLoading(false);
         return;
       }
@@ -229,242 +241,359 @@ const OrderCompleteCourse = () => {
         setLoading(true);
         setError(null);
 
-        // Check localStorage for purchased courses first
-        const userStr = localStorage.getItem("user");
-        let currentUserId = null;
-        try {
-          const user = userStr ? JSON.parse(userStr) : null;
-          currentUserId = user?.id || user?._id;
-        } catch (e) {
-          console.warn("Error parsing user:", e);
-        }
+        // Strategy: Try purchasedCourseId API first, if fails then use courseId API
+        let usedPurchasedCourseId = false;
 
-        const mockKey = currentUserId
-          ? `mockPurchasedCourses_${currentUserId}`
-          : "mockPurchasedCourses";
-        const mockPurchasedCourses = localStorage.getItem(mockKey);
-
-        let isPurchasedFromLocalStorage = false;
-        let localPurchasedData = null;
-
-        if (mockPurchasedCourses) {
+        if (purchasedCourseId) {
           try {
-            const purchasedCourses = JSON.parse(mockPurchasedCourses);
             console.log(
-              "🔍 Checking localStorage - Current courseId:",
-              courseId
-            );
-            console.log("🔍 Available purchased courses:", purchasedCourses);
-
-            const purchasedCourse = purchasedCourses.find(
-              (item) =>
-                item.courseId === courseId || item.courseInfo?._id === courseId
+              "🎯 Attempting to fetch using purchasedCourseId:",
+              purchasedCourseId
             );
 
-            console.log("🔍 Found purchased course:", purchasedCourse);
-
-            if (purchasedCourse) {
-              isPurchasedFromLocalStorage = true;
-              localPurchasedData = {
-                courseId: purchasedCourse.courseId,
-                purchaseDate: purchasedCourse.purchaseDate,
-                lastAccessDate: new Date().toISOString(),
-              };
-              console.log(
-                "✅ Course is purchased from localStorage:",
-                localPurchasedData
+            const { response, error } =
+              await purchasedCourseApi.getPurchasedCourseById(
+                { purchasedCourseId },
+                dispatch
               );
+
+            if (!error && response?.data?.data) {
+              console.log("✅ Successfully fetched using purchasedCourseId");
+              usedPurchasedCourseId = true;
+
+              const purchasedData = response.data.data;
+              console.log("✅ Purchased course data:", purchasedData);
+
+              // Set course data from purchased course
+              setCourseData({
+                id: purchasedData.courseInfo._id,
+                title: purchasedData.courseInfo.title,
+                description: purchasedData.courseInfo.description,
+                price: purchasedData.courseInfo.price,
+                category: purchasedData.courseInfo.category,
+                duration: purchasedData.courseInfo.duration,
+                rate: purchasedData.courseInfo.rate,
+                lectures: purchasedData.courseInfo.lectures,
+                link: purchasedData.courseInfo.link,
+                imageUrl: purchasedData.courseInfo.thumbnail,
+                thumbnail: purchasedData.courseInfo.thumbnail,
+                mentor: purchasedData.courseInfo.mentor,
+                // Additional purchased course data
+                keyLearningObjectives:
+                  purchasedData.courseInfo.keyLearningObjectives || [],
+                tags: purchasedData.courseInfo.tags || [],
+                language: purchasedData.courseInfo.language || [],
+              });
+
+              // Set mentor data
+              if (purchasedData.courseInfo.mentor) {
+                const mentor = purchasedData.courseInfo.mentor;
+                setMentorData({
+                  id: mentor._id,
+                  name: mentor.userName || "Mentor",
+                  firstName: mentor.firstName,
+                  lastName: mentor.lastName,
+                  userName: mentor.userName,
+                  avatar: mentor.avatarUrl,
+                  title: mentor.jobTitle || "Mentor",
+                  bio: mentor.bio,
+                  email: mentor.email,
+                  category: mentor.category,
+                  experience: mentor.experience,
+                  skills: mentor.skills || [],
+                  totalCourses: 0, // Will be fetched separately
+                  totalStudents: "100+",
+                });
+
+                // Fetch mentor courses separately
+                try {
+                  const courses = await courseApi.getCoursesByMentor(
+                    mentor._id
+                  );
+                  if (Array.isArray(courses)) {
+                    setMentorCourses(courses);
+                    setMentorData((prev) => ({
+                      ...prev,
+                      totalCourses: courses.length,
+                    }));
+                  }
+                } catch (err) {
+                  console.warn("Failed to fetch mentor courses:", err);
+                }
+              }
+
+              // Set purchased course data
+              setPurchasedCourseData({
+                purchasedCourseId: purchasedData.purchasedCourseId,
+                courseId: purchasedData.courseId,
+                purchaseDate: purchasedData.purchaseDate,
+                progress: purchasedData.progress,
+                lastAccessDate: purchasedData.lastAccessDate,
+                isCompleted: purchasedData.isCompleted,
+                rating: purchasedData.rating,
+                review: purchasedData.review,
+                orderInfo: purchasedData.orderInfo,
+              });
+
+              setLoading(false);
+              return; // Success with purchasedCourseId
             } else {
-              console.log("❌ Course not found in localStorage");
+              console.log(
+                "❌ PurchasedCourseId API failed, trying courseId fallback"
+              );
             }
-          } catch (e) {
-            console.warn("Error parsing localStorage purchased courses:", e);
+          } catch (err) {
+            console.log(
+              "❌ PurchasedCourseId API error, trying courseId fallback:",
+              err
+            );
           }
         }
 
-        // Fetch both course details and purchased course details from API
-        const [courseResult, purchasedResult] = await Promise.allSettled([
-          courseApi.getDetail({ courseId }),
-          purchasedCourseApi.getPurchasedCourseDetails({ courseId }),
-        ]);
+        // Fallback to courseId logic (legacy or when purchasedCourseId fails)
+        const finalCourseId = courseId || purchasedCourseId; // Use either courseId or treat purchasedCourseId as courseId
 
-        // Handle course details
-        if (courseResult.status === "fulfilled") {
-          const { response, error } = courseResult.value;
+        if (finalCourseId && !usedPurchasedCourseId) {
+          console.log("🔄 Using legacy courseId logic for:", finalCourseId);
 
-          if (error || !response?.data?.course) {
-            console.error("Error fetching course:", error);
-            setError("Failed to load course details");
-            toast.error("Không thể tải dữ liệu khóa học");
-            return;
+          // Check localStorage for purchased courses first
+          const userStr = localStorage.getItem("user");
+          let currentUserId = null;
+          try {
+            const user = userStr ? JSON.parse(userStr) : null;
+            currentUserId = user?.id || user?._id;
+          } catch (e) {
+            console.warn("Error parsing user:", e);
           }
 
-          // EXACT pattern from EditCoursePage line 155: const course = response.data.course;
-          const course = response.data.course;
-          console.log("🎯 Course data from database:", course);
+          const mockKey = currentUserId
+            ? `mockPurchasedCourses_${currentUserId}`
+            : "mockPurchasedCourses";
+          const mockPurchasedCourses = localStorage.getItem(mockKey);
 
-          // Parse keyLearningObjectives
-          let parsedObjectives = [];
-          if (course.keyLearningObjectives) {
-            if (Array.isArray(course.keyLearningObjectives)) {
-              parsedObjectives = course.keyLearningObjectives;
-            } else if (typeof course.keyLearningObjectives === "string") {
-              try {
-                const parsed = JSON.parse(course.keyLearningObjectives);
-                if (Array.isArray(parsed)) {
-                  parsedObjectives = parsed;
-                } else {
+          let isPurchasedFromLocalStorage = false;
+          let localPurchasedData = null;
+
+          if (mockPurchasedCourses) {
+            try {
+              const purchasedCourses = JSON.parse(mockPurchasedCourses);
+              console.log(
+                "🔍 Checking localStorage - Current courseId:",
+                courseId
+              );
+              console.log("🔍 Available purchased courses:", purchasedCourses);
+
+              const purchasedCourse = purchasedCourses.find(
+                (item) =>
+                  item.courseId === courseId ||
+                  item.courseInfo?._id === courseId
+              );
+
+              console.log("🔍 Found purchased course:", purchasedCourse);
+
+              if (purchasedCourse) {
+                isPurchasedFromLocalStorage = true;
+                localPurchasedData = {
+                  courseId: purchasedCourse.courseId,
+                  purchaseDate: purchasedCourse.purchaseDate,
+                  lastAccessDate: new Date().toISOString(),
+                };
+                console.log(
+                  "✅ Course is purchased from localStorage:",
+                  localPurchasedData
+                );
+              } else {
+                console.log("❌ Course not found in localStorage");
+              }
+            } catch (e) {
+              console.warn("Error parsing localStorage purchased courses:", e);
+            }
+          }
+
+          // Fetch both course details and purchased course details from API
+          const [courseResult, purchasedResult] = await Promise.allSettled([
+            courseApi.getDetail({ courseId }),
+            purchasedCourseApi.getPurchasedCourseDetails({ courseId }),
+          ]);
+
+          // Handle course details (legacy logic continues...)
+          if (courseResult.status === "fulfilled") {
+            const { response, error } = courseResult.value;
+
+            if (error || !response?.data?.course) {
+              console.error("Error fetching course:", error);
+              setError("Failed to load course details");
+              toast.error("Không thể tải dữ liệu khóa học");
+              return;
+            }
+
+            // Continue with existing course data processing...
+            const course = response.data.course;
+            console.log("🎯 Course data from database:", course);
+
+            // Parse keyLearningObjectives
+            let parsedObjectives = [];
+            if (course.keyLearningObjectives) {
+              if (Array.isArray(course.keyLearningObjectives)) {
+                parsedObjectives = course.keyLearningObjectives;
+              } else if (typeof course.keyLearningObjectives === "string") {
+                try {
+                  const parsed = JSON.parse(course.keyLearningObjectives);
+                  if (Array.isArray(parsed)) {
+                    parsedObjectives = parsed;
+                  } else {
+                    parsedObjectives = [course.keyLearningObjectives];
+                  }
+                } catch (e) {
                   parsedObjectives = [course.keyLearningObjectives];
                 }
-              } catch (e) {
-                parsedObjectives = [course.keyLearningObjectives];
               }
+            }
+
+            // Parse tags
+            let parsedTags = [];
+            if (course.tags && Array.isArray(course.tags)) {
+              parsedTags = course.tags;
+            }
+
+            // Parse language
+            let parsedLanguage = [];
+            if (course.language && Array.isArray(course.language)) {
+              parsedLanguage = course.language;
+            }
+
+            // Handle thumbnail
+            const imageUrl = course.thumbnail || "";
+
+            setCourseData({
+              id: course._id,
+              title: course.title,
+              description: course.description,
+              price: course.price,
+              category: course.category,
+              duration: course.duration,
+              rate: course.rate,
+              lectures: course.lectures,
+              link: course.link,
+              imageUrl: imageUrl,
+              thumbnail: course.thumbnail,
+              mentor: course.mentor,
+              createdAt: course.createdAt,
+              updatedAt: course.updatedAt,
+              level: course.level,
+              // Parsed arrays for display
+              keyLearningObjectives: parsedObjectives,
+              tags: parsedTags,
+              language: parsedLanguage,
+            });
+
+            // Set mentor data with real API stats
+            if (course.mentor) {
+              // Fetch real mentor stats
+              const fetchMentorStats = async (mentorId) => {
+                try {
+                  console.log("🔍 Fetching courses for mentor ID:", mentorId);
+
+                  // Try to get real mentor courses count - getCoursesByMentor returns array directly
+                  const courses = await courseApi.getCoursesByMentor(mentorId);
+
+                  console.log("📊 Mentor courses array:", courses);
+
+                  // Save courses to state for Course tab (similar to mentor-page.jsx)
+                  if (Array.isArray(courses)) {
+                    setMentorCourses(courses);
+                    console.log(
+                      "✅ Saved mentor courses to state:",
+                      courses.length
+                    );
+                  }
+
+                  const totalCourses = Array.isArray(courses)
+                    ? courses.length
+                    : 0;
+                  console.log("🎯 Final totalCourses count:", totalCourses);
+
+                  // Use data from course.mentor (no separate mentor API needed)
+                  return {
+                    totalCourses: totalCourses, // Return exact number
+                    totalStudents: "100+", // Default fallback since no mentor API
+                    experience: course.mentor.experience || "Professional",
+                    category: course.mentor.category || "IT",
+                  };
+                } catch (error) {
+                  console.warn(
+                    "Failed to fetch mentor stats, using defaults:",
+                    error
+                  );
+                  return {
+                    totalCourses: 0, // Return 0 if failed to fetch
+                    totalStudents: "100+",
+                    experience: course.mentor.experience || "Professional",
+                    category: course.mentor.category || "IT",
+                  };
+                }
+              };
+
+              // Get mentor stats and set data
+              const mentorStats = await fetchMentorStats(course.mentor._id);
+
+              setMentorData({
+                id: course.mentor._id,
+                name: course.mentor.userName || "Mentor",
+                firstName: course.mentor.firstName,
+                lastName: course.mentor.lastName,
+                userName: course.mentor.userName,
+                avatar: course.mentor.avatarUrl,
+                title: course.mentor.jobTitle || "Mentor",
+                bio: course.mentor.bio,
+                email: course.mentor.email,
+                location: course.mentor.location,
+                category: mentorStats.category,
+                experience: mentorStats.experience,
+                skills: course.mentor.skills || [],
+                totalCourses: mentorStats.totalCourses,
+                totalStudents: mentorStats.totalStudents,
+              });
             }
           }
 
-          // Parse tags
-          let parsedTags = [];
-          if (course.tags && Array.isArray(course.tags)) {
-            parsedTags = course.tags;
-          }
-
-          // Parse language
-          let parsedLanguage = [];
-          if (course.language && Array.isArray(course.language)) {
-            parsedLanguage = course.language;
-          }
-
-          // Handle thumbnail
-          const imageUrl = course.thumbnail || "";
-
-          setCourseData({
-            id: course._id,
-            title: course.title,
-            description: course.description,
-            price: course.price,
-            category: course.category,
-            duration: course.duration,
-            rate: course.rate,
-            lectures: course.lectures,
-            link: course.link,
-            imageUrl: imageUrl,
-            thumbnail: course.thumbnail,
-            mentor: course.mentor,
-            createdAt: course.createdAt,
-            updatedAt: course.updatedAt,
-            level: course.level,
-            // Parsed arrays for display
-            keyLearningObjectives: parsedObjectives,
-            tags: parsedTags,
-            language: parsedLanguage,
-          });
-
-          // Set mentor data with real API stats
-          if (course.mentor) {
-            // Fetch real mentor stats
-            const fetchMentorStats = async (mentorId) => {
-              try {
-                console.log("🔍 Fetching courses for mentor ID:", mentorId);
-
-                // Try to get real mentor courses count - getCoursesByMentor returns array directly
-                const courses = await courseApi.getCoursesByMentor(mentorId);
-
-                console.log("📊 Mentor courses array:", courses);
-
-                // Save courses to state for Course tab (similar to mentor-page.jsx)
-                if (Array.isArray(courses)) {
-                  setMentorCourses(courses);
-                  console.log(
-                    "✅ Saved mentor courses to state:",
-                    courses.length
-                  );
-                }
-
-                const totalCourses = Array.isArray(courses)
-                  ? courses.length
-                  : 0;
-                console.log("🎯 Final totalCourses count:", totalCourses);
-
-                // Use data from course.mentor (no separate mentor API needed)
-                return {
-                  totalCourses: totalCourses, // Return exact number
-                  totalStudents: "100+", // Default fallback since no mentor API
-                  experience: course.mentor.experience || "Professional",
-                  category: course.mentor.category || "IT",
-                };
-              } catch (error) {
-                console.warn(
-                  "Failed to fetch mentor stats, using defaults:",
-                  error
-                );
-                return {
-                  totalCourses: 0, // Return 0 if failed to fetch
-                  totalStudents: "100+",
-                  experience: course.mentor.experience || "Professional",
-                  category: course.mentor.category || "IT",
-                };
-              }
-            };
-
-            // Get mentor stats and set data
-            const mentorStats = await fetchMentorStats(course.mentor._id);
-
-            setMentorData({
-              id: course.mentor._id,
-              name: course.mentor.userName || "Mentor",
-              firstName: course.mentor.firstName,
-              lastName: course.mentor.lastName,
-              userName: course.mentor.userName,
-              avatar: course.mentor.avatarUrl,
-              title: course.mentor.jobTitle || "Mentor",
-              bio: course.mentor.bio,
-              email: course.mentor.email,
-              location: course.mentor.location,
-              category: mentorStats.category,
-              experience: mentorStats.experience,
-              skills: course.mentor.skills || [],
-              totalCourses: mentorStats.totalCourses,
-              totalStudents: mentorStats.totalStudents,
-            });
-          }
-        }
-
-        // Handle purchased course details (prioritize localStorage over API)
-        if (isPurchasedFromLocalStorage) {
-          console.log(
-            "✅ Setting purchasedCourseData from localStorage:",
-            localPurchasedData
-          );
-          setPurchasedCourseData(localPurchasedData);
-        } else if (
-          purchasedResult.status === "fulfilled" &&
-          !purchasedResult.value.error
-        ) {
-          const apiData = purchasedResult.value.response?.data;
-          if (apiData?.isPurchased && apiData?.courseData) {
+          // Handle purchased course details (prioritize localStorage over API)
+          if (isPurchasedFromLocalStorage) {
             console.log(
-              "✅ Setting purchasedCourseData from API (check endpoint):",
-              apiData.courseData
+              "✅ Setting purchasedCourseData from localStorage:",
+              localPurchasedData
             );
-            setPurchasedCourseData({
-              courseId:
-                apiData.courseData.courseId ||
-                apiData.courseData.courseInfo?._id,
-              purchaseDate: apiData.courseData.purchaseDate,
-              progress: apiData.courseData.progress,
-              lastAccessDate: apiData.courseData.lastAccessDate,
-            });
+            setPurchasedCourseData(localPurchasedData);
+          } else if (
+            purchasedResult.status === "fulfilled" &&
+            !purchasedResult.value.error
+          ) {
+            const apiData = purchasedResult.value.response?.data;
+            if (apiData?.isPurchased && apiData?.courseData) {
+              console.log(
+                "✅ Setting purchasedCourseData from API (check endpoint):",
+                apiData.courseData
+              );
+              setPurchasedCourseData({
+                courseId:
+                  apiData.courseData.courseId ||
+                  apiData.courseData.courseInfo?._id,
+                purchaseDate: apiData.courseData.purchaseDate,
+                progress: apiData.courseData.progress,
+                lastAccessDate: apiData.courseData.lastAccessDate,
+              });
+            } else {
+              console.log(
+                "ℹ️ Course not purchased according to API check endpoint"
+              );
+            }
           } else {
-            console.log(
-              "ℹ️ Course not purchased according to API check endpoint"
+            console.warn(
+              "❌ Purchased course data not available:",
+              purchasedResult.reason
             );
+            // This is not a critical error, user might be viewing course details without purchasing
           }
-        } else {
-          console.warn(
-            "❌ Purchased course data not available:",
-            purchasedResult.reason
-          );
-          // This is not a critical error, user might be viewing course details without purchasing
         }
       } catch (err) {
         console.error("Error in fetchCourseDetails:", err);
@@ -476,7 +605,7 @@ const OrderCompleteCourse = () => {
     };
 
     fetchCourseDetails();
-  }, [courseId]);
+  }, [courseId, purchasedCourseId]); // ⭐ Add purchasedCourseId to dependencies
 
   // Course scroll handlers
   const scrollCourseLeft = () => {
@@ -917,7 +1046,7 @@ const OrderCompleteCourse = () => {
               <h3 className="text-2xl font-bold mb-6 text-gray-800">
                 Course Overview
               </h3>
-              <p className="text-gray-700 mb-8 leading-relaxed text-lg">
+              <p className="text-gray-700 mb-8 leading-relaxed text-lg break-words overflow-wrap-anywhere hyphens-auto">
                 {courseData.description || "Course description not available."}
               </p>
             </div>

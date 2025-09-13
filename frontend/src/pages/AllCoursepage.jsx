@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import courseApi from "../api/modules/course.api";
 import cartApi from "../api/modules/cart.api";
+import purchasedCourseApi from "../api/modules/purchasedCourse.api";
 import { toast } from "react-toastify";
 import { showLoading, hideLoading } from "../redux/features/loading.slice";
 
@@ -47,6 +48,9 @@ const AllCoursePage = () => {
   const [filteredCourses, setFilteredCourses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  // ⭐ NEW: State để lưu purchased courses mapping
+  const [purchasedCoursesMap, setPurchasedCoursesMap] = useState(new Map());
 
   // Filter states
   const [selectedRating, setSelectedRating] = useState("");
@@ -98,6 +102,39 @@ const AllCoursePage = () => {
       }
     }
     return false;
+  };
+
+  // ⭐ NEW: Helper function để lấy purchasedCourseId nếu course đã được mua
+  const getPurchasedCourseId = (courseId) => {
+    return purchasedCoursesMap.get(courseId) || null;
+  };
+
+  // ⭐ NEW: Smart navigation function cho purchased courses
+  const handleSmartViewCourse = (course) => {
+    const courseId = course._id || course.id;
+    const purchasedCourseId = getPurchasedCourseId(courseId);
+
+    if (purchasedCourseId) {
+      // NEW: Navigate với purchasedCourseId (course đã mua)
+      console.log(`🎯 Navigating to purchased course: ${purchasedCourseId}`);
+      navigate(`/order-complete-course/${purchasedCourseId}`, {
+        state: {
+          purchasedCourseId: purchasedCourseId,
+          courseId: courseId,
+          courseInfo: course,
+        },
+      });
+    } else {
+      // LEGACY: Navigate với courseId (course chưa mua hoặc legacy)
+      console.log(`🔄 Navigating to legacy course: ${courseId}`);
+      navigate(`/order-complete-course/${courseId}`, {
+        state: {
+          courseId: courseId,
+          courseInfo: course,
+          isLegacyCourse: true,
+        },
+      });
+    }
   };
 
   // Add to Cart function
@@ -295,8 +332,53 @@ const AllCoursePage = () => {
       }
     };
 
+    const fetchPurchasedCourses = async () => {
+      // ⭐ Chỉ fetch purchased courses nếu user là mentee
+      if (!user || user.role !== "mentee") {
+        return;
+      }
+
+      try {
+        console.log("🔍 Fetching purchased courses for mapping...");
+
+        const { response, error } =
+          await purchasedCourseApi.getPurchasedCourses(dispatch);
+
+        if (!error && response?.data?.courses) {
+          const purchasedCourses = response.data.courses;
+          console.log("✅ Found purchased courses:", purchasedCourses.length);
+
+          // Tạo Map: courseId -> purchasedCourseId
+          const courseMap = new Map();
+          purchasedCourses.forEach((item) => {
+            const courseId = item.courseId || item.courseInfo?._id;
+            const purchasedCourseId = item.purchasedCourseId;
+
+            if (courseId && purchasedCourseId) {
+              courseMap.set(courseId, purchasedCourseId);
+              console.log(
+                `📋 Mapped courseId ${courseId} -> purchasedCourseId ${purchasedCourseId}`
+              );
+            }
+          });
+
+          setPurchasedCoursesMap(courseMap);
+          console.log(
+            "🗺️ Purchased courses mapping created:",
+            courseMap.size,
+            "entries"
+          );
+        } else {
+          console.log("ℹ️ No purchased courses found or API error");
+        }
+      } catch (err) {
+        console.warn("⚠️ Failed to fetch purchased courses for mapping:", err);
+      }
+    };
+
     fetchCourses();
-  }, []);
+    fetchPurchasedCourses();
+  }, [user, dispatch]);
 
   // Dynamic filter options based on actual course data
   const categoryOptions = React.useMemo(() => {
@@ -848,7 +930,7 @@ const AllCoursePage = () => {
                       minHeight: "450px",
                     }}
                   >
-                    <div className="h-[140px] w-full bg-white-100 rounded-t-xl flex items-center justify-center">
+                    <div className="h-[140px] w-full bg-white-100 rounded-t-xl flex items-center justify-center relative">
                       <img
                         src={course.image}
                         alt={course.title}
@@ -860,6 +942,14 @@ const AllCoursePage = () => {
                           Bestseller
                         </span>
                       )}
+                      {/* ⭐ NEW: Purchased indicator */}
+                      {user &&
+                        user.role === "mentee" &&
+                        getPurchasedCourseId(course.id) && (
+                          <span className="absolute top-2 right-2 bg-green-500 text-white text-xs font-bold px-2 py-1 rounded flex items-center gap-1">
+                            ✓ Purchased
+                          </span>
+                        )}
                     </div>
                     <div className="flex flex-col px-5 py-4 flex-1">
                       <div
@@ -989,12 +1079,7 @@ const AllCoursePage = () => {
                                 className="w-full bg-blue-600 text-white py-2 px-3 rounded-md text-sm font-medium hover:bg-blue-700 transition"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  navigate(`/order-complete-course`, {
-                                    state: {
-                                      courseId: course.id,
-                                      courseInfo: course,
-                                    },
-                                  });
+                                  handleSmartViewCourse(course); // ⭐ Sử dụng smart navigation
                                 }}
                               >
                                 View Course

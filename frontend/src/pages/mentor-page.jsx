@@ -4,6 +4,7 @@ import { useDispatch, useSelector } from "react-redux";
 import profileApi from "../api/modules/profile.api";
 import courseApi from "../api/modules/course.api";
 import cartApi from "../api/modules/cart.api";
+import purchasedCourseApi from "../api/modules/purchasedCourse.api";
 import { toast } from "react-toastify";
 import { showLoading, hideLoading } from "../redux/features/loading.slice";
 
@@ -54,6 +55,7 @@ const MentorPage = () => {
   const [reviews, setReviews] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [purchasedCoursesMap, setPurchasedCoursesMap] = useState(new Map());
 
   // Helper function to check if course is already purchased
   const isCourseAlreadyPurchased = (courseId) => {
@@ -87,6 +89,30 @@ const MentorPage = () => {
       }
     }
     return false;
+  };
+
+  // Helper function to get purchased course ID if it exists
+  const getPurchasedCourseId = (courseId) => {
+    return purchasedCoursesMap.get(courseId);
+  };
+
+  // Smart navigation function for View Course button
+  const handleSmartViewCourse = (e, course) => {
+    e.stopPropagation();
+    const courseId = course._id || course.id;
+    const purchasedCourseId = getPurchasedCourseId(courseId);
+
+    if (purchasedCourseId) {
+      // Navigate with purchasedCourseId for new purchased courses
+      navigate(`/order-complete-course/${purchasedCourseId}`, {
+        state: { purchasedCourseId, courseInfo: course },
+      });
+    } else {
+      // Fallback to courseId for legacy courses
+      navigate(`/order-complete-course/${courseId}`, {
+        state: { courseId, courseInfo: course },
+      });
+    }
   };
 
   // Add to Cart function
@@ -262,6 +288,38 @@ const MentorPage = () => {
       console.log("Mentor user data:", mentor.user);
     }
   }, [mentor]);
+
+  // Fetch purchased courses for smart navigation
+  useEffect(() => {
+    const fetchPurchasedCourses = async () => {
+      if (!user || user.role !== "mentee") return;
+
+      try {
+        const { response, err } =
+          await purchasedCourseApi.getPurchasedCourses();
+        if (response?.data?.purchasedCourses) {
+          const coursesMap = new Map();
+          response.data.purchasedCourses.forEach((purchasedCourse) => {
+            const courseId =
+              purchasedCourse.course?._id ||
+              purchasedCourse.course?.id ||
+              purchasedCourse.courseId ||
+              purchasedCourse.courseInfo?._id;
+            const purchasedCourseId = purchasedCourse._id || purchasedCourse.id;
+
+            if (courseId && purchasedCourseId) {
+              coursesMap.set(courseId, purchasedCourseId);
+            }
+          });
+          setPurchasedCoursesMap(coursesMap);
+        }
+      } catch (error) {
+        console.error("Error fetching purchased courses:", error);
+      }
+    };
+
+    fetchPurchasedCourses();
+  }, [user]);
   const mentorCoursesRef = useRef(null);
   const [hoveredCarousel, setHoveredCarousel] = useState(null);
   const scrollCarouselBy = (ref, direction) => {
@@ -722,15 +780,9 @@ const MentorPage = () => {
                                   ✓ Already Purchased
                                 </div>
                                 <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    navigate(`/order-complete-course`, {
-                                      state: {
-                                        courseId: course._id || course.id,
-                                        courseInfo: course,
-                                      },
-                                    });
-                                  }}
+                                  onClick={(e) =>
+                                    handleSmartViewCourse(e, course)
+                                  }
                                   className="w-full bg-blue-600 text-white py-2 px-3 rounded-md text-sm font-medium hover:bg-blue-700 transition-colors"
                                 >
                                   View Course
