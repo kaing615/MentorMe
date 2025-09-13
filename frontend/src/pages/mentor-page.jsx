@@ -346,7 +346,7 @@ const MentorPage = () => {
         <div className="w-full mt-8 p-0">
           {/* Mentor Info Section - fetch and display real data */}
           {mentor && (
-            <div className="w-full flex flex-col lg:flex-row lg:items-start lg:justify-between lg:gap-8 max-w-7xl mx-auto w-full px-2 md:px-4 mb-12">
+            <div className="w-full flex flex-col lg:flex-row lg:items-start lg:justify-between lg:gap-8 max-w-7xl mx-auto px-2 md:px-4 mb-12">
               {/* Left info + about */}
               <div className="flex-1 min-w-0 max-w-full lg:max-w-[calc(100%-21rem)] pr-0 lg:pr-8">
                 <div className="text-base text-gray-500 mb-1">Mentor</div>

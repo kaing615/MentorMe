@@ -4,6 +4,8 @@ import { FaUserCircle } from "react-icons/fa";
 import { useNavigate, useLocation } from "react-router-dom";
 import { PATH, MENTOR_PATH } from "../routes/path";
 import profileApi from "../api/modules/profile.api";
+import availabilityApi from "../api/modules/availability.api";
+import bookingApi from "../api/modules/booking.api";
 import { FaFacebook } from "react-icons/fa6";
 import { FaXTwitter } from "react-icons/fa6";
 import { FaLinkedin } from "react-icons/fa";
@@ -99,13 +101,29 @@ function MentorAvailabilityBuilder({ onBack, onSave, editingSchedule }) {
   const [pickedForDay, setPickedForDay] = useState(new Set()); // working selection
   const [availability, setAvailability] = useState({}); // committed while editing
   const [savedSnapshot, setSavedSnapshot] = useState(null); // what we "persisted"
+  const [bookedSlots, setBookedSlots] = useState({}); // Track booked slots by date
 
   // Load editing data when component mounts or editingSchedule changes
   useEffect(() => {
     if (editingSchedule) {
       setAvailability(editingSchedule.availability || {});
+      
+      // Extract booked slots info if editing
+      if (editingSchedule.slots) {
+        const booked = {};
+        const dateKey = editingSchedule.date;
+        booked[dateKey] = editingSchedule.slots
+          .filter(slot => slot.status === 'booked')
+          .map(slot => ({
+            time: slot.start,
+            bookingId: slot.bookingId,
+            bookedBy: slot.bookedBy
+          }));
+        setBookedSlots(booked);
+      }
     } else {
       setAvailability({});
+      setBookedSlots({});
     }
   }, [editingSchedule]);
 
@@ -126,10 +144,21 @@ function MentorAvailabilityBuilder({ onBack, onSave, editingSchedule }) {
     const saved = availability[v] || [];
     // Filter out past times if it's today
     const validSavedTimes = saved.filter((time) => !isTimeInPast(time, v));
-    setPickedForDay(new Set(validSavedTimes));
+    
+    // Auto-include booked slots for this date (they cannot be unselected)
+    const bookedTimes = bookedSlots[v]?.map(slot => slot.time) || [];
+    const allSelectedTimes = [...new Set([...validSavedTimes, ...bookedTimes])];
+    
+    setPickedForDay(new Set(allSelectedTimes));
   }
 
   function toggleTime(t) {
+    // Check if this time slot is booked (cannot be toggled off)
+    const isBooked = bookedSlots[selectedDate]?.find(slot => slot.time === t);
+    if (isBooked) {
+      return; // Do nothing for booked slots
+    }
+    
     const next = new Set(pickedForDay);
     if (next.has(t)) next.delete(t);
     else next.add(t);
@@ -326,6 +355,17 @@ function MentorAvailabilityBuilder({ onBack, onSave, editingSchedule }) {
                   ? "Modify your existing schedule by adding/removing dates and time slots."
                   : "Pick a date, toggle the available times, then submit that day."}
               </p>
+              {editingSchedule && Object.values(bookedSlots).some(slots => slots.length > 0) && (
+                <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
+                  <div className="flex items-center gap-2 text-red-700">
+                    <span className="text-lg">⚠️</span>
+                    <div className="text-sm">
+                      <p className="font-semibold">Protected Bookings</p>
+                      <p>Red slots with 🔒 have active bookings and cannot be removed. They will be preserved automatically.</p>
+                    </div>
+                  </div>
+                </div>
+              )}
             </header>
 
             {/* Date */}
@@ -415,21 +455,31 @@ function MentorAvailabilityBuilder({ onBack, onSave, editingSchedule }) {
                   {times.map((t) => {
                     const active = pickedForDay.has(t);
                     const isPastTime = isTimeInPast(t, selectedDate);
+                    const isBooked = bookedSlots[selectedDate]?.find(slot => slot.time === t);
+                    
                     return (
                       <button
                         key={t}
                         type="button"
                         onClick={() => toggleTime(t)}
-                        disabled={isPastTime}
-                        className={`rounded-lg border px-3 py-2.5 text-sm text-center transition-all duration-200 font-medium ${
+                        disabled={isPastTime || isBooked}
+                        title={isBooked ? "This slot has an active booking and cannot be removed" : undefined}
+                        className={`rounded-lg border px-3 py-2.5 text-sm text-center transition-all duration-200 font-medium relative ${
                           isPastTime
                             ? "bg-gray-100 text-gray-400 cursor-not-allowed border-gray-200"
+                            : isBooked
+                            ? "bg-red-100 text-red-800 border-red-300 cursor-not-allowed shadow-sm"
                             : active
                             ? "border-blue-600 bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-md transform scale-105"
                             : "border-gray-300 bg-white hover:bg-blue-50 hover:border-blue-300 hover:shadow-sm"
                         }`}
                       >
                         {t}
+                        {isBooked && (
+                          <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full flex items-center justify-center">
+                            <span className="text-white text-xs">🔒</span>
+                          </span>
+                        )}
                       </button>
                     );
                   })}
@@ -983,51 +1033,189 @@ const MentorProfile = () => {
   const [schedules, setSchedules] = useState([]);
   const [selectedSchedule, setSelectedSchedule] = useState(null);
   const [editingSchedule, setEditingSchedule] = useState(null); // Schedule being edited
+  const [availabilityOverview, setAvailabilityOverview] = useState(null);
+  const [availabilityLoading, setAvailabilityLoading] = useState(false);
+  const [mySchedules, setMySchedules] = useState(null);
+  const [mySchedulesLoading, setMySchedulesLoading] = useState(false);
+
+  // Load availability overview when component mounts or tab changes to schedule
+  useEffect(() => {
+    if (activeTab === "schedule") {
+      loadAvailabilityOverview();
+      loadMySchedules();
+    }
+  }, [activeTab]);
+
+  const loadAvailabilityOverview = async () => {
+    setAvailabilityLoading(true);
+    console.log("=== LOADING AVAILABILITY OVERVIEW ===");
+    try {
+      const { response, error } = await availabilityApi.getAvailabilityOverview();
+      console.log("API Response:", response);
+      console.log("API Error:", error);
+      
+      if (error) {
+        console.error("Error loading availability overview:", error);
+        toast.error("Không thể tải lịch overview");
+      } else if (response && response.data) {
+        console.log("Setting availability overview:", response.data);
+        setAvailabilityOverview(response.data);
+      } else {
+        console.log("No data in response");
+      }
+    } catch (err) {
+      console.error("Error in loadAvailabilityOverview:", err);
+      toast.error("Lỗi khi tải availability overview");
+    } finally {
+      setAvailabilityLoading(false);
+      console.log("=== AVAILABILITY OVERVIEW LOADING FINISHED ===");
+    }
+  };
+
+  const loadMySchedules = async () => {
+    setMySchedulesLoading(true);
+    console.log("=== LOADING MY SCHEDULES ===");
+    try {
+      const { response, error } = await availabilityApi.getMySchedules();
+      console.log("My Schedules API Response:", response);
+      console.log("My Schedules API Error:", error);
+      
+      if (error) {
+        console.error("Error loading my schedules:", error);
+        toast.error("Không thể tải danh sách schedules");
+      } else if (response && response.data) {
+        console.log("Setting my schedules:", response.data);
+        setMySchedules(response.data);
+      } else {
+        console.log("No data in my schedules response");
+      }
+    } catch (err) {
+      console.error("Error in loadMySchedules:", err);
+      toast.error("Lỗi khi tải danh sách schedules");
+    } finally {
+      setMySchedulesLoading(false);
+      console.log("=== MY SCHEDULES LOADING FINISHED ===");
+    }
+  };
 
   // Function to handle editing a schedule
   const handleEditSchedule = (schedule) => {
-    setEditingSchedule(schedule);
+    // Transform schedule data to format expected by MentorAvailabilityBuilder
+    const availability = {};
+    if (schedule.date && schedule.slots) {
+      // Convert slots to time strings array
+      const timeSlots = schedule.slots.map(slot => slot.start).sort();
+      availability[schedule.date] = timeSlots;
+    }
+    
+    const editingData = {
+      ...schedule,
+      availability: availability,
+      name: `Schedule for ${new Date(schedule.date).toLocaleDateString("vi-VN", {
+        weekday: "long",
+        year: "numeric", 
+        month: "long",
+        day: "numeric"
+      })}`
+    };
+    
+    setEditingSchedule(editingData);
     setScheduleMode("builder");
   };
 
-  // Function to save edited schedule
-  const handleSaveEditedSchedule = (scheduleData) => {
-    if (editingSchedule) {
-      // Update existing schedule
-      setSchedules((prev) =>
-        prev.map((s) =>
-          s.id === editingSchedule.id
-            ? {
-                ...s,
-                availability: scheduleData.slots,
-                totalDays: Object.keys(scheduleData.slots).length,
-                totalSlots: Object.values(scheduleData.slots).reduce(
-                  (total, times) => total + times.length,
-                  0
-                ),
-                updatedAt: new Date().toISOString(),
-              }
-            : s
-        )
-      );
+  // Helper function to calculate end time
+  const calculateEndTime = (startTime, durationMinutes) => {
+    const [hours, minutes] = startTime.split(':').map(Number);
+    const endMinutes = minutes + durationMinutes;
+    const endHours = endMinutes >= 60 ? hours + Math.floor(endMinutes / 60) : hours;
+    const adjustedMinutes = endMinutes % 60;
+    return `${endHours.toString().padStart(2, '0')}:${adjustedMinutes.toString().padStart(2, '0')}`;
+  };
+
+  // Function to save edited schedule with booking protection
+  const handleSaveEditedSchedule = async (scheduleData) => {
+    try {
+      // Transform scheduleData.slots to backend format with booking protection
+      const availabilityPromises = Object.entries(scheduleData.slots).map(async ([date, times]) => {
+        // First, get existing schedule for this date to check for bookings
+        console.log("Looking for existing schedule for date:", date);
+        console.log("mySchedules structure:", mySchedules);
+        
+        const existingSchedule = mySchedules?.schedulesByMonth
+          ?.flatMap(month => month.schedules)
+          ?.find(schedule => {
+            const normalizedScheduleDate = schedule.date.split('T')[0]; // Remove time part
+            const normalizedTargetDate = date.split('T')[0]; // Remove time part
+            console.log("Comparing dates:", normalizedScheduleDate, "vs", normalizedTargetDate);
+            return normalizedScheduleDate === normalizedTargetDate;
+          });
+          
+        console.log("Found existing schedule:", existingSchedule);
+
+        const newSlots = [];
+        
+        console.log("Processing times for date", date, ":", times);
+        console.log("Existing schedule slots:", existingSchedule?.slots);
+        
+        // Convert new times to 30-minute slots
+        times.forEach(time => {
+          const [hours, minutes] = time.split(':').map(Number);
+          const startTime = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+          const endMinutes = minutes + 30;
+          const endHours = endMinutes >= 60 ? hours + 1 : hours;
+          const adjustedMinutes = endMinutes >= 60 ? endMinutes - 60 : endMinutes;
+          const endTime = `${endHours.toString().padStart(2, '0')}:${adjustedMinutes.toString().padStart(2, '0')}`;
+          
+          // Always add the slot - backend will handle preservation of booking status
+          console.log(`Adding slot: ${startTime}`);
+          newSlots.push({
+            start: startTime,
+            end: endTime,
+            status: "open" // Always send as 'open' - backend will preserve booked status
+          });
+        });
+
+        // Note: Backend will automatically preserve booked/held slots
+        // and delete pending/canceled bookings for removed slots
+
+        // Sort slots by start time and log final payload
+        newSlots.sort((a, b) => a.start.localeCompare(b.start));
+        console.log("Final slots payload for", date, ":", newSlots);
+
+        // Call API to create/update availability
+        const payload = {
+          date,
+          slots: newSlots,
+          timezone: "Asia/Ho_Chi_Minh"
+        };
+        console.log("API payload:", payload);
+        
+        const { response, error } = await availabilityApi.createOrUpdateAvailability(payload);
+
+        if (error) {
+          console.error("API error for date", date, ":", error);
+          throw new Error(`Lỗi cập nhật availability cho ngày ${date}: ${JSON.stringify(error)}`);
+        }
+
+        console.log("API success for date", date, ":", response);
+        return response;
+      });
+
+      await Promise.all(availabilityPromises);
+      
+      toast.success("Cập nhật lịch thành công! Các booking pending/cancelled đã bị xóa.");
+      setScheduleMode("list");
       setEditingSchedule(null);
-    } else {
-      // Create new schedule
-      const newSchedule = {
-        id: Date.now().toString(),
-        name: `Schedule ${Date.now().toString().slice(-6)}`,
-        availability: scheduleData.slots,
-        status: "active",
-        createdAt: scheduleData.createdAt,
-        totalDays: Object.keys(scheduleData.slots).length,
-        totalSlots: Object.values(scheduleData.slots).reduce(
-          (total, times) => total + times.length,
-          0
-        ),
-      };
-      setSchedules((prev) => [...prev, newSchedule]);
+      
+      // Reload all data to refresh UI
+      await loadAvailabilityOverview();
+      await loadMySchedules();
+      await loadMentorBookings(); // Refresh bookings - deleted bookings should disappear
+      
+    } catch (error) {
+      console.error("Error saving schedule:", error);
+      toast.error(error.message || "Lỗi khi cập nhật lịch");
     }
-    setScheduleMode("list");
   };
 
   // Auto-cleanup expired schedules
@@ -1063,80 +1251,249 @@ const MentorProfile = () => {
   }, []);
 
   // Response/Booking management state
-  const [bookings, setBookings] = useState([
-    // Mock data for demonstration
-    {
-      id: "1",
-      menteeName: "Alice Johnson",
-      menteeEmail: "alice@example.com",
-      date: "2025-08-31",
-      time: "14:00",
-      status: "pending",
-      message: "I would like to discuss career development in web development.",
-      createdAt: "2025-08-30T10:00:00Z",
-    },
-    {
-      id: "2",
-      menteeName: "Bob Smith",
-      menteeEmail: "bob@example.com",
-      date: "2025-09-01",
-      time: "16:30",
-      status: "pending",
-      message: "Need guidance on transitioning to a senior role.",
-      createdAt: "2025-08-30T11:30:00Z",
-    },
-    {
-      id: "3",
-      menteeName: "Carol Davis",
-      menteeEmail: "carol@example.com",
-      date: "2025-09-02",
-      time: "10:00",
-      status: "pending",
-      message: "Looking for advice on freelancing best practices.",
-      createdAt: "2025-08-30T09:15:00Z",
-    },
-  ]);
+  const [bookings, setBookings] = useState([]);
+  const [bookingsLoading, setBookingsLoading] = useState(false);
 
   // Booking filter state
   const [bookingFilter, setBookingFilter] = useState("all"); // 'all', 'pending', 'accepted', 'declined'
 
+  // Load bookings when component mounts or tab changes to response
+  useEffect(() => {
+    if (activeTab === "response") {
+      loadMentorBookings();
+    }
+  }, [activeTab]);
+
+  const loadMentorBookings = async () => {
+    setBookingsLoading(true);
+    try {
+      const { response, error } = await bookingApi.getMentorBookings();
+      if (error) {
+        console.error("Error loading mentor bookings:", error);
+        toast.error("Không thể tải danh sách booking");
+        setBookings([]);
+      } else if (response && response.data) {
+        // Transform backend data to match frontend format
+        const transformedBookings = (Array.isArray(response.data) ? response.data : []).map(booking => ({
+          id: booking._id,
+          avatarUrl: booking.mentee?.avatarUrl || '',
+          menteeName: booking.mentee ? `${booking.mentee.firstName || ''} ${booking.mentee.lastName || ''}`.trim() : 'Unknown',
+          menteeEmail: booking.mentee?.email || 'No email',
+          date: new Date(booking.date).toISOString().split('T')[0],
+          time: booking.start,
+          endTime: booking.end,
+          status: booking.status,
+          message: booking.notes || '',
+          createdAt: booking.createdAt
+        }));
+        setBookings(transformedBookings);
+      }
+    } catch (err) {
+      console.error("Error in loadMentorBookings:", err);
+      toast.error("Lỗi khi tải danh sách booking");
+      setBookings([]);
+    } finally {
+      setBookingsLoading(false);
+    }
+  };
+
   // Function to filter bookings based on current filter
   const getFilteredBookings = () => {
     if (bookingFilter === "all") return bookings;
-    return bookings.filter((booking) => booking.status === bookingFilter);
+    
+    // Map frontend filter to backend status
+    const statusMap = {
+      pending: "pending",
+      accepted: "active", // Backend uses "active" for confirmed bookings
+      declined: "cancelled" // Backend uses "cancelled" for declined bookings
+    };
+    
+    const targetStatus = statusMap[bookingFilter];
+    return bookings.filter((booking) => booking.status === targetStatus);
   };
 
   // Booking response handlers
-  const handleAcceptBooking = (bookingId) => {
-    setBookings((prev) =>
-      prev.map((booking) =>
-        booking.id === bookingId
-          ? {
-              ...booking,
-              status: "accepted",
-              respondedAt: new Date().toISOString(),
-            }
-          : booking
-      )
-    );
-    console.log("Booking accepted:", bookingId);
-    // TODO: Call API to update booking status
+  const handleAcceptBooking = async (bookingId) => {
+    try {
+      const { response, error } = await bookingApi.confirmBooking(bookingId);
+      if (error) {
+        console.error("Error accepting booking:", error);
+        toast.error("Không thể chấp nhận booking");
+        return;
+      }
+
+      // Update bookings state
+      setBookings((prev) =>
+        prev.map((booking) =>
+          booking.id === bookingId
+            ? {
+                ...booking,
+                status: "active", // Backend trả về "active" cho confirmed booking
+                respondedAt: new Date().toISOString(),
+              }
+            : booking
+        )
+      );
+
+      // Update mySchedules slots color immediately for better UX
+      const acceptedBooking = bookings.find(b => b.id === bookingId);
+      
+      if (acceptedBooking) {
+        setMySchedules((prev) => {
+          if (!prev || !prev.schedulesByMonth) return prev;
+          
+          return {
+            ...prev,
+            schedulesByMonth: prev.schedulesByMonth.map(monthGroup => ({
+              ...monthGroup,
+              schedules: monthGroup.schedules.map(schedule => {
+                // Normalize dates to YYYY-MM-DD format for comparison
+                const scheduleDate = schedule.date.split('T')[0];
+                const bookingDate = acceptedBooking.date.split('T')[0];
+                if (scheduleDate === bookingDate) {
+                  return {
+                    ...schedule,
+                    slots: schedule.slots.map(slot => {
+                      if (slot.start === acceptedBooking.time) {
+                        return { ...slot, status: 'booked' };
+                      }
+                      return slot;
+                    })
+                  };
+                }
+                return schedule;
+              })
+            }))
+          };
+        });
+      }
+
+      // Refresh availability data with slight delay to ensure backend update completes
+      setTimeout(async () => {
+        await Promise.all([
+          loadAvailabilityOverview(),
+          loadMySchedules()
+        ]);
+      }, 1000); // Wait 1 second for backend to complete slot update
+      
+      toast.success("Đã chấp nhận booking thành công!");
+    } catch (err) {
+      console.error("Error in handleAcceptBooking:", err);
+      toast.error("Lỗi khi chấp nhận booking");
+    }
   };
 
-  const handleDeclineBooking = (bookingId) => {
-    setBookings((prev) =>
-      prev.map((booking) =>
-        booking.id === bookingId
-          ? {
-              ...booking,
-              status: "declined",
-              respondedAt: new Date().toISOString(),
-            }
-          : booking
-      )
-    );
-    console.log("Booking declined:", bookingId);
-    // TODO: Call API to update booking status
+  const handleDeclineBooking = async (bookingId) => {
+    try {
+      const reason = prompt("Lý do từ chối (tuỳ chọn):");
+      
+      const { response, error } = await bookingApi.cancelBooking(bookingId, reason || "");
+      if (error) {
+        console.error("Error declining booking:", error);
+        toast.error("Không thể từ chối booking");
+        return;
+      }
+
+      // Update bookings state
+      setBookings((prev) =>
+        prev.map((booking) =>
+          booking.id === bookingId
+            ? {
+                ...booking,
+                status: "cancelled", // Backend trả về "cancelled" cho declined booking
+                respondedAt: new Date().toISOString(),
+              }
+            : booking
+        )
+      );
+
+      // Update mySchedules slots color immediately for better UX
+      const declinedBooking = bookings.find(b => b.id === bookingId);
+      
+      if (declinedBooking) {
+        setMySchedules((prev) => {
+          if (!prev || !prev.schedulesByMonth) return prev;
+          
+          return {
+            ...prev,
+            schedulesByMonth: prev.schedulesByMonth.map(monthGroup => ({
+              ...monthGroup,
+              schedules: monthGroup.schedules.map(schedule => {
+                // Normalize dates to YYYY-MM-DD format for comparison
+                const scheduleDate = schedule.date.split('T')[0];
+                const bookingDate = declinedBooking.date.split('T')[0];
+                if (scheduleDate === bookingDate) {
+                  return {
+                    ...schedule,
+                    slots: schedule.slots.map(slot => {
+                      if (slot.start === declinedBooking.time) {
+                        return { ...slot, status: 'open' };
+                      }
+                      return slot;
+                    })
+                  };
+                }
+                return schedule;
+              })
+            }))
+          };
+        });
+      }
+
+      // Refresh availability data để slot trở lại trạng thái available
+      setTimeout(async () => {
+        await Promise.all([
+          loadAvailabilityOverview(),
+          loadMySchedules()
+        ]);
+      }, 1000); // Wait 1 second for backend to complete slot update
+      
+      toast.success("Đã từ chối booking thành công! Thời gian đã trở lại trạng thái có thể đặt lịch.");
+    } catch (err) {
+      console.error("Error in handleDeclineBooking:", err);
+      toast.error("Lỗi khi từ chối booking");
+    }
+  };
+
+  const handleDeleteSchedule = async (scheduleId) => {
+    try {
+      const { response, error } = await availabilityApi.deleteAvailability(scheduleId);
+      if (error) {
+        console.error("Error deleting schedule:", error);
+        toast.error("Không thể xóa lịch trình");
+        return;
+      }
+
+      // Update local state - remove from mySchedules
+      setMySchedules((prev) => {
+        if (!prev || !prev.schedulesByMonth) return prev;
+        
+        const updatedSchedulesByMonth = prev.schedulesByMonth.map(monthGroup => ({
+          ...monthGroup,
+          schedules: monthGroup.schedules.filter(schedule => schedule._id !== scheduleId)
+        })).filter(monthGroup => monthGroup.schedules.length > 0); // Remove empty months
+        
+        return {
+          ...prev,
+          schedulesByMonth: updatedSchedulesByMonth,
+          // Update totals
+          totalSchedules: prev.totalSchedules - 1,
+        };
+      });
+
+      // Refresh availability overview data (chỉ refresh overview, không cần refresh mySchedules vì đã update local state)
+      loadAvailabilityOverview();
+      
+      // Fallback: nếu UI không update, refresh lại data sau 500ms
+      setTimeout(() => {
+        loadMySchedules();
+      }, 500);
+      
+      toast.success("Đã xóa lịch trình thành công!");
+    } catch (err) {
+      console.error("Error in handleDeleteSchedule:", err);
+      toast.error("Lỗi khi xóa lịch trình");
+    }
   };
 
   // Real courses data from MongoDB API
@@ -2760,8 +3117,8 @@ const MentorProfile = () => {
                 <div className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100">
                   {/* Header with create schedule button */}
                   <div className="flex justify-between items-center mb-6">
-                    <h3 className="text-lg font-semibold text-gray-900">
-                      My Schedules ({schedules.length})
+                    <h3 className="text-2xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+                      My Schedules
                     </h3>
                     <button
                       onClick={() => setScheduleMode("builder")}
@@ -2784,278 +3141,372 @@ const MentorProfile = () => {
                     </button>
                   </div>
 
-                  {/* Schedules List */}
-                  <div className="space-y-4">
-                    {schedules.length > 0 ? (
-                      schedules.map((schedule) => (
-                        <div
-                          key={schedule.id}
-                          className={`border rounded-lg p-6 hover:shadow-md transition-shadow ${
-                            schedule.status === "inactive"
-                              ? "border-gray-300 bg-gray-50 opacity-75"
-                              : "border-gray-200"
-                          }`}
-                        >
-                          <div className="flex justify-between items-start mb-4">
-                            <div>
-                              <h4
-                                className={`font-semibold text-lg mb-2 ${
-                                  schedule.status === "inactive"
-                                    ? "text-gray-500"
-                                    : "text-gray-900"
-                                }`}
-                              >
-                                {schedule.name}
-                                {schedule.status === "inactive" && (
-                                  <span className="ml-2 text-xs bg-gray-200 text-gray-600 px-2 py-1 rounded-full">
-                                    DISABLED
+                  {/* Availability Overview */}
+                  {availabilityLoading ? (
+                    <div className="flex justify-center items-center py-12">
+                      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                      <span className="ml-3 text-gray-600">Loading availability...</span>
+                    </div>
+                  ) : availabilityOverview ? (
+                    <div className="space-y-4">
+                      {/* Debug logging */}
+                      {console.log("Rendering availabilityOverview:", availabilityOverview)}
+                      
+                      {/* Summary Stats */}
+                      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-6 shadow-lg">
+                        <h4 className="text-xl font-bold text-blue-900 mb-6 flex items-center gap-2">
+                          <span className="text-blue-600">📊</span> Availability Overview (Next 7 Days)
+                        </h4>
+                        <div className="grid grid-cols-3 gap-6 mb-4">
+                          <div className="text-center bg-white rounded-lg p-4 shadow-sm border">
+                            <div className="text-3xl font-bold text-blue-600 mb-1">
+                              {availabilityOverview.summary?.totalDaysWithSlots || 0}
+                            </div>
+                            <div className="text-sm text-blue-800 font-medium">Days with Slots</div>
+                          </div>
+                          <div className="text-center bg-white rounded-lg p-4 shadow-sm border">
+                            <div className="text-3xl font-bold text-green-600 mb-1">
+                              {availabilityOverview.summary?.totalAvailableSlots || 0}
+                            </div>
+                            <div className="text-sm text-green-800 font-medium">Available Slots</div>
+                          </div>
+                          <div className="text-center bg-white rounded-lg p-4 shadow-sm border">
+                            <div className="text-3xl font-bold text-purple-600 mb-1">
+                              {availabilityOverview.summary?.totalSlots || 0}
+                            </div>
+                            <div className="text-sm text-purple-800 font-medium">Total Slots</div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Daily Overview */}
+                      <div className="space-y-4">
+                        {availabilityOverview.overview?.map((day, index) => (
+                          <div
+                            key={day.date}
+                            className={`border-2 rounded-xl p-6 transition-all duration-300 hover:shadow-lg ${
+                              day.hasAvailability 
+                                ? "border-blue-200 bg-gradient-to-r from-blue-50/50 to-indigo-50/30 hover:border-blue-300" 
+                                : "border-gray-200 bg-gray-50/50 hover:border-gray-300"
+                            }`}
+                          >
+                            <div className="flex justify-between items-start mb-4">
+                              <div>
+                                <h5 className="text-lg font-bold text-gray-900 mb-2 flex items-center gap-2">
+                                  <span className="text-blue-600 text-sm">📅</span>
+                                  {day.dayOfWeek}
+                                </h5>
+                                <p className="text-gray-600 font-medium text-sm mb-1">
+                                  {new Date(day.date).toLocaleDateString('en-US', {
+                                    month: 'long',
+                                    day: 'numeric',
+                                    year: 'numeric'
+                                  })}
+                                </p>
+                                <p className="text-sm text-gray-600">
+                                  {day.hasAvailability 
+                                    ? `${day.availableSlots} available / ${day.totalSlots} total slots`
+                                    : "No slots available"
+                                  }
+                                </p>
+                              </div>
+                              <div className="flex flex-col items-end gap-2">
+                                {day.hasAvailability ? (
+                                  <>
+                                    <span className="bg-green-100 text-green-800 text-sm px-3 py-1 rounded-full font-medium shadow-sm">
+                                      ✅ Available
+                                    </span>
+                                    <div className="text-right">
+                                      <div className="text-xs text-gray-500">Availability</div>
+                                      <div className="text-sm font-semibold text-green-600">
+                                        {Math.round((day.availableSlots / day.totalSlots) * 100)}%
+                                      </div>
+                                    </div>
+                                  </>
+                                ) : (
+                                  <span className="bg-gray-100 text-gray-600 text-sm px-3 py-1 rounded-full font-medium">
+                                    ❌ No Slots
                                   </span>
                                 )}
-                              </h4>
-                              <div className="flex items-center gap-4 text-sm text-gray-600">
-                                <span>
-                                  Created:{" "}
-                                  {new Date(
-                                    schedule.createdAt
-                                  ).toLocaleDateString()}
-                                </span>
-                                <span>•</span>
-                                <span>{schedule.totalDays} days</span>
-                                <span>•</span>
-                                <span>{schedule.totalSlots} time slots</span>
                               </div>
                             </div>
+                            
+                            {day.hasAvailability && day.slots && day.slots.length > 0 && (
+                              <div className="bg-white rounded-lg p-4 border border-gray-100">
+                                <h6 className="text-sm font-semibold text-gray-700 mb-3">Time Slots</h6>
+                                <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-2">
+                                  {day.slots.slice(0, 6).map((slot, slotIndex) => (
+                                    <div
+                                      key={slotIndex}
+                                      className={`text-xs py-2 rounded-lg font-medium transition-all flex items-center justify-center ${
+                                        slot.status === 'open' 
+                                          ? 'bg-green-100 text-green-800 border border-green-200 shadow-sm'
+                                          : slot.status === 'booked'
+                                          ? 'bg-red-100 text-red-800 border border-red-200 shadow-sm'
+                                          : slot.status === 'held'
+                                          ? 'bg-yellow-100 text-yellow-800 border border-yellow-200 shadow-sm'
+                                          : 'bg-gray-100 text-gray-600 border border-gray-200'
+                                      }`}
+                                    >
+                                      {slot.start}
+                                    </div>
+                                  ))}
+                                  {day.slots.length > 6 && (
+                                    <div className="text-xs py-2 rounded-lg bg-blue-100 text-blue-700 border border-blue-200 font-medium flex items-center justify-center">
+                                      +{day.slots.length - 6} more
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-center py-12">
+                      <div className="flex flex-col items-center gap-4">
+                        <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center">
+                          <svg
+                            className="w-8 h-8 text-gray-400"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                            />
+                          </svg>
+                        </div>
+                        <div>
+                          <p className="text-gray-500 text-lg mb-2">
+                            No schedules created yet
+                          </p>
+                          <p className="text-gray-400 mb-4">
+                            Create your first availability schedule to start accepting bookings
+                          </p>
+                          <button
+                            onClick={() => setScheduleMode("builder")}
+                            className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition font-medium"
+                          >
+                            Create Schedule
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* My Schedules List */}
+                  <div className="mt-8">
+                    {mySchedulesLoading ? (
+                      <div className="flex justify-center items-center py-12">
+                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                        <span className="ml-3 text-gray-600">Loading my schedules...</span>
+                      </div>
+                    ) : mySchedules && mySchedules.schedulesByMonth && mySchedules.schedulesByMonth.length > 0 ? (
+                      <div className="bg-white rounded-2xl shadow-lg p-8 border border-gray-100 overflow-hidden">
+                        {/* Header with gradient background */}
+                        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 -m-8 mb-6 p-8 border-b border-gray-100">
+                          <div>
+                            <h3 className="text-2xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+                              <span className="text-blue-600">📅</span> My Schedules
+                            </h3>
+                            <div className="flex items-center gap-8 text-sm">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center">
+                                    <span className="text-white text-xs font-bold">
+                                      {mySchedules.summary?.totalSchedules || 0}
+                                    </span>
+                                  </div>
+                                  <span className="text-gray-700 font-medium">Total</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
+                                    <span className="text-white text-xs font-bold">
+                                      {mySchedules.summary?.upcomingSchedules || 0}
+                                    </span>
+                                  </div>
+                                  <span className="text-gray-700 font-medium">Upcoming</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <div className="w-5 h-5 bg-gray-400 rounded-full flex items-center justify-center">
+                                    <span className="text-white text-xs font-bold">
+                                      {mySchedules.summary?.pastSchedules || 0}
+                                    </span>
+                                  </div>
+                                  <span className="text-gray-700 font-medium">Past</span>
+                                </div>
+                              </div>
+                            </div>
+                        </div>
+
+                        {/* Debug logging */}
+                        {console.log("Rendering mySchedules:", mySchedules)}
+
+                        {/* Time Slots Legend */}
+                        <div className="mb-6 p-4 bg-gray-50 rounded-lg border">
+                          <h4 className="text-sm font-semibold text-gray-700 mb-3">Time Slots Status Legend</h4>
+                          <div className="flex flex-wrap gap-4">
                             <div className="flex items-center gap-2">
-                              <span
-                                className={`px-2 py-1 rounded-full text-xs font-medium ${
-                                  schedule.status === "active"
-                                    ? "bg-green-100 text-green-800"
-                                    : "bg-gray-100 text-gray-800"
-                                }`}
-                              >
-                                {schedule.status}
-                              </span>
+                              <div className="w-4 h-4 bg-green-100 border border-green-200 rounded shadow-sm"></div>
+                              <span className="text-sm text-gray-700">Available</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <div className="w-4 h-4 bg-red-100 border border-red-200 rounded shadow-sm"></div>
+                              <span className="text-sm text-gray-700">Booked</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <div className="w-4 h-4 bg-yellow-100 border border-yellow-200 rounded shadow-sm"></div>
+                              <span className="text-sm text-gray-700">On Hold</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <div className="w-4 h-4 bg-gray-100 border border-gray-200 rounded"></div>
+                              <span className="text-sm text-gray-700">Blocked</span>
                             </div>
                           </div>
+                        </div>
 
-                          {/* Schedule Preview */}
-                          <div className="mb-4">
-                            <div className="flex items-center gap-2 mb-3">
-                              <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                              <h5 className="font-semibold text-blue-900">
-                                Availability Preview
-                              </h5>
-                            </div>
-                            <div className="space-y-3">
-                              {Object.entries(schedule.availability)
-                                .slice(0, 3)
-                                .map(([date, times]) => (
+                        {/* Schedules by Month */}
+                        <div className="space-y-8">
+                          {mySchedules.schedulesByMonth.map((monthGroup, monthIndex) => (
+                            <div key={monthGroup.month} className="relative">
+                              {/* Month Header */}
+                              <div className="flex items-center gap-3 mb-6">
+                                <div className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-5 py-2 rounded-xl shadow-sm">
+                                  <h4 className="text-base font-semibold">
+                                    {monthGroup.monthName}
+                                  </h4>
+                                </div>
+                                <div className="bg-gray-100 text-gray-700 px-3 py-1 rounded-full text-sm font-medium">
+                                  {monthGroup.schedules.length} schedules
+                                </div>
+                              </div>
+                              
+                              {/* Schedules Grid */}
+                              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                {monthGroup.schedules.map((schedule, scheduleIndex) => (
                                   <div
-                                    key={date}
-                                    className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4 shadow-sm"
+                                    key={schedule._id}
+                                    className={`relative border-2 rounded-xl p-6 transition-all duration-300 hover:shadow-lg ${
+                                      schedule.status === "past"
+                                        ? "border-gray-200 bg-gray-50/50 hover:border-gray-300"
+                                        : "border-blue-200 bg-gradient-to-br from-blue-50/50 to-indigo-50/30 hover:border-blue-300 hover:shadow-blue-100"
+                                    }`}
                                   >
-                                    <div className="flex items-center gap-2 mb-2">
-                                      <div className="w-1.5 h-1.5 bg-blue-500 rounded-full"></div>
-                                      <div className="font-semibold text-sm text-blue-900">
-                                        {new Date(
-                                          date + "T00:00:00"
-                                        ).toLocaleDateString("en-US", {
-                                          weekday: "short",
-                                          year: "numeric",
-                                          month: "short",
-                                          day: "2-digit",
-                                        })}
-                                      </div>
-                                      <span className="text-blue-600 text-xs bg-blue-100 px-2 py-0.5 rounded-full">
-                                        {date}
+                                    {/* Status Badge */}
+                                    <div className="absolute top-4 right-4">
+                                      <span className={`px-3 py-1 rounded-full text-xs font-bold ${
+                                        schedule.status === "past" 
+                                          ? "bg-gray-200 text-gray-600"
+                                          : "bg-green-100 text-green-700 shadow-sm"
+                                      }`}>
+                                        {schedule.status === "past" ? "COMPLETED" : "UPCOMING"}
                                       </span>
                                     </div>
-                                    <div className="grid grid-cols-5 gap-2">
-                                      {times.slice(0, 5).map((time) => (
-                                        <div
-                                          key={time}
-                                          className="bg-gradient-to-r from-blue-500 to-blue-600 text-white px-2 py-1.5 text-xs text-center rounded-md font-medium shadow-sm"
+
+                                    {/* Schedule Header */}
+                                    <div className="mb-4">
+                                      <h5 className="text-lg font-bold text-gray-900 mb-2 flex items-center gap-1">
+                                        <span className="text-blue-600 text-sm">📆</span> {schedule.dayOfWeek}
+                                      </h5>
+                                      <p className="text-gray-600 font-medium text-sm">
+                                        {new Date(schedule.date).toLocaleDateString('en-US', {
+                                          month: 'long',
+                                          day: 'numeric',
+                                          year: 'numeric'
+                                        })}
+                                      </p>
+                                    </div>
+
+                                    {/* Slots Summary */}
+                                    <div className="mb-4">
+                                      <div className="grid grid-cols-3 gap-4">
+                                        <div className="text-center p-3 bg-white rounded-lg shadow-sm border">
+                                          <div className="text-2xl font-bold text-blue-600">
+                                            {schedule.totalSlots}
+                                          </div>
+                                          <div className="text-xs text-gray-600 font-medium">Total Slots</div>
+                                        </div>
+                                        <div className="text-center p-3 bg-white rounded-lg shadow-sm border">
+                                          <div className="text-2xl font-bold text-green-600">
+                                            {schedule.openSlots}
+                                          </div>
+                                          <div className="text-xs text-gray-600 font-medium">Available</div>
+                                        </div>
+                                        <div className="text-center p-3 bg-white rounded-lg shadow-sm border">
+                                          <div className="text-2xl font-bold text-orange-600">
+                                            {schedule.bookedSlots}
+                                          </div>
+                                          <div className="text-xs text-gray-600 font-medium">Booked</div>
+                                        </div>
+                                      </div>
+                                    </div>
+
+                                    {/* Action Buttons */}
+                                    <div className="flex gap-3">
+                                      <button
+                                        onClick={() => handleEditSchedule(schedule)}
+                                        className="flex items-center gap-1 px-3 py-2 text-sm font-medium border border-blue-300 text-blue-600 rounded-lg hover:bg-blue-50 transition-all duration-200"
+                                      >
+                                        <span className="text-xs">✏️</span> Edit
+                                      </button>
+                                      {schedule.canDelete && (
+                                        <button
+                                          onClick={() => {
+                                            if (window.confirm("Bạn có chắc chắn muốn xóa lịch trình này không?")) {
+                                              handleDeleteSchedule(schedule._id);
+                                            }
+                                          }}
+                                          className="flex items-center gap-1 px-3 py-2 text-sm font-medium border border-red-300 text-red-600 rounded-lg hover:bg-red-50 transition-all duration-200"
                                         >
-                                          {time}
-                                        </div>
-                                      ))}
-                                      {times.length > 5 && (
-                                        <div className="bg-blue-100 border border-blue-300 text-blue-700 px-2 py-1.5 text-xs text-center rounded-md font-medium">
-                                          +{times.length - 5}
-                                        </div>
+                                          <span className="text-xs">🗑️</span> Delete
+                                        </button>
                                       )}
+                                    </div>
+
+                                    {/* Time Slots Preview */}
+                                    <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+                                      <h6 className="text-sm font-semibold text-gray-700 mb-3">Time Slots Preview</h6>
+                                      <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-2">
+                                        {schedule.slots.slice(0, 6).map((slot, index) => (
+                                          <div
+                                            key={index}
+                                            className={`text-xs py-2 rounded-lg font-medium transition-all flex items-center justify-center ${
+                                              slot.status === 'open' 
+                                                ? 'bg-green-100 text-green-800 border border-green-200 shadow-sm'
+                                                : slot.status === 'booked'
+                                                ? 'bg-red-100 text-red-800 border border-red-200 shadow-sm'
+                                                : slot.status === 'held'
+                                                ? 'bg-yellow-100 text-yellow-800 border border-yellow-200 shadow-sm'
+                                                : 'bg-gray-100 text-gray-600 border border-gray-200'
+                                            }`}
+                                          >
+                                            {slot.start}
+                                          </div>
+                                        ))}
+                                        {schedule.slots.length > 6 && (
+                                          <div className="text-xs py-2 rounded-lg bg-blue-100 text-blue-700 border border-blue-200 font-medium flex items-center justify-center">
+                                            +{schedule.slots.length - 6} more
+                                          </div>
+                                        )}
+                                      </div>
                                     </div>
                                   </div>
                                 ))}
-                              {Object.keys(schedule.availability).length >
-                                3 && (
-                                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-center">
-                                  <span className="text-sm text-blue-600 font-medium">
-                                    +
-                                    {Object.keys(schedule.availability).length -
-                                      3}{" "}
-                                    more days available
-                                  </span>
-                                </div>
-                              )}
+                              </div>
                             </div>
-                          </div>
-
-                          {/* Action Buttons */}
-                          <div className="flex gap-2">
-                            <button
-                              onClick={() =>
-                                alert("Publishing schedule... (Connect to API)")
-                              }
-                              className="flex-1 bg-green-600 text-white py-2 px-3 rounded-lg hover:bg-green-700 transition text-sm font-medium flex items-center justify-center gap-2"
-                            >
-                              <svg
-                                className="w-4 h-4"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M5 13l4 4L19 7"
-                                />
-                              </svg>
-                              Publish
-                            </button>
-                            <button
-                              onClick={() => handleEditSchedule(schedule)}
-                              className="px-3 py-2 border border-blue-300 text-blue-600 rounded-lg hover:bg-blue-50 transition text-sm flex items-center gap-2"
-                            >
-                              <svg
-                                className="w-4 h-4"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                                />
-                              </svg>
-                              Edit
-                            </button>
-                            <button
-                              onClick={() => {
-                                if (
-                                  window.confirm(
-                                    "Are you sure you want to delete this schedule?"
-                                  )
-                                ) {
-                                  setSchedules((prev) =>
-                                    prev.filter((s) => s.id !== schedule.id)
-                                  );
-                                }
-                              }}
-                              className="px-3 py-2 border border-red-300 text-red-600 rounded-lg hover:bg-red-50 transition text-sm flex items-center gap-2"
-                            >
-                              <svg
-                                className="w-4 h-4"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                                />
-                              </svg>
-                              Delete
-                            </button>
-                            <button
-                              onClick={() => {
-                                setSchedules((prev) =>
-                                  prev.map((s) =>
-                                    s.id === schedule.id
-                                      ? {
-                                          ...s,
-                                          status:
-                                            s.status === "active"
-                                              ? "inactive"
-                                              : "active",
-                                        }
-                                      : s
-                                  )
-                                );
-                              }}
-                              className={`px-3 py-2 border rounded-lg transition text-sm flex items-center gap-2 ${
-                                schedule.status === "active"
-                                  ? "border-orange-300 text-orange-600 hover:bg-orange-50"
-                                  : "border-green-300 text-green-600 hover:bg-green-50"
-                              }`}
-                            >
-                              <svg
-                                className="w-4 h-4"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                              >
-                                {schedule.status === "active" ? (
-                                  <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth={2}
-                                    d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728L5.636 5.636m12.728 12.728L5.636 5.636"
-                                  />
-                                ) : (
-                                  <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth={2}
-                                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                                  />
-                                )}
-                              </svg>
-                              {schedule.status === "active"
-                                ? "Disable"
-                                : "Enable"}
-                            </button>
-                          </div>
+                          ))}
                         </div>
-                      ))
+                      </div>
                     ) : (
-                      <div className="text-center py-12">
-                        <div className="flex flex-col items-center gap-4">
-                          <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center">
-                            <svg
-                              className="w-8 h-8 text-gray-400"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-                              />
-                            </svg>
-                          </div>
-                          <div>
-                            <p className="text-gray-500 text-lg mb-2">
-                              No schedules created yet
-                            </p>
-                            <p className="text-gray-400 mb-4">
-                              Create your first availability schedule to start
-                              accepting bookings
-                            </p>
-                            <button
-                              onClick={() => setScheduleMode("builder")}
-                              className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition font-medium"
-                            >
-                              Create Schedule
-                            </button>
-                          </div>
+                      <div className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100">
+                        <div className="text-center py-12">
+                          <div className="text-4xl mb-3 text-blue-600">📅</div>
+                          <p className="text-gray-500 text-lg font-medium mb-2">No schedules found</p>
+                          <p className="text-gray-400 text-sm">Create your first schedule to get started!</p>
                         </div>
                       </div>
                     )}
@@ -3210,70 +3661,84 @@ const MentorProfile = () => {
           {activeTab === "response" && (
             <div className="space-y-6">
               {/* Booking Response Section */}
-              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+              <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-8">
                 <div className="space-y-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h1 className="text-2xl font-semibold text-gray-900">
-                        Booking Requests
-                      </h1>
-                      <p className="text-gray-600 mt-1">
-                        Manage mentee booking requests for your available time
-                        slots
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span className="text-sm text-gray-500">
-                        {bookings.filter((b) => b.status === "pending").length}{" "}
-                        pending requests
-                      </span>
+                  <div className="bg-gradient-to-r from-indigo-50 to-purple-50 -m-8 mb-6 p-8 border-b border-gray-100">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h1 className="text-2xl font-bold text-gray-900 mb-2 flex items-center gap-2">
+                          <span className="text-indigo-600">📋</span> Booking Requests
+                        </h1>
+                        <p className="text-gray-600">
+                          Manage mentee booking requests for your available time slots
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <div className="bg-white rounded-lg px-4 py-2 shadow-sm border">
+                          <div className="text-center">
+                            <div className="text-2xl font-bold text-orange-600">
+                              {bookings.filter((b) => b.status === "pending").length}
+                            </div>
+                            <div className="text-xs text-orange-800 font-medium">Pending</div>
+                          </div>
+                        </div>
+                        <div className="bg-white rounded-lg px-4 py-2 shadow-sm border">
+                          <div className="text-center">
+                            <div className="text-2xl font-bold text-indigo-600">
+                              {bookings.length}
+                            </div>
+                            <div className="text-xs text-indigo-800 font-medium">Total</div>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   </div>
 
                   {/* Filters */}
-                  <div className="flex gap-4 border-b border-gray-200 pb-4">
+                  <div className="flex gap-3 border-b border-gray-200 pb-6">
                     <button
                       onClick={() => setBookingFilter("all")}
-                      className={`px-4 py-2 rounded-lg font-medium text-sm transition ${
+                      className={`flex items-center gap-2 px-5 py-3 rounded-xl font-medium text-sm transition-all duration-200 ${
                         bookingFilter === "all"
-                          ? "bg-blue-100 text-blue-700"
-                          : "text-gray-600 hover:bg-gray-100"
+                          ? "bg-indigo-100 text-indigo-700 shadow-sm border border-indigo-200"
+                          : "text-gray-600 hover:bg-gray-100 border border-gray-200"
                       }`}
                     >
+                      <span className="w-2 h-2 bg-current rounded-full"></span>
                       All ({bookings.length})
                     </button>
                     <button
                       onClick={() => setBookingFilter("pending")}
-                      className={`px-4 py-2 rounded-lg font-medium text-sm transition ${
+                      className={`flex items-center gap-2 px-5 py-3 rounded-xl font-medium text-sm transition-all duration-200 ${
                         bookingFilter === "pending"
-                          ? "bg-orange-100 text-orange-700"
-                          : "text-gray-600 hover:bg-gray-100"
+                          ? "bg-orange-100 text-orange-700 shadow-sm border border-orange-200"
+                          : "text-gray-600 hover:bg-gray-100 border border-gray-200"
                       }`}
                     >
-                      Pending (
-                      {bookings.filter((b) => b.status === "pending").length})
+                      <span className="w-2 h-2 bg-current rounded-full"></span>
+                      Pending ({bookings.filter((b) => b.status === "pending").length})
                     </button>
                     <button
                       onClick={() => setBookingFilter("accepted")}
-                      className={`px-4 py-2 rounded-lg font-medium text-sm transition ${
+                      className={`flex items-center gap-2 px-5 py-3 rounded-xl font-medium text-sm transition-all duration-200 ${
                         bookingFilter === "accepted"
-                          ? "bg-green-100 text-green-700"
-                          : "text-gray-600 hover:bg-gray-100"
+                          ? "bg-green-100 text-green-700 shadow-sm border border-green-200"
+                          : "text-gray-600 hover:bg-gray-100 border border-gray-200"
                       }`}
                     >
-                      Accepted (
-                      {bookings.filter((b) => b.status === "accepted").length})
+                      <span className="w-2 h-2 bg-current rounded-full"></span>
+                      Accepted ({bookings.filter((b) => b.status === "active").length})
                     </button>
                     <button
                       onClick={() => setBookingFilter("declined")}
-                      className={`px-4 py-2 rounded-lg font-medium text-sm transition ${
+                      className={`flex items-center gap-2 px-5 py-3 rounded-xl font-medium text-sm transition-all duration-200 ${
                         bookingFilter === "declined"
-                          ? "bg-red-100 text-red-700"
-                          : "text-gray-600 hover:bg-gray-100"
+                          ? "bg-red-100 text-red-700 shadow-sm border border-red-200"
+                          : "text-gray-600 hover:bg-gray-100 border border-gray-200"
                       }`}
                     >
-                      Declined (
-                      {bookings.filter((b) => b.status === "declined").length})
+                      <span className="w-2 h-2 bg-current rounded-full"></span>
+                      Declined ({bookings.filter((b) => b.status === "cancelled").length})
                     </button>
                   </div>
 
@@ -3282,28 +3747,16 @@ const MentorProfile = () => {
                     {(() => {
                       const filteredBookings = getFilteredBookings();
                       return filteredBookings.length === 0 ? (
-                        <div className="text-center py-12">
-                          <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                            <svg
-                              className="w-8 h-8 text-gray-400"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-                              />
-                            </svg>
+                        <div className="text-center py-16">
+                          <div className="w-20 h-20 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                            <span className="text-3xl">📋</span>
                           </div>
-                          <h3 className="text-lg font-medium text-gray-900 mb-2">
+                          <h3 className="text-xl font-bold text-gray-900 mb-3">
                             {bookingFilter === "all"
                               ? "No booking requests yet"
                               : `No ${bookingFilter} booking requests`}
                           </h3>
-                          <p className="text-gray-600">
+                          <p className="text-gray-600 max-w-md mx-auto leading-relaxed">
                             {bookingFilter === "all"
                               ? "When mentees book your available time slots, they will appear here for your review."
                               : `No booking requests with ${bookingFilter} status found.`}
@@ -3313,27 +3766,56 @@ const MentorProfile = () => {
                         filteredBookings.map((booking) => (
                           <div
                             key={booking.id}
-                            className={`border rounded-xl p-6 transition-all duration-200 ${
+                            className={`border-2 rounded-2xl p-6 transition-all duration-300 hover:shadow-xl ${
                               booking.status === "pending"
-                                ? "border-orange-200 bg-orange-50/50"
+                                ? "border-orange-200 bg-gradient-to-br from-orange-50/50 to-yellow-50/30 hover:border-orange-300"
                                 : booking.status === "accepted"
-                                ? "border-green-200 bg-green-50/50"
-                                : "border-red-200 bg-red-50/50"
+                                ? "border-green-200 bg-gradient-to-br from-green-50/50 to-emerald-50/30 hover:border-green-300"
+                                : "border-red-200 bg-gradient-to-br from-red-50/50 to-pink-50/30 hover:border-red-300"
                             }`}
                           >
-                            <div className="flex items-start justify-between mb-4">
+                            {/* Status Badge */}
+                            <div className="flex justify-between items-start mb-4">
+                              <span className={`px-3 py-1 rounded-full text-sm font-bold ${
+                                booking.status === "pending"
+                                  ? "bg-orange-100 text-orange-800"
+                                  : booking.status === "active"
+                                  ? "bg-green-100 text-green-800"
+                                  : "bg-red-100 text-red-800"
+                              }`}>
+                                {booking.status === "pending" ? "⏳ PENDING" : 
+                                 booking.status === "active" ? "✅ ACCEPTED" : 
+                                 booking.status === "cancelled" ? "❌ DECLINED" : "❓ " + booking.status.toUpperCase()}
+                              </span>
+                              <span className="text-xs text-gray-500">
+                                {new Date(booking.createdAt).toLocaleDateString()}
+                              </span>
+                            </div>
+
+                            <div className="flex items-start justify-between mb-6">
                               <div className="flex-1">
-                                <div className="flex items-center gap-3 mb-2">
-                                  <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                                    <span className="text-blue-700 font-medium text-sm">
-                                      {booking.menteeName
-                                        .split(" ")
-                                        .map((n) => n[0])
-                                        .join("")}
+                                <div className="flex items-center gap-4 mb-4">
+                                  <div className="w-12 h-12 rounded-full overflow-hidden bg-gradient-to-br from-indigo-100 to-purple-100 flex items-center justify-center">
+                                    {booking.avatarUrl ? (
+                                      <img
+                                        src={booking.avatarUrl}
+                                        alt={booking.menteeName}
+                                        className="w-full h-full object-cover"
+                                        onError={(e) => {
+                                          e.target.style.display = 'none';
+                                          e.target.nextSibling.style.display = 'flex';
+                                        }}
+                                      />
+                                    ) : null}
+                                    <span 
+                                      className="text-indigo-700 font-bold text-lg"
+                                      style={{ display: booking.avatarUrl ? 'none' : 'flex' }}
+                                    >
+                                      {booking.menteeName?.charAt(0) || 'M'}
                                     </span>
                                   </div>
                                   <div>
-                                    <h4 className="font-semibold text-gray-900">
+                                    <h4 className="text-lg font-bold text-gray-900">
                                       {booking.menteeName}
                                     </h4>
                                     <p className="text-sm text-gray-600">
@@ -3342,25 +3824,14 @@ const MentorProfile = () => {
                                   </div>
                                 </div>
 
-                                <div className="grid grid-cols-2 gap-4 mb-3">
-                                  <div className="flex items-center gap-2 text-sm text-gray-600">
-                                    <svg
-                                      className="w-4 h-4"
-                                      fill="none"
-                                      stroke="currentColor"
-                                      viewBox="0 0 24 24"
-                                    >
-                                      <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        strokeWidth={2}
-                                        d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-                                      />
-                                    </svg>
-                                    <span className="font-medium">
-                                      {new Date(
-                                        booking.date
-                                      ).toLocaleDateString("en-US", {
+                                <div className="grid grid-cols-2 gap-6 mb-4">
+                                  <div className="bg-white rounded-lg p-4 border border-gray-100">
+                                    <div className="flex items-center gap-2 text-sm text-gray-600 mb-1">
+                                      <span className="text-blue-600">📅</span>
+                                      <span className="font-medium">Date</span>
+                                    </div>
+                                    <span className="font-semibold text-gray-900">
+                                      {new Date(booking.date).toLocaleDateString("en-US", {
                                         weekday: "long",
                                         year: "numeric",
                                         month: "long",
@@ -3368,100 +3839,42 @@ const MentorProfile = () => {
                                       })}
                                     </span>
                                   </div>
-                                  <div className="flex items-center gap-2 text-sm text-gray-600">
-                                    <svg
-                                      className="w-4 h-4"
-                                      fill="none"
-                                      stroke="currentColor"
-                                      viewBox="0 0 24 24"
-                                    >
-                                      <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        strokeWidth={2}
-                                        d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                                      />
-                                    </svg>
-                                    <span className="font-medium">
+                                  <div className="bg-white rounded-lg p-4 border border-gray-100">
+                                    <div className="flex items-center gap-2 text-sm text-gray-600 mb-1">
+                                      <span className="text-green-600">⏰</span>
+                                      <span className="font-medium">Time</span>
+                                    </div>
+                                    <span className="font-semibold text-gray-900">
                                       {booking.time}
                                     </span>
                                   </div>
                                 </div>
 
-                                <div className="text-xs text-gray-500">
-                                  Requested{" "}
-                                  {new Date(
-                                    booking.createdAt
-                                  ).toLocaleDateString()}{" "}
-                                  at{" "}
-                                  {new Date(
-                                    booking.createdAt
-                                  ).toLocaleTimeString([], {
-                                    hour: "2-digit",
-                                    minute: "2-digit",
-                                  })}
-                                </div>
-                              </div>
-
-                              <div className="flex items-center gap-2 ml-4">
-                                <span
-                                  className={`px-3 py-1 rounded-full text-xs font-medium ${
-                                    booking.status === "pending"
-                                      ? "bg-orange-100 text-orange-800"
-                                      : booking.status === "accepted"
-                                      ? "bg-green-100 text-green-800"
-                                      : "bg-red-100 text-red-800"
-                                  }`}
-                                >
-                                  {booking.status.charAt(0).toUpperCase() +
-                                    booking.status.slice(1)}
-                                </span>
+                                {booking.message && (
+                                  <div className="bg-white rounded-lg p-4 border border-gray-100 mb-4">
+                                    <div className="flex items-center gap-2 text-sm text-gray-600 mb-2">
+                                      <span className="text-purple-600">💬</span>
+                                      <span className="font-medium">Message from Mentee</span>
+                                    </div>
+                                    <p className="text-gray-800 italic">"{booking.message}"</p>
+                                  </div>
+                                )}
                               </div>
                             </div>
 
                             {/* Action Buttons */}
                             {booking.status === "pending" && (
-                              <div className="flex gap-3 pt-4 border-t border-gray-200">
+                              <div className="flex justify-center gap-3 pt-4 border-t border-gray-200">
                                 <button
-                                  onClick={() =>
-                                    handleAcceptBooking(booking.id)
-                                  }
-                                  className="flex-1 bg-green-600 text-white py-2.5 px-4 rounded-lg hover:bg-green-700 transition font-medium flex items-center justify-center gap-2"
+                                  onClick={() => handleAcceptBooking(booking.id)}
+                                  className="flex items-center gap-2 px-6 py-3 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors duration-200"
                                 >
-                                  <svg
-                                    className="w-4 h-4"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    viewBox="0 0 24 24"
-                                  >
-                                    <path
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                      strokeWidth={2}
-                                      d="M5 13l4 4L19 7"
-                                    />
-                                  </svg>
                                   Accept
                                 </button>
                                 <button
-                                  onClick={() =>
-                                    handleDeclineBooking(booking.id)
-                                  }
-                                  className="flex-1 bg-red-600 text-white py-2.5 px-4 rounded-lg hover:bg-red-700 transition font-medium flex items-center justify-center gap-2"
+                                  onClick={() => handleDeclineBooking(booking.id)}
+                                  className="flex items-center gap-2 px-6 py-3 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition-colors duration-200"
                                 >
-                                  <svg
-                                    className="w-4 h-4"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    viewBox="0 0 24 24"
-                                  >
-                                    <path
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                      strokeWidth={2}
-                                      d="M6 18L18 6M6 6l12 12"
-                                    />
-                                  </svg>
                                   Decline
                                 </button>
                               </div>

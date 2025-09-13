@@ -12,7 +12,7 @@ const Header = () => {
   const location = useLocation();
   const dispatch = useDispatch();
 
-  // Get user data from Redux store and localStorage
+  // Get user data from Redux store
   const user = useSelector((state) => state.user);
   const localLoggedIn = localStorage.getItem("isLoggedIn") === "true";
   const localUser = localStorage.getItem("user");
@@ -41,8 +41,6 @@ const Header = () => {
       setShowCategories(shouldShowCategories);
       localStorage.setItem("mentorMode", shouldShowCategories.toString());
     }
-    // Nếu đã đăng nhập, duy trì trạng thái hiện tại (không thay đổi)
-    
     const handleStorageChange = (e) => {
       if (e.key === "mentorMode" && !isLoggedIn) {
         // Chỉ cập nhật khi chưa đăng nhập
@@ -51,7 +49,7 @@ const Header = () => {
     };
     window.addEventListener("storage", handleStorageChange);
     return () => window.removeEventListener("storage", handleStorageChange);
-  }, [location.pathname, isLoggedIn]);
+  }, [location.pathname, user]);
 
   const handleAPICall = (id, action) => {
     console.log(`API Call - ID: ${id}, Action: ${action}`);
@@ -60,20 +58,7 @@ const Header = () => {
   const handleLogout = () => {
     // Clear user data using Redux action (will also clear localStorage)
     dispatch(clearUser());
-    // Clear all authentication related data from both localStorage and sessionStorage
-    localStorage.removeItem("user");
-    localStorage.removeItem("token");
-    localStorage.removeItem("actkn");
-    localStorage.removeItem("isLoggedIn");
-    sessionStorage.removeItem("user");
-    sessionStorage.removeItem("token");
-    sessionStorage.removeItem("actkn");
-    sessionStorage.removeItem("isLoggedIn");
-    // Reset header về trạng thái mặc định khi đăng xuất
-    setShowCategories(false);
-    localStorage.setItem("mentorMode", "false");
     navigate("/");
-    toast.success("Đăng xuất thành công!");
   };
 
   return (
@@ -171,7 +156,7 @@ const Header = () => {
                   onClick={handleLogout}
                   title="Click to Logout"
                 >
-                  {(user?.firstName || (localUser ? JSON.parse(localUser).firstName : null))?.charAt(0).toUpperCase() || "U"}
+                  {user?.firstName?.charAt(0).toUpperCase() || "U"}
                 </div>
               </div>
             )}
