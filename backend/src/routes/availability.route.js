@@ -7,6 +7,17 @@ import * as availabilityValidation from "../validations/availability.validation.
 const router = express.Router();
 
 /**
+ * @route   GET /api/availability/public-schedule
+ * @desc    Mentee/public xem lịch trống của mentor
+ * @access  Public
+ */
+router.get(
+  "/public-schedule",
+  validateQuery(availabilityValidation.getAvailabilitySchema),
+  availabilityController.getPublicSchedule
+);
+
+/**
  * @route   POST /api/availability
  * @desc    Mentor tạo hoặc cập nhật availability cho một ngày
  * @access  Private (Mentor only)

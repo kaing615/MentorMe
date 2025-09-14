@@ -1368,6 +1368,128 @@ paths:
                       example: "Availability đã được tạo/cập nhật thành công",
                     }
                   availability: { $ref: "#/components/schemas/Availability" }
+  /availability/public-schedule:
+    get:
+      tags:
+        - Availability Management
+      summary: Lấy lịch trống của mentor (dành cho mentee/public)
+      description: |
+        Lấy lịch chi tiết trong ngày của mentor với thống kê đầy đủ:
+        - Thông tin mentor (name, avatar, jobTitle)
+        - Thống kê slots (total, open, blocked)
+        - Duration calculation cho từng slot
+        - Timezone support
+        - API công khai, không cần đăng nhập
+        - Bất kỳ ai (mentee, guest) cũng có thể xem lịch trống của mentor
+      parameters:
+        - in: query
+          name: mentorId
+          required: true
+          schema:
+            type: string
+          description: ID của mentor cần xem lịch
+          example: "60a4f4b2e5b8c5001f7a1234"
+        - in: query
+          name: date
+          required: false
+          schema:
+            type: string
+            format: date
+          description: Ngày cần lấy lịch (YYYY-MM-DD). Nếu không truyền sẽ sử dụng ngày hiện tại.
+          example: "2025-09-01"
+      responses:
+        "200":
+          description: Lấy lịch mentor thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      message:
+                        type: string
+                        example: "Lịch mentor được tải thành công"
+                      schedule:
+                        type: object
+                        properties:
+                          date:
+                            type: string
+                            format: date
+                            example: "2025-09-01"
+                          dayOfWeek:
+                            type: string
+                            example: "Thứ Hai"
+                          mentor:
+                            type: object
+                            properties:
+                              _id:
+                                type: string
+                                example: "60a4f4b2e5b8c5001f7a1234"
+                              firstName:
+                                type: string
+                                example: "Nguyen"
+                              lastName:
+                                type: string
+                                example: "Van A"
+                              avatarUrl:
+                                type: string
+                                example: "https://example.com/avatar.jpg"
+                              jobTitle:
+                                type: string
+                                example: "Senior Developer"
+                          timezone:
+                            type: string
+                            example: "Asia/Ho_Chi_Minh"
+                          totalSlots:
+                            type: integer
+                            example: 8
+                          openSlots:
+                            type: integer
+                            example: 3
+                          blockedSlots:
+                            type: integer
+                            example: 2
+                          slots:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                _id:
+                                  type: string
+                                  example: "slot_id_123"
+                                start:
+                                  type: string
+                                  example: "09:00"
+                                end:
+                                  type: string
+                                  example: "09:30"
+                                status:
+                                  type: string
+                                  enum: [open, blocked]
+                                  example: "open"
+                                duration:
+                                  type: string
+                                  example: "30m"
+                                isAvailable:
+                                  type: boolean
+                                  example: true
+        "400":
+          description: Thiếu mentorId trong query param
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Mentor không tồn tại
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
 
   /availability/today-schedule:
     get:

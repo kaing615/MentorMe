@@ -247,6 +247,115 @@ export const createOrUpdateAvailability = async (req, res) => {
 };
 
 /**
+ * Lấy lịch trống của mentor cho public/mentee
+ * GET /api/availability/public-schedule?mentorId=...&date=...
+ */
+export const getPublicSchedule = async (req, res) => {
+  try {
+    const { mentorId, date } = req.query;
+    if (!mentorId) {
+      return responseHandler.badRequest(
+        res,
+        "Thiếu mentorId trong query param"
+      );
+    }
+
+    // Nếu không truyền date, sử dụng ngày hiện tại
+    let queryDate = date;
+    if (!queryDate) {
+      const today = new Date();
+      queryDate = today.toISOString().split("T")[0];
+    }
+
+    // Lấy thông tin mentor
+    const mentor = await User.findById(mentorId);
+    if (!mentor) {
+      return responseHandler.notFound(res, "Mentor không tồn tại");
+    }
+
+    // Chuẩn hóa date
+    const inputDate = new Date(queryDate);
+    const normalizedDate = new Date(
+      inputDate.toISOString().split("T")[0] + "T00:00:00.000Z"
+    );
+
+    // Tìm availability cho ngày đó
+    const availability = await Availability.findOne({
+      mentor: mentorId,
+      date: normalizedDate,
+    }).populate("mentor", "firstName lastName avatarUrl jobTitle");
+
+    if (!availability) {
+      return responseHandler.ok(res, {
+        message: "Không có lịch cho ngày này",
+        schedule: {
+          date: queryDate,
+          dayOfWeek: normalizedDate.toLocaleDateString("vi-VN", {
+            weekday: "long",
+          }),
+          mentor: {
+            _id: mentor._id,
+            firstName: mentor.firstName,
+            lastName: mentor.lastName,
+            avatarUrl: mentor.avatarUrl,
+            jobTitle: mentor.jobTitle,
+          },
+          timezone: "Asia/Ho_Chi_Minh",
+          totalSlots: 0,
+          openSlots: 0,
+          blockedSlots: 0,
+          slots: [],
+        },
+      });
+    }
+
+    // Tính toán thống kê
+    const totalSlots = availability.slots.length;
+    const openSlots = availability.slots.filter(
+      (slot) => slot.status === "open"
+    ).length;
+    const blockedSlots = availability.slots.filter(
+      (slot) => slot.status === "blocked"
+    ).length;
+
+    // Format response với thông tin chi tiết
+    const schedule = {
+      date: queryDate,
+      dayOfWeek: normalizedDate.toLocaleDateString("vi-VN", {
+        weekday: "long",
+      }),
+      mentor: {
+        _id: availability.mentor._id,
+        firstName: availability.mentor.firstName,
+        lastName: availability.mentor.lastName,
+        avatarUrl: availability.mentor.avatarUrl,
+        jobTitle: availability.mentor.jobTitle,
+      },
+      timezone: availability.timezone,
+      totalSlots,
+      openSlots,
+      blockedSlots,
+      slots: availability.slots.map((slot) => ({
+        _id: slot._id,
+        start: slot.start,
+        end: slot.end,
+        status: slot.status,
+        duration: calculateDuration(slot.start, slot.end),
+        isAvailable: slot.status === "open",
+      })),
+    };
+
+    return responseHandler.ok(res, {
+      message: "Lịch mentor được tải thành công",
+      schedule,
+    });
+  } catch (error) {
+    console.error("Error getting public mentor schedule:", error);
+    return responseHandler.error(res, "Lỗi khi lấy lịch mentor");
+  }
+};
+
+/**
  * Lấy lịch trong ngày của mentor (detailed schedule)
  * GET /api/availability/today-schedule?date=YYYY-MM-DD
  */
@@ -596,6 +705,7 @@ export const manualCleanupOldAvailabilities = async (req, res) => {
 export default {
   createOrUpdateAvailability,
   getTodaySchedule,
+  getPublicSchedule,
   deleteAvailability,
   getMentorAvailabilityRange,
   getAvailabilityOverview,
