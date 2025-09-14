@@ -5,6 +5,8 @@ import profileApi from "../api/modules/profile.api";
 import courseApi from "../api/modules/course.api";
 import cartApi from "../api/modules/cart.api";
 import purchasedCourseApi from "../api/modules/purchasedCourse.api";
+import availabilityApi from "../api/modules/availability.api";
+import bookingApi from "../api/modules/booking.api";
 import { toast } from "react-toastify";
 import { showLoading, hideLoading } from "../redux/features/loading.slice";
 
@@ -56,6 +58,17 @@ const MentorPage = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [purchasedCoursesMap, setPurchasedCoursesMap] = useState(new Map());
+
+  // Booking states
+  const [showBookingModal, setShowBookingModal] = useState(false);
+  const [bookingLoading, setBookingLoading] = useState(false);
+  const [availabilities, setAvailabilities] = useState([]);
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState(null);
+  const [selectedTimeSlot, setSelectedTimeSlot] = useState(null);
+  const [bookingStep, setBookingStep] = useState(1);
+  const [bookingNotes, setBookingNotes] = useState("");
+  const [showMonthYearPicker, setShowMonthYearPicker] = useState(false);
 
   // Helper function to check if course is already purchased
   const isCourseAlreadyPurchased = (courseId) => {
@@ -320,6 +333,222 @@ const MentorPage = () => {
 
     fetchPurchasedCourses();
   }, [user]);
+
+  // Booking Functions
+  const loadMentorAvailability = async () => {
+    if (!mentor?._id && !mentor?.user?._id && !mentor?.profile?._id) return;
+
+    const mentorId = mentor._id || mentor.user?._id || mentor.profile?._id;
+
+    setBookingLoading(true);
+    try {
+      const today = new Date();
+      const twoWeeksLater = new Date();
+      twoWeeksLater.setDate(today.getDate() + 14);
+
+      const startDate = today.toISOString().split("T")[0];
+      const endDate = twoWeeksLater.toISOString().split("T")[0];
+
+      const { response, error } =
+        await availabilityApi.getMentorPublicAvailability(
+          mentorId,
+          startDate,
+          endDate
+        );
+
+      if (error) {
+        console.error("Error loading mentor availability:", error);
+        toast.error("Không thể tải lịch mentor");
+        setAvailabilities([]);
+      } else {
+        let availabilitiesData =
+          response?.availabilities ||
+          response?.data?.availabilities ||
+          response?.data ||
+          [];
+        setAvailabilities(
+          Array.isArray(availabilitiesData) ? availabilitiesData : []
+        );
+      }
+    } catch (err) {
+      console.error("Error:", err);
+      toast.error("Có lỗi xảy ra khi tải lịch");
+      setAvailabilities([]);
+    } finally {
+      setBookingLoading(false);
+    }
+  };
+
+  const generateCalendarDays = () => {
+    const year = currentDate.getFullYear();
+    const currentMonth = currentDate.getMonth();
+
+    const firstDay = new Date(year, currentMonth, 1);
+    const startDate = new Date(firstDay);
+    startDate.setDate(startDate.getDate() - firstDay.getDay());
+
+    const days = [];
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    for (let i = 0; i < 42; i++) {
+      const date = new Date(startDate);
+      date.setDate(startDate.getDate() + i);
+
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      const day = String(date.getDate()).padStart(2, "0");
+      const dateStr = `${year}-${month}-${day}`;
+
+      const availability = availabilities.find((avail) => {
+        const availDate = new Date(avail.date).toISOString().split("T")[0];
+        return availDate === dateStr;
+      });
+
+      let dayStatus = "unavailable";
+      if (availability && availability.slots.length > 0) {
+        const hasOpenSlots = availability.slots.some(
+          (slot) => slot.status === "open"
+        );
+        const hasHeldSlots = availability.slots.some(
+          (slot) => slot.status === "held"
+        );
+        const hasBookedSlots = availability.slots.some(
+          (slot) => slot.status === "booked"
+        );
+
+        if (hasOpenSlots) {
+          dayStatus = "available";
+        } else if (hasHeldSlots) {
+          dayStatus = "pending";
+        } else if (hasBookedSlots) {
+          dayStatus = "booked";
+        }
+      }
+
+      const isPast = date < today;
+      const isCurrentMonth = date.getMonth() === currentMonth;
+
+      days.push({
+        date: date,
+        dateStr: dateStr,
+        day: date.getDate(),
+        availability: availability,
+        dayStatus: isPast ? "past" : dayStatus,
+        isPast: isPast,
+        isCurrentMonth: isCurrentMonth,
+        isClickable:
+          !isPast &&
+          isCurrentMonth &&
+          availability &&
+          availability.slots.length > 0,
+      });
+    }
+
+    return days;
+  };
+
+  const handleDateSelect = (day) => {
+    if (!day.isClickable) return;
+    setSelectedDate(day.dateStr);
+    setSelectedTimeSlot(null);
+    setBookingStep(2);
+  };
+
+  const handleTimeSlotSelect = (slot) => {
+    setSelectedTimeSlot(slot);
+  };
+
+  const handleBooking = async () => {
+    if (!selectedDate || !selectedTimeSlot) {
+      toast.error("Vui lòng chọn ngày và giờ");
+      return;
+    }
+
+    if (!user || user.role !== "mentee") {
+      toast.error("Chỉ mentee mới có thể đặt lịch");
+      return;
+    }
+
+    const mentorId =
+      mentor?.user?._id || mentor?.user?.id || mentor?._id || mentor?.id;
+    if (!mentorId) {
+      toast.error("Không tìm thấy thông tin mentor");
+      return;
+    }
+
+    setBookingLoading(true);
+    try {
+      // Tìm availability object chứa slot được chọn
+      const selectedAvailability = availabilities.find((avail) => {
+        const availDate = new Date(avail.date).toISOString().split("T")[0];
+        return availDate === selectedDate;
+      });
+
+      if (!selectedAvailability) {
+        toast.error("Không tìm thấy lịch khả dụng cho ngày đã chọn");
+        return;
+      }
+
+      // Tạo booking data
+      const bookingData = {
+        availabilityId: selectedAvailability._id,
+        slotId: selectedTimeSlot._id,
+        date: selectedDate,
+        start: selectedTimeSlot.start,
+        end: selectedTimeSlot.end,
+        notes: bookingNotes.trim() || undefined,
+      };
+
+      console.log("Creating booking with data:", bookingData);
+
+      // Gọi API tạo booking
+      const { response, error } = await bookingApi.createBooking(
+        mentorId,
+        bookingData
+      );
+
+      if (response) {
+        toast.success("Đặt lịch thành công! Chờ mentor xác nhận.");
+        closeBookingModal();
+        // Reload availability để cập nhật trạng thái
+        loadMentorAvailability();
+      } else {
+        console.error("Booking API error:", error);
+        toast.error(error?.message || "Có lỗi xảy ra khi đặt lịch");
+      }
+    } catch (err) {
+      console.error("Booking error:", err);
+      toast.error("Có lỗi xảy ra khi đặt lịch");
+    } finally {
+      setBookingLoading(false);
+    }
+  };
+
+  const getSelectedDateAvailability = () => {
+    return availabilities.find((avail) => {
+      const availDate = new Date(avail.date).toISOString().split("T")[0];
+      return availDate === selectedDate;
+    });
+  };
+
+  const openBookingModal = () => {
+    setShowBookingModal(true);
+    setBookingStep(1);
+    setSelectedDate(null);
+    setSelectedTimeSlot(null);
+    setBookingNotes("");
+    loadMentorAvailability();
+  };
+
+  const closeBookingModal = () => {
+    setShowBookingModal(false);
+    setBookingStep(1);
+    setSelectedDate(null);
+    setSelectedTimeSlot(null);
+    setBookingNotes("");
+  };
+
   const mentorCoursesRef = useRef(null);
   const [hoveredCarousel, setHoveredCarousel] = useState(null);
   const scrollCarouselBy = (ref, direction) => {
@@ -342,7 +571,9 @@ const MentorPage = () => {
 
   return (
     <div className="min-h-screen bg-white-50 flex flex-col py-0">
-      <main className="w-full flex flex-col">
+      <main
+        className={`w-full flex flex-col ${showBookingModal ? "blur-sm" : ""}`}
+      >
         <div className="w-full mt-8 p-0">
           {/* Mentor Info Section - fetch and display real data */}
           {mentor && (
@@ -553,7 +784,10 @@ const MentorPage = () => {
                       Intro Video
                     </button>
                   ) : null}
-                  <button className="w-full bg-gray-900 text-white rounded py-2 font-semibold mt-2 hover:bg-gray-800 transition">
+                  <button
+                    className="w-full bg-gray-900 text-white rounded py-2 font-semibold mt-2 hover:bg-gray-800 transition"
+                    onClick={openBookingModal}
+                  >
                     Book Now
                   </button>
                 </div>
@@ -835,6 +1069,671 @@ const MentorPage = () => {
         </div>
         {/* Close .w-full.mt-8.p-0 */}
       </main>
+
+      {/* Booking Modal */}
+      {showBookingModal && (
+        <div className="fixed inset-0 backdrop-blur-sm bg-white/20 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+            <div className="grid grid-cols-1 lg:grid-cols-[1.2fr_1fr] h-full">
+              {/* Left Side - Calendar/Time Selection */}
+              <div className="p-6 border-r border-gray-200">
+                {/* Header */}
+                <div className="bg-gray-800 text-white p-4 rounded-lg mb-6">
+                  <h3 className="text-lg font-semibold">Hello, Let's Talk !</h3>
+                  <p className="text-sm opacity-90 mt-1">
+                    Schedule a 1 hour one-on-one call to discuss your goals and
+                    challenges
+                  </p>
+                  <div className="flex items-center mt-2 text-sm">
+                    <span className="w-2 h-2 bg-blue-400 rounded-full mr-2"></span>
+                    This call is optional but highly recommended
+                  </div>
+                </div>
+
+                {bookingStep === 1 && (
+                  <>
+                    {/* Choose a Date */}
+                    <h4 className="text-lg font-semibold mb-4">
+                      Choose a Date
+                    </h4>
+
+                    {/* Month Navigation */}
+                    <div className="flex items-center justify-between mb-4">
+                      <button
+                        onClick={() =>
+                          setCurrentDate(
+                            new Date(
+                              currentDate.getFullYear(),
+                              currentDate.getMonth() - 1,
+                              1
+                            )
+                          )
+                        }
+                        className="p-2 hover:bg-gray-100 rounded-lg"
+                      >
+                        <svg
+                          className="w-5 h-5"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M15 19l-7-7 7-7"
+                          />
+                        </svg>
+                      </button>
+                      <div className="text-center relative">
+                        <button
+                          onClick={() =>
+                            setShowMonthYearPicker(!showMonthYearPicker)
+                          }
+                          className="text-sm text-blue-600 hover:text-blue-800 hover:bg-blue-50 px-3 py-1 rounded-lg transition-colors"
+                        >
+                          {currentDate.toLocaleDateString("en-US", {
+                            month: "long",
+                            year: "numeric",
+                          })}
+                        </button>
+
+                        {/* Month/Year Picker Popup */}
+                        {showMonthYearPicker && (
+                          <>
+                            {/* Overlay to close popup when clicking outside */}
+                            <div
+                              className="fixed inset-0 z-40"
+                              onClick={() => setShowMonthYearPicker(false)}
+                            />
+                            <div className="absolute top-full mt-2 left-1/2 transform -translate-x-1/2 bg-white border border-gray-200 rounded-lg shadow-lg p-4 z-50 min-w-[280px]">
+                              <div className="flex items-center justify-between mb-4">
+                                <h5 className="text-sm font-medium text-gray-900">
+                                  Select Month & Year
+                                </h5>
+                                <button
+                                  onClick={() => setShowMonthYearPicker(false)}
+                                  className="p-1 hover:bg-gray-100 rounded"
+                                >
+                                  <svg
+                                    className="w-4 h-4"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    viewBox="0 0 24 24"
+                                  >
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth={2}
+                                      d="M6 18L18 6M6 6l12 12"
+                                    />
+                                  </svg>
+                                </button>
+                              </div>
+
+                              {/* Year Selection */}
+                              <div className="mb-4">
+                                <label className="block text-xs font-medium text-gray-700 mb-2">
+                                  Year
+                                </label>
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    onClick={() =>
+                                      setCurrentDate(
+                                        new Date(
+                                          currentDate.getFullYear() - 1,
+                                          currentDate.getMonth(),
+                                          1
+                                        )
+                                      )
+                                    }
+                                    className="p-1 hover:bg-gray-100 rounded"
+                                  >
+                                    <svg
+                                      className="w-4 h-4"
+                                      fill="none"
+                                      stroke="currentColor"
+                                      viewBox="0 0 24 24"
+                                    >
+                                      <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth={2}
+                                        d="M15 19l-7-7 7-7"
+                                      />
+                                    </svg>
+                                  </button>
+                                  <span className="flex-1 text-center font-medium">
+                                    {currentDate.getFullYear()}
+                                  </span>
+                                  <button
+                                    onClick={() =>
+                                      setCurrentDate(
+                                        new Date(
+                                          currentDate.getFullYear() + 1,
+                                          currentDate.getMonth(),
+                                          1
+                                        )
+                                      )
+                                    }
+                                    className="p-1 hover:bg-gray-100 rounded"
+                                  >
+                                    <svg
+                                      className="w-4 h-4"
+                                      fill="none"
+                                      stroke="currentColor"
+                                      viewBox="0 0 24 24"
+                                    >
+                                      <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth={2}
+                                        d="M9 5l7 7-7 7"
+                                      />
+                                    </svg>
+                                  </button>
+                                </div>
+                              </div>
+
+                              {/* Month Grid */}
+                              <div className="mb-4">
+                                <label className="block text-xs font-medium text-gray-700 mb-2">
+                                  Month
+                                </label>
+                                <div className="grid grid-cols-3 gap-2">
+                                  {[
+                                    "Jan",
+                                    "Feb",
+                                    "Mar",
+                                    "Apr",
+                                    "May",
+                                    "Jun",
+                                    "Jul",
+                                    "Aug",
+                                    "Sep",
+                                    "Oct",
+                                    "Nov",
+                                    "Dec",
+                                  ].map((month, index) => (
+                                    <button
+                                      key={month}
+                                      onClick={() => {
+                                        setCurrentDate(
+                                          new Date(
+                                            currentDate.getFullYear(),
+                                            index,
+                                            1
+                                          )
+                                        );
+                                        setShowMonthYearPicker(false);
+                                      }}
+                                      className={`
+                                        px-3 py-2 text-xs rounded-lg border transition-colors
+                                        ${
+                                          currentDate.getMonth() === index
+                                            ? "bg-blue-600 text-white border-blue-600"
+                                            : "bg-white text-gray-700 border-gray-200 hover:border-blue-400 hover:bg-blue-50"
+                                        }
+                                      `}
+                                    >
+                                      {month}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+
+                              {/* Quick Actions */}
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => {
+                                    setCurrentDate(new Date());
+                                    setShowMonthYearPicker(false);
+                                  }}
+                                  className="flex-1 px-3 py-2 text-xs bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                                >
+                                  Today
+                                </button>
+                                <button
+                                  onClick={() => setShowMonthYearPicker(false)}
+                                  className="flex-1 px-3 py-2 text-xs bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                                >
+                                  Done
+                                </button>
+                              </div>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                      <button
+                        onClick={() =>
+                          setCurrentDate(
+                            new Date(
+                              currentDate.getFullYear(),
+                              currentDate.getMonth() + 1,
+                              1
+                            )
+                          )
+                        }
+                        className="p-2 hover:bg-gray-100 rounded-lg"
+                      >
+                        <svg
+                          className="w-5 h-5"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M9 5l7 7-7 7"
+                          />
+                        </svg>
+                      </button>
+                    </div>
+
+                    {/* Calendar Grid */}
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      {/* Week Days Header */}
+                      <div className="grid grid-cols-7 gap-1 mb-2">
+                        {["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map(
+                          (day) => (
+                            <div
+                              key={day}
+                              className="text-center text-sm font-medium text-gray-600 py-2"
+                            >
+                              {day}
+                            </div>
+                          )
+                        )}
+                      </div>
+
+                      {/* Calendar Days */}
+                      <div className="grid grid-cols-7 gap-1">
+                        {generateCalendarDays().map((day, index) => {
+                          let dayClass =
+                            "py-2 px-1 text-sm rounded-lg transition-all duration-200 ";
+
+                          if (!day.isCurrentMonth) {
+                            dayClass += "text-gray-300 cursor-not-allowed";
+                          } else if (day.isPast) {
+                            dayClass += "text-gray-300 cursor-not-allowed";
+                          } else {
+                            switch (day.dayStatus) {
+                              case "available":
+                                dayClass +=
+                                  "bg-green-100 text-green-800 font-medium hover:bg-green-200 cursor-pointer border border-green-300";
+                                break;
+                              case "pending":
+                                dayClass +=
+                                  "bg-orange-100 text-orange-800 font-medium hover:bg-orange-200 cursor-pointer border border-orange-300";
+                                break;
+                              case "booked":
+                                dayClass +=
+                                  "bg-red-100 text-red-800 font-medium cursor-not-allowed border border-red-300";
+                                break;
+                              default:
+                                dayClass +=
+                                  "text-gray-400 cursor-not-allowed opacity-50";
+                            }
+                          }
+
+                          if (selectedDate === day.dateStr) {
+                            dayClass += " !bg-blue-600 !text-white !font-bold";
+                          }
+
+                          return (
+                            <button
+                              key={index}
+                              onClick={() => handleDateSelect(day)}
+                              disabled={!day.isClickable}
+                              className={dayClass}
+                            >
+                              {day.day}
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      {/* Legend */}
+                      <div className="mt-4 flex flex-wrap gap-4 text-xs">
+                        <div className="flex items-center gap-1">
+                          <div className="w-3 h-3 bg-green-200 border border-green-300 rounded"></div>
+                          <span>Available</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <div className="w-3 h-3 bg-orange-200 border border-orange-300 rounded"></div>
+                          <span>Pending</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <div className="w-3 h-3 bg-red-200 border border-red-300 rounded"></div>
+                          <span>Booked</span>
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                {bookingStep === 2 && (
+                  <>
+                    {/* Pick a time */}
+                    <div className="flex items-center gap-2 mb-4">
+                      <button
+                        onClick={() => setBookingStep(1)}
+                        className="p-2 hover:bg-gray-100 rounded-lg"
+                      >
+                        <svg
+                          className="w-4 h-4"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M15 19l-7-7 7-7"
+                          />
+                        </svg>
+                      </button>
+                      <h4 className="text-lg font-semibold">Pick a time</h4>
+                    </div>
+
+                    {/* Selected Date Info */}
+                    <div className="bg-blue-50 rounded-lg p-3 mb-4">
+                      <div className="text-sm text-blue-800">
+                        Selected:{" "}
+                        {new Date(selectedDate).toLocaleDateString("en-US", {
+                          weekday: "long",
+                          year: "numeric",
+                          month: "long",
+                          day: "numeric",
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Time Slots */}
+                    <div className="grid grid-cols-3 gap-3">
+                      {getSelectedDateAvailability()?.slots.map((slot) => {
+                        let slotClass =
+                          "py-3 px-4 rounded-lg border text-sm font-medium transition-all duration-200 ";
+
+                        if (slot.status === "open") {
+                          slotClass +=
+                            selectedTimeSlot?._id === slot._id
+                              ? "bg-blue-600 text-white border-blue-600"
+                              : "bg-white text-gray-700 border-gray-300 hover:border-blue-300 hover:bg-blue-50";
+                        } else {
+                          slotClass +=
+                            "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed";
+                        }
+
+                        return (
+                          <button
+                            key={slot._id}
+                            onClick={() =>
+                              slot.status === "open"
+                                ? handleTimeSlotSelect(slot)
+                                : null
+                            }
+                            disabled={slot.status !== "open"}
+                            className={slotClass}
+                          >
+                            <div>{slot.start}</div>
+                            <div className="text-xs opacity-75">
+                              {slot.status === "open"
+                                ? "Available"
+                                : slot.status === "held"
+                                ? "Pending"
+                                : slot.status === "booked"
+                                ? "Booked"
+                                : "Blocked"}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {/* Continue Button */}
+                    {selectedTimeSlot && (
+                      <div className="mt-6 flex gap-3">
+                        <button
+                          onClick={() => setBookingStep(1)}
+                          className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+                        >
+                          Back
+                        </button>
+                        <button
+                          onClick={() => setBookingStep(3)}
+                          className="px-6 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800"
+                        >
+                          Continue
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Timezone Info */}
+                    <div className="mt-4 text-xs text-gray-500">
+                      ⏰ All Times are in Vietnam Time (Hanoi)
+                    </div>
+                  </>
+                )}
+
+                {bookingStep === 3 && (
+                  <>
+                    {/* Confirm Booking */}
+                    <div className="flex items-center gap-2 mb-4">
+                      <button
+                        onClick={() => setBookingStep(2)}
+                        className="p-2 hover:bg-gray-100 rounded-lg"
+                      >
+                        <svg
+                          className="w-4 h-4"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M15 19l-7-7 7-7"
+                          />
+                        </svg>
+                      </button>
+                      <h4 className="text-lg font-semibold">Confirm Booking</h4>
+                    </div>
+
+                    {/* Booking Summary */}
+                    <div className="bg-gray-50 rounded-lg p-4 mb-4">
+                      <h5 className="font-medium mb-2">Booking Summary</h5>
+                      <div className="space-y-1 text-sm text-gray-600">
+                        <div>
+                          📅 Date:{" "}
+                          {new Date(selectedDate).toLocaleDateString("en-US", {
+                            weekday: "long",
+                            year: "numeric",
+                            month: "long",
+                            day: "numeric",
+                          })}
+                        </div>
+                        <div>
+                          ⏰ Time: {selectedTimeSlot?.start} -{" "}
+                          {selectedTimeSlot?.end}
+                        </div>
+                        <div>
+                          👨‍🏫 Mentor:{" "}
+                          {(mentor?.profile || mentor?.user)?.firstName}{" "}
+                          {(mentor?.profile || mentor?.user)?.lastName}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Notes */}
+                    <div className="mb-4">
+                      <label className="block text-sm font-medium mb-2">
+                        Notes (Optional)
+                      </label>
+                      <textarea
+                        value={bookingNotes}
+                        onChange={(e) => setBookingNotes(e.target.value)}
+                        placeholder="Any specific topics you'd like to discuss..."
+                        className="w-full p-3 border border-gray-300 rounded-lg resize-none"
+                        rows={3}
+                      />
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div className="flex gap-3">
+                      <button
+                        onClick={() => setBookingStep(2)}
+                        className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+                      >
+                        Back
+                      </button>
+                      <button
+                        onClick={handleBooking}
+                        disabled={bookingLoading}
+                        className="flex-1 px-6 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 disabled:opacity-50"
+                      >
+                        {bookingLoading ? "Booking..." : "Confirm Booking"}
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {/* Right Side - Mentor Info */}
+              <div className="p-6 bg-gray-50">
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-lg font-semibold">Onboarding Call</h3>
+                  <button
+                    onClick={closeBookingModal}
+                    className="p-2 hover:bg-gray-200 rounded-lg text-gray-500"
+                  >
+                    <svg
+                      className="w-5 h-5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M6 18L18 6M6 6l12 12"
+                      />
+                    </svg>
+                  </button>
+                </div>
+
+                {/* Mentor Avatar & Info */}
+                <div className="text-center mb-6">
+                  <div className="w-16 h-16 bg-gray-300 rounded-full mx-auto mb-3">
+                    {(mentor?.profile || mentor?.user)?.avatarUrl ? (
+                      <img
+                        src={(mentor?.profile || mentor?.user)?.avatarUrl}
+                        alt={`${(mentor?.profile || mentor?.user)?.firstName} ${
+                          (mentor?.profile || mentor?.user)?.lastName
+                        }`}
+                        className="w-full h-full rounded-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full rounded-full bg-gray-400 flex items-center justify-center text-white font-semibold">
+                        {(mentor?.profile || mentor?.user)?.firstName?.[0]}
+                        {(mentor?.profile || mentor?.user)?.lastName?.[0]}
+                      </div>
+                    )}
+                  </div>
+                  <h4 className="font-semibold text-gray-900">
+                    {(mentor?.profile || mentor?.user)?.firstName}{" "}
+                    {(mentor?.profile || mentor?.user)?.lastName}
+                  </h4>
+                  {(mentor?.profile || mentor?.user)?.jobTitle && (
+                    <p className="text-sm text-gray-600">
+                      {(mentor?.profile || mentor?.user)?.jobTitle}
+                    </p>
+                  )}
+                </div>
+
+                {/* Duration */}
+                <div className="flex items-center gap-2 mb-4">
+                  <svg
+                    className="w-4 h-4 text-gray-600"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
+                  </svg>
+                  <span className="text-sm">
+                    <strong>Duration</strong>
+                    <br />
+                    <span className="text-gray-600">60-70 mins</span>
+                  </span>
+                </div>
+
+                {/* Benefits */}
+                <div className="space-y-3 mb-6">
+                  <p className="text-sm text-gray-700 leading-relaxed">
+                    It is a chance to connect with one of our mentors to learn
+                    more about our platform and how we can help you grow your
+                    career
+                  </p>
+
+                  <div className="space-y-2">
+                    {[
+                      "Expert Guidance in Your Field",
+                      "Low cost",
+                      "One-on-One Mentorship Sessions",
+                      "Career and Skill Development Support",
+                      "Tailored Guidance for Your Goals",
+                    ].map((benefit, index) => (
+                      <div
+                        key={index}
+                        className="flex items-center gap-2 text-sm"
+                      >
+                        <svg
+                          className="w-4 h-4 text-green-600 flex-shrink-0"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M5 13l4 4L19 7"
+                          />
+                        </svg>
+                        <span>{benefit}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="text-sm text-gray-600">
+                  <p>
+                    You can also bring any questions that you might have for us!
+                  </p>
+                </div>
+
+                {bookingLoading && (
+                  <div className="mt-4 text-center">
+                    <div className="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+                    <p className="text-sm text-gray-600 mt-2">Loading...</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

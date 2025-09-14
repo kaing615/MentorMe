@@ -34,7 +34,7 @@ export const createOrUpdateAvailability = async (req, res) => {
     // Fix: Handle both string and Date object input - Always create UTC date
     let inputDate;
     console.log("Processing date:", date, "Type:", typeof date);
-    
+
     if (typeof date === "string") {
       // String input - create UTC date to avoid timezone issues
       const dateStr = date.includes("T") ? date.split("T")[0] : date;
@@ -81,7 +81,12 @@ export const createOrUpdateAvailability = async (req, res) => {
 
     // Validate năm hiện tại (nếu cần)
     const currentYear = new Date().getFullYear();
-    console.log("Current year:", currentYear, "Input year:", inputDate.getFullYear());
+    console.log(
+      "Current year:",
+      currentYear,
+      "Input year:",
+      inputDate.getFullYear()
+    );
     if (inputDate.getFullYear() !== currentYear) {
       console.log("Year validation failed");
       return responseHandler.badRequest(
@@ -130,17 +135,16 @@ export const createOrUpdateAvailability = async (req, res) => {
         .split(":")
         .reduce((h, m) => h * 60 + parseInt(m));
 
-      console.log(`Slot ${slot.start}-${slot.end}: start=${startMinutes}, end=${endMinutes}`);
+      console.log(
+        `Slot ${slot.start}-${slot.end}: start=${startMinutes}, end=${endMinutes}`
+      );
 
       if (endMinutes <= startMinutes) {
-        console.log("Duration validation failed: end <= start");
         return responseHandler.badRequest(res, "End time phải sau start time");
       }
 
       const duration = endMinutes - startMinutes;
-      console.log("Slot duration:", duration, "minutes");
       if (duration !== 30) {
-        console.log("Duration validation failed: not 30 minutes");
         return responseHandler.badRequest(
           res,
           "Mỗi slot phải có thời gian chính xác 30 phút"
@@ -152,10 +156,11 @@ export const createOrUpdateAvailability = async (req, res) => {
       const endHour = parseInt(slot.end.split(":")[0]);
       const endMinute = parseInt(slot.end.split(":")[1]);
 
-      console.log(`Working hours validation: startHour=${startHour}, endHour=${endHour}, endMinute=${endMinute}`);
+      console.log(
+        `Working hours validation: startHour=${startHour}, endHour=${endHour}, endMinute=${endMinute}`
+      );
 
       if (startHour < 6) {
-        console.log("Working hours validation failed: startHour < 6");
         return responseHandler.badRequest(
           res,
           `Giờ bắt đầu không thể trước 6:00 (${slot.start})`
@@ -163,7 +168,9 @@ export const createOrUpdateAvailability = async (req, res) => {
       }
 
       if (endHour > 22 || (endHour === 22 && endMinute > 0)) {
-        console.log("Working hours validation failed: endHour > 22 or (endHour === 22 && endMinute > 0)");
+        console.log(
+          "Working hours validation failed: endHour > 22 or (endHour === 22 && endMinute > 0)"
+        );
         return responseHandler.badRequest(
           res,
           `Giờ kết thúc không thể sau 22:00 (${slot.end})`
@@ -171,10 +178,7 @@ export const createOrUpdateAvailability = async (req, res) => {
       }
     }
 
-    console.log("Individual slot validation completed");
-
     // Validate không có slots trùng giờ
-    console.log("Validating slot overlaps...");
     for (let i = 0; i < slots.length; i++) {
       for (let j = i + 1; j < slots.length; j++) {
         const slot1 = slots[i];
@@ -193,11 +197,12 @@ export const createOrUpdateAvailability = async (req, res) => {
           .split(":")
           .reduce((h, m) => h * 60 + parseInt(m));
 
-        console.log(`Checking overlap: slot1(${start1}-${end1}) vs slot2(${start2}-${end2})`);
+        console.log(
+          `Checking overlap: slot1(${start1}-${end1}) vs slot2(${start2}-${end2})`
+        );
 
         // Check overlap: slot1 và slot2 có trùng không
         if (start1 < end2 && start2 < end1) {
-          console.log("Overlap detected!");
           return responseHandler.badRequest(
             res,
             `Slots trùng giờ: ${slot1.start}-${slot1.end} và ${slot2.start}-${slot2.end}`
@@ -206,101 +211,116 @@ export const createOrUpdateAvailability = async (req, res) => {
       }
     }
 
-    console.log("Overlap validation completed");
-
     // Chuẩn hóa date về 00:00 UTC - Use inputDate directly
-    console.log("Normalized date:", normalizedDate);
 
     // Tìm availability hiện tại hoặc tạo mới
-    console.log("Finding existing availability...");
     let availability = await Availability.findOne({
       mentor: mentorId,
       date: normalizedDate,
     });
 
-    console.log("Existing availability found:", !!availability);
-
     if (availability) {
-      console.log("Updating existing availability with booking protection");
-      
       // Preserve existing booked/held slots and their booking info
       // Note: held slots (pending bookings) can be removed by mentor
-      const existingBookedSlots = availability.slots.filter(slot => 
+      const existingBookedSlots = availability.slots.filter((slot) =>
         ["booked", "held"].includes(slot.status)
       );
-      console.log("Found booked/held slots to preserve:", existingBookedSlots);
-      
+
       // Find slots that will be removed (excluding booked slots which must be preserved)
-      const removedSlots = availability.slots.filter(slot => {
-        const stillExists = slots.find(newSlot => newSlot.start === slot.start);
+      const removedSlots = availability.slots.filter((slot) => {
+        const stillExists = slots.find(
+          (newSlot) => newSlot.start === slot.start
+        );
         return !stillExists && slot.status !== "booked"; // Don't remove booked slots
       });
-      
-      console.log("Slots to be removed (will also check for associated bookings):", removedSlots);
-      
+
+      console.log(
+        "Slots to be removed (will also check for associated bookings):",
+        removedSlots
+      );
+
       // Delete associated bookings for removed slots
       if (removedSlots.length > 0) {
         for (const removedSlot of removedSlots) {
           try {
             // Method 1: Delete by bookingId if available
             if (removedSlot.bookingId) {
-              const existingBooking = await Booking.findById(removedSlot.bookingId);
-              if (existingBooking && ["pending", "cancelled"].includes(existingBooking.status)) {
+              const existingBooking = await Booking.findById(
+                removedSlot.bookingId
+              );
+              if (
+                existingBooking &&
+                ["pending", "cancelled"].includes(existingBooking.status)
+              ) {
                 await Booking.findByIdAndDelete(removedSlot.bookingId);
-                console.log(`Deleted ${existingBooking.status} booking ${removedSlot.bookingId} for removed slot ${removedSlot.start}`);
+                console.log(
+                  `Deleted ${existingBooking.status} booking ${removedSlot.bookingId} for removed slot ${removedSlot.start}`
+                );
               }
             }
-            
+
             // Method 2: Also find and delete by date + time + mentor (in case bookingId is missing)
             const bookingsToDelete = await Booking.find({
               mentor: mentorId,
               date: normalizedDate,
               start: removedSlot.start,
-              status: { $in: ["pending", "cancelled"] } // Delete pending/cancelled bookings
+              status: { $in: ["pending", "cancelled"] }, // Delete pending/cancelled bookings
             });
-            
-            console.log(`Found ${bookingsToDelete.length} pending/cancelled bookings for removed slot ${removedSlot.start}`);
-            
+
+            console.log(
+              `Found ${bookingsToDelete.length} pending/cancelled bookings for removed slot ${removedSlot.start}`
+            );
+
             for (const booking of bookingsToDelete) {
               await Booking.findByIdAndDelete(booking._id);
-              console.log(`Deleted ${booking.status} booking ${booking._id} for removed slot ${removedSlot.start}`);
+              console.log(
+                `Deleted ${booking.status} booking ${booking._id} for removed slot ${removedSlot.start}`
+              );
             }
           } catch (error) {
-            console.error(`Failed to delete bookings for slot ${removedSlot.start}:`, error);
+            console.error(
+              `Failed to delete bookings for slot ${removedSlot.start}:`,
+              error
+            );
           }
         }
       }
-      
-      // Create new slots array from incoming slots  
+
+      // Create new slots array from incoming slots
       const newSlots = slots.map((slot) => ({
         start: slot.start,
         end: slot.end,
         status: slot.status || "open",
       }));
-      
+
       // Merge: add existing booked slots that don't conflict with new slots
-      existingBookedSlots.forEach(bookedSlot => {
-        const conflictingNewSlot = newSlots.find(newSlot => newSlot.start === bookedSlot.start);
+      existingBookedSlots.forEach((bookedSlot) => {
+        const conflictingNewSlot = newSlots.find(
+          (newSlot) => newSlot.start === bookedSlot.start
+        );
         if (conflictingNewSlot) {
           // Replace the new slot with the existing booked slot to preserve booking info
-          const index = newSlots.findIndex(newSlot => newSlot.start === bookedSlot.start);
+          const index = newSlots.findIndex(
+            (newSlot) => newSlot.start === bookedSlot.start
+          );
           newSlots[index] = bookedSlot;
-          console.log(`Preserved booked slot at ${bookedSlot.start}`);
         } else {
           // Add the booked slot that wasn't in new slots (force preserve)
           newSlots.push(bookedSlot);
-          console.log(`Force added booked slot at ${bookedSlot.start}`);
         }
       });
-      
+
       // Sort by start time
       newSlots.sort((a, b) => a.start.localeCompare(b.start));
-      
+
       availability.slots = newSlots;
       availability.timezone = timezone;
-      console.log("Slots updated with", availability.slots.length, "total slots (including preserved bookings)");
+      console.log(
+        "Slots updated with",
+        availability.slots.length,
+        "total slots (including preserved bookings)"
+      );
     } else {
-      console.log("Creating new availability");
       // Tạo mới
       availability = new Availability({
         mentor: mentorId,
@@ -314,9 +334,7 @@ export const createOrUpdateAvailability = async (req, res) => {
       });
     }
 
-    console.log("About to save availability...");
     await availability.save();
-    console.log("Availability saved successfully!");
 
     return responseHandler.created(res, {
       message: "Availability đã được tạo/cập nhật thành công",
@@ -334,7 +352,7 @@ export const createOrUpdateAvailability = async (req, res) => {
     console.error("Error stack:", error.stack);
     console.error("Request body was:", JSON.stringify(req.body, null, 2));
     console.error("==========================================");
-    
+
     if (error.name === "ValidationError") {
       return responseHandler.badRequest(res, error.message);
     }
@@ -563,8 +581,6 @@ export const getMentorAvailabilityRange = async (req, res) => {
 export const getAvailabilityOverview = async (req, res) => {
   try {
     const mentorId = req.user.id;
-    console.log("=== GET AVAILABILITY OVERVIEW DEBUG ===");
-    console.log("Mentor ID:", mentorId);
 
     // Kiểm tra user là mentor
     const mentor = await User.findById(mentorId);
@@ -590,16 +606,17 @@ export const getAvailabilityOverview = async (req, res) => {
       today.getDate() + 7
     );
 
-    console.log("Date range:", startDate, "to", endDate);
-
     const availabilities = await Availability.find({
       mentor: mentorId,
       date: { $gte: startDate, $lt: endDate },
     }).sort({ date: 1 });
 
-    console.log("Found availabilities:", availabilities.length);
-    availabilities.forEach(avail => {
-      console.log(`- ${avail.date.toISOString().split('T')[0]}: ${avail.slots.length} slots`);
+    availabilities.forEach((avail) => {
+      console.log(
+        `- ${avail.date.toISOString().split("T")[0]}: ${
+          avail.slots.length
+        } slots`
+      );
     });
 
     // Format response cho Frontend
@@ -705,8 +722,6 @@ export const manualCleanupOldAvailabilities = async (req, res) => {
 export const getMySchedules = async (req, res) => {
   try {
     const mentorId = req.user.id;
-    console.log("=== GET MY SCHEDULES DEBUG ===");
-    console.log("Mentor ID:", mentorId);
 
     // Kiểm tra user là mentor
     const mentor = await User.findById(mentorId);
@@ -722,58 +737,69 @@ export const getMySchedules = async (req, res) => {
       mentor: mentorId,
     }).sort({ date: 1 });
 
-    console.log("Found total availabilities:", availabilities.length);
-
     // Nhóm theo tháng để dễ quản lý
     const schedulesByMonth = {};
-    
-    availabilities.forEach(availability => {
-      const dateStr = availability.date.toISOString().split('T')[0];
+
+    availabilities.forEach((availability) => {
+      const dateStr = availability.date.toISOString().split("T")[0];
       const monthKey = dateStr.substring(0, 7); // YYYY-MM
-      
+
       if (!schedulesByMonth[monthKey]) {
         schedulesByMonth[monthKey] = [];
       }
-      
+
       schedulesByMonth[monthKey].push({
         _id: availability._id,
         date: dateStr,
-        dayOfWeek: availability.date.toLocaleDateString("vi-VN", { 
-          weekday: "long" 
+        dayOfWeek: availability.date.toLocaleDateString("vi-VN", {
+          weekday: "long",
         }),
         timezone: availability.timezone,
         totalSlots: availability.slots.length,
-        openSlots: availability.slots.filter(slot => slot.status === "open").length,
-        bookedSlots: availability.slots.filter(slot => slot.status === "booked").length,
-        blockedSlots: availability.slots.filter(slot => slot.status === "blocked").length,
+        openSlots: availability.slots.filter((slot) => slot.status === "open")
+          .length,
+        bookedSlots: availability.slots.filter(
+          (slot) => slot.status === "booked"
+        ).length,
+        blockedSlots: availability.slots.filter(
+          (slot) => slot.status === "blocked"
+        ).length,
         slots: availability.slots,
         createdAt: availability.createdAt,
         updatedAt: availability.updatedAt,
         // Thêm thông tin trạng thái
         status: availability.date < new Date() ? "past" : "upcoming",
-        canDelete: availability.slots.every(slot => !["booked", "held"].includes(slot.status))
+        canDelete: availability.slots.every(
+          (slot) => !["booked", "held"].includes(slot.status)
+        ),
       });
     });
 
     // Convert object to array và sort theo tháng
     const scheduleList = Object.keys(schedulesByMonth)
       .sort((a, b) => b.localeCompare(a)) // Tháng mới nhất trước
-      .map(monthKey => ({
+      .map((monthKey) => ({
         month: monthKey,
         monthName: new Date(monthKey + "-01").toLocaleDateString("vi-VN", {
           year: "numeric",
-          month: "long"
+          month: "long",
         }),
-        schedules: schedulesByMonth[monthKey]
+        schedules: schedulesByMonth[monthKey],
       }));
 
     // Thống kê tổng quan
     const totalSchedules = availabilities.length;
-    const upcomingSchedules = availabilities.filter(a => a.date >= new Date()).length;
+    const upcomingSchedules = availabilities.filter(
+      (a) => a.date >= new Date()
+    ).length;
     const pastSchedules = totalSchedules - upcomingSchedules;
-    const totalSlots = availabilities.reduce((sum, a) => sum + a.slots.length, 0);
-    const totalOpenSlots = availabilities.reduce((sum, a) => 
-      sum + a.slots.filter(slot => slot.status === "open").length, 0
+    const totalSlots = availabilities.reduce(
+      (sum, a) => sum + a.slots.length,
+      0
+    );
+    const totalOpenSlots = availabilities.reduce(
+      (sum, a) => sum + a.slots.filter((slot) => slot.status === "open").length,
+      0
     );
 
     return responseHandler.ok(res, {
@@ -798,6 +824,98 @@ export const getMySchedules = async (req, res) => {
   }
 };
 
+/**
+ * Mentee lấy availability của mentor để booking (public view)
+ * GET /api/availability/mentor/:mentorId/public
+ */
+export const getMentorPublicAvailability = async (req, res) => {
+  try {
+    const { mentorId } = req.params;
+    let { startDate, endDate } = req.query;
+
+    // Validate mentor exists and is actually a mentor
+    const mentor = await User.findById(mentorId);
+    if (!mentor || !mentor.role.includes("mentor")) {
+      return responseHandler.notFound(res, "Mentor không tồn tại");
+    }
+
+    // Default to next 14 days if no date range provided
+    if (!startDate || !endDate) {
+      const today = new Date();
+      const twoWeeksLater = new Date(today);
+      twoWeeksLater.setDate(today.getDate() + 14);
+
+      startDate = startDate || today.toISOString().split("T")[0];
+      endDate = endDate || twoWeeksLater.toISOString().split("T")[0];
+    }
+
+    // Normalize dates to UTC
+    const start = new Date(startDate + "T00:00:00.000Z");
+    const end = new Date(endDate + "T00:00:00.000Z");
+
+    if (start > end) {
+      return responseHandler.badRequest(
+        res,
+        "startDate không thể lớn hơn endDate"
+      );
+    }
+
+    // Find availabilities for the mentor in date range
+    const availabilities = await Availability.find({
+      mentor: mentorId,
+      date: { $gte: start, $lte: end },
+    }).sort({ date: 1 });
+
+    // Format response for mentee booking với color coding
+    const formattedAvailabilities = availabilities.map((availability) => ({
+      _id: availability._id,
+      date: availability.date.toISOString().split("T")[0],
+      dayOfWeek: availability.date.toLocaleDateString("vi-VN", {
+        weekday: "long",
+      }),
+      timezone: availability.timezone,
+      slots: availability.slots.map((slot) => ({
+        _id: slot._id,
+        start: slot.start,
+        end: slot.end,
+        status: slot.status, // open, held, booked, blocked
+        // Không trả về thông tin private như bookedBy, bookingId
+      })),
+    }));
+
+    console.log(
+      "Sample availability data:",
+      JSON.stringify(formattedAvailabilities[0], null, 2)
+    );
+
+    const responseData = {
+      mentor: {
+        _id: mentor._id,
+        firstName: mentor.firstName,
+        lastName: mentor.lastName,
+        avatarUrl: mentor.avatarUrl,
+        jobTitle: mentor.jobTitle,
+      },
+      availabilities: formattedAvailabilities,
+      count: formattedAvailabilities.length,
+      period: {
+        startDate: startDate,
+        endDate: endDate,
+      },
+    };
+
+    console.log(
+      "Response.availabilities length:",
+      responseData.availabilities.length
+    );
+
+    return responseHandler.ok(res, responseData);
+  } catch (error) {
+    console.error("Error getting mentor public availability:", error);
+    return responseHandler.error(res, "Lỗi khi lấy lịch mentor");
+  }
+};
+
 export default {
   createOrUpdateAvailability,
   getTodaySchedule,
@@ -806,4 +924,5 @@ export default {
   getAvailabilityOverview,
   getMySchedules,
   manualCleanupOldAvailabilities,
+  getMentorPublicAvailability,
 };

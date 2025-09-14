@@ -16,18 +16,21 @@ const bookingEndpoints = {
   create: (mentorId) => `/api/v1/booking/mentor/${mentorId}`,
   getAll: "/api/v1/booking",
   getMentorBookings: "/api/v1/booking/mentor",
-  getMenteeBookings: "/api/v1/booking/mentee", 
+  getMenteeBookings: "/api/v1/booking/mentee",
   confirm: (id) => `/api/v1/booking/confirm/${id}`,
   cancel: (id) => `/api/v1/booking/cancel/${id}`,
   update: (id) => `/api/v1/booking/${id}`,
-  delete: (id) => `/api/v1/booking/${id}`
+  delete: (id) => `/api/v1/booking/${id}`,
 };
 
 const bookingApi = {
   // Mentee tạo booking mới với mentor
   createBooking: async (mentorId, data) => {
     try {
-      const response = await axios.post(bookingEndpoints.create(mentorId), data);
+      const response = await axios.post(
+        bookingEndpoints.create(mentorId),
+        data
+      );
       return { response: response.data };
     } catch (err) {
       return { error: err.response?.data || err };
@@ -38,7 +41,7 @@ const bookingApi = {
   getAllBookings: async (params = {}) => {
     try {
       const response = await axios.get(bookingEndpoints.getAll, {
-        params
+        params,
       });
       return { response: response.data };
     } catch (err) {
@@ -50,7 +53,7 @@ const bookingApi = {
   getMentorBookings: async (params = {}) => {
     try {
       const response = await axios.get(bookingEndpoints.getMentorBookings, {
-        params
+        params,
       });
       return { response: response.data };
     } catch (err) {
@@ -62,7 +65,7 @@ const bookingApi = {
   getMenteeBookings: async (params = {}) => {
     try {
       const response = await axios.get(bookingEndpoints.getMenteeBookings, {
-        params
+        params,
       });
       return { response: response.data };
     } catch (err) {
@@ -84,7 +87,7 @@ const bookingApi = {
   cancelBooking: async (bookingId, reason = "") => {
     try {
       const response = await axios.post(bookingEndpoints.cancel(bookingId), {
-        reason
+        reason,
       });
       return { response: response.data };
     } catch (err) {
@@ -95,7 +98,10 @@ const bookingApi = {
   // Cập nhật booking (notes, etc)
   updateBooking: async (bookingId, data) => {
     try {
-      const response = await axios.patch(bookingEndpoints.update(bookingId), data);
+      const response = await axios.patch(
+        bookingEndpoints.update(bookingId),
+        data
+      );
       return { response: response.data };
     } catch (err) {
       return { error: err.response?.data || err };
@@ -110,7 +116,7 @@ const bookingApi = {
     } catch (err) {
       return { error: err.response?.data || err };
     }
-  }
+  },
 };
 
 export default bookingApi;

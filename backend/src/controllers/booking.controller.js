@@ -499,8 +499,13 @@ export const createBooking = async (req, res) => {
 
     let relationship = relationshipId;
     if (!relationship) {
-      const rel = await RelationShip.findOne({ mentee, mentor }).lean();
-      relationship = rel ? rel._id ?? null : null;
+      let rel = await RelationShip.findOne({ mentee, mentor }).lean();
+      if (!rel) {
+        // Create new relationship if doesn't exist
+        rel = await RelationShip.create({ mentee, mentor });
+        console.log("Created new relationship:", rel._id);
+      }
+      relationship = rel._id;
     }
 
     const dateKey = new Date(date).toISOString().slice(0, 10);
@@ -576,6 +581,17 @@ export const createBooking = async (req, res) => {
         notes,
         status: "pending",
         slotId: slot?._id,
+        availabilityId: avail._id,
+      });
+
+      console.log("Booking created successfully:", {
+        id: booking._id,
+        mentor,
+        mentee,
+        date: dayKey.toISOString().split("T")[0],
+        start: normStart,
+        end: normEnd,
+        status: booking.status,
       });
 
       await Availability.updateOne(
@@ -848,11 +864,11 @@ export const confirmBooking = async (req, res) => {
             "slots.status": "open",
           },
           {
-            $set: { 
+            $set: {
               "slots.$.status": "booked",
               "slots.$.bookedBy": existing.mentee,
-              "slots.$.bookingId": existing._id
-            }
+              "slots.$.bookingId": existing._id,
+            },
           }
         );
       }
@@ -868,19 +884,23 @@ export const confirmBooking = async (req, res) => {
             "slots.status": "open",
           },
           {
-            $set: { 
+            $set: {
               "slots.$.status": "booked",
               "slots.$.bookedBy": existing.mentee,
-              "slots.$.bookingId": existing._id
-            }
+              "slots.$.bookingId": existing._id,
+            },
           }
         );
       }
 
       if (slotUpdated && slotUpdated.modifiedCount > 0) {
-        console.log(`[confirmBooking] Slot marked as booked for booking ${existing._id}`);
+        console.log(
+          `[confirmBooking] Slot marked as booked for booking ${existing._id}`
+        );
       } else {
-        console.warn(`[confirmBooking] Could not update slot status for booking ${existing._id}`);
+        console.warn(
+          `[confirmBooking] Could not update slot status for booking ${existing._id}`
+        );
       }
     } catch (slotError) {
       console.error("[confirmBooking] Error updating slot status:", slotError);

@@ -17,6 +17,8 @@ const BookingSchema = new mongoose.Schema({
   start: String,
   end: String,
   notes: String,
+  slotId: { type: mongoose.Schema.Types.ObjectId },
+  availabilityId: { type: mongoose.Schema.Types.ObjectId, ref: "Availability" },
   createdAt: { type: Date, default: Date.now },
 });
 
