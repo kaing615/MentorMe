@@ -1,4 +1,5 @@
 // backend/src/validation/course.validation.js
+// backend/src/validation/course.validation.js
 import Joi from "joi";
 import mongoose from "mongoose";
 
@@ -35,6 +36,7 @@ const numberFromString = (opts = {}) => {
 
 // ========== CREATE COURSE ==========
 export const createCourseSchema = Joi.object({
+  // Tiêu đề
   // Tiêu đề
   title: Joi.string().min(1).max(200).required().messages({
     "string.empty": "Tiêu đề khóa học không được để trống",

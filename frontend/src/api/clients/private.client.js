@@ -1,8 +1,11 @@
 // src/api/clients/private.client.js
+// src/api/clients/private.client.js
 import axios from "axios";
 import queryString from "query-string";
 import { logout } from "../../redux/features/auth.slice.js";
 
+const API_ROOT = (import.meta.env.VITE_API_URL || "").replace(/\/+$/, "");
+const baseURL = /\/api\/v1$/i.test(API_ROOT) ? API_ROOT : `${API_ROOT}/api/v1`;
 const API_ROOT = (import.meta.env.VITE_API_URL || "").replace(/\/+$/, "");
 const baseURL = /\/api\/v1$/i.test(API_ROOT) ? API_ROOT : `${API_ROOT}/api/v1`;
 
@@ -60,7 +63,24 @@ const createPrivateClient = (dispatch) => {
       throw error.response?.data || error;
     }
   );
+  client.interceptors.response.use(
+    (res) => (res && res.data ? res.data : res),
+    (error) => {
+      const status = error.response?.status;
+      if (status === 401) {
+        console.warn("401 Unauthorized – logging out");
+        dispatch?.(logout());
+        window.location.href = "/auth/signin";
+        return;
+      }
+      if (status === 403) {
+        console.warn("403 Forbidden – insufficient permission");
+      }
+      throw error.response?.data || error;
+    }
+  );
 
+  return client;
   return client;
 };
 

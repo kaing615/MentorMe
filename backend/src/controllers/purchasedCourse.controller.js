@@ -290,6 +290,7 @@ const handlePurchaseSuccess = async (req, res) => {
     const user = await User.findById(userId);
     if (!user) {
       return responseHandler.notFound(res, "Không tìm thấy user.");
+      return responseHandler.notFound(res, "Không tìm thấy user.");
     }
 
     let coursesAdded = 0;

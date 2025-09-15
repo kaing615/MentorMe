@@ -122,6 +122,8 @@ const OrderSchema = new mongoose.Schema(
     },
     billingInfo: billingInfoSchema,
     paymentInfo: paymentInfoSchema,
+    billingInfo: billingInfoSchema,
+    paymentInfo: paymentInfoSchema,
     paymentMethod: {
       type: String,
       enum: [

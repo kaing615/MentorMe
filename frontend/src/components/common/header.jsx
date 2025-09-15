@@ -8,6 +8,7 @@ import { MdOutlineShoppingCart } from "react-icons/md";
 
 const Header = () => {
   const [showCategories, setShowCategories] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   const dispatch = useDispatch();
@@ -55,6 +56,54 @@ const Header = () => {
     console.log(`API Call - ID: ${id}, Action: ${action}`);
   };
 
+  // TODO: Replace with actual API call to remove item from cart
+  const removeFromCart = (itemId) => {
+    setCartItems((prevItems) => prevItems.filter((item) => item.id !== itemId));
+    // TODO: Make API call to backend
+    // try {
+    //   await cartAPI.removeItem(itemId);
+    // } catch (error) {
+    //   console.error('Failed to remove item from cart:', error);
+    //   // Revert the state change if API call fails
+    // }
+  };
+
+  // TODO: Replace with actual API call to add item to wishlist
+  const addToWishlist = (itemId) => {
+    console.log(`Adding item ${itemId} to wishlist`);
+    // TODO: Make API call to backend
+    // try {
+    //   await wishlistAPI.addItem(itemId);
+    // } catch (error) {
+    //   console.error('Failed to add item to wishlist:', error);
+    // }
+  };
+
+  // Calculate cart total
+  const cartTotal = cartItems.reduce((total, item) => total + item.price, 0);
+  const cartItemCount = cartItems.length;
+
+  const toggleDropdown = (dropdownName) => {
+    setDropdowns((prev) => ({
+      cart: false,
+      notifications: false,
+      profile: false,
+      [dropdownName]: !prev[dropdownName],
+    }));
+  };
+
+  const closeAllDropdowns = () => {
+    setDropdowns({
+      cart: false,
+      notifications: false,
+      profile: false,
+    });
+  };
+
+  const handleWishlist = () => {
+    navigate("/wishlist");
+  };
+
   const handleLogout = () => {
     // Clear user data using Redux action (will also clear localStorage)
     dispatch(clearUser());
@@ -70,6 +119,7 @@ const Header = () => {
             className="text-slate-500 text-xl md:text-2xl font-inter font-bold mr-4 md:mr-9 min-w-[100px] cursor-pointer hover:text-slate-600 transition-colors duration-200"
             onClick={() => {
               localStorage.setItem("mentorMode", "false");
+              localStorage.setItem("mentorMode", "false");
               setShowCategories(false);
               navigate("/");
             }}
@@ -79,6 +129,7 @@ const Header = () => {
 
           {/* Categories or Mentors */}
           <div className="hidden md:block text-slate-500 text-[14px] md:text-[16px] font-inter font-light leading-5 mr-6 md:mr-10 whitespace-nowrap cursor-pointer hover:text-slate-600 transition-colors duration-200">
+            {showCategories ? "Categories" : "Mentors"}
             {showCategories ? "Categories" : "Mentors"}
           </div>
 
@@ -114,7 +165,9 @@ const Header = () => {
                 <button
                   onClick={() => {
                     localStorage.setItem("mentorMode", "false");
+                    localStorage.setItem("mentorMode", "false");
                     setShowCategories(false);
+                    navigate("/auth/signup");
                     navigate("/auth/signup");
                   }}
                   className="px-2 sm:px-3 py-2 text-xs sm:text-sm bg-slate-700 border border-slate-500 text-white font-light rounded hover:bg-slate-600 hover:border-slate-600 transition-all duration-200"
@@ -124,6 +177,7 @@ const Header = () => {
               </>
             ) : (
               <div className="flex items-center gap-2 sm:gap-3 md:gap-4">
+                {/* Wishlist Icon */}
                 <div
                   className="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center cursor-pointer"
                   onClick={() => handleAPICall("demo-mentor-id", "Favorite")}

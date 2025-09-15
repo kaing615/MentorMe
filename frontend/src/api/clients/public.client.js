@@ -46,4 +46,4 @@ publicClient.interceptors.response.use(
   }
 );
 
-export default publicClient;
+export default privateClient;
