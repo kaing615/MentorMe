@@ -4026,7 +4026,9 @@ const MentorProfile = () => {
                   {/* Booking List */}
                   <div className="space-y-4">
                     {(() => {
-                      const filteredBookings = getFilteredBookings();
+                      const filteredBookings = getFilteredBookings().sort(
+                        (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
+                      ); // Sort by newest first
                       return filteredBookings.length === 0 ? (
                         <div className="text-center py-16">
                           <div className="w-20 h-20 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-full flex items-center justify-center mx-auto mb-6">
@@ -4050,7 +4052,7 @@ const MentorProfile = () => {
                             className={`border-2 rounded-2xl p-6 transition-all duration-300 hover:shadow-xl ${
                               booking.status === "pending"
                                 ? "border-orange-200 bg-gradient-to-br from-orange-50/50 to-yellow-50/30 hover:border-orange-300"
-                                : booking.status === "accepted"
+                                : booking.status === "active"
                                 ? "border-green-200 bg-gradient-to-br from-green-50/50 to-emerald-50/30 hover:border-green-300"
                                 : "border-red-200 bg-gradient-to-br from-red-50/50 to-pink-50/30 hover:border-red-300"
                             }`}
