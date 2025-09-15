@@ -13,6 +13,7 @@ import twitterlogo from "../assets/twitter.png";
 import microsoftlogo from "../assets/microsoft.png";
 import minatoImg from "../assets/minato.webp"; // đổi lại .jpg nếu repo bạn dùng .jpg
 import { ImQuotesLeft } from "react-icons/im";
+import { VscCodeReview } from "react-icons/vsc";
 import { showLoading, hideLoading } from "../redux/features/loading.slice";
 import courseApi from "../api/modules/course.api";
 import cartApi from "../api/modules/cart.api";
@@ -443,12 +444,12 @@ const CourseDetail = () => {
   const scrollTestimonialBy = (direction) => {
     const container = testimonialRef.current;
     if (!container) return;
-    const card = container.querySelector("#testimonial-track > div");
-    let cardWidth = 340;
+    const card = container.querySelector(".inline-flex > div");
+    let cardWidth = 450; // Updated default width
     let gap = 24;
     if (card) {
       cardWidth = card.offsetWidth;
-      const style = getComputedStyle(container);
+      const style = getComputedStyle(container.querySelector(".inline-flex"));
       gap = parseInt(style.gap) || 24;
     }
     const scrollAmount = (cardWidth + gap) * 1;
@@ -1088,116 +1089,168 @@ const CourseDetail = () => {
                 About This Course
               </h2>
             </div>
+            {/* Add scroll buttons */}
+            <div className="flex gap-2 mt-4 md:mt-0">
+              <button
+                onClick={() => scrollTestimonialBy(-1)}
+                className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center text-xl shadow hover:bg-gray-200 transition"
+              >
+                <svg
+                  width="20"
+                  height="20"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M15 19l-7-7 7-7"
+                  />
+                </svg>
+              </button>
+              <button
+                onClick={() => scrollTestimonialBy(1)}
+                className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center text-xl shadow hover:bg-gray-200 transition"
+              >
+                <svg
+                  width="20"
+                  height="20"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M9 5l7 7-7 7"
+                  />
+                </svg>
+              </button>
+            </div>
           </div>
           <div className="relative px-10">
             <div
-              className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
               ref={testimonialRef}
-              id="testimonial-track"
+              className="overflow-x-auto whitespace-nowrap select-none no-scrollbar"
+              style={{
+                WebkitOverflowScrolling: "touch",
+                scrollSnapType: "x mandatory",
+                scrollBehavior: "smooth",
+              }}
+              tabIndex={-1}
             >
-              {reviewsLoading ? (
-                // Loading state
-                [1, 2, 3].map((i) => (
-                  <div
-                    key={i}
-                    className="bg-white rounded-2xl border border-gray-200 shadow flex flex-col gap-4 min-w-[340px] max-w-[360px] w-[340px] px-7 py-6 animate-pulse"
-                  >
-                    <div className="h-8 bg-gray-200 rounded w-8"></div>
-                    <div className="flex gap-1">
-                      {[1, 2, 3, 4, 5].map((star) => (
-                        <div
-                          key={star}
-                          className="h-4 w-4 bg-gray-200 rounded"
-                        ></div>
-                      ))}
+              <div className="inline-flex gap-6" id="testimonial-track">
+                {reviewsLoading ? (
+                  // Loading state
+                  [1, 2, 3].map((i) => (
+                    <div
+                      key={i}
+                      className="bg-white rounded-2xl border border-gray-200 shadow flex flex-col gap-4 min-w-[400px] max-w-[500px] px-7 py-6 animate-pulse flex-shrink-0"
+                    >
+                      <div className="h-8 bg-gray-200 rounded w-8"></div>
+                      <div className="flex gap-1">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <div
+                            key={star}
+                            className="h-4 w-4 bg-gray-200 rounded"
+                          ></div>
+                        ))}
+                      </div>
+                      <div className="space-y-2">
+                        <div className="h-4 bg-gray-200 rounded w-full"></div>
+                        <div className="h-4 bg-gray-200 rounded w-full"></div>
+                        <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+                        <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <div className="w-11 h-11 bg-gray-200 rounded-full"></div>
+                        <div className="space-y-1">
+                          <div className="h-4 bg-gray-200 rounded w-20"></div>
+                          <div className="h-3 bg-gray-200 rounded w-16"></div>
+                        </div>
+                      </div>
                     </div>
-                    <div className="space-y-2">
-                      <div className="h-4 bg-gray-200 rounded w-full"></div>
-                      <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-                      <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+                  ))
+                ) : reviews && reviews.length > 0 ? (
+                  reviews.map((review, idx) => (
+                    <div
+                      key={review._id || idx}
+                      className="bg-white rounded-2xl border border-gray-200 shadow flex flex-col gap-4 min-w-[400px] max-w-[500px] px-7 py-6 flex-shrink-0"
+                      style={{ scrollSnapAlign: "start" }}
+                    >
+                      <div className="text-blue-700 text-4xl mb-2">
+                        <VscCodeReview />
+                      </div>
+
+                      {/* Rating Stars */}
+                      <div className="flex items-center gap-1 mb-2">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <span
+                            key={star}
+                            className={`text-lg ${
+                              star <= (review.rate || 5)
+                                ? "text-yellow-400"
+                                : "text-gray-300"
+                            }`}
+                          >
+                            ★
+                          </span>
+                        ))}
+                        <span className="text-sm text-gray-600 ml-2">
+                          ({review.rate || 5}/5)
+                        </span>
+                      </div>
+
+                      <div className="text-slate-700 text-base flex-1 leading-relaxed whitespace-normal break-words">
+                        {review.content || "Great course!"}
+                      </div>
+                      <div className="flex items-center gap-3 mt-2">
+                        <img
+                          src={
+                            review.author?.avatarUrl ||
+                            review.author?.avatar ||
+                            minatoImg
+                          }
+                          alt={
+                            review.author?.firstName ||
+                            review.author?.userName ||
+                            "User"
+                          }
+                          className="w-11 h-11 rounded-full object-cover border"
+                          onError={(e) => {
+                            e.target.src = minatoImg;
+                          }}
+                        />
+                        <div className="flex flex-col">
+                          <span className="font-semibold text-sm text-slate-700">
+                            {review.author?.firstName && review.author?.lastName
+                              ? `${review.author.firstName} ${review.author.lastName}`
+                              : review.author?.userName || "Anonymous Student"}
+                          </span>
+                          <span className="text-xs text-slate-500">
+                            Student
+                          </span>
+                        </div>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <div className="w-11 h-11 bg-gray-200 rounded-full"></div>
-                      <div className="space-y-1">
-                        <div className="h-4 bg-gray-200 rounded w-20"></div>
-                        <div className="h-3 bg-gray-200 rounded w-16"></div>
+                  ))
+                ) : (
+                  <div className="text-gray-500 text-center py-8 min-w-full">
+                    <div className="flex flex-col items-center gap-3">
+                      <div className="text-4xl text-gray-300">💭</div>
+                      <div className="text-lg font-medium">
+                        No reviews yet for this course
+                      </div>
+                      <div className="text-sm">
+                        Be the first to share your experience!
                       </div>
                     </div>
                   </div>
-                ))
-              ) : reviews && reviews.length > 0 ? (
-                reviews.map((review, idx) => (
-                  <div
-                    key={review._id || idx}
-                    className="bg-white rounded-2xl border border-gray-200 shadow flex flex-col gap-4 min-w-[340px] max-w-[360px] w-[340px] px-7 py-6"
-                  >
-                    <div className="text-blue-700 text-4xl mb-2">
-                      <ImQuotesLeft />
-                    </div>
-
-                    {/* Rating Stars */}
-                    <div className="flex items-center gap-1 mb-2">
-                      {[1, 2, 3, 4, 5].map((star) => (
-                        <span
-                          key={star}
-                          className={`text-lg ${
-                            star <= (review.rate || 5)
-                              ? "text-yellow-400"
-                              : "text-gray-300"
-                          }`}
-                        >
-                          ★
-                        </span>
-                      ))}
-                      <span className="text-sm text-gray-600 ml-2">
-                        ({review.rate || 5}/5)
-                      </span>
-                    </div>
-
-                    <div className="text-slate-700 text-base flex-1">
-                      {review.content || "Great course!"}
-                    </div>
-                    <div className="flex items-center gap-3 mt-2">
-                      <img
-                        src={
-                          review.author?.avatarUrl ||
-                          review.author?.avatar ||
-                          minatoImg
-                        }
-                        alt={
-                          review.author?.firstName ||
-                          review.author?.userName ||
-                          "User"
-                        }
-                        className="w-11 h-11 rounded-full object-cover border"
-                        onError={(e) => {
-                          e.target.src = minatoImg;
-                        }}
-                      />
-                      <div className="flex flex-col">
-                        <span className="font-semibold text-sm text-slate-700">
-                          {review.author?.firstName && review.author?.lastName
-                            ? `${review.author.firstName} ${review.author.lastName}`
-                            : review.author?.userName || "Anonymous Student"}
-                        </span>
-                        <span className="text-xs text-slate-500">Student</span>
-                      </div>
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <div className="text-gray-500 col-span-3 text-center py-8">
-                  <div className="flex flex-col items-center gap-3">
-                    <div className="text-4xl text-gray-300">💭</div>
-                    <div className="text-lg font-medium">
-                      No reviews yet for this course
-                    </div>
-                    <div className="text-sm">
-                      Be the first to share your experience!
-                    </div>
-                  </div>
-                </div>
-              )}
+                )}
+              </div>
             </div>
           </div>
         </div>

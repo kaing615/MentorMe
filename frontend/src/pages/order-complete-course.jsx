@@ -91,6 +91,14 @@ const OrderCompleteCourse = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // Course reviews state
+  const [courseReviews, setCourseReviews] = useState([]);
+  const [reviewsLoading, setReviewsLoading] = useState(false);
+  const [reviewStats, setReviewStats] = useState({
+    totalReviews: 0,
+    averageRating: 0,
+  });
+
   // Get courseId or purchasedCourseId from URL params, location state, or URL search
   // Logic: URL param 'id' could be either purchasedCourseId (24 chars) or courseId (24 chars)
   // We'll determine which one it is based on context and API response
@@ -287,8 +295,9 @@ const OrderCompleteCourse = () => {
               console.log("✅ Purchased course data:", purchasedData);
 
               // Set course data from purchased course
-              setCourseData({
+              const courseInfo = {
                 id: purchasedData.courseInfo._id,
+                _id: purchasedData.courseInfo._id, // Add _id as well
                 title: purchasedData.courseInfo.title,
                 description: purchasedData.courseInfo.description,
                 price: purchasedData.courseInfo.price,
@@ -305,7 +314,15 @@ const OrderCompleteCourse = () => {
                   purchasedData.courseInfo.keyLearningObjectives || [],
                 tags: purchasedData.courseInfo.tags || [],
                 language: purchasedData.courseInfo.language || [],
-              });
+              };
+
+              setCourseData(courseInfo);
+
+              // Fetch course reviews immediately after setting course data
+              if (courseInfo._id) {
+                console.log("🔄 Fetching reviews for course:", courseInfo._id);
+                await fetchCourseReviews(courseInfo._id);
+              }
 
               // Set mentor data
               if (purchasedData.courseInfo.mentor) {
@@ -487,8 +504,9 @@ const OrderCompleteCourse = () => {
             // Handle thumbnail
             const imageUrl = course.thumbnail || "";
 
-            setCourseData({
+            const courseInfo = {
               id: course._id,
+              _id: course._id, // Add _id as well
               title: course.title,
               description: course.description,
               price: course.price,
@@ -507,7 +525,15 @@ const OrderCompleteCourse = () => {
               keyLearningObjectives: parsedObjectives,
               tags: parsedTags,
               language: parsedLanguage,
-            });
+            };
+
+            setCourseData(courseInfo);
+
+            // Fetch course reviews immediately after setting course data
+            if (courseInfo._id) {
+              console.log("🔄 Fetching reviews for course:", courseInfo._id);
+              await fetchCourseReviews(courseInfo._id);
+            }
 
             // Set mentor data with real API stats
             if (course.mentor) {
@@ -735,18 +761,71 @@ const OrderCompleteCourse = () => {
     }
   };
 
-  const fetchCourseReviews = async (courseId, limit = 15) => {
-    // TODO: Replace with actual API call
-    // const response = await fetch(`/api/courses/${courseId}/reviews?limit=${limit}`);
-    // return response.json();
-
-    // Using mockup data for now
+  const fetchCourseReviews = async (courseId) => {
     try {
-      const reviews = generateReviews(20, [], []); // Pass empty arrays explicitly
-      return reviews.slice(0, limit);
+      setReviewsLoading(true);
+      console.log("🔍 Fetching reviews for courseId:", courseId);
+      console.log("🔍 CourseId type:", typeof courseId);
+
+      const { response: reviewsResponse, err: reviewsError } =
+        await courseApi.getCourseReviews({ courseId });
+
+      console.log("📥 Reviews API response:", reviewsResponse);
+      console.log("❌ Reviews API error:", reviewsError);
+
+      if (reviewsResponse && reviewsResponse.data) {
+        // Backend trả về { data: reviews } thay vì { data: { reviews: [...] } }
+        const courseReviews = Array.isArray(reviewsResponse.data)
+          ? reviewsResponse.data
+          : reviewsResponse.data.reviews || [];
+
+        console.log("✅ Processed course reviews:", courseReviews);
+        console.log("📊 Reviews count:", courseReviews.length);
+        // Debug: Check first review structure
+        if (courseReviews.length > 0) {
+          console.log("🔍 First review structure:", courseReviews[0]);
+          console.log("🔍 First review user:", courseReviews[0].user);
+          console.log("🔍 First review author:", courseReviews[0].author);
+        }
+        setCourseReviews(courseReviews);
+
+        // Calculate review statistics
+        const totalReviews = courseReviews.length;
+        const averageRating =
+          totalReviews > 0
+            ? courseReviews.reduce(
+                (sum, review) => sum + (review.rate || 0),
+                0
+              ) / totalReviews
+            : 0;
+
+        setReviewStats({
+          totalReviews,
+          averageRating: Math.round(averageRating * 10) / 10, // Round to 1 decimal
+        });
+
+        console.log("📈 Review stats calculated:", {
+          totalReviews,
+          averageRating,
+        });
+
+        return courseReviews;
+      } else {
+        console.error(
+          "❌ Failed to fetch reviews - no response data:",
+          reviewsError
+        );
+        setCourseReviews([]);
+        setReviewStats({ totalReviews: 0, averageRating: 0 });
+        return [];
+      }
     } catch (error) {
-      console.error("Error generating reviews:", error);
+      console.error("💥 Error fetching course reviews:", error);
+      setCourseReviews([]);
+      setReviewStats({ totalReviews: 0, averageRating: 0 });
       return [];
+    } finally {
+      setReviewsLoading(false);
     }
   };
 
@@ -1708,170 +1787,214 @@ const OrderCompleteCourse = () => {
         );
 
       case "Review":
-        const mockReviews = allReviews ? allReviews.slice(0, 15) : [];
         return (
           <div className="bg-white rounded-lg p-8">
             <h3 className="text-2xl font-bold mb-8 text-gray-800">
               Course Reviews
             </h3>
 
-            {/* Overall Rating Summary */}
-            <div className="bg-gradient-to-r from-yellow-50 to-orange-50 rounded-xl p-6 mb-8 border border-yellow-200">
-              <div className="flex flex-col md:flex-row items-center md:items-start space-y-4 md:space-y-0 md:space-x-8">
-                <div className="text-center">
-                  <div className="text-5xl font-bold text-gray-800 mb-2">
-                    {courseData.rate || "N/A"}
-                  </div>
-                  <div className="flex items-center justify-center space-x-1 mb-2">
-                    {renderStars(parseFloat(courseData.rate || 0))}
-                  </div>
-                  <p className="text-gray-600 text-sm">Course Rating</p>
-                </div>
-
-                <div className="flex-1">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
-                    <div className="p-4 bg-white rounded-lg shadow-sm">
-                      <div className="text-2xl font-bold text-blue-600">
-                        {mockReviews.length}
-                      </div>
-                      <div className="text-sm text-gray-600">Total Reviews</div>
-                    </div>
-                    <div className="p-4 bg-white rounded-lg shadow-sm">
-                      <div className="text-2xl font-bold text-green-600">
-                        {mockReviews.length > 0
-                          ? Math.round(
-                              (mockReviews.filter((r) => r.rating >= 4).length /
-                                mockReviews.length) *
-                                100
-                            )
-                          : 0}
-                        %
-                      </div>
-                      <div className="text-sm text-gray-600">
-                        Positive Reviews
-                      </div>
-                    </div>
-                    <div className="p-4 bg-white rounded-lg shadow-sm">
-                      <div className="text-2xl font-bold text-purple-600">
-                        {mockReviews.length > 0
-                          ? Math.round(
-                              (mockReviews.reduce(
-                                (acc, r) => acc + r.rating,
-                                0
-                              ) /
-                                mockReviews.length) *
-                                10
-                            ) / 10
-                          : 0}
-                      </div>
-                      <div className="text-sm text-gray-600">
-                        Average Rating
-                      </div>
-                    </div>
-                  </div>
-                </div>
+            {reviewsLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+                <span className="ml-3 text-gray-600">Loading reviews...</span>
               </div>
-            </div>
+            ) : (
+              <>
+                {/* Overall Rating Summary */}
+                <div className="bg-gradient-to-r from-yellow-50 to-orange-50 rounded-xl p-6 mb-8 border border-yellow-200">
+                  <div className="flex flex-col md:flex-row items-center md:items-start space-y-4 md:space-y-0 md:space-x-8">
+                    <div className="text-center">
+                      <div className="text-5xl font-bold text-gray-800 mb-2">
+                        {reviewStats.averageRating || "N/A"}
+                      </div>
+                      <div className="flex items-center justify-center space-x-1 mb-2">
+                        {renderStars(reviewStats.averageRating || 0)}
+                      </div>
+                      <p className="text-gray-600 text-sm">Course Rating</p>
+                    </div>
 
-            {/* Reviews List with Custom Scrollbar */}
-            <div className="max-h-96 overflow-y-auto pr-2 custom-scrollbar">
-              <div className="space-y-6">
-                {mockReviews.map((review, index) => (
-                  <div
-                    key={index}
-                    className="bg-gray-50 rounded-xl p-6 border border-gray-200 hover:shadow-md transition-shadow duration-200"
-                  >
-                    <div className="flex items-start space-x-4">
-                      {/* Avatar */}
-                      <div className="flex-shrink-0">
-                        <div className="w-12 h-12 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-md">
-                          {review.studentName.charAt(0)}
+                    <div className="flex-1">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-center">
+                        <div className="p-4 bg-white rounded-lg shadow-sm">
+                          <div className="text-2xl font-bold text-blue-600">
+                            {reviewStats.totalReviews}
+                          </div>
+                          <div className="text-sm text-gray-600">
+                            Total Reviews
+                          </div>
+                        </div>
+                        <div className="p-4 bg-white rounded-lg shadow-sm">
+                          <div className="text-2xl font-bold text-purple-600">
+                            {reviewStats.averageRating}
+                          </div>
+                          <div className="text-sm text-gray-600">
+                            Average Rating
+                          </div>
                         </div>
                       </div>
+                    </div>
+                  </div>
+                </div>
 
-                      {/* Review Content */}
-                      <div className="flex-1">
-                        <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-3">
-                          <div>
-                            <h4 className="font-bold text-lg text-gray-800">
-                              {review.studentName}
-                            </h4>
-                            <div className="flex items-center space-x-2 mt-1">
-                              <div className="flex items-center space-x-1">
-                                {renderStars(review.rating)}
-                              </div>
-                              <span className="text-sm font-medium text-gray-700">
-                                {review.rating}.0
-                              </span>
-                              <span className="text-gray-400">•</span>
-                              <span className="text-sm text-gray-500">
-                                {new Date(review.reviewDate).toLocaleDateString(
-                                  "en-US",
-                                  {
-                                    year: "numeric",
-                                    month: "long",
-                                    day: "numeric",
+                {/* Reviews List with Custom Scrollbar */}
+                {courseReviews.length > 0 ? (
+                  <div className="max-h-96 overflow-y-auto pr-2 custom-scrollbar">
+                    <div className="space-y-6">
+                      {courseReviews.map((review, index) => (
+                        <div
+                          key={review._id || index}
+                          className="bg-gray-50 rounded-xl p-6 border border-gray-200 hover:shadow-md transition-shadow duration-200"
+                        >
+                          <div className="flex items-start space-x-4">
+                            {/* Avatar */}
+                            <div className="flex-shrink-0">
+                              {/* Check if user has avatar */}
+                              {review.user?.avatarUrl ||
+                              review.author?.avatarUrl ||
+                              review.user?.avatar ||
+                              review.author?.avatar ? (
+                                <img
+                                  src={
+                                    review.user?.avatarUrl ||
+                                    review.author?.avatarUrl ||
+                                    review.user?.avatar ||
+                                    review.author?.avatar
                                   }
-                                )}
-                              </span>
+                                  alt={
+                                    review.user?.firstName ||
+                                    review.author?.firstName ||
+                                    review.user?.userName ||
+                                    review.author?.userName ||
+                                    "User"
+                                  }
+                                  className="w-12 h-12 rounded-full object-cover border-2 border-white shadow-md"
+                                  onError={(e) => {
+                                    // Fallback to initial circle if image fails
+                                    e.target.style.display = "none";
+                                    e.target.nextSibling.style.display = "flex";
+                                  }}
+                                />
+                              ) : null}
+                              <div
+                                className="w-12 h-12 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-md"
+                                style={{
+                                  display:
+                                    review.user?.avatarUrl ||
+                                    review.author?.avatarUrl ||
+                                    review.user?.avatar ||
+                                    review.author?.avatar
+                                      ? "none"
+                                      : "flex",
+                                }}
+                              >
+                                {(
+                                  review.user?.firstName ||
+                                  review.author?.firstName ||
+                                  review.user?.userName ||
+                                  review.author?.userName ||
+                                  review.user?.name ||
+                                  review.author?.name ||
+                                  "Anonymous"
+                                )
+                                  .charAt(0)
+                                  .toUpperCase()}
+                              </div>
+                            </div>
+
+                            {/* Review Content */}
+                            <div className="flex-1">
+                              <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-3">
+                                <div>
+                                  <h4 className="font-bold text-lg text-gray-800">
+                                    {/* Try multiple user field combinations */}
+                                    {review.user?.firstName &&
+                                    review.user?.lastName
+                                      ? `${review.user.firstName} ${review.user.lastName}`
+                                      : review.author?.firstName &&
+                                        review.author?.lastName
+                                      ? `${review.author.firstName} ${review.author.lastName}`
+                                      : review.user?.userName ||
+                                        review.author?.userName ||
+                                        review.user?.name ||
+                                        review.author?.name ||
+                                        "Anonymous Student"}
+                                  </h4>
+                                  <div className="flex items-center space-x-2 mt-1">
+                                    <div className="flex items-center space-x-1">
+                                      {renderStars(review.rate || 0)}
+                                    </div>
+                                    <span className="text-sm font-medium text-gray-700">
+                                      {review.rate || 0}
+                                    </span>
+                                    <span className="text-gray-400">•</span>
+                                    <span className="text-sm text-gray-500">
+                                      {new Date(
+                                        review.createdAt || review.reviewDate
+                                      ).toLocaleDateString("en-US", {
+                                        year: "numeric",
+                                        month: "long",
+                                        day: "numeric",
+                                      })}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+
+                              <p className="text-gray-700 leading-relaxed">
+                                {review.content ||
+                                  review.reviewText ||
+                                  "No review text provided."}
+                              </p>
                             </div>
                           </div>
-
-                          {/* Helpful Counter */}
-                          <div className="flex items-center space-x-2 mt-2 md:mt-0">
-                            <button className="flex items-center space-x-1 text-sm text-gray-500 hover:text-blue-600 transition-colors">
-                              <svg
-                                className="w-4 h-4"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V9a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 2.006L9 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5"
-                                />
-                              </svg>
-                              <span>Helpful ({review.helpfulCount})</span>
-                            </button>
-                          </div>
                         </div>
-
-                        <p className="text-gray-700 leading-relaxed">
-                          {review.reviewText}
-                        </p>
-
-                        {/* Course Name Tag */}
-                        <div className="mt-3">
-                          <span className="inline-block px-3 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded-full">
-                            {review.courseName}
-                          </span>
-                        </div>
-                      </div>
+                      ))}
                     </div>
                   </div>
-                ))}
-              </div>
-            </div>
+                ) : (
+                  <div className="text-center py-12">
+                    <div className="text-gray-500">
+                      <svg
+                        className="w-16 h-16 mx-auto mb-4 text-gray-300"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-3.582 8-8 8a8.959 8.959 0 01-4.906-1.451L3 21l2.451-5.094A8.959 8.959 0 013 12c0-4.418 3.582-8 8-8s8 3.582 8 8z"
+                        />
+                      </svg>
+                      <p className="text-lg font-medium mb-2">No Reviews Yet</p>
+                      <p className="text-sm">
+                        This course hasn't received any reviews yet. Be the
+                        first to review!
+                      </p>
+                    </div>
+                  </div>
+                )}
 
-            {/* Custom CSS for scrollbar */}
-            <style jsx>{`
-              .custom-scrollbar::-webkit-scrollbar {
-                width: 8px;
-              }
-              .custom-scrollbar::-webkit-scrollbar-track {
-                background: #f1f5f9;
-                border-radius: 4px;
-              }
-              .custom-scrollbar::-webkit-scrollbar-thumb {
-                background: linear-gradient(to bottom, #3b82f6, #6366f1);
-                border-radius: 4px;
-              }
-              .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-                background: linear-gradient(to bottom, #2563eb, #4f46e5);
-              }
-            `}</style>
+                {/* Custom CSS for scrollbar */}
+                <style jsx>{`
+                  .custom-scrollbar::-webkit-scrollbar {
+                    width: 8px;
+                  }
+                  .custom-scrollbar::-webkit-scrollbar-track {
+                    background: #f1f5f9;
+                    border-radius: 4px;
+                  }
+                  .custom-scrollbar::-webkit-scrollbar-thumb {
+                    background: linear-gradient(to bottom, #3b82f6, #6366f1);
+                    border-radius: 4px;
+                  }
+                  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+                    background: linear-gradient(to bottom, #2563eb, #4f46e5);
+                  }
+                `}</style>
+              </>
+            )}
           </div>
         );
 
