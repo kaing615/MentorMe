@@ -4026,7 +4026,9 @@ const MentorProfile = () => {
                   {/* Booking List */}
                   <div className="space-y-4">
                     {(() => {
-                      const filteredBookings = getFilteredBookings();
+                      const filteredBookings = getFilteredBookings().sort(
+                        (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
+                      ); // Sort by newest first
                       return filteredBookings.length === 0 ? (
                         <div className="text-center py-16">
                           <div className="w-20 h-20 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-full flex items-center justify-center mx-auto mb-6">
