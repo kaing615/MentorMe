@@ -1264,6 +1264,13 @@ const MentorProfile = () => {
     scheduleName: null
   });
 
+  // Decline booking confirmation popup state
+  const [declineConfirmModal, setDeclineConfirmModal] = useState({
+    isOpen: false,
+    bookingId: null,
+    bookingInfo: null
+  });
+
   // Load bookings when component mounts or tab changes to response
   useEffect(() => {
     if (activeTab === "response") {
@@ -1391,10 +1398,8 @@ const MentorProfile = () => {
   };
 
   const handleDeclineBooking = async (bookingId) => {
-    try {
-      const reason = prompt("Lý do từ chối (tuỳ chọn):");
-      
-      const { response, error } = await bookingApi.cancelBooking(bookingId, reason || "");
+    try {      
+      const { response, error } = await bookingApi.cancelBooking(bookingId, "");
       if (error) {
         console.error("Error declining booking:", error);
         toast.error("Không thể từ chối booking");
@@ -1537,6 +1542,41 @@ const MentorProfile = () => {
     if (deleteConfirmModal.scheduleId) {
       await handleDeleteSchedule(deleteConfirmModal.scheduleId);
       closeDeleteConfirmModal();
+    }
+  };
+
+  // Open decline booking confirmation modal
+  const openDeclineConfirmModal = (booking) => {
+    setDeclineConfirmModal({
+      isOpen: true,
+      bookingId: booking.id,
+      bookingInfo: {
+        menteeName: booking.menteeName,
+        date: new Date(booking.date).toLocaleDateString('en-US', {
+          weekday: 'long',
+          month: 'long',
+          day: 'numeric',
+          year: 'numeric'
+        }),
+        time: booking.time
+      }
+    });
+  };
+
+  // Close decline booking confirmation modal
+  const closeDeclineConfirmModal = () => {
+    setDeclineConfirmModal({
+      isOpen: false,
+      bookingId: null,
+      bookingInfo: null
+    });
+  };
+
+  // Confirm decline booking
+  const confirmDeclineBooking = async () => {
+    if (declineConfirmModal.bookingId) {
+      await handleDeclineBooking(declineConfirmModal.bookingId);
+      closeDeclineConfirmModal();
     }
   };
 
@@ -3917,7 +3957,7 @@ const MentorProfile = () => {
                                   Accept
                                 </button>
                                 <button
-                                  onClick={() => handleDeclineBooking(booking.id)}
+                                  onClick={() => openDeclineConfirmModal(booking)}
                                   className="flex items-center gap-2 px-6 py-3 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition-colors duration-200"
                                 >
                                   Decline
@@ -4300,6 +4340,64 @@ const MentorProfile = () => {
                 className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors"
               >
                 Delete Schedule
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Decline Booking Confirmation Modal */}
+      {declineConfirmModal.isOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4 transform transition-all">
+            {/* Modal Header */}
+            <div className="border-b border-gray-100 p-6">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
+                  <span className="text-red-600 text-xl">❌</span>
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900">Decline Booking</h3>
+                  <p className="text-sm text-gray-600">Confirm booking rejection</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6">
+              <div className="mb-4">
+                <p className="text-gray-700 mb-3">
+                  Are you sure you want to decline this booking request?
+                </p>
+                <div className="bg-gray-50 rounded-lg p-4 border">
+                  <div className="space-y-2">
+                    <p className="font-medium text-gray-900">
+                      {declineConfirmModal.bookingInfo?.menteeName}
+                    </p>
+                    <p className="text-sm text-gray-600">
+                      📅 {declineConfirmModal.bookingInfo?.date}
+                    </p>
+                    <p className="text-sm text-gray-600">
+                      🕐 {declineConfirmModal.bookingInfo?.time}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="border-t border-gray-100 p-6 flex gap-3">
+              <button
+                onClick={closeDeclineConfirmModal}
+                className="flex-1 px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg font-medium transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDeclineBooking}
+                className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors"
+              >
+                Decline Booking
               </button>
             </div>
           </div>
