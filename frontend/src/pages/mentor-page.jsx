@@ -410,6 +410,9 @@ const MentorPage = () => {
         const hasOpenSlots = availability.slots.some(
           (slot) => slot.status === "open"
         );
+        const hasPendingSlots = availability.slots.some(
+          (slot) => slot.status === "pending"
+        );
         const hasHeldSlots = availability.slots.some(
           (slot) => slot.status === "held"
         );
@@ -418,7 +421,11 @@ const MentorPage = () => {
         );
 
         if (hasOpenSlots) {
+          // Có slot open -> có thể book
           dayStatus = "available";
+        } else if (hasPendingSlots) {
+          // Chỉ có slot pending -> hiển thị pending
+          dayStatus = "pending";
         } else if (hasHeldSlots) {
           dayStatus = "pending";
         } else if (hasBookedSlots) {
@@ -1463,7 +1470,18 @@ const MentorPage = () => {
                             selectedTimeSlot?._id === slot._id
                               ? "bg-blue-600 text-white border-blue-600"
                               : "bg-white text-gray-700 border-gray-300 hover:border-blue-300 hover:bg-blue-50";
+                        } else if (slot.status === "pending") {
+                          // Pending slots - màu cam nhạt, vẫn có thể book được
+                          slotClass +=
+                            selectedTimeSlot?._id === slot._id
+                              ? "bg-orange-600 text-white border-orange-600"
+                              : "bg-orange-100 text-orange-700 border-orange-300 hover:border-orange-400 hover:bg-orange-200";
+                        } else if (slot.status === "booked") {
+                          // Booked slots - màu đỏ, không thể book
+                          slotClass +=
+                            "bg-red-100 text-red-600 border-red-200 cursor-not-allowed";
                         } else {
+                          // Blocked, held, etc. - xám
                           slotClass +=
                             "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed";
                         }
@@ -1472,19 +1490,25 @@ const MentorPage = () => {
                           <button
                             key={slot._id}
                             onClick={() =>
-                              slot.status === "open"
+                              slot.status === "open" ||
+                              slot.status === "pending"
                                 ? handleTimeSlotSelect(slot)
                                 : null
                             }
-                            disabled={slot.status !== "open"}
+                            disabled={
+                              slot.status !== "open" &&
+                              slot.status !== "pending"
+                            }
                             className={slotClass}
                           >
                             <div>{slot.start}</div>
                             <div className="text-xs opacity-75">
                               {slot.status === "open"
                                 ? "Available"
-                                : slot.status === "held"
+                                : slot.status === "pending"
                                 ? "Pending"
+                                : slot.status === "held"
+                                ? "Held"
                                 : slot.status === "booked"
                                 ? "Booked"
                                 : "Blocked"}

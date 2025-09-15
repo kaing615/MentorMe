@@ -264,26 +264,6 @@ const MenteeProfile = () => {
     }
   }, [activeTab]);
 
-  // Cancel booking function
-  const handleCancelBooking = async (bookingId) => {
-    try {
-      const { response, error } = await bookingApi.cancelBooking(
-        bookingId,
-        "Hủy bởi mentee"
-      );
-      if (response) {
-        toast.success("Hủy booking thành công!");
-        fetchBookings(); // Refresh bookings list
-      } else {
-        console.error("Error cancelling booking:", error);
-        toast.error(error?.message || "Không thể hủy booking");
-      }
-    } catch (err) {
-      console.error("Cancel booking error:", err);
-      toast.error("Có lỗi xảy ra khi hủy booking");
-    }
-  };
-
   const [purchasedCourses, setPurchasedCourses] = useState([]);
 
   useEffect(() => {
@@ -397,8 +377,8 @@ const MenteeProfile = () => {
       case "accepted":
         filtered = filtered.filter((booking) => booking.status === "active");
         break;
-      case "completed":
-        filtered = filtered.filter((booking) => booking.status === "finished");
+      case "declined":
+        filtered = filtered.filter((booking) => booking.status === "cancelled");
         break;
       case "all":
       default:
@@ -406,7 +386,10 @@ const MenteeProfile = () => {
         break;
     }
 
-    return filtered.sort((a, b) => new Date(b.date) - new Date(a.date));
+    // Sort by creation time (newest first) to show most recent bookings at the top
+    return filtered.sort(
+      (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
+    );
   };
 
   // Filter and search logic for mentors
@@ -528,6 +511,8 @@ const MenteeProfile = () => {
     switch (reviewFilter) {
       case "course":
         return allReviews.filter((review) => review.type === "course");
+      case "consulting":
+        return allReviews.filter((review) => review.type === "consulting");
       case "mentor":
         return allReviews.filter((review) => review.type === "mentor");
       default:
@@ -1150,16 +1135,6 @@ const MenteeProfile = () => {
                                     "https://via.placeholder.com/300x200/f3f4f6/9ca3af?text=Course+Image";
                                 }}
                               />
-                              {/* Progress Badge */}
-                              {item.purchasedCourseId ? (
-                                <div className="absolute top-3 right-3 bg-green-500 text-white px-2 py-1 rounded-full text-xs font-medium">
-                                  📊 {item.progress || 0}% Complete
-                                </div>
-                              ) : (
-                                <div className="absolute top-3 right-3 bg-gray-500 text-white px-2 py-1 rounded-full text-xs font-medium">
-                                  📚 Legacy Course
-                                </div>
-                              )}
                             </div>
 
                             <div className="p-4">
@@ -1527,15 +1502,15 @@ const MenteeProfile = () => {
                       {bookings.filter((b) => b.status === "active").length})
                     </button>
                     <button
-                      onClick={() => setBookingFilterBy("completed")}
+                      onClick={() => setBookingFilterBy("declined")}
                       className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${
-                        bookingFilterBy === "completed"
+                        bookingFilterBy === "declined"
                           ? "bg-blue-100 text-blue-700"
                           : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                       }`}
                     >
-                      Completed (
-                      {bookings.filter((b) => b.status === "finished").length})
+                      Declined (
+                      {bookings.filter((b) => b.status === "cancelled").length})
                     </button>
                   </div>
 
@@ -1712,7 +1687,7 @@ const MenteeProfile = () => {
                                 bg: "bg-red-50",
                                 text: "text-red-700",
                                 border: "border-red-200",
-                                label: "CANCELLED",
+                                label: "DECLINED",
                                 badge: "bg-red-100 text-red-700",
                               },
                               rejected: {
@@ -1835,33 +1810,33 @@ const MenteeProfile = () => {
                                     </div>
                                   )}
 
-                                  {/* Actions */}
-                                  <div className="mt-4 flex gap-3">
-                                    {booking.status === "pending" && (
-                                      <button
-                                        onClick={() =>
-                                          handleCancelBooking(booking._id)
-                                        }
-                                        className="px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 font-medium text-sm transition-colors"
-                                      >
-                                        Cancel
-                                      </button>
+                                  {/* Decline Reason - chỉ hiển thị cho booking bị declined */}
+                                  {booking.status === "cancelled" &&
+                                    booking.declineReason && (
+                                      <div className="mt-4 p-3 bg-red-50 rounded-lg border border-red-200">
+                                        <div className="flex items-center gap-2 mb-1">
+                                          <svg
+                                            className="w-4 h-4 text-red-600"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            viewBox="0 0 24 24"
+                                          >
+                                            <path
+                                              strokeLinecap="round"
+                                              strokeLinejoin="round"
+                                              strokeWidth={2}
+                                              d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.232 15.5c-.77.833.192 2.5 1.732 2.5z"
+                                            />
+                                          </svg>
+                                          <span className="text-red-700 font-semibold text-sm">
+                                            Decline Reason
+                                          </span>
+                                        </div>
+                                        <p className="text-sm text-red-700">
+                                          {booking.declineReason}
+                                        </p>
+                                      </div>
                                     )}
-                                    {booking.status === "active" &&
-                                      isUpcoming && (
-                                        <button
-                                          onClick={() => {
-                                            console.log(
-                                              "Join session:",
-                                              booking._id
-                                            );
-                                          }}
-                                          className="px-4 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 font-medium text-sm transition-colors"
-                                        >
-                                          Join Session
-                                        </button>
-                                      )}
-                                  </div>
                                 </div>
                               </div>
                             </div>
@@ -2356,14 +2331,6 @@ const MenteeProfile = () => {
                       <h3 className="text-lg font-semibold text-gray-900">
                         My Reviews ({allReviews.length})
                       </h3>
-                      <div className="flex items-center gap-2">
-                        <div className="flex text-yellow-400 text-sm">
-                          ★★★★★
-                        </div>
-                        <span className="text-sm text-gray-600">
-                          4.7 average rating
-                        </span>
-                      </div>
                     </div>
 
                     {/* Search and Controls Row */}
@@ -2434,6 +2401,18 @@ const MenteeProfile = () => {
                     >
                       Course Reviews (
                       {allReviews.filter((r) => r.type === "course").length})
+                    </button>
+                    <button
+                      onClick={() => handleReviewFilterChange("consulting")}
+                      className={`px-4 py-2 rounded-md transition text-sm font-medium ${
+                        reviewFilter === "consulting"
+                          ? "bg-white shadow-sm text-gray-900"
+                          : "text-gray-600 hover:text-gray-900"
+                      }`}
+                    >
+                      Consulting Reviews (
+                      {allReviews.filter((r) => r.type === "consulting").length}
+                      )
                     </button>
                     <button
                       onClick={() => handleReviewFilterChange("mentor")}

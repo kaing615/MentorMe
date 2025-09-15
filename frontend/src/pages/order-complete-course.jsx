@@ -54,7 +54,29 @@ const OrderCompleteCourse = () => {
     return;
   }, [navigate]);
 
-  const [activeTab, setActiveTab] = useState("Details");
+  // Tab persistence logic
+  const TAB_STORAGE_KEY = "orderCompleteCourseActiveTab";
+  const getInitialTab = () => {
+    const storedTab = localStorage.getItem(TAB_STORAGE_KEY);
+    return storedTab || "Details";
+  };
+  const [activeTab, setActiveTab] = useState(getInitialTab());
+
+  // Scroll to top on mount (page load/reload)
+  useEffect(() => {
+    // Force immediate scroll to top on page load
+    window.scrollTo(0, 0);
+    // Also try with a small delay to ensure DOM is ready
+    setTimeout(() => {
+      window.scrollTo(0, 0);
+    }, 0);
+  }, []);
+
+  // Scroll to top on tab change and save tab
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    localStorage.setItem(TAB_STORAGE_KEY, activeTab);
+  }, [activeTab]);
   const [showRatingPopup, setShowRatingPopup] = useState(false);
   const [userRating, setUserRating] = useState(0);
   const [userComment, setUserComment] = useState("");
@@ -1909,7 +1931,9 @@ const OrderCompleteCourse = () => {
                 {["Details", "Mentor", "Course", "Review"].map((tab) => (
                   <button
                     key={tab}
-                    onClick={() => setActiveTab(tab)}
+                    onClick={() => {
+                      setActiveTab(tab);
+                    }}
                     className={`pb-2 text-sm font-medium border-b-2 transition-colors ${
                       activeTab === tab
                         ? "border-blue-500 text-blue-600"
