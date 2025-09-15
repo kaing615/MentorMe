@@ -16,7 +16,7 @@ import {
   addContentSchema,
   addReviewSchema,
 } from "../validations/course.validation.js";
-
+//
 const getParamId = (req) => req.params.courseId || req.params.id;
 const isMentorOfCourse = (course, userId) =>
   course.mentor && course.mentor.toString() === userId.toString();
