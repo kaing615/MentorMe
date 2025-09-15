@@ -1257,6 +1257,13 @@ const MentorProfile = () => {
   // Booking filter state
   const [bookingFilter, setBookingFilter] = useState("all"); // 'all', 'pending', 'accepted', 'declined'
 
+  // Delete confirmation popup state
+  const [deleteConfirmModal, setDeleteConfirmModal] = useState({
+    isOpen: false,
+    scheduleId: null,
+    scheduleName: null
+  });
+
   // Load bookings when component mounts or tab changes to response
   useEffect(() => {
     if (activeTab === "response") {
@@ -1457,6 +1464,8 @@ const MentorProfile = () => {
 
   const handleDeleteSchedule = async (scheduleId) => {
     try {
+      console.log(`Deleting schedule ${scheduleId}`);
+      
       const { response, error } = await availabilityApi.deleteAvailability(scheduleId);
       if (error) {
         console.error("Error deleting schedule:", error);
@@ -1493,6 +1502,41 @@ const MentorProfile = () => {
     } catch (err) {
       console.error("Error in handleDeleteSchedule:", err);
       toast.error("Lỗi khi xóa lịch trình");
+    }
+  };
+
+  // Open delete confirmation modal
+  const openDeleteConfirmModal = (schedule) => {
+    const dayOfWeekEn = new Date(schedule.date).toLocaleDateString('en-US', {
+      weekday: 'long'
+    });
+    const dateEn = new Date(schedule.date).toLocaleDateString('en-US', {
+      month: 'long',
+      day: 'numeric',
+      year: 'numeric'
+    });
+    
+    setDeleteConfirmModal({
+      isOpen: true,
+      scheduleId: schedule._id,
+      scheduleName: `${dayOfWeekEn} - ${dateEn}`
+    });
+  };
+
+  // Close delete confirmation modal
+  const closeDeleteConfirmModal = () => {
+    setDeleteConfirmModal({
+      isOpen: false,
+      scheduleId: null,
+      scheduleName: null
+    });
+  };
+
+  // Confirm delete
+  const confirmDeleteSchedule = async () => {
+    if (deleteConfirmModal.scheduleId) {
+      await handleDeleteSchedule(deleteConfirmModal.scheduleId);
+      closeDeleteConfirmModal();
     }
   };
 
@@ -3194,7 +3238,9 @@ const MentorProfile = () => {
                               <div>
                                 <h5 className="text-lg font-bold text-gray-900 mb-2 flex items-center gap-2">
                                   <span className="text-blue-600 text-sm">📅</span>
-                                  {day.dayOfWeek}
+                                  {new Date(day.date).toLocaleDateString('en-US', {
+                                    weekday: 'long'
+                                  })}
                                 </h5>
                                 <p className="text-gray-600 font-medium text-sm mb-1">
                                   {new Date(day.date).toLocaleDateString('en-US', {
@@ -3410,7 +3456,10 @@ const MentorProfile = () => {
                                     {/* Schedule Header */}
                                     <div className="mb-4">
                                       <h5 className="text-lg font-bold text-gray-900 mb-2 flex items-center gap-1">
-                                        <span className="text-blue-600 text-sm">📆</span> {schedule.dayOfWeek}
+                                        <span className="text-blue-600 text-sm">📆</span> 
+                                        {new Date(schedule.date).toLocaleDateString('en-US', {
+                                          weekday: 'long'
+                                        })}
                                       </h5>
                                       <p className="text-gray-600 font-medium text-sm">
                                         {new Date(schedule.date).toLocaleDateString('en-US', {
@@ -3455,11 +3504,7 @@ const MentorProfile = () => {
                                       </button>
                                       {schedule.canDelete && (
                                         <button
-                                          onClick={() => {
-                                            if (window.confirm("Bạn có chắc chắn muốn xóa lịch trình này không?")) {
-                                              handleDeleteSchedule(schedule._id);
-                                            }
-                                          }}
+                                          onClick={() => openDeleteConfirmModal(schedule)}
                                           className="flex items-center gap-1 px-3 py-2 text-sm font-medium border border-red-300 text-red-600 rounded-lg hover:bg-red-50 transition-all duration-200"
                                         >
                                           <span className="text-xs">🗑️</span> Delete
@@ -4212,6 +4257,54 @@ const MentorProfile = () => {
           )}
         </div>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {deleteConfirmModal.isOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4 transform transition-all">
+            {/* Modal Header */}
+            <div className="border-b border-gray-100 p-6">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
+                  <span className="text-red-600 text-xl">🗑️</span>
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900">Confirm Delete Schedule</h3>
+                  <p className="text-sm text-gray-600">This action cannot be undone</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6">
+              <div className="mb-4">
+                <p className="text-gray-700 mb-2">
+                  Are you sure you want to delete this schedule?
+                </p>
+                <div className="bg-gray-50 rounded-lg p-3 border">
+                  <p className="font-medium text-gray-900">{deleteConfirmModal.scheduleName}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="border-t border-gray-100 p-6 flex gap-3">
+              <button
+                onClick={closeDeleteConfirmModal}
+                className="flex-1 px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg font-medium transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDeleteSchedule}
+                className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors"
+              >
+                Delete Schedule
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
