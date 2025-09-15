@@ -72,17 +72,8 @@ export const updateMentorProfileSchema = Joi.object({
     "string.min": "Experience phải từ 10-1000 ký tự",
   }),
   introVideo: Joi.string().uri().optional().allow("").messages({
-  introVideo: Joi.string().uri().optional().allow("").messages({
     "string.uri": "Intro Video phải là URL hợp lệ",
   }),
-
-  languages: Joi.alternatives()
-    .try(Joi.array().items(Joi.string()), Joi.string())
-    .optional()
-    .messages({
-      "array.base": "Languages phải là mảng hoặc chuỗi",
-    }),
-
 
   languages: Joi.alternatives()
     .try(Joi.array().items(Joi.string()), Joi.string())
@@ -151,14 +142,6 @@ export const updateMenteeProfileSchema = Joi.object({
       "array.base": "Languages phải là mảng hoặc chuỗi",
     }),
 
-
-  languages: Joi.alternatives()
-    .try(Joi.array().items(Joi.string()), Joi.string())
-    .optional()
-    .messages({
-      "array.base": "Languages phải là mảng hoặc chuỗi",
-    }),
-
   timezone: Joi.string().min(1).optional().messages({
     "string.empty": "Timezone không được để trống",
   }),
@@ -192,5 +175,4 @@ export const updateMenteeProfileSchema = Joi.object({
   }).optional(),
 });
 
-export const changeAvatarSchema = Joi.object({}).unknown(true);
 export const changeAvatarSchema = Joi.object({}).unknown(true);

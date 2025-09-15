@@ -9,6 +9,8 @@ import purchasedCourseRoute from "./purchasedCourse.route.js";
 import userRoute from "./user.route.js";
 import availabilityRoute from "./availability.route.js";
 import bookingRoute from "./booking.route.js";
+import reviewRoute from "./review.route.js";
+
 
 const router = express.Router();
 
@@ -21,5 +23,6 @@ router.use("/purchased-courses", purchasedCourseRoute);
 router.use("/cart", cartRoute);
 router.use("/availability", availabilityRoute);
 router.use("/booking", bookingRoute);
+router.use("/reviews", reviewRoute);
 
 export default router;

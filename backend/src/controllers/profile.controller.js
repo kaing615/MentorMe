@@ -46,8 +46,6 @@ export const updateMentorProfile = async (req, res) => {
   try {
     const userId = getAuthedUserId(req);
     if (!userId) return responseHandler.unauthorized(res, "Unauthorized");
-    const userId = getAuthedUserId(req);
-    if (!userId) return responseHandler.unauthorized(res, "Unauthorized");
 
     const {
       userName,
@@ -99,9 +97,6 @@ export const updateMentorProfile = async (req, res) => {
     const skillsArray = parseArrayish(skills);
     const languagesArray = parseArrayish(languages);
 
-    const skillsArray = parseArrayish(skills);
-    const languagesArray = parseArrayish(languages);
-
     let profile = await Profile.findOne({ user: userId });
     if (!profile) profile = new Profile({ user: userId });
 
@@ -135,22 +130,17 @@ export const updateMentorProfile = async (req, res) => {
     if (experience !== undefined) profile.experience = experience;
     if (introVideo !== undefined) profile.introVideo = introVideo;
     if (languagesArray !== undefined) profile.languages = languagesArray;
-    if (languagesArray !== undefined) profile.languages = languagesArray;
     if (timezone !== undefined) profile.timezone = timezone;
 
     if (links && Object.keys(links).length > 0) {
       profile.links = { ...(profile.links || {}), ...links };
-      profile.links = { ...(profile.links || {}), ...links };
     }
 
-    await user.save();
     await user.save();
     await profile.save();
 
     return responseHandler.ok(res, {
       message: "Cập nhật thông tin mentor thành công!",
-      user: sanitizeUser(user),
-      profile,
       user: sanitizeUser(user),
       profile,
     });
@@ -165,9 +155,6 @@ export const updateMentorProfile = async (req, res) => {
 
 export const updateMenteeProfile = async (req, res) => {
   try {
-    const userId = getAuthedUserId(req);
-    if (!userId) return responseHandler.unauthorized(res, "Unauthorized");
-
     const userId = getAuthedUserId(req);
     if (!userId) return responseHandler.unauthorized(res, "Unauthorized");
 
@@ -230,7 +217,6 @@ export const updateMenteeProfile = async (req, res) => {
 
     let profile = await Profile.findOne({ user: userId });
     if (!profile) profile = new Profile({ user: userId });
-    if (!profile) profile = new Profile({ user: userId });
 
     // Only update profile fields if they are provided
     if (bio !== undefined) profile.bio = bio;
@@ -242,15 +228,12 @@ export const updateMenteeProfile = async (req, res) => {
     if (timezone !== undefined) profile.timezone = timezone;
     if (links && Object.keys(links).length > 0) {
       profile.links = { ...(profile.links || {}), ...links };
-      profile.links = { ...(profile.links || {}), ...links };
     }
 
     await profile.save();
 
     return responseHandler.ok(res, {
       message: "Cập nhật thông tin mentee thành công!",
-      user: sanitizeUser(updatedUser),
-      profile,
       user: sanitizeUser(updatedUser),
       profile,
     });
@@ -368,8 +351,6 @@ export const getProfile = async (req, res) => {
   try {
     const userId = getAuthedUserId(req);
     if (!userId) return responseHandler.unauthorized(res, "Unauthorized");
-    const userId = getAuthedUserId(req);
-    if (!userId) return responseHandler.unauthorized(res, "Unauthorized");
 
     const user = await User.findById(userId);
     if (!user) return responseHandler.badRequest(res, "User không tồn tại");
@@ -461,14 +442,11 @@ export const getProfile = async (req, res) => {
   } catch (err) {
     console.error("Lỗi lấy thông tin profile:", err);
     return responseHandler.error(res, "Lỗi lấy thông tin profile!");
-    return responseHandler.error(res, "Lỗi lấy thông tin profile!");
   }
 };
 
 export const changeAvatar = async (req, res) => {
   try {
-    const userId = getAuthedUserId(req);
-    if (!userId) return responseHandler.unauthorized(res, "Unauthorized");
     const userId = getAuthedUserId(req);
     if (!userId) return responseHandler.unauthorized(res, "Unauthorized");
 

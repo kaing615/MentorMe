@@ -52,6 +52,7 @@ const CourseDetail = () => {
   const [courseData, setCourseData] = useState(null);
   const [relatedCourses, setRelatedCourses] = useState([]);
   const [reviews, setReviews] = useState([]);
+  const [reviewsLoading, setReviewsLoading] = useState(false);
   const [error, setError] = useState(null);
   const [isAddingToCart, setIsAddingToCart] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
@@ -92,6 +93,38 @@ const CourseDetail = () => {
 
         const course = courseResponse?.data?.course;
         setCourseData(course);
+
+        // Fetch course reviews
+        if (course && course._id) {
+          try {
+            setReviewsLoading(true);
+            console.log("Fetching reviews for courseId:", course._id);
+
+            const { response: reviewsResponse, err: reviewsError } =
+              await courseApi.getCourseReviews({ courseId: course._id });
+
+            console.log("Reviews API response:", reviewsResponse);
+            console.log("Reviews API error:", reviewsError);
+
+            if (reviewsResponse && reviewsResponse.data) {
+              // Backend trả về { data: reviews } thay vì { data: { reviews: [...] } }
+              const courseReviews = Array.isArray(reviewsResponse.data)
+                ? reviewsResponse.data
+                : reviewsResponse.data.reviews || [];
+              setReviews(courseReviews);
+              console.log("Course reviews loaded:", courseReviews);
+              console.log("Reviews count:", courseReviews.length);
+            } else if (reviewsError) {
+              console.warn("Could not fetch reviews:", reviewsError);
+              setReviews([]); // Set empty array if reviews fail to load
+            }
+          } catch (reviewError) {
+            console.warn("Error fetching course reviews:", reviewError);
+            setReviews([]); // Set empty array on error
+          } finally {
+            setReviewsLoading(false);
+          }
+        }
 
         // Fetch related courses
         if (course && course.category) {
@@ -1062,27 +1095,90 @@ const CourseDetail = () => {
               ref={testimonialRef}
               id="testimonial-track"
             >
-              {reviews && reviews.length > 0 ? (
+              {reviewsLoading ? (
+                // Loading state
+                [1, 2, 3].map((i) => (
+                  <div
+                    key={i}
+                    className="bg-white rounded-2xl border border-gray-200 shadow flex flex-col gap-4 min-w-[340px] max-w-[360px] w-[340px] px-7 py-6 animate-pulse"
+                  >
+                    <div className="h-8 bg-gray-200 rounded w-8"></div>
+                    <div className="flex gap-1">
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <div
+                          key={star}
+                          className="h-4 w-4 bg-gray-200 rounded"
+                        ></div>
+                      ))}
+                    </div>
+                    <div className="space-y-2">
+                      <div className="h-4 bg-gray-200 rounded w-full"></div>
+                      <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+                      <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div className="w-11 h-11 bg-gray-200 rounded-full"></div>
+                      <div className="space-y-1">
+                        <div className="h-4 bg-gray-200 rounded w-20"></div>
+                        <div className="h-3 bg-gray-200 rounded w-16"></div>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              ) : reviews && reviews.length > 0 ? (
                 reviews.map((review, idx) => (
                   <div
-                    key={idx}
+                    key={review._id || idx}
                     className="bg-white rounded-2xl border border-gray-200 shadow flex flex-col gap-4 min-w-[340px] max-w-[360px] w-[340px] px-7 py-6"
                   >
                     <div className="text-blue-700 text-4xl mb-2">
                       <ImQuotesLeft />
                     </div>
+
+                    {/* Rating Stars */}
+                    <div className="flex items-center gap-1 mb-2">
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <span
+                          key={star}
+                          className={`text-lg ${
+                            star <= (review.rate || 5)
+                              ? "text-yellow-400"
+                              : "text-gray-300"
+                          }`}
+                        >
+                          ★
+                        </span>
+                      ))}
+                      <span className="text-sm text-gray-600 ml-2">
+                        ({review.rate || 5}/5)
+                      </span>
+                    </div>
+
                     <div className="text-slate-700 text-base flex-1">
-                      {review.content}
+                      {review.content || "Great course!"}
                     </div>
                     <div className="flex items-center gap-3 mt-2">
                       <img
-                        src={review.user?.avatar || minatoImg}
-                        alt={review.user?.name || "User"}
+                        src={
+                          review.author?.avatarUrl ||
+                          review.author?.avatar ||
+                          minatoImg
+                        }
+                        alt={
+                          review.author?.firstName ||
+                          review.author?.userName ||
+                          "User"
+                        }
                         className="w-11 h-11 rounded-full object-cover border"
+                        onError={(e) => {
+                          e.target.src = minatoImg;
+                        }}
                       />
                       <div className="flex flex-col">
                         <span className="font-semibold text-sm text-slate-700">
-                          {review.user?.name || "User"}
+                          {review.author?.firstName && review.author?.lastName
+                            ? `${review.author.firstName} ${review.author.lastName}`
+                            : review.author?.userName || "Anonymous Student"}
                         </span>
                         <span className="text-xs text-slate-500">Student</span>
                       </div>
@@ -1090,8 +1186,16 @@ const CourseDetail = () => {
                   </div>
                 ))
               ) : (
-                <div className="text-gray-500 col-span-3">
-                  No reviews yet for this course.
+                <div className="text-gray-500 col-span-3 text-center py-8">
+                  <div className="flex flex-col items-center gap-3">
+                    <div className="text-4xl text-gray-300">💭</div>
+                    <div className="text-lg font-medium">
+                      No reviews yet for this course
+                    </div>
+                    <div className="text-sm">
+                      Be the first to share your experience!
+                    </div>
+                  </div>
                 </div>
               )}
             </div>

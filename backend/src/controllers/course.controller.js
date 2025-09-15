@@ -1,11 +1,7 @@
 import path from "path";
 import fs from "fs";
 
-import path from "path";
-import fs from "fs";
-
 import responseHandler from "../handlers/response.handler.js";
-
 
 import Course from "../models/course.model.js";
 import Order from "../models/order.model.js";
@@ -41,25 +37,8 @@ export const getCourses = async (req, res) => {
     const pageNum = Number(page) || 1;
     const limitNum = Math.min(Number(limit) || 10, 100);
     const skip = (pageNum - 1) * limitNum;
-    const {
-      page = 1,
-      limit = 10,
-      category,
-      mentor,
-      search,
-      rate,
-      sortBy,
-      filterBy,
-    } = req.query;
-
-    const pageNum = Number(page) || 1;
-    const limitNum = Math.min(Number(limit) || 10, 100);
-    const skip = (pageNum - 1) * limitNum;
 
     const query = {};
-    if (category) query.category = category;
-    if (mentor) query.mentor = mentor;
-    if (rate) query.rate = { $gte: Number(rate) };
     if (category) query.category = category;
     if (mentor) query.mentor = mentor;
     if (rate) query.rate = { $gte: Number(rate) };
@@ -97,19 +76,13 @@ export const getCourses = async (req, res) => {
 
     const courses = await Course.find(query)
       .populate("mentor", "userName avatarUrl jobTitle")
-      .populate("mentor", "userName avatarUrl jobTitle")
       .skip(skip)
-      .limit(limitNum)
-      .sort(sortOptions);
       .limit(limitNum)
       .sort(sortOptions);
 
     const total = await Course.countDocuments(query);
     const totalPages = Math.ceil(total / limitNum);
-    const totalPages = Math.ceil(total / limitNum);
 
-    const coursesWithId = courses.map((c) => {
-      const obj = c.toObject();
     const coursesWithId = courses.map((c) => {
       const obj = c.toObject();
       obj.courseId = obj._id;
@@ -122,10 +95,7 @@ export const getCourses = async (req, res) => {
       total,
       totalPages,
       currentPage: pageNum,
-      totalPages,
-      currentPage: pageNum,
       skip,
-      limit: limitNum,
       limit: limitNum,
       courses: coursesWithId,
     });
@@ -170,7 +140,6 @@ export const getCourseById = async (req, res) => {
     delete obj.__v;
     return responseHandler.ok(res, {
       message: "Lấy thông tin khóa học thành công!",
-      course: obj,
       course: obj,
     });
   } catch (err) {
@@ -337,7 +306,6 @@ export const createCourse = async (req, res) => {
 
     const { id: userId } = req.user;
     let {
-    let {
       title,
       description,
       courseOverview,
@@ -346,12 +314,10 @@ export const createCourse = async (req, res) => {
       category,
       tags,
       language,
-      language,
       duration,
       link,
       driveLink,
       lectures,
-      level,
       level,
     } = req.body;
 
@@ -469,7 +435,6 @@ export const createCourse = async (req, res) => {
     const populatedCourse = await Course.findById(newCourse._id).populate(
       "mentor",
       "userName firstName lastName avatarUrl jobTitle"
-      "userName firstName lastName avatarUrl jobTitle"
     );
 
     return responseHandler.created(res, {
@@ -492,24 +457,19 @@ export const handlePurchaseSuccess = async (req, res) => {
       return responseHandler.notFound(res, "Không tìm thấy đơn hàng.");
     if (order.status !== "paid") {
       return responseHandler.badRequest(res, "Đơn hàng chưa được thanh toán.");
-      return responseHandler.badRequest(res, "Đơn hàng chưa được thanh toán.");
     }
 
     const user = await User.findById(order.mentee._id);
     if (!user) return responseHandler.notFound(res, "Không tìm thấy user.");
-    if (!user) return responseHandler.notFound(res, "Không tìm thấy user.");
 
     for (const course of order.courses) {
-      const existingPurchase = user.purchasedCourses?.find(
       const existingPurchase = user.purchasedCourses?.find(
         (item) => item.course.toString() === course._id.toString()
       );
       if (!existingPurchase) {
         user.purchasedCourses = user.purchasedCourses || [];
-        user.purchasedCourses = user.purchasedCourses || [];
         user.purchasedCourses.push({
           course: course._id,
-          orderId,
           orderId,
           purchaseDate: new Date(),
           progress: 0,
@@ -526,7 +486,6 @@ export const handlePurchaseSuccess = async (req, res) => {
 
     return responseHandler.ok(res, {
       message: "Xử lý mua khóa học thành công.",
-      data: { orderId, coursesAdded: order.courses.length },
       data: { orderId, coursesAdded: order.courses.length },
     });
   } catch (err) {
@@ -757,7 +716,9 @@ export const getCourseReviews = async (req, res) => {
     const reviews = await Review.find({
       target: courseId,
       targetType: "Course",
-    }).populate("author", "userName avatar");
+    }).populate("author", "userName firstName lastName avatar avatarUrl");
+
+    console.log(`Found ${reviews.length} reviews for course ${courseId}`);
     return responseHandler.ok(res, reviews);
   } catch (err) {
     console.error("Error getting course reviews:", err);
@@ -1065,7 +1026,6 @@ export const checkCoursePurchaseStatus = async (req, res) => {
 export default {
   getCourses,
   getCourseById,
-  getRelatedCourses,
   getRelatedCourses,
   getCoursesByMentor,
   getMyCourses,

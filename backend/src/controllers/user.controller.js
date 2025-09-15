@@ -219,9 +219,6 @@ export const signUp = async (req, res) => {
     // Skip email verification in development/test environment
     const isTestEnv = isTestEnvironment();
 
-    // Skip email verification in development/test environment
-    const isTestEnv = isTestEnvironment();
-
     const user = new User({
       email,
       firstName,
@@ -229,22 +226,14 @@ export const signUp = async (req, res) => {
       userName,
       password: hashedPassword,
       salt,
+      role: "mentee",
       isVerified: false,
       isDeleted: false,
       verifyKey: isTestEnv ? "" : generateToken(),
       verifyKeyExpires: isTestEnv
         ? undefined
         : Date.now() + 24 * 60 * 60 * 1000,
-      verifyKey: isTestEnv ? "" : generateToken(),
-      verifyKeyExpires: isTestEnv
-        ? undefined
-        : Date.now() + 24 * 60 * 60 * 1000,
     });
-
-    // Only send email in production
-    if (!isTestEnv) {
-      await sendVerificationEmail(user.email, user.verifyKey, user.userName);
-    }
 
     // Only send email in production
     if (!isTestEnv) {
@@ -288,19 +277,15 @@ export const signUp = async (req, res) => {
       return responseHandler.created(res, {
         message: "Đăng ký thành công! Tài khoản đã được kích hoạt.",
         token, // Token chỉ cho test environment - giúp testing dễ dàng
-        message: "Đăng ký thành công! Tài khoản đã được kích hoạt.",
-        token, // Token chỉ cho test environment - giúp testing dễ dàng
         user: userData,
       });
     }
 
     // Production environment - standard approach: no token, require separate login
-    // Production environment - standard approach: no token, require separate login
     return responseHandler.created(res, {
       message:
         "Đăng ký thành công! Vui lòng kiểm tra email để xác thực tài khoản.",
       id: user._id,
-      // Không có token - user phải login riêng sau khi verify email
       // Không có token - user phải login riêng sau khi verify email
     });
   } catch (err) {
@@ -393,33 +378,10 @@ export const signUpMentor = async (req, res) => {
     let avatarPublicId = "";
 
     if (!req.file && !isTestEnv) {
-    if (!req.file && !isTestEnv) {
       return responseHandler.badRequest(res, "Vui lòng upload ảnh đại diện.");
     }
 
     if (req.file) {
-      if (isTestEnv) {
-        // Trong test environment, fake avatar URL
-        avatarUrl = `https://fake-avatar-url.com/mentor_${Date.now()}.jpg`;
-        avatarPublicId = `fake_avatar_mentor_${Date.now()}`;
-        // console.log("Test mode: Using fake avatar URL:", avatarUrl);
-      } else {
-        // Production: Upload thật lên Cloudinary
-        const base64 = `data:${
-          req.file.mimetype
-        };base64,${req.file.buffer.toString("base64")}`;
-        const uploadResult = await uploadImage(base64, {
-          public_id: `avatar_mentor_${Date.now()}`,
-          folder: "user_avatars",
-          overwrite: true,
-        });
-        avatarUrl = uploadResult.secure_url;
-        avatarPublicId = uploadResult.public_id;
-      }
-    } else if (isTestEnv) {
-      // Test mode: Cho phép không có file, dùng default avatar
-      avatarUrl = "https://fake-avatar-url.com/default-mentor-avatar.jpg";
-      avatarPublicId = "fake_default_mentor_avatar";
       if (isTestEnv) {
         // Trong test environment, fake avatar URL
         avatarUrl = `https://fake-avatar-url.com/mentor_${Date.now()}.jpg`;
@@ -453,13 +415,11 @@ export const signUpMentor = async (req, res) => {
       email,
       firstName,
       lastName,
-      firstName,
-      lastName,
       password: hashedPassword,
       salt,
       avatarUrl,
       avatarPublicId,
-      role: ["mentor"],
+      role: "mentor",
       isVerified: false,
       jobTitle,
       location,
@@ -542,14 +502,6 @@ export const signUpMentor = async (req, res) => {
     });
   } catch (err) {
     console.error("Lỗi signUpMentor:", err);
-    if (err.details) {
-      // Nếu là lỗi validation của Joi
-      console.error("Chi tiết lỗi Joi:", err.details);
-      return responseHandler.error(res, {
-        message: err.message || "Lỗi đăng ký mentor!",
-        details: err.details,
-      });
-    }
     if (err.details) {
       // Nếu là lỗi validation của Joi
       console.error("Chi tiết lỗi Joi:", err.details);
@@ -706,6 +658,5 @@ export default {
   resendVerificationEmail,
   forgotPassword,
   resetPassword,
-  changeAvatar,
   changeAvatar,
 };

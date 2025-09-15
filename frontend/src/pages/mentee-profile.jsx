@@ -13,6 +13,7 @@ import purchasedCourseApi from "../api/modules/purchasedCourse.api";
 import bookingApi from "../api/modules/booking.api";
 import authUtils from "../utils/auth.utils";
 import minatoImg from "../assets/minato.jpg";
+import courseApi from "../api/modules/course.api";
 
 const MenteeProfile = () => {
   const navigate = useNavigate();
@@ -107,6 +108,13 @@ const MenteeProfile = () => {
   const [bookingsLoading, setBookingsLoading] = useState(false);
   const [bookingsError, setBookingsError] = useState(null);
   const [bookingFilterBy, setBookingFilterBy] = useState("all");
+
+  // Review popup states
+  const [isReviewPopupOpen, setIsReviewPopupOpen] = useState(false);
+  const [reviewCourse, setReviewCourse] = useState(null);
+  const [reviewRating, setReviewRating] = useState(0);
+  const [reviewComment, setReviewComment] = useState("");
+  const [isSubmittingReview, setIsSubmittingReview] = useState(false);
 
   // Đổi avatar khi upload ảnh mới
   const handleImageUpload = (e) => {
@@ -342,6 +350,60 @@ const MenteeProfile = () => {
     }
     fetchPurchasedCourses();
   }, []);
+
+  // Review functions
+  const openReviewPopup = (course) => {
+    setReviewCourse(course);
+    setReviewRating(0);
+    setReviewComment("");
+    setIsReviewPopupOpen(true);
+  };
+
+  const closeReviewPopup = () => {
+    setIsReviewPopupOpen(false);
+    setReviewCourse(null);
+    setReviewRating(0);
+    setReviewComment("");
+  };
+
+  const handleStarClick = (rating) => {
+    setReviewRating(rating);
+  };
+
+  const submitReview = async () => {
+    if (!reviewCourse || reviewRating === 0) {
+      toast.error("Vui lòng chọn số sao đánh giá");
+      return;
+    }
+
+    setIsSubmittingReview(true);
+    try {
+      const reviewData = {
+        rating: reviewRating,
+        comment: reviewComment.trim(),
+      };
+
+      const { response, error } = await courseApi.addCourseReview({
+        courseId: reviewCourse._id,
+        reviewData,
+      });
+
+      if (error) {
+        throw new Error(error.message || "Không thể gửi đánh giá");
+      }
+
+      toast.success("Đánh giá của bạn đã được gửi thành công!");
+      closeReviewPopup();
+
+      // Có thể cập nhật lại danh sách courses nếu cần
+      // fetchPurchasedCourses();
+    } catch (error) {
+      console.error("Error submitting review:", error);
+      toast.error(error.message || "Có lỗi xảy ra khi gửi đánh giá");
+    } finally {
+      setIsSubmittingReview(false);
+    }
+  };
 
   // Course management state
   const [searchTerm, setSearchTerm] = useState("");
@@ -1250,6 +1312,7 @@ const MenteeProfile = () => {
                                   View Course
                                 </button>
                                 <button
+                                  onClick={() => openReviewPopup(course)}
                                   className="px-4 py-2 border border-orange-300 text-orange-600 rounded-lg hover:bg-orange-50 transition text-sm font-medium"
                                   title="Rate this course"
                                 >
@@ -2634,6 +2697,265 @@ const MenteeProfile = () => {
           </div>
         </div>
       </div>
+
+      {/* Review Popup */}
+      {isReviewPopupOpen && (
+        <div
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-300"
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !isSubmittingReview) {
+              closeReviewPopup();
+            }
+          }}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4 transform transition-all animate-in slide-in-from-bottom-8 zoom-in-95 duration-500 ease-out"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              animation: "modalAppear 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)",
+            }}
+          >
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-gray-100 animate-in slide-in-from-top-4 duration-300 delay-100">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xl font-bold text-gray-900">Rate Course</h3>
+                <button
+                  onClick={closeReviewPopup}
+                  disabled={isSubmittingReview}
+                  className="text-gray-400 hover:text-gray-600 transition-all duration-200 p-1 hover:bg-gray-100 rounded-full hover:scale-110"
+                >
+                  <svg
+                    className="w-6 h-6"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            {/* Content */}
+            <div className="px-6 py-6 animate-in slide-in-from-bottom-4 duration-400 delay-200">
+              {/* Course Info */}
+              {reviewCourse && (
+                <div className="flex items-start gap-4 mb-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-100 transform transition-all duration-300 hover:shadow-md">
+                  <img
+                    src={
+                      reviewCourse.thumbnail ||
+                      reviewCourse.imageUrl ||
+                      "https://via.placeholder.com/60x40"
+                    }
+                    alt={reviewCourse.title}
+                    className="w-16 h-12 object-cover rounded-lg shadow-sm"
+                    onError={(e) => {
+                      e.target.src =
+                        "https://via.placeholder.com/60x40/f3f4f6/6b7280?text=Course";
+                    }}
+                  />
+                  <div className="flex-1">
+                    <h4 className="font-semibold text-gray-900 mb-1 leading-tight">
+                      {reviewCourse.title}
+                    </h4>
+                    <p className="text-sm text-gray-600">
+                      By {reviewCourse.mentor?.firstName || "Unknown"}{" "}
+                      {reviewCourse.mentor?.lastName || "Instructor"}
+                    </p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="text-xs text-blue-600 bg-blue-100 px-2 py-1 rounded-full">
+                        {reviewCourse.category || "General"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Star Rating */}
+              <div className="mb-6 animate-in slide-in-from-bottom-4 duration-400 delay-300">
+                <label className="block text-sm font-medium text-gray-700 mb-3 transform transition-all duration-300">
+                  Your Rating <span className="text-red-500">*</span>
+                </label>
+                <div className="flex items-center gap-1">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <button
+                      key={star}
+                      type="button"
+                      onClick={() => handleStarClick(star)}
+                      disabled={isSubmittingReview}
+                      className={`text-3xl transition-all duration-300 transform hover:scale-125 active:scale-110 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:ring-opacity-50 rounded ${
+                        star <= reviewRating
+                          ? "text-yellow-400 hover:text-yellow-500"
+                          : "text-gray-300 hover:text-yellow-300"
+                      } ${
+                        isSubmittingReview
+                          ? "cursor-not-allowed opacity-50"
+                          : "cursor-pointer hover:drop-shadow-lg hover:rotate-12"
+                      }`}
+                      style={{
+                        filter:
+                          star <= reviewRating
+                            ? "drop-shadow(0 2px 4px rgba(251, 191, 36, 0.3))"
+                            : "none",
+                        animationDelay: `${star * 100}ms`,
+                      }}
+                    >
+                      ★
+                    </button>
+                  ))}
+                  <div className="ml-4 text-sm animate-in fade-in duration-300 delay-500">
+                    {reviewRating > 0 ? (
+                      <span className="text-yellow-600 font-medium">
+                        {reviewRating} star{reviewRating > 1 ? "s" : ""}{" "}
+                        selected
+                      </span>
+                    ) : (
+                      <span className="text-gray-500">Click stars to rate</span>
+                    )}
+                  </div>
+                </div>
+                {reviewRating > 0 && (
+                  <div className="mt-2 text-xs text-gray-600 animate-in fade-in slide-in-from-bottom-2 duration-300 delay-600">
+                    {reviewRating === 1 && "😞 Poor"}
+                    {reviewRating === 2 && "😐 Fair"}
+                    {reviewRating === 3 && "🙂 Good"}
+                    {reviewRating === 4 && "😊 Very Good"}
+                    {reviewRating === 5 && "🤩 Excellent"}
+                  </div>
+                )}
+              </div>
+
+              {/* Comment */}
+              <div className="mb-6 animate-in slide-in-from-bottom-4 duration-400 delay-400">
+                <label
+                  htmlFor="review-comment"
+                  className="block text-sm font-medium text-gray-700 mb-2 transform transition-all duration-300"
+                >
+                  Your Review (Optional)
+                </label>
+                <div className="relative">
+                  <textarea
+                    id="review-comment"
+                    value={reviewComment}
+                    onChange={(e) => setReviewComment(e.target.value)}
+                    disabled={isSubmittingReview}
+                    placeholder="Share your experience with this course... What did you like most? What could be improved?"
+                    className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none transition-all duration-300 disabled:bg-gray-50 disabled:cursor-not-allowed hover:border-blue-300 focus:scale-[1.02] focus:shadow-lg"
+                    rows={4}
+                    maxLength={500}
+                  />
+                  <div className="absolute bottom-2 right-2 text-xs text-gray-400 animate-in fade-in duration-300 delay-700">
+                    {reviewComment.length}/500
+                  </div>
+                </div>
+                {reviewComment.length > 450 && (
+                  <div className="text-xs text-orange-500 mt-1">
+                    You're approaching the character limit
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 py-4 border-t border-gray-100 bg-gray-50 rounded-b-2xl animate-in slide-in-from-bottom-4 duration-400 delay-500">
+              <div className="flex gap-3">
+                <button
+                  onClick={closeReviewPopup}
+                  disabled={isSubmittingReview}
+                  className="flex-1 px-4 py-2.5 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed font-medium hover:scale-105 active:scale-95"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={submitReview}
+                  disabled={isSubmittingReview || reviewRating === 0}
+                  className="flex-1 px-4 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 font-medium shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 hover:scale-105 active:scale-95"
+                >
+                  {isSubmittingReview ? (
+                    <>
+                      <svg
+                        className="animate-spin w-4 h-4"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                      >
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                        ></circle>
+                        <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                        ></path>
+                      </svg>
+                      Submitting...
+                    </>
+                  ) : (
+                    <>
+                      <svg
+                        className="w-4 h-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
+                        />
+                      </svg>
+                      Submit Review
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Custom Animations */}
+      <style jsx>{`
+        @keyframes modalAppear {
+          0% {
+            opacity: 0;
+            transform: scale(0.8) translateY(20px);
+          }
+          50% {
+            opacity: 0.8;
+            transform: scale(1.05) translateY(-5px);
+          }
+          100% {
+            opacity: 1;
+            transform: scale(1) translateY(0);
+          }
+        }
+
+        @keyframes modalDisappear {
+          0% {
+            opacity: 1;
+            transform: scale(1) translateY(0);
+          }
+          100% {
+            opacity: 0;
+            transform: scale(0.9) translateY(10px);
+          }
+        }
+
+        .modal-exit {
+          animation: modalDisappear 0.2s ease-in forwards;
+        }
+      `}</style>
     </>
   );
 };
