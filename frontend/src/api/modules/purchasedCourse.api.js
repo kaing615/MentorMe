@@ -76,6 +76,19 @@ const purchasedCourseApi = {
       return fail(e);
     }
   },
+
+  // TODO: Implement this API endpoint in the backend
+  // getMenteesByMentor: async (mentorId, dispatch) => {
+  //   try {
+  //     const privateClient = createPrivateClient(dispatch);
+  //     const response = await privateClient.get(
+  //       `/purchased-courses/mentor/${mentorId}/mentees`
+  //     );
+  //     return ok(response);
+  //   } catch (e) {
+  //     return fail(e);
+  //   }
+  // },
 };
 
 export default purchasedCourseApi;

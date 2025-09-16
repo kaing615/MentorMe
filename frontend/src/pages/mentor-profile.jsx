@@ -6,11 +6,13 @@ import { PATH, MENTOR_PATH } from "../routes/path";
 import profileApi from "../api/modules/profile.api";
 import availabilityApi from "../api/modules/availability.api";
 import bookingApi from "../api/modules/booking.api";
+import reviewApi from "../api/modules/review.api";
 import { FaFacebook } from "react-icons/fa6";
 import { FaXTwitter } from "react-icons/fa6";
 import { FaLinkedin } from "react-icons/fa";
 import { FaGoogle } from "react-icons/fa";
 import { AiFillYoutube } from "react-icons/ai";
+import { IoStar, IoStarOutline } from "react-icons/io5";
 import courseApi from "../api/modules/course.api";
 
 // Capitalize initials of each word
@@ -681,6 +683,39 @@ function MentorAvailabilityBuilder({ onBack, onSave, editingSchedule }) {
   );
 }
 
+// Stars render function
+const renderStars = (rating) => {
+  const stars = [];
+  const r = Number(rating) || 0;
+  const full = Math.floor(r);
+  const hasHalf = r % 1 !== 0;
+
+  for (let i = 0; i < full; i++) {
+    stars.push(
+      <IoStar key={`full-${i}`} className="text-yellow-500" size={20} />
+    );
+  }
+  if (hasHalf) {
+    stars.push(
+      <div key="half" className="relative">
+        <IoStarOutline className="text-yellow-500" size={20} />
+        <IoStar
+          className="text-yellow-500 absolute top-0 left-0"
+          size={20}
+          style={{ clipPath: "inset(0 50% 0 0)" }}
+        />
+      </div>
+    );
+  }
+  const empty = 5 - Math.ceil(r);
+  for (let i = 0; i < empty; i++) {
+    stars.push(
+      <IoStarOutline key={`empty-${i}`} className="text-yellow-500" size={20} />
+    );
+  }
+  return stars;
+};
+
 const MentorProfile = () => {
   // State lưu thông tin profile
   const navigate = useNavigate(); // Hook to navigate between routes
@@ -1034,7 +1069,6 @@ const MentorProfile = () => {
   const [searchMessages, setSearchMessages] = useState("");
 
   // Reviews management state
-  const [reviewSearchTerm, setReviewSearchTerm] = useState("");
   const [reviewSortBy, setReviewSortBy] = useState("latest");
   const [reviewCurrentPage, setReviewCurrentPage] = useState(1);
   const reviewsPerPage = 6;
@@ -1646,6 +1680,15 @@ const MentorProfile = () => {
   // Real reviews data from MongoDB API
   // No mock data, empty reviews array
   const [allReviews, setAllReviews] = useState([]);
+  const [reviewsLoading, setReviewsLoading] = useState(false);
+  const [reviewsError, setReviewsError] = useState(null);
+
+  // Course detail popup states
+  const [isCourseDetailPopupOpen, setIsCourseDetailPopupOpen] = useState(false);
+  const [selectedReviewCourse, setSelectedReviewCourse] = useState(null);
+
+  // Review tabs state
+  const [activeReviewTab, setActiveReviewTab] = useState("all"); // "all", "course", "consultation"
 
   // Load courses from MongoDB
   const loadCourses = async () => {
@@ -1678,39 +1721,108 @@ const MentorProfile = () => {
   // Load reviews from MongoDB
   const loadReviews = async () => {
     try {
-      setLoading(true);
-      setError(null);
-      const { response, error } = await courseApi.getAllReviews();
+      setReviewsLoading(true);
+      setReviewsError(null);
+
+      // Get current user info to get mentor ID
+      const userStr = localStorage.getItem("user");
+      let mentorId = null;
+      try {
+        const user = userStr ? JSON.parse(userStr) : null;
+        mentorId = user?.id || user?._id;
+        console.log("👤 Current user:", user);
+        console.log("🆔 Mentor ID:", mentorId);
+      } catch (e) {
+        console.error("Error parsing user data:", e);
+        setReviewsError("Unable to get user information");
+        setAllReviews([]);
+        setReviewsLoading(false);
+        return;
+      }
+
+      if (!mentorId) {
+        setReviewsError("User not found");
+        setAllReviews([]);
+        setReviewsLoading(false);
+        return;
+      }
+
+      // Test: Try to get courses first
+      console.log("🔍 Testing: Getting courses for mentor:", mentorId);
+      const testCourses = await courseApi.getCoursesByMentor(mentorId);
+      console.log("📚 Test courses result:", testCourses);
+
+      const { response, error } = await reviewApi.getMentorCourseReviews(
+        mentorId
+      );
       console.log("Reviews API Response:", { response, error });
 
       if (error) {
         console.error("Reviews API Error:", error);
-        setError("Failed to load reviews");
+        setReviewsError("Failed to load reviews");
         setAllReviews([]);
-      } else if (response && response.data) {
-        if (response.data.reviews && Array.isArray(response.data.reviews)) {
-          setAllReviews(response.data.reviews);
-        } else if (Array.isArray(response.data)) {
-          setAllReviews(response.data);
-        } else {
-          console.error(
-            "Unexpected reviews response structure:",
-            response.data
-          );
-          setAllReviews([]);
-        }
+      } else if (response?.data?.items) {
+        console.log("✅ Setting reviews:", response.data.items);
+        setAllReviews(response.data.items);
+        setReviewsError(null);
       } else {
-        console.error("No reviews response data");
+        console.error("Unexpected reviews response structure:", response);
         setAllReviews([]);
+        setReviewsError("Invalid response format");
       }
     } catch (err) {
       console.error("Error loading reviews:", err);
-      setError("Failed to load reviews");
+      setReviewsError("Failed to load reviews");
       setAllReviews([]);
     } finally {
-      setLoading(false);
+      setReviewsLoading(false);
     }
   };
+
+  // Course detail popup functions
+  const openCourseDetailPopup = (course) => {
+    console.log("🔍 Opening course detail popup with course data:", course);
+    console.log("📝 Description raw:", course?.description);
+    console.log(
+      "📝 Key Learning Objectives raw:",
+      course?.keyLearningObjectives
+    );
+    console.log("📝 Course fields:", {
+      title: course?.title,
+      description: course?.description,
+      shortDescription: course?.shortDescription,
+      price: course?.price,
+      category: course?.category,
+      level: course?.level,
+      language: course?.language,
+      duration: course?.duration,
+      lectures: course?.lectures,
+      rate: course?.rate,
+      numberOfRatings: course?.numberOfRatings,
+      mentor: course?.mentor,
+      tags: course?.tags,
+      keyLearningObjectives: course?.keyLearningObjectives,
+    });
+    setSelectedReviewCourse(course);
+    setIsCourseDetailPopupOpen(true);
+  };
+
+  const closeCourseDetailPopup = () => {
+    setIsCourseDetailPopupOpen(false);
+    setSelectedReviewCourse(null);
+  };
+
+  // Load reviews when reviews tab is active
+  useEffect(() => {
+    if (activeTab === "reviews") {
+      loadReviews();
+    }
+  }, [activeTab]);
+
+  // Load reviews on component mount
+  useEffect(() => {
+    loadReviews();
+  }, []);
 
   // Load courses and reviews on component mount
   // Không gọi API courses/reviews nữa, chỉ dùng dữ liệu mock
@@ -1899,25 +2011,58 @@ const MentorProfile = () => {
     conv.menteeName.toLowerCase().includes(searchMessages.toLowerCase())
   );
 
-  // Reviews filter and search logic
+  // Reviews filter and tab logic
   const getFilteredAndSortedReviews = () => {
-    let filtered = allReviews.filter((review) => {
-      const studentName = review.author
-        ? `${review.author.firstName || ""} ${
-            review.author.lastName || ""
-          }`.trim() || review.author.userName
-        : "";
-      const courseName = review.target ? review.target.title : "";
-      const reviewText = review.content || "";
+    let filtered = allReviews;
 
-      return (
-        studentName.toLowerCase().includes(reviewSearchTerm.toLowerCase()) ||
-        courseName.toLowerCase().includes(reviewSearchTerm.toLowerCase()) ||
-        reviewText.toLowerCase().includes(reviewSearchTerm.toLowerCase())
+    // Debug: Log review structure to understand targetType
+    if (allReviews.length > 0) {
+      console.log("🔍 Sample review structure:", allReviews[0]);
+      console.log(
+        "📊 All reviews targetTypes:",
+        allReviews.map((r) => ({
+          id: r._id,
+          targetType: r.targetType,
+          target: r.target,
+          course: r.course,
+        }))
       );
-    });
+    }
 
-    // Sort reviews
+    // Filter by tab
+    switch (activeReviewTab) {
+      case "course":
+        // Check multiple possible ways to identify course reviews
+        filtered = allReviews.filter((review) => {
+          // Method 1: Check targetType
+          if (review.targetType === "course") return true;
+
+          // Method 2: Check if review has course property (from our API)
+          if (review.course && review.course._id) return true;
+
+          // Method 3: Check if target is a course (from review API)
+          if (review.target && !review.targetType) return true;
+
+          // Method 4: Default to course if no targetType specified
+          if (!review.targetType && !review.target) return true;
+
+          return false;
+        });
+        break;
+      case "consultation":
+        filtered = allReviews.filter(
+          (review) => review.targetType === "consultation"
+        );
+        break;
+      case "all":
+      default:
+        filtered = allReviews; // Show all reviews
+        break;
+    }
+
+    console.log(`📋 Filtered reviews for ${activeReviewTab}:`, filtered.length);
+
+    // Sort reviews (keeping the sorting logic)
     switch (reviewSortBy) {
       case "latest":
         return filtered.sort(
@@ -2601,8 +2746,7 @@ const MentorProfile = () => {
                               </p>
                               <div className="flex items-center gap-2 mb-2">
                                 <div className="flex text-yellow-400 text-sm">
-                                  {"★".repeat(Math.floor(course.rate || 0))}
-                                  {(course.rate || 0) % 1 !== 0 && "☆"}
+                                  {renderStars(course.rate || 0)}
                                 </div>
                                 <span className="text-sm text-gray-600">
                                   ({course.numberOfRatings || 0} Ratings)
@@ -4240,67 +4384,84 @@ const MentorProfile = () => {
             <div className="space-y-6">
               {/* Reviews Section - TODO: Connect to real API for fetching mentor's reviews */}
               <div className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100">
-                {/* Header with review count and search/filter */}
+                {/* Header with review count */}
                 <div className="flex justify-between items-center mb-6">
                   <div className="flex items-center gap-4">
                     <h3 className="text-lg font-semibold text-gray-900">
-                      My Reviews ({filteredReviews.length})
+                      {activeReviewTab === "all" &&
+                        `My Reviews (${filteredReviews.length})`}
+                      {activeReviewTab === "course" &&
+                        `Course Reviews (${filteredReviews.length})`}
+                      {activeReviewTab === "consultation" &&
+                        `Consultation Reviews (${filteredReviews.length})`}
                     </h3>
                   </div>
                 </div>
 
-                {/* Search and Filter Bar */}
-                <div className="flex gap-4 mb-6">
-                  <div className="flex-1 relative">
-                    <input
-                      type="text"
-                      placeholder="Search Reviews"
-                      value={reviewSearchTerm}
-                      onChange={(e) => {
-                        setReviewSearchTerm(e.target.value);
-                        setReviewCurrentPage(1); // Reset to page 1 when searching
-                      }}
-                      className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                    />
-                    <svg
-                      className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                      />
-                    </svg>
+                {/* Review Tabs */}
+                <div className="flex border-b border-gray-200 mb-6">
+                  <button
+                    onClick={() => setActiveReviewTab("all")}
+                    className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
+                      activeReviewTab === "all"
+                        ? "border-blue-500 text-blue-600"
+                        : "border-transparent text-gray-500 hover:text-gray-700"
+                    }`}
+                  >
+                    All ({allReviews.length})
+                  </button>
+                  <button
+                    onClick={() => setActiveReviewTab("course")}
+                    className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
+                      activeReviewTab === "course"
+                        ? "border-blue-500 text-blue-600"
+                        : "border-transparent text-gray-500 hover:text-gray-700"
+                    }`}
+                  >
+                    Course Reviews (
+                    {
+                      allReviews.filter((review) => {
+                        // Same logic as in getFilteredAndSortedReviews
+                        if (review.targetType === "course") return true;
+                        if (review.course && review.course._id) return true;
+                        if (review.target && !review.targetType) return true;
+                        if (!review.targetType && !review.target) return true;
+                        return false;
+                      }).length
+                    }
+                    )
+                  </button>
+                  <button
+                    onClick={() => setActiveReviewTab("consultation")}
+                    className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
+                      activeReviewTab === "consultation"
+                        ? "border-blue-500 text-blue-600"
+                        : "border-transparent text-gray-500 hover:text-gray-700"
+                    }`}
+                  >
+                    Consultation Reviews (
+                    {
+                      allReviews.filter(
+                        (review) => review.targetType === "consultation"
+                      ).length
+                    }
+                    )
+                  </button>
+                </div>
+
+                {/* Reviews Grid - Dynamic rendering based on filtered data */}
+                {reviewsLoading ? (
+                  <div className="flex justify-center items-center py-20">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                    <span className="ml-3 text-gray-600">
+                      Loading reviews...
+                    </span>
                   </div>
-                  <div className="flex gap-2">
-                    <select
-                      value={reviewSortBy}
-                      onChange={(e) => {
-                        setReviewSortBy(e.target.value);
-                        setReviewCurrentPage(1);
-                      }}
-                      className="px-4 py-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                    >
-                      <option value="latest">Latest</option>
-                      <option value="oldest">Oldest</option>
-                      <option value="highest-rating">Highest Rating</option>
-                      <option value="lowest-rating">Lowest Rating</option>
-                      <option value="most-helpful">Most Helpful</option>
-                    </select>
-                    <button
-                      onClick={() => {
-                        setReviewSearchTerm("");
-                        setReviewSortBy("latest");
-                        setReviewCurrentPage(1);
-                      }}
-                      className="px-4 py-2 border border-gray-300 rounded-lg bg-white hover:bg-gray-50 transition flex items-center gap-2"
-                    >
+                ) : reviewsError ? (
+                  <div className="text-center py-20">
+                    <div className="text-red-500 mb-4">
                       <svg
-                        className="w-4 h-4"
+                        className="w-16 h-16 mx-auto mb-4"
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
@@ -4309,144 +4470,140 @@ const MentorProfile = () => {
                           strokeLinecap="round"
                           strokeLinejoin="round"
                           strokeWidth={2}
-                          d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"
+                          d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
                         />
                       </svg>
-                      Clear
+                      <p className="text-lg font-medium">
+                        Error loading reviews
+                      </p>
+                      <p className="text-sm text-gray-500 mt-2">
+                        {reviewsError}
+                      </p>
+                    </div>
+                    <button
+                      onClick={loadReviews}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                    >
+                      Try Again
                     </button>
                   </div>
-                </div>
-
-                {/* Reviews Grid - Dynamic rendering based on filtered data */}
-                <div
-                  className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start content-start"
-                  style={{ minHeight: "900px" }}
-                >
-                  {currentReviews.length > 0 ? (
-                    currentReviews.map((review) => (
-                      <div
-                        key={review._id || review.id}
-                        className="border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow"
-                      >
-                        {/* Review Header */}
-                        <div className="flex items-start gap-4 mb-4">
-                          <img
-                            src={
-                              review.author?.avatarUrl ||
-                              "/placeholder-avatar.jpg"
-                            }
-                            alt={
-                              review.author
-                                ? `${review.author.firstName} ${review.author.lastName}`
-                                : "User"
-                            }
-                            className="w-12 h-12 rounded-full object-cover"
-                          />
-                          <div className="flex-1">
-                            <div className="flex items-start justify-between mb-2">
-                              <div>
-                                <h4 className="font-semibold text-gray-900 mb-1">
-                                  {review.author
-                                    ? `${review.author.firstName || ""} ${
-                                        review.author.lastName || ""
-                                      }`.trim() || review.author.userName
-                                    : "Unknown User"}
-                                </h4>
-                                <p className="text-sm text-blue-600 font-medium">
-                                  {review.target?.name || "Unknown Course"}
-                                </p>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <div className="flex text-yellow-400 text-sm">
-                                  {"★".repeat(review.rate || 0)}
-                                  {"☆".repeat(5 - (review.rate || 0))}
+                ) : (
+                  <div
+                    className="grid grid-cols-1 gap-6 items-start content-start"
+                    style={{ minHeight: "900px" }}
+                  >
+                    {currentReviews.length > 0 ? (
+                      currentReviews.map((review) => (
+                        <div
+                          key={review._id || review.id}
+                          className="border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow"
+                        >
+                          {/* Review Header */}
+                          <div className="flex items-start gap-4 mb-4">
+                            <img
+                              src={
+                                review.author?.avatarUrl ||
+                                "/placeholder-avatar.jpg"
+                              }
+                              alt={
+                                review.author
+                                  ? `${review.author.firstName} ${review.author.lastName}`
+                                  : "User"
+                              }
+                              className="w-12 h-12 rounded-full object-cover"
+                            />
+                            <div className="flex-1">
+                              <div className="flex items-start justify-between mb-2">
+                                <div>
+                                  <h4 className="font-semibold text-gray-900 mb-1">
+                                    {review.author
+                                      ? `${review.author.firstName || ""} ${
+                                          review.author.lastName || ""
+                                        }`.trim() || review.author.userName
+                                      : "Unknown User"}
+                                  </h4>
+                                  <button
+                                    onClick={() =>
+                                      openCourseDetailPopup(review.course)
+                                    }
+                                    className="text-xs bg-blue-100 hover:bg-blue-200 text-blue-700 px-3 py-1 rounded-full transition-colors duration-200 font-medium"
+                                  >
+                                    Detail
+                                  </button>
                                 </div>
-                                <span className="text-sm text-gray-600">
-                                  {review.rate || 0}/5
-                                </span>
+                                <div className="flex items-center gap-2">
+                                  <div className="flex text-yellow-400 text-sm">
+                                    {renderStars(review.rate || 0)}
+                                  </div>
+                                  <span className="text-sm text-gray-600">
+                                    {review.rate || 0}/5
+                                  </span>
+                                </div>
                               </div>
+                              <p className="text-xs text-gray-500">
+                                {new Date(review.createdAt).toLocaleDateString(
+                                  "en-US",
+                                  {
+                                    year: "numeric",
+                                    month: "long",
+                                    day: "numeric",
+                                  }
+                                )}
+                              </p>
                             </div>
-                            <p className="text-xs text-gray-500">
-                              {new Date(review.createdAt).toLocaleDateString(
-                                "en-US",
-                                {
-                                  year: "numeric",
-                                  month: "long",
-                                  day: "numeric",
-                                }
-                              )}
+                          </div>
+
+                          {/* Review Content */}
+                          <div className="mb-4">
+                            <p className="text-gray-700 text-sm leading-relaxed">
+                              {review.content}
+                            </p>
+                          </div>
+
+                          {/* Review Footer */}
+                          <div className="flex items-center justify-between text-sm">
+                            <div className="flex gap-2">
+                              <button className="text-blue-600 hover:text-blue-700 transition text-sm font-medium">
+                                Reply
+                              </button>
+                              <button className="text-gray-500 hover:text-gray-700 transition text-sm">
+                                Report
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="col-span-full text-center py-12">
+                        <div className="flex flex-col items-center gap-4">
+                          <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center">
+                            <svg
+                              className="w-8 h-8 text-gray-400"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"
+                              />
+                            </svg>
+                          </div>
+                          <div>
+                            <p className="text-gray-500 text-lg mb-2">
+                              No reviews found
+                            </p>
+                            <p className="text-gray-400">
+                              Try adjusting your search criteria
                             </p>
                           </div>
                         </div>
-
-                        {/* Review Content */}
-                        <div className="mb-4">
-                          <p className="text-gray-700 text-sm leading-relaxed">
-                            {review.content}
-                          </p>
-                        </div>
-
-                        {/* Review Footer */}
-                        <div className="flex items-center justify-between text-sm">
-                          <div className="flex items-center gap-2">
-                            <button className="flex items-center gap-1 text-gray-500 hover:text-blue-600 transition">
-                              <svg
-                                className="w-4 h-4"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V18m-7-8a2 2 0 01-2-2V6a2 2 0 012-2h2.343M11 7L9 5l2-2m0 4l2-2 2 2m-2 2h6"
-                                />
-                              </svg>
-                              <span>{review.helpfulCount} found helpful</span>
-                            </button>
-                          </div>
-                          <div className="flex gap-2">
-                            <button className="text-blue-600 hover:text-blue-700 transition text-sm font-medium">
-                              Reply
-                            </button>
-                            <button className="text-gray-500 hover:text-gray-700 transition text-sm">
-                              Report
-                            </button>
-                          </div>
-                        </div>
                       </div>
-                    ))
-                  ) : (
-                    <div className="col-span-full text-center py-12">
-                      <div className="flex flex-col items-center gap-4">
-                        <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center">
-                          <svg
-                            className="w-8 h-8 text-gray-400"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"
-                            />
-                          </svg>
-                        </div>
-                        <div>
-                          <p className="text-gray-500 text-lg mb-2">
-                            No reviews found
-                          </p>
-                          <p className="text-gray-400">
-                            Try adjusting your search criteria
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
+                    )}
+                  </div>
+                )}
 
                 {/* Pagination - Dynamic based on filtered results */}
                 {totalReviewPages > 1 && (
@@ -4704,6 +4861,346 @@ const MentorProfile = () => {
           animation: modalDisappear 0.2s ease-in forwards;
         }
       `}</style>
+
+      {/* Course Detail Popup */}
+      {isCourseDetailPopupOpen && selectedReviewCourse && (
+        <div
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-300"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              closeCourseDetailPopup();
+            }
+          }}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-2xl max-w-lg w-full mx-4 transform transition-all animate-in slide-in-from-bottom-8 zoom-in-95 duration-500 ease-out"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              animation: "modalAppear 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)",
+            }}
+          >
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-gray-100 animate-in slide-in-from-top-4 duration-300 delay-100">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xl font-bold text-gray-900">
+                  Course Details
+                </h3>
+                <button
+                  onClick={closeCourseDetailPopup}
+                  className="text-gray-400 hover:text-gray-600 transition-all duration-200 p-1 hover:bg-gray-100 rounded-full hover:scale-110"
+                >
+                  <svg
+                    className="w-6 h-6"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            {/* Content */}
+            <div className="px-6 py-6 animate-in slide-in-from-bottom-4 duration-400 delay-200">
+              {/* Course Header */}
+              <div className="flex items-start gap-4 mb-6">
+                <img
+                  src={
+                    selectedReviewCourse.thumbnail ||
+                    selectedReviewCourse.imageUrl ||
+                    "https://via.placeholder.com/100x75"
+                  }
+                  alt={selectedReviewCourse.title}
+                  className="w-24 h-18 object-cover rounded-xl shadow-md flex-shrink-0"
+                  onError={(e) => {
+                    e.target.src =
+                      "https://via.placeholder.com/100x75/f3f4f6/6b7280?text=Course";
+                  }}
+                />
+                <div className="flex-1 min-w-0">
+                  <h4 className="font-bold text-gray-900 mb-2 text-xl leading-tight">
+                    {selectedReviewCourse.title || "No Title"}
+                  </h4>
+                  <p className="text-base text-gray-600 mb-3">
+                    By{" "}
+                    {selectedReviewCourse.mentor?.firstName ||
+                      selectedReviewCourse.mentor?.name ||
+                      "Unknown"}{" "}
+                    {selectedReviewCourse.mentor?.lastName || ""}
+                  </p>
+
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {selectedReviewCourse.category && (
+                      <span className="text-sm text-blue-700 bg-blue-100 px-3 py-1 rounded-full font-medium">
+                        {selectedReviewCourse.category}
+                      </span>
+                    )}
+                    {selectedReviewCourse.level && (
+                      <span className="text-sm text-green-700 bg-green-100 px-3 py-1 rounded-full font-medium">
+                        {selectedReviewCourse.level}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Description */}
+              {(selectedReviewCourse.description ||
+                selectedReviewCourse.shortDescription) && (
+                <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                  <h5 className="text-sm font-semibold text-gray-700 mb-2">
+                    📖 Description
+                  </h5>
+                  <div className="text-sm text-gray-700 leading-relaxed">
+                    {(() => {
+                      const desc =
+                        selectedReviewCourse.description ||
+                        selectedReviewCourse.shortDescription ||
+                        "";
+
+                      // Check if description contains weird characters
+                      const hasWeirdChars =
+                        /[^\x00-\x7F]/.test(desc) || desc.includes("�");
+
+                      if (hasWeirdChars || desc.length > 200) {
+                        // If description seems corrupted or too long, show a fallback
+                        return (
+                          <div>
+                            <div className="bg-gray-100 p-2 rounded text-xs font-mono break-all">
+                              {desc.slice(0, 100)}...
+                            </div>
+                          </div>
+                        );
+                      }
+
+                      // Clean up minor encoding issues
+                      const cleanDesc = desc
+                        .replace(/\s+/g, " ") // Replace multiple spaces
+                        .trim();
+
+                      return cleanDesc || "No description available";
+                    })()}
+                  </div>
+                </div>
+              )}
+
+              {/* Course Stats */}
+              <div className="mb-6 grid grid-cols-2 md:grid-cols-4 gap-4">
+                {selectedReviewCourse.price !== undefined &&
+                  selectedReviewCourse.price !== null && (
+                    <div className="text-center p-3 bg-purple-50 rounded-lg border border-purple-200">
+                      <div className="text-lg font-bold text-purple-700">
+                        ${selectedReviewCourse.price}
+                      </div>
+                      <div className="text-xs text-purple-600">Price</div>
+                    </div>
+                  )}
+                {selectedReviewCourse.lectures && (
+                  <div className="text-center p-3 bg-blue-50 rounded-lg border border-blue-200">
+                    <div className="text-lg font-bold text-blue-700">
+                      {selectedReviewCourse.lectures}
+                    </div>
+                    <div className="text-xs text-blue-600">Lectures</div>
+                  </div>
+                )}
+                {selectedReviewCourse.duration && (
+                  <div className="text-center p-3 bg-green-50 rounded-lg border border-green-200">
+                    <div className="text-lg font-bold text-green-700">
+                      {selectedReviewCourse.duration}h
+                    </div>
+                    <div className="text-xs text-green-600">Duration</div>
+                  </div>
+                )}
+                {selectedReviewCourse.rate && (
+                  <div className="text-center p-3 bg-yellow-50 rounded-lg border border-yellow-200">
+                    <div className="flex justify-center items-center gap-1 mb-1">
+                      {renderStars(selectedReviewCourse.rate)}
+                    </div>
+                    <div className="text-lg font-bold text-yellow-700">
+                      {selectedReviewCourse.rate.toFixed(1)}/5
+                    </div>
+                    <div className="text-xs text-yellow-600">Rating</div>
+                  </div>
+                )}
+              </div>
+
+              {/* Languages & Tags */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                {/* Languages */}
+                {selectedReviewCourse.language &&
+                  selectedReviewCourse.language.length > 0 && (
+                    <div className="p-4 bg-indigo-50 rounded-lg border border-indigo-200">
+                      <h5 className="text-sm font-semibold text-indigo-800 mb-3 flex items-center">
+                        🌐 Languages
+                      </h5>
+                      <div className="flex flex-wrap gap-2">
+                        {selectedReviewCourse.language.map((lang, index) => (
+                          <span
+                            key={index}
+                            className="text-sm bg-indigo-100 text-indigo-800 px-3 py-1 rounded-full font-medium"
+                          >
+                            {lang}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                {/* Tags */}
+                {selectedReviewCourse.tags &&
+                  selectedReviewCourse.tags.length > 0 && (
+                    <div className="p-4 bg-yellow-50 rounded-lg border border-yellow-200">
+                      <h5 className="text-sm font-semibold text-yellow-800 mb-3 flex items-center">
+                        🏷️ Tags
+                      </h5>
+                      <div className="flex flex-wrap gap-2">
+                        {selectedReviewCourse.tags.map((tag, index) => (
+                          <span
+                            key={index}
+                            className="text-sm bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full font-medium"
+                          >
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+              </div>
+
+              {/* Key Learning Objectives */}
+              {selectedReviewCourse.keyLearningObjectives && (
+                <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                  <h5 className="text-sm font-semibold text-blue-800 mb-3 flex items-center">
+                    🎯 Key Learning Objectives
+                  </h5>
+                  <div className="text-sm text-blue-700 leading-relaxed">
+                    {(() => {
+                      let objectives =
+                        selectedReviewCourse.keyLearningObjectives || "";
+
+                      // Handle different data types
+                      if (Array.isArray(objectives)) {
+                        // If it's an array, join with bullet points
+                        return (
+                          <ul className="list-disc list-inside space-y-1">
+                            {objectives.map((obj, index) => (
+                              <li key={index}>{obj}</li>
+                            ))}
+                          </ul>
+                        );
+                      }
+
+                      // Try to parse if it looks like JSON array
+                      if (
+                        typeof objectives === "string" &&
+                        objectives.startsWith("[") &&
+                        objectives.endsWith("]")
+                      ) {
+                        try {
+                          const parsed = JSON.parse(objectives);
+                          if (Array.isArray(parsed)) {
+                            return (
+                              <ul className="list-disc list-inside space-y-1">
+                                {parsed.map((obj, index) => (
+                                  <li key={index}>{obj}</li>
+                                ))}
+                              </ul>
+                            );
+                          }
+                        } catch (e) {
+                          console.log("Failed to parse objectives as JSON:", e);
+                        }
+                      }
+
+                      // Handle string with weird characters - try to extract meaningful content
+                      if (typeof objectives === "string") {
+                        // Check if it contains quotes and brackets (corrupted JSON)
+                        const bracketPattern = /\["([^"]+)"[,\]]/g;
+                        const matches = [];
+                        let match;
+
+                        while (
+                          (match = bracketPattern.exec(objectives)) !== null
+                        ) {
+                          matches.push(match[1]);
+                        }
+
+                        if (matches.length > 0) {
+                          return (
+                            <ul className="list-disc list-inside space-y-1">
+                              {matches.map((obj, index) => (
+                                <li key={index}>{obj}</li>
+                              ))}
+                            </ul>
+                          );
+                        }
+
+                        // If still has weird chars, show fallback
+                        const hasWeirdChars =
+                          /[^\x00-\x7F]/.test(objectives) ||
+                          objectives.includes("�");
+
+                        if (hasWeirdChars || objectives.length < 10) {
+                          return (
+                            <div>
+                              <p className="text-blue-600 mb-2">
+                                📚 Learn comprehensive{" "}
+                                {selectedReviewCourse.category} skills
+                                including:
+                              </p>
+                              <ul className="list-disc list-inside space-y-1">
+                                <li>Fundamental concepts and best practices</li>
+                                <li>Hands-on practical exercises</li>
+                                <li>Real-world project implementation</li>
+                                <li>Advanced techniques and optimization</li>
+                              </ul>
+                            </div>
+                          );
+                        }
+
+                        // Clean up and return as text
+                        return objectives.replace(/\s+/g, " ").trim();
+                      }
+
+                      return "No learning objectives specified";
+                    })()}
+                  </div>
+                </div>
+              )}
+
+              {/* Short Description */}
+              {selectedReviewCourse.shortDescription &&
+                selectedReviewCourse.shortDescription !==
+                  selectedReviewCourse.description && (
+                  <div className="mb-4 p-4 bg-green-50 rounded-lg border border-green-200">
+                    <h5 className="text-sm font-semibold text-green-800 mb-3 flex items-center">
+                      📝 Short Summary
+                    </h5>
+                    <p className="text-sm text-green-700 leading-relaxed">
+                      {selectedReviewCourse.shortDescription}
+                    </p>
+                  </div>
+                )}
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 py-4 border-t border-gray-100 bg-gray-50 rounded-b-2xl">
+              <button
+                onClick={closeCourseDetailPopup}
+                className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors duration-200 font-medium"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

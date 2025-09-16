@@ -117,6 +117,16 @@ const bookingApi = {
       return { error: err.response?.data || err };
     }
   },
+
+  // TODO: Implement this API endpoint in the backend
+  // getMenteesByMentor: async (mentorId) => {
+  //   try {
+  //     const response = await axios.get(`/api/v1/booking/mentor/${mentorId}/mentees`);
+  //     return { response: response.data };
+  //   } catch (err) {
+  //     return { error: err.response?.data || err };
+  //   }
+  // },
 };
 
 export default bookingApi;

@@ -54,6 +54,8 @@ const CourseDetail = () => {
   const [relatedCourses, setRelatedCourses] = useState([]);
   const [reviews, setReviews] = useState([]);
   const [reviewsLoading, setReviewsLoading] = useState(false);
+  const [selectedReview, setSelectedReview] = useState(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const [error, setError] = useState(null);
   const [isAddingToCart, setIsAddingToCart] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
@@ -165,6 +167,13 @@ const CourseDetail = () => {
       }
     };
   }, [id, dispatch]);
+
+  // Cleanup effect to restore scroll when component unmounts
+  useEffect(() => {
+    return () => {
+      document.body.style.overflow = "auto";
+    };
+  }, []);
 
   // Helper function to check if course is already purchased
   const isCourseAlreadyPurchased = (courseId) => {
@@ -470,6 +479,19 @@ const CourseDetail = () => {
     }
     const scrollAmount = (cardWidth + gap) * 2;
     container.scrollBy({ left: direction * scrollAmount, behavior: "smooth" });
+  };
+
+  // Modal functions
+  const openReviewModal = (review) => {
+    setSelectedReview(review);
+    setIsModalOpen(true);
+    document.body.style.overflow = "hidden"; // Prevent background scroll
+  };
+
+  const closeReviewModal = () => {
+    setSelectedReview(null);
+    setIsModalOpen(false);
+    document.body.style.overflow = "auto"; // Restore scroll
   };
 
   // Stars render
@@ -1148,7 +1170,7 @@ const CourseDetail = () => {
                   [1, 2, 3].map((i) => (
                     <div
                       key={i}
-                      className="bg-white rounded-2xl border border-gray-200 shadow flex flex-col gap-4 min-w-[400px] max-w-[500px] px-7 py-6 animate-pulse flex-shrink-0"
+                      className="bg-white rounded-2xl border border-gray-200 shadow flex flex-col gap-4 w-[450px] h-[280px] px-7 py-6 animate-pulse flex-shrink-0 hover:shadow-lg transition-all duration-300 hover:scale-105"
                     >
                       <div className="h-8 bg-gray-200 rounded w-8"></div>
                       <div className="flex gap-1">
@@ -1178,36 +1200,34 @@ const CourseDetail = () => {
                   reviews.map((review, idx) => (
                     <div
                       key={review._id || idx}
-                      className="bg-white rounded-2xl border border-gray-200 shadow flex flex-col gap-4 min-w-[400px] max-w-[500px] px-7 py-6 flex-shrink-0"
+                      className="bg-white rounded-2xl border border-gray-200 shadow flex flex-col gap-4 w-[450px] h-[280px] px-7 py-6 flex-shrink-0 cursor-pointer transition-all duration-300 hover:shadow-2xl hover:scale-105 hover:-translate-y-1 hover:border-blue-300 group"
                       style={{ scrollSnapAlign: "start" }}
+                      onClick={() => openReviewModal(review)}
                     >
-                      <div className="text-blue-700 text-4xl mb-2">
+                      <div className="text-blue-700 text-4xl mb-2 transition-all duration-300 group-hover:text-blue-600 group-hover:scale-110 group-hover:rotate-12">
                         <VscCodeReview />
                       </div>
 
                       {/* Rating Stars */}
-                      <div className="flex items-center gap-1 mb-2">
-                        {[1, 2, 3, 4, 5].map((star) => (
-                          <span
-                            key={star}
-                            className={`text-lg ${
-                              star <= (review.rate || 5)
-                                ? "text-yellow-400"
-                                : "text-gray-300"
-                            }`}
-                          >
-                            ★
-                          </span>
-                        ))}
-                        <span className="text-sm text-gray-600 ml-2">
-                          ({review.rate || 5}/5)
+                      <div className="flex items-center gap-1 mb-2 group-hover:scale-105 transition-all duration-300">
+                        {renderStars(review.rate || 0)}
+                        <span className="text-sm text-gray-600 ml-2 group-hover:text-gray-700 transition-colors duration-300">
+                          ({review.rate || 0}/5)
                         </span>
                       </div>
 
-                      <div className="text-slate-700 text-base flex-1 leading-relaxed whitespace-normal break-words">
+                      <div
+                        className="text-slate-700 text-base flex-1 leading-relaxed whitespace-normal break-words overflow-hidden transition-all duration-300 group-hover:text-slate-800"
+                        style={{
+                          display: "-webkit-box",
+                          WebkitLineClamp: 4,
+                          WebkitBoxOrient: "vertical",
+                          maxHeight: "6rem",
+                        }}
+                      >
                         {review.content || "Great course!"}
                       </div>
-                      <div className="flex items-center gap-3 mt-2">
+                      <div className="flex items-center gap-3 mt-2 group-hover:scale-105 transition-all duration-300">
                         <img
                           src={
                             review.author?.avatarUrl ||
@@ -1219,18 +1239,18 @@ const CourseDetail = () => {
                             review.author?.userName ||
                             "User"
                           }
-                          className="w-11 h-11 rounded-full object-cover border"
+                          className="w-11 h-11 rounded-full object-cover border transition-all duration-300 group-hover:border-blue-300 group-hover:shadow-lg group-hover:scale-110"
                           onError={(e) => {
                             e.target.src = minatoImg;
                           }}
                         />
-                        <div className="flex flex-col">
-                          <span className="font-semibold text-sm text-slate-700">
+                        <div className="flex flex-col transition-all duration-300 group-hover:translate-x-1">
+                          <span className="font-semibold text-sm text-slate-700 group-hover:text-slate-800 transition-colors duration-300">
                             {review.author?.firstName && review.author?.lastName
                               ? `${review.author.firstName} ${review.author.lastName}`
                               : review.author?.userName || "Anonymous Student"}
                           </span>
-                          <span className="text-xs text-slate-500">
+                          <span className="text-xs text-slate-500 group-hover:text-slate-600 transition-colors duration-300">
                             Student
                           </span>
                         </div>
@@ -1492,6 +1512,194 @@ const CourseDetail = () => {
           </div>
         </div>
       </section>
+
+      {/* Review Modal */}
+      {isModalOpen && selectedReview && (
+        <div
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-300"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              closeReviewModal();
+            }
+          }}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full mx-4 transform transition-all animate-in slide-in-from-bottom-8 zoom-in-95 duration-500 ease-out max-h-[80vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              animation: "modalAppear 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)",
+            }}
+          >
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-gray-100 animate-in slide-in-from-top-4 duration-300 delay-100">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="text-blue-700 text-3xl">
+                    <VscCodeReview />
+                  </div>
+                  <h3 className="text-xl font-bold text-gray-900">
+                    Course Review
+                  </h3>
+                </div>
+                <button
+                  onClick={closeReviewModal}
+                  className="text-gray-400 hover:text-gray-600 transition-all duration-200 p-1 hover:bg-gray-100 rounded-full hover:scale-110"
+                >
+                  <svg
+                    className="w-6 h-6"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            {/* Content */}
+            <div className="px-6 py-6 animate-in slide-in-from-bottom-4 duration-400 delay-200">
+              {/* Rating Display */}
+              <div className="flex items-center justify-center gap-2 mb-6 p-4 bg-gradient-to-r from-yellow-50 to-orange-50 rounded-lg border border-yellow-100 transform transition-all duration-300">
+                <div className="flex items-center gap-1">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <span
+                      key={star}
+                      className={`text-2xl transition-all duration-300 ${
+                        star <= (selectedReview.rate || 5)
+                          ? "text-yellow-400"
+                          : "text-gray-300"
+                      }`}
+                      style={{
+                        filter:
+                          star <= (selectedReview.rate || 5)
+                            ? "drop-shadow(0 2px 4px rgba(251, 191, 36, 0.3))"
+                            : "none",
+                        animationDelay: `${star * 100}ms`,
+                      }}
+                    >
+                      ★
+                    </span>
+                  ))}
+                  <span className="text-lg text-gray-700 ml-3 font-semibold">
+                    ({selectedReview.rate || 5}/5)
+                  </span>
+                </div>
+              </div>
+
+              {/* Review Content */}
+              <div className="mb-6 animate-in slide-in-from-bottom-4 duration-400 delay-300">
+                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6 border border-blue-100 transform transition-all duration-300 hover:shadow-md">
+                  <p className="text-gray-800 text-lg leading-relaxed whitespace-pre-wrap">
+                    {selectedReview.content || "Great course!"}
+                  </p>
+                </div>
+              </div>
+
+              {/* Author Info */}
+              <div className="animate-in slide-in-from-bottom-4 duration-400 delay-400">
+                <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-xl border border-gray-200">
+                  <img
+                    src={
+                      selectedReview.author?.avatarUrl ||
+                      selectedReview.author?.avatar ||
+                      minatoImg
+                    }
+                    alt={
+                      selectedReview.author?.firstName ||
+                      selectedReview.author?.userName ||
+                      "User"
+                    }
+                    className="w-16 h-16 rounded-full object-cover border-2 border-gray-200 shadow-sm transform transition-all duration-300 hover:scale-105"
+                    onError={(e) => {
+                      e.target.src = minatoImg;
+                    }}
+                  />
+                  <div className="flex-1">
+                    <span className="text-xl font-semibold text-gray-900 block">
+                      {selectedReview.author?.firstName &&
+                      selectedReview.author?.lastName
+                        ? `${selectedReview.author.firstName} ${selectedReview.author.lastName}`
+                        : selectedReview.author?.userName ||
+                          "Anonymous Student"}
+                    </span>
+                    <p className="text-gray-600 mt-1">Student</p>
+                    {selectedReview.createdAt && (
+                      <p className="text-sm text-gray-500 mt-1">
+                        {new Date(selectedReview.createdAt).toLocaleDateString(
+                          "en-US",
+                          {
+                            year: "numeric",
+                            month: "long",
+                            day: "numeric",
+                          }
+                        )}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 py-4 border-t border-gray-100 bg-gray-50 rounded-b-2xl animate-in slide-in-from-bottom-4 duration-400 delay-500">
+              <button
+                onClick={closeReviewModal}
+                className="w-full px-4 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all duration-300 flex items-center justify-center gap-2 font-medium shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 hover:scale-105 active:scale-95"
+              >
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+                Close Review
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Custom Animations */}
+      <style jsx>{`
+        @keyframes modalAppear {
+          0% {
+            opacity: 0;
+            transform: scale(0.8) translateY(20px);
+          }
+          50% {
+            opacity: 0.8;
+            transform: scale(1.05) translateY(-5px);
+          }
+          100% {
+            opacity: 1;
+            transform: scale(1) translateY(0);
+          }
+        }
+
+        @keyframes modalDisappear {
+          0% {
+            opacity: 1;
+            transform: scale(1) translateY(0);
+          }
+          100% {
+            opacity: 0;
+            transform: scale(0.8) translateY(20px);
+          }
+        }
+      `}</style>
     </div>
   );
 };

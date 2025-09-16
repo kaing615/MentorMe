@@ -7,8 +7,43 @@ import cartApi from "../api/modules/cart.api";
 import purchasedCourseApi from "../api/modules/purchasedCourse.api";
 import availabilityApi from "../api/modules/availability.api";
 import bookingApi from "../api/modules/booking.api";
+import reviewApi from "../api/modules/review.api";
 import { toast } from "react-toastify";
 import { showLoading, hideLoading } from "../redux/features/loading.slice";
+import { IoStar, IoStarOutline } from "react-icons/io5";
+
+// Stars render function
+const renderStars = (rating) => {
+  const stars = [];
+  const r = Number(rating) || 0;
+  const full = Math.floor(r);
+  const hasHalf = r % 1 !== 0;
+
+  for (let i = 0; i < full; i++) {
+    stars.push(
+      <IoStar key={`full-${i}`} className="text-yellow-500" size={16} />
+    );
+  }
+  if (hasHalf) {
+    stars.push(
+      <div key="half" className="relative">
+        <IoStarOutline className="text-yellow-500" size={16} />
+        <IoStar
+          className="text-yellow-500 absolute top-0 left-0"
+          size={16}
+          style={{ clipPath: "inset(0 50% 0 0)" }}
+        />
+      </div>
+    );
+  }
+  const empty = 5 - Math.ceil(r);
+  for (let i = 0; i < empty; i++) {
+    stars.push(
+      <IoStarOutline key={`empty-${i}`} className="text-yellow-500" size={16} />
+    );
+  }
+  return stars;
+};
 
 const MentorPage = () => {
   const navigate = useNavigate();
@@ -55,6 +90,12 @@ const MentorPage = () => {
   const [mentor, setMentor] = useState(null);
   const [courses, setCourses] = useState([]);
   const [reviews, setReviews] = useState([]);
+  const [mentorStats, setMentorStats] = useState({
+    totalReviews: 0,
+    averageRating: 0,
+    courseReviews: 0,
+    consultationReviews: 0,
+  });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [purchasedCoursesMap, setPurchasedCoursesMap] = useState(new Map());
@@ -237,6 +278,169 @@ const MentorPage = () => {
     navigate(`/shoppingcart`);
   };
 
+  // Function to fetch mentor reviews and calculate statistics
+  const fetchMentorReviews = async (mentorId, mentorCourses = []) => {
+    try {
+      console.log("🔍 Fetching reviews for mentor:", mentorId);
+
+      // Fetch mentor course reviews
+      const { response: courseReviewsResponse, error: courseReviewsError } =
+        await reviewApi.getMentorCourseReviews(mentorId);
+
+      // Try to estimate mentees from available data
+      let estimatedMentees = 0;
+
+      console.log("� Purchased course mentees: 0 (API not implemented yet)");
+
+      // NOTE: getMentorBookings() only returns bookings for the currently logged-in mentor,
+      // not for the mentor whose page we're viewing. For security reasons, users can't
+      // access other mentors' booking data. Only admins can query bookings by mentor ID.
+      //
+      // For now, we'll estimate mentees from review data as a fallback.
+      // Step 1: Extract mentees from courses
+      const courseMenteeIds = new Set();
+      if (mentorCourses && mentorCourses.length > 0) {
+        mentorCourses.forEach((course) => {
+          if (course.mentees && Array.isArray(course.mentees)) {
+            course.mentees.forEach((menteeId) => {
+              // Handle both ObjectId string and populated object
+              const id =
+                typeof menteeId === "string"
+                  ? menteeId
+                  : menteeId._id || menteeId.id;
+              if (id) {
+                courseMenteeIds.add(id);
+              }
+            });
+          }
+        });
+        console.log(
+          "Found",
+          courseMenteeIds.size,
+          "unique mentees from courses"
+        );
+      }
+
+      // Step 2: Try to get mentees from bookings (if possible)
+      // NOTE: For security reasons, we can only access bookings if user is admin or the mentor themselves
+      const bookingMenteeIds = new Set();
+
+      // If current user is the same mentor being viewed, we can get their booking data
+      const currentUserId = user?.id || user?._id;
+      if (currentUserId === mentorId) {
+        try {
+          const { response: mentorBookingsResponse } =
+            await bookingApi.getMentorBookings();
+          if (mentorBookingsResponse && mentorBookingsResponse.data) {
+            const bookings = Array.isArray(mentorBookingsResponse.data)
+              ? mentorBookingsResponse.data
+              : mentorBookingsResponse.data.bookings || [];
+
+            bookings.forEach((booking) => {
+              if (
+                booking.status === "confirmed" ||
+                booking.status === "completed"
+              ) {
+                const menteeId =
+                  booking.mentee?._id ||
+                  booking.mentee?.id ||
+                  booking.menteeId ||
+                  booking.userId;
+                if (menteeId) {
+                  bookingMenteeIds.add(menteeId);
+                }
+              }
+            });
+            console.log(
+              "Found",
+              bookingMenteeIds.size,
+              "unique mentees from successful bookings"
+            );
+          }
+        } catch (error) {
+          console.log("Could not fetch booking data:", error.message);
+        }
+      } else {
+        console.log(
+          "Cannot access booking data for other mentors (security restriction)"
+        );
+      }
+
+      // Step 3: Combine and deduplicate all mentee IDs
+      const allUniqueMenteeIds = new Set([
+        ...courseMenteeIds,
+        ...bookingMenteeIds,
+      ]);
+      estimatedMentees = allUniqueMenteeIds.size;
+
+      console.log(
+        "Total unique mentees (courses + bookings):",
+        estimatedMentees
+      );
+      console.log("   - From courses:", courseMenteeIds.size);
+      console.log("   - From bookings:", bookingMenteeIds.size);
+      console.log("   - Total unique:", allUniqueMenteeIds.size);
+
+      let allReviews = [];
+      let courseReviews = [];
+
+      if (
+        courseReviewsResponse &&
+        courseReviewsResponse.data &&
+        courseReviewsResponse.data.items
+      ) {
+        courseReviews = courseReviewsResponse.data.items;
+        allReviews = [...courseReviews];
+
+        // Estimate mentees from course reviews as fallback
+        const uniqueReviewerIds = new Set();
+        courseReviews.forEach((review) => {
+          const userId = review.userId || review.user?._id || review.user?.id;
+          if (userId) {
+            uniqueReviewerIds.add(userId);
+          }
+        });
+        // NOTE: Don't overwrite estimatedMentees here - we already calculated it from course.mentees arrays
+        console.log("Course reviews:", courseReviews.length);
+      }
+
+      console.log("Final estimated unique mentees:", estimatedMentees);
+
+      // TODO: Add consultation reviews API call when available
+      // const consultationReviews = await reviewApi.getMentorConsultationReviews(mentorId);
+      // allReviews = [...allReviews, ...consultationReviews];
+
+      // Calculate statistics
+      const totalReviews = allReviews.length;
+      const averageRating =
+        totalReviews > 0
+          ? allReviews.reduce((sum, review) => sum + (review.rate || 0), 0) /
+            totalReviews
+          : 0;
+
+      const stats = {
+        totalReviews,
+        averageRating: Math.round(averageRating * 10) / 10, // Round to 1 decimal
+        courseReviews: courseReviews.length,
+        consultationReviews: 0, // TODO: Update when consultation reviews API is available
+        totalMentees: estimatedMentees,
+      };
+
+      console.log("📊 Mentor stats calculated:", stats);
+      setMentorStats(stats);
+      setReviews(allReviews);
+    } catch (error) {
+      console.error("Error fetching mentor reviews:", error);
+      setMentorStats({
+        totalReviews: 0,
+        averageRating: 0,
+        courseReviews: 0,
+        consultationReviews: 0,
+        totalMentees: 0,
+      });
+    }
+  };
+
   // Fetch data from backend API and overwrite default data if available
   useEffect(() => {
     // Scroll to top when component mounts or id changes
@@ -273,6 +477,11 @@ const MentorPage = () => {
 
         if (Array.isArray(coursesRes)) {
           setCourses(coursesRes);
+          // Fetch mentor reviews and calculate statistics - pass courses data
+          await fetchMentorReviews(id, coursesRes);
+        } else {
+          // Fetch mentor reviews without courses data
+          await fetchMentorReviews(id, []);
         }
       } catch (err) {
         console.error("Error fetching mentor data:", err);
@@ -609,16 +818,34 @@ const MentorPage = () => {
                       Total Students
                     </div>
                     <div className="text-3xl font-bold text-gray-900">
-                      {mentor?.totalStudents || "N/A"}
+                      {mentorStats.totalMentees !== undefined
+                        ? mentorStats.totalMentees
+                        : "N/A"}
                     </div>
                   </div>
                   <div>
                     <div className="text-base text-gray-500 font-medium mb-1">
                       Reviews
                     </div>
-                    <div className="text-3xl font-bold text-gray-900">
-                      {mentor?.reviewsCount || "N/A"}
+                    <div className="flex items-center gap-2 mb-1">
+                      <div className="flex items-center gap-1">
+                        {renderStars(mentorStats.averageRating || 0)}
+                      </div>
+                      <span className="text-lg font-bold text-gray-900">
+                        {mentorStats.averageRating
+                          ? mentorStats.averageRating.toFixed(1)
+                          : "0.0"}
+                      </span>
                     </div>
+                    <div className="text-lg font-bold text-gray-900">
+                      {mentorStats.totalReviews || "0"} Total Reviews
+                    </div>
+                    {mentorStats.totalReviews > 0 && (
+                      <div className="text-sm text-gray-600 mt-1">
+                        {mentorStats.courseReviews} Courses •{" "}
+                        {mentorStats.consultationReviews} Consultations
+                      </div>
+                    )}
                   </div>
                 </div>
                 {/* About Section merged here */}
@@ -651,7 +878,7 @@ const MentorPage = () => {
                   <h4 className="font-bold mb-2 text-gray-900">
                     Professional Experience
                   </h4>
-                  <p className="text-gray-700 text-justify break-words overflow-wrap-anywhere leading-relaxed mb-6">
+                  <p className="text-gray-700 text-justify break-words overflow-wrap-anywhere mb-6">
                     {mentor?.profile?.experience ||
                       mentor?.user?.experience ||
                       "No professional experience provided."}
@@ -903,18 +1130,7 @@ const MentorPage = () => {
                             "Mentor"}
                         </div>
                         <div className="flex items-center gap-1 text-sm mb-2">
-                          {[...Array(5)].map((_, i) => (
-                            <span
-                              key={i}
-                              className={`text-base ${
-                                i < (course.rating || course.rate || 0)
-                                  ? "text-yellow-400"
-                                  : "text-gray-300"
-                              }`}
-                            >
-                              ★
-                            </span>
-                          ))}
+                          {renderStars(course.rating || course.rate || 0)}
                           <span className="text-sm text-gray-700 ml-2">
                             (
                             {course.ratingsCount || course.numberOfRatings || 0}{" "}

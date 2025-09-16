@@ -1474,106 +1474,110 @@ const MenteeProfile = () => {
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-4">
-                      {/* Summary Cards */}
-                      <div className="flex gap-3">
-                        <div className="bg-white rounded-xl px-4 py-3 border border-gray-200 text-center min-w-[80px]">
-                          <div className="text-2xl font-bold text-orange-600">
-                            {
-                              bookings.filter((b) => b.status === "pending")
-                                .length
-                            }
-                          </div>
-                          <div className="text-xs text-gray-500 font-medium">
-                            Pending
-                          </div>
+                    {/* Summary Cards */}
+                    <div className="flex gap-3">
+                      <div className="bg-white rounded-xl px-4 py-3 border border-gray-200 text-center min-w-[80px]">
+                        <div className="text-2xl font-bold text-orange-600">
+                          {
+                            bookings.filter((b) => b.status === "pending")
+                              .length
+                          }
                         </div>
-                        <div className="bg-white rounded-xl px-4 py-3 border border-gray-200 text-center min-w-[80px]">
-                          <div className="text-2xl font-bold text-blue-600">
-                            {bookings.length}
-                          </div>
-                          <div className="text-xs text-gray-500 font-medium">
-                            Total
-                          </div>
+                        <div className="text-xs text-gray-500 font-medium">
+                          Pending
                         </div>
                       </div>
-
-                      <button
-                        onClick={fetchBookings}
-                        disabled={bookingsLoading}
-                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 text-sm font-medium transition-colors"
-                      >
-                        {bookingsLoading ? (
-                          <>
-                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                            Loading...
-                          </>
-                        ) : (
-                          <>
-                            <svg
-                              className="w-4 h-4"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                              />
-                            </svg>
-                            Refresh
-                          </>
-                        )}
-                      </button>
+                      <div className="bg-white rounded-xl px-4 py-3 border border-gray-200 text-center min-w-[80px]">
+                        <div className="text-2xl font-bold text-blue-600">
+                          {bookings.length}
+                        </div>
+                        <div className="text-xs text-gray-500 font-medium">
+                          Total
+                        </div>
+                      </div>
                     </div>
                   </div>
 
                   {/* Filter Tabs */}
-                  <div className="flex gap-2 mb-6">
+                  <div className="flex justify-between items-center mb-6">
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setBookingFilterBy("all")}
+                        className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${
+                          bookingFilterBy === "all"
+                            ? "bg-blue-100 text-blue-700"
+                            : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                        }`}
+                      >
+                        All ({bookings.length})
+                      </button>
+                      <button
+                        onClick={() => setBookingFilterBy("pending")}
+                        className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${
+                          bookingFilterBy === "pending"
+                            ? "bg-blue-100 text-blue-700"
+                            : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                        }`}
+                      >
+                        Pending (
+                        {bookings.filter((b) => b.status === "pending").length})
+                      </button>
+                      <button
+                        onClick={() => setBookingFilterBy("accepted")}
+                        className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${
+                          bookingFilterBy === "accepted"
+                            ? "bg-blue-100 text-blue-700"
+                            : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                        }`}
+                      >
+                        Accepted (
+                        {bookings.filter((b) => b.status === "active").length})
+                      </button>
+                      <button
+                        onClick={() => setBookingFilterBy("declined")}
+                        className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${
+                          bookingFilterBy === "declined"
+                            ? "bg-blue-100 text-blue-700"
+                            : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                        }`}
+                      >
+                        Declined (
+                        {
+                          bookings.filter((b) => b.status === "cancelled")
+                            .length
+                        }
+                        )
+                      </button>
+                    </div>
+
                     <button
-                      onClick={() => setBookingFilterBy("all")}
-                      className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${
-                        bookingFilterBy === "all"
-                          ? "bg-blue-100 text-blue-700"
-                          : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                      }`}
+                      onClick={fetchBookings}
+                      disabled={bookingsLoading}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 text-sm font-medium transition-colors"
                     >
-                      All ({bookings.length})
-                    </button>
-                    <button
-                      onClick={() => setBookingFilterBy("pending")}
-                      className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${
-                        bookingFilterBy === "pending"
-                          ? "bg-blue-100 text-blue-700"
-                          : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                      }`}
-                    >
-                      Pending (
-                      {bookings.filter((b) => b.status === "pending").length})
-                    </button>
-                    <button
-                      onClick={() => setBookingFilterBy("accepted")}
-                      className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${
-                        bookingFilterBy === "accepted"
-                          ? "bg-blue-100 text-blue-700"
-                          : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                      }`}
-                    >
-                      Accepted (
-                      {bookings.filter((b) => b.status === "active").length})
-                    </button>
-                    <button
-                      onClick={() => setBookingFilterBy("declined")}
-                      className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${
-                        bookingFilterBy === "declined"
-                          ? "bg-blue-100 text-blue-700"
-                          : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                      }`}
-                    >
-                      Declined (
-                      {bookings.filter((b) => b.status === "cancelled").length})
+                      {bookingsLoading ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                          Loading...
+                        </>
+                      ) : (
+                        <>
+                          <svg
+                            className="w-4 h-4"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                            />
+                          </svg>
+                          Refresh
+                        </>
+                      )}
                     </button>
                   </div>
 
