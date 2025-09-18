@@ -275,7 +275,13 @@ const MentorPage = () => {
       return;
     }
 
-    navigate(`/shoppingcart`);
+    // Show loading page
+    dispatch(showLoading());
+
+    // Navigate with a slight delay to show loading
+    setTimeout(() => {
+      navigate(`/shoppingcart`);
+    }, 300);
   };
 
   // Function to fetch mentor reviews and calculate statistics

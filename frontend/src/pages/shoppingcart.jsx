@@ -26,7 +26,14 @@ const ShoppingCart = () => {
       toast.warning("Vui lòng chọn ít nhất một khóa học để thanh toán");
       return;
     }
-    navigate("/checkout", { state: { selectedCourses, cartData } });
+
+    // Show loading page
+    dispatch(showLoading());
+
+    // Navigate to checkout with a slight delay to show loading
+    setTimeout(() => {
+      navigate("/checkout", { state: { selectedCourses, cartData } });
+    }, 500); // Small delay to ensure loading page is visible
   };
 
   const [subtotal, setSubtotal] = useState(0);

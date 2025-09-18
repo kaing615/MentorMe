@@ -1,5 +1,7 @@
-import privateClient from "../clients/private.client.js";
+import createPrivateClient from "../clients/private.client.js";
 import courseApi from "./course.api.js";
+
+const privateClient = createPrivateClient();
 
 const endpoints = {
   list: "/reviews",

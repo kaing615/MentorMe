@@ -695,7 +695,10 @@ export const confirmBooking = async (req, res) => {
     const startAt = new Date(existing.date);
     startAt.setHours(ps.h, ps.m, 0, 0);
     if (startAt <= new Date()) {
-      return responseHandler.badRequest(res, "Cannot confirm past session");
+      return responseHandler.badRequest(
+        res,
+        "Booking has expired and cannot be accepted"
+      );
     }
     const endAt = new Date(existing.date);
     endAt.setHours(pe.h, pe.m, 0, 0);

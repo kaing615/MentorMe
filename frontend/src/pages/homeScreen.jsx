@@ -11,6 +11,7 @@ import NiggaImg from "../assets/nigga.png";
 import WhiteImg from "../assets/white.png";
 import AvatarsImg from "../assets/avatars.png";
 import BoImg from "../assets/Bơ.jpg";
+import BecomeMentor from "../assets/become-an-mentor.jpg";
 
 import { MENTEE_PATH } from "../routes/path";
 import { showLoading, hideLoading } from "../redux/features/loading.slice";
@@ -425,7 +426,13 @@ const HomeScreen = () => {
       return;
     }
 
-    navigate(`/course-detail/${courseId}`);
+    // Show loading page
+    dispatch(showLoading());
+
+    // Navigate with a slight delay to show loading
+    setTimeout(() => {
+      navigate(`/course-detail/${courseId}`);
+    }, 300);
   };
 
   const handleSeeAllCourses = () => {
@@ -1364,7 +1371,7 @@ const HomeScreen = () => {
               <div className="relative w-[320px] h-[320px] md:w-[340px] md:h-[340px] flex items-center justify-center">
                 <div className="absolute inset-0 rounded-[48px] bg-[#E6E6FA]" />
                 <img
-                  src={minatoImg}
+                  src={BecomeMentor}
                   alt="mentor"
                   className="w-full h-full object-cover rounded-[48px] relative z-10"
                 />

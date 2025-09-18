@@ -254,7 +254,13 @@ const OrderCompleteCourse = () => {
       return;
     }
 
-    navigate(`/shoppingcart`);
+    // Show loading page
+    dispatch(showLoading());
+
+    // Navigate with a slight delay to show loading
+    setTimeout(() => {
+      navigate(`/shoppingcart`);
+    }, 300);
   };
 
   // Fetch course data on component mount

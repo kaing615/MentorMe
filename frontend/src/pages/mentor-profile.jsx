@@ -2,6 +2,8 @@ import React, { useState, useEffect, useMemo } from "react";
 import { toast } from "react-toastify";
 import { FaUserCircle } from "react-icons/fa";
 import { useNavigate, useLocation } from "react-router-dom";
+import { useDispatch } from "react-redux";
+import { showLoading, hideLoading } from "../redux/features/loading.slice";
 import { PATH, MENTOR_PATH } from "../routes/path";
 import profileApi from "../api/modules/profile.api";
 import availabilityApi from "../api/modules/availability.api";
@@ -202,7 +204,6 @@ function MentorAvailabilityBuilder({ onBack, onSave, editingSchedule }) {
       slots: availability,
       createdAt: new Date().toISOString(),
     };
-    console.log("SAVE ALL", payload);
 
     if (onSave) {
       onSave(payload);
@@ -720,6 +721,7 @@ const MentorProfile = () => {
   // State lưu thông tin profile
   const navigate = useNavigate(); // Hook to navigate between routes
   const location = useLocation();
+  const dispatch = useDispatch(); // Hook for Redux actions
   // --- AUTH & ROLE CHECK ---
   useEffect(() => {
     // Check token
@@ -727,7 +729,6 @@ const MentorProfile = () => {
       localStorage.getItem("actkn") || localStorage.getItem("token");
     const userStr =
       localStorage.getItem("user") || localStorage.getItem("user");
-    console.log("Token:", token);
     let user = null;
     if (!token) {
       navigate("/auth/signin");
@@ -756,6 +757,11 @@ const MentorProfile = () => {
     //   return;
     // }
   }, [navigate]);
+
+  // Hide loading when component mounts
+  useEffect(() => {
+    dispatch(hideLoading());
+  }, [dispatch]);
 
   // Save profilepl
   const handleUpdateProfile = async () => {
@@ -890,7 +896,6 @@ const MentorProfile = () => {
         });
       }
     } catch (err) {
-      console.error("Delete failed:", err);
       toast.error("Delete failed - network error", {
         position: "top-right",
         autoClose: 4000,
@@ -928,7 +933,6 @@ const MentorProfile = () => {
       try {
         const data = await profileApi.getProfile();
         const profileData = data?.data;
-        console.log("Profile API response:", profileData);
         if (!profileData || !profileData.user) {
           setError(
             "Không nhận được dữ liệu profile từ API hoặc thiếu thông tin user."
@@ -1093,54 +1097,37 @@ const MentorProfile = () => {
 
   const loadAvailabilityOverview = async () => {
     setAvailabilityLoading(true);
-    console.log("=== LOADING AVAILABILITY OVERVIEW ===");
     try {
       const { response, error } =
         await availabilityApi.getAvailabilityOverview();
-      console.log("API Response:", response);
-      console.log("API Error:", error);
 
       if (error) {
-        console.error("Error loading availability overview:", error);
         toast.error("Không thể tải lịch overview");
       } else if (response && response.data) {
-        console.log("Setting availability overview:", response.data);
         setAvailabilityOverview(response.data);
       } else {
-        console.log("No data in response");
       }
     } catch (err) {
-      console.error("Error in loadAvailabilityOverview:", err);
       toast.error("Lỗi khi tải availability overview");
     } finally {
       setAvailabilityLoading(false);
-      console.log("=== AVAILABILITY OVERVIEW LOADING FINISHED ===");
     }
   };
 
   const loadMySchedules = async () => {
     setMySchedulesLoading(true);
-    console.log("=== LOADING MY SCHEDULES ===");
     try {
       const { response, error } = await availabilityApi.getMySchedules();
-      console.log("My Schedules API Response:", response);
-      console.log("My Schedules API Error:", error);
-
       if (error) {
-        console.error("Error loading my schedules:", error);
         toast.error("Không thể tải danh sách schedules");
       } else if (response && response.data) {
-        console.log("Setting my schedules:", response.data);
         setMySchedules(response.data);
       } else {
-        console.log("No data in my schedules response");
       }
     } catch (err) {
-      console.error("Error in loadMySchedules:", err);
       toast.error("Lỗi khi tải danh sách schedules");
     } finally {
       setMySchedulesLoading(false);
-      console.log("=== MY SCHEDULES LOADING FINISHED ===");
     }
   };
 
@@ -1170,6 +1157,14 @@ const MentorProfile = () => {
 
     setEditingSchedule(editingData);
     setScheduleMode("builder");
+
+    // Scroll to top to show the edit form
+    setTimeout(() => {
+      window.scrollTo({
+        top: 0,
+        behavior: "smooth",
+      });
+    }, 100);
   };
 
   // Helper function to calculate end time
@@ -1191,29 +1186,16 @@ const MentorProfile = () => {
       const availabilityPromises = Object.entries(scheduleData.slots).map(
         async ([date, times]) => {
           // First, get existing schedule for this date to check for bookings
-          console.log("Looking for existing schedule for date:", date);
-          console.log("mySchedules structure:", mySchedules);
 
           const existingSchedule = mySchedules?.schedulesByMonth
             ?.flatMap((month) => month.schedules)
             ?.find((schedule) => {
               const normalizedScheduleDate = schedule.date.split("T")[0]; // Remove time part
               const normalizedTargetDate = date.split("T")[0]; // Remove time part
-              console.log(
-                "Comparing dates:",
-                normalizedScheduleDate,
-                "vs",
-                normalizedTargetDate
-              );
               return normalizedScheduleDate === normalizedTargetDate;
             });
 
-          console.log("Found existing schedule:", existingSchedule);
-
           const newSlots = [];
-
-          console.log("Processing times for date", date, ":", times);
-          console.log("Existing schedule slots:", existingSchedule?.slots);
 
           // Convert new times to 30-minute slots
           times.forEach((time) => {
@@ -1232,7 +1214,6 @@ const MentorProfile = () => {
               .padStart(2, "0")}`;
 
             // Always add the slot - backend will handle preservation of booking status
-            console.log(`Adding slot: ${startTime}`);
             newSlots.push({
               start: startTime,
               end: endTime,
@@ -1245,7 +1226,6 @@ const MentorProfile = () => {
 
           // Sort slots by start time and log final payload
           newSlots.sort((a, b) => a.start.localeCompare(b.start));
-          console.log("Final slots payload for", date, ":", newSlots);
 
           // Call API to create/update availability
           const payload = {
@@ -1253,13 +1233,11 @@ const MentorProfile = () => {
             slots: newSlots,
             timezone: "Asia/Ho_Chi_Minh",
           };
-          console.log("API payload:", payload);
 
           const { response, error } =
             await availabilityApi.createOrUpdateAvailability(payload);
 
           if (error) {
-            console.error("API error for date", date, ":", error);
             throw new Error(
               `Lỗi cập nhật availability cho ngày ${date}: ${JSON.stringify(
                 error
@@ -1267,7 +1245,6 @@ const MentorProfile = () => {
             );
           }
 
-          console.log("API success for date", date, ":", response);
           return response;
         }
       );
@@ -1285,7 +1262,6 @@ const MentorProfile = () => {
       await loadMySchedules();
       await loadMentorBookings(); // Refresh bookings - deleted bookings should disappear
     } catch (error) {
-      console.error("Error saving schedule:", error);
       toast.error(error.message || "Lỗi khi cập nhật lịch");
     }
   };
@@ -1413,7 +1389,37 @@ const MentorProfile = () => {
       const { response, error } = await bookingApi.confirmBooking(bookingId);
       if (error) {
         console.error("Error accepting booking:", error);
-        toast.error("Không thể chấp nhận booking");
+
+        // Extract error message from various error formats
+        let errorMessage = "";
+        if (error.response?.data?.message) {
+          errorMessage = error.response.data.message;
+        } else if (error.data?.message) {
+          errorMessage = error.data.message;
+        } else if (error.message) {
+          errorMessage = error.message;
+        } else if (typeof error === "string") {
+          errorMessage = error;
+        } else {
+          errorMessage = "Không thể chấp nhận booking";
+        }
+
+        // Check if error is related to expired booking
+        if (
+          errorMessage.toLowerCase().includes("expired") ||
+          errorMessage.toLowerCase().includes("past session")
+        ) {
+          errorMessage = "Booking has expired and cannot be accepted";
+        }
+
+        toast.error(errorMessage, {
+          position: "top-right",
+          autoClose: 5000,
+          hideProgressBar: false,
+          closeOnClick: true,
+          pauseOnHover: true,
+          draggable: true,
+        });
         return;
       }
 
@@ -1471,7 +1477,31 @@ const MentorProfile = () => {
       toast.success("Đã chấp nhận booking thành công!");
     } catch (err) {
       console.error("Error in handleAcceptBooking:", err);
-      toast.error("Lỗi khi chấp nhận booking");
+
+      // Check if error is related to expired booking
+      let errorMessage = "Lỗi khi chấp nhận booking";
+      if (err.response?.data?.message) {
+        const backendMessage = err.response.data.message;
+        if (
+          backendMessage.toLowerCase().includes("expired") ||
+          backendMessage.toLowerCase().includes("past session")
+        ) {
+          errorMessage = "Booking has expired and cannot be accepted";
+        } else {
+          errorMessage = backendMessage;
+        }
+      } else if (err.message) {
+        errorMessage = err.message;
+      }
+
+      toast.error(errorMessage, {
+        position: "top-right",
+        autoClose: 5000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+      });
     }
   };
 
@@ -1538,12 +1568,9 @@ const MentorProfile = () => {
         await Promise.all([loadAvailabilityOverview(), loadMySchedules()]);
       }, 1000); // Wait 1 second for backend to complete slot update
 
-      toast.success(
-        "Đã từ chối booking thành công! Thời gian đã trở lại trạng thái có thể đặt lịch."
-      );
+      toast.success("Declined booking successfully!");
     } catch (err) {
-      console.error("Error in handleDeclineBooking:", err);
-      toast.error("Lỗi khi từ chối booking");
+      toast.error("Error declining booking");
     }
   };
 
@@ -1687,6 +1714,14 @@ const MentorProfile = () => {
   const [isCourseDetailPopupOpen, setIsCourseDetailPopupOpen] = useState(false);
   const [selectedReviewCourse, setSelectedReviewCourse] = useState(null);
 
+  // Booking detail popup states
+  const [isBookingDetailPopupOpen, setIsBookingDetailPopupOpen] =
+    useState(false);
+  const [selectedReviewBooking, setSelectedReviewBooking] = useState(null);
+
+  // Cache mentor bookings for performance
+  const [mentorBookings, setMentorBookings] = useState([]);
+
   // Review tabs state
   const [activeReviewTab, setActiveReviewTab] = useState("all"); // "all", "course", "consultation"
 
@@ -1752,23 +1787,75 @@ const MentorProfile = () => {
       const testCourses = await courseApi.getCoursesByMentor(mentorId);
       console.log("📚 Test courses result:", testCourses);
 
-      const { response, error } = await reviewApi.getMentorCourseReviews(
+      // Get reviews from two sources: courses and bookings
+      console.log("🔍 Getting course reviews for mentor:", mentorId);
+      const courseReviewsResult = await reviewApi.getMentorCourseReviews(
         mentorId
       );
-      console.log("Reviews API Response:", { response, error });
+      console.log("📚 Course reviews result:", courseReviewsResult);
 
-      if (error) {
-        console.error("Reviews API Error:", error);
+      console.log("🔍 Getting booking reviews for mentor:", mentorId);
+
+      // First, get all bookings for this mentor to know which bookings belong to them
+      const mentorBookingsResult = await bookingApi.getMentorBookings();
+      console.log("📅 Mentor bookings result:", mentorBookingsResult);
+
+      // Cache mentor bookings for later use
+      if (mentorBookingsResult.response?.data) {
+        setMentorBookings(mentorBookingsResult.response.data);
+        console.log(
+          "💾 Cached mentor bookings:",
+          mentorBookingsResult.response.data
+        );
+      }
+
+      let allReviewsData = [];
+
+      // Process course reviews
+      if (courseReviewsResult.response?.data?.items) {
+        allReviewsData = [...courseReviewsResult.response.data.items];
+      }
+
+      // Process booking reviews (get reviews for each booking)
+      if (mentorBookingsResult.response?.data) {
+        const bookingReviews = [];
+
+        // Get reviews for each booking individually
+        for (const booking of mentorBookingsResult.response.data) {
+          try {
+            console.log(`🔍 Getting reviews for booking: ${booking._id}`);
+            const bookingReviewResult = await reviewApi.getReviews({
+              targetType: "Booking",
+              target: booking._id,
+            });
+
+            if (bookingReviewResult.response?.data?.items) {
+              bookingReviews.push(...bookingReviewResult.response.data.items);
+            }
+          } catch (err) {
+            console.warn(
+              `Failed to get reviews for booking ${booking._id}:`,
+              err
+            );
+          }
+        }
+
+        console.log("📅 All booking reviews for this mentor:", bookingReviews);
+        allReviewsData = [...allReviewsData, ...bookingReviews];
+      }
+
+      console.log("✅ Combined reviews data:", allReviewsData);
+
+      if (courseReviewsResult.error && bookingReviewsResult.error) {
+        console.error("Both reviews API calls failed:", {
+          courseError: courseReviewsResult.error,
+          bookingError: bookingReviewsResult.error,
+        });
         setReviewsError("Failed to load reviews");
         setAllReviews([]);
-      } else if (response?.data?.items) {
-        console.log("✅ Setting reviews:", response.data.items);
-        setAllReviews(response.data.items);
-        setReviewsError(null);
       } else {
-        console.error("Unexpected reviews response structure:", response);
-        setAllReviews([]);
-        setReviewsError("Invalid response format");
+        setAllReviews(allReviewsData);
+        setReviewsError(null);
       }
     } catch (err) {
       console.error("Error loading reviews:", err);
@@ -1810,6 +1897,81 @@ const MentorProfile = () => {
   const closeCourseDetailPopup = () => {
     setIsCourseDetailPopupOpen(false);
     setSelectedReviewCourse(null);
+  };
+
+  // Booking detail popup functions
+  const openBookingDetailPopup = async (bookingId) => {
+    console.log("🔍 Opening booking detail popup for booking:", bookingId);
+
+    try {
+      // First, try to find the booking in our cached mentor bookings
+      let bookingDetail = mentorBookings.find(
+        (booking) => booking._id === bookingId
+      );
+
+      // If not found in cache, fetch fresh data
+      if (!bookingDetail) {
+        console.log("📡 Booking not in cache, fetching fresh data...");
+        const mentorBookingsResult = await bookingApi.getMentorBookings();
+
+        if (mentorBookingsResult.response?.data) {
+          setMentorBookings(mentorBookingsResult.response.data);
+          bookingDetail = mentorBookingsResult.response.data.find(
+            (booking) => booking._id === bookingId
+          );
+        }
+      }
+
+      if (bookingDetail) {
+        console.log("📅 Found booking detail:", bookingDetail);
+        console.log("📋 Booking info:", {
+          id: bookingDetail._id,
+          date: bookingDetail.date,
+          start: bookingDetail.start,
+          end: bookingDetail.end,
+          status: bookingDetail.status,
+          mentor: bookingDetail.mentor,
+          mentee: bookingDetail.mentee,
+          notes: bookingDetail.notes,
+        });
+        setSelectedReviewBooking(bookingDetail);
+        setIsBookingDetailPopupOpen(true);
+        console.log("✅ Popup state set with real booking data");
+      } else {
+        console.warn("⚠️ Booking not found in mentor bookings, using fallback");
+        // Fallback with minimal info
+        const fallbackBooking = {
+          _id: bookingId,
+          date: new Date().toISOString(),
+          start: "Time not available",
+          status: "Completed",
+        };
+        setSelectedReviewBooking(fallbackBooking);
+        setIsBookingDetailPopupOpen(true);
+        console.log("✅ Fallback popup state set");
+      }
+    } catch (err) {
+      console.error("Failed to load booking details:", err);
+      // Still open popup with minimal info
+      const fallbackBooking = {
+        _id: bookingId,
+        date: new Date().toISOString(),
+        start: "Time not available",
+        status: "Completed",
+      };
+      console.log(
+        "📅 Setting error fallback booking popup state:",
+        fallbackBooking
+      );
+      setSelectedReviewBooking(fallbackBooking);
+      setIsBookingDetailPopupOpen(true);
+      console.log("✅ Error fallback popup state set");
+    }
+  };
+
+  const closeBookingDetailPopup = () => {
+    setIsBookingDetailPopupOpen(false);
+    setSelectedReviewBooking(null);
   };
 
   // Load reviews when reviews tab is active
@@ -2050,8 +2212,11 @@ const MentorProfile = () => {
         });
         break;
       case "consultation":
+        // Include both consultation and booking reviews
         filtered = allReviews.filter(
-          (review) => review.targetType === "consultation"
+          (review) =>
+            review.targetType === "consultation" ||
+            review.targetType === "Booking"
         );
         break;
       case "all":
@@ -2564,9 +2729,17 @@ const MentorProfile = () => {
                       Courses ({filteredCourses.length})
                     </h3>
                     <button
-                      onClick={() =>
-                        navigate(`${PATH.MENTOR}/${MENTOR_PATH.CREATECOURSE}`)
-                      }
+                      onClick={() => {
+                        // Show loading page
+                        dispatch(showLoading());
+
+                        // Navigate with a slight delay to show loading
+                        setTimeout(() => {
+                          navigate(
+                            `${PATH.MENTOR}/${MENTOR_PATH.CREATECOURSE}`
+                          );
+                        }, 300);
+                      }}
                       className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition font-medium text-sm"
                     >
                       New Course
@@ -2837,11 +3010,18 @@ const MentorProfile = () => {
                               className="flex-1 bg-blue-600 text-white py-2 px-3 rounded-lg hover:bg-blue-700 transition text-sm font-medium"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                navigate(
-                                  `/mentor/edit-course/${
-                                    course._id || course.id
-                                  }`
-                                );
+
+                                // Show loading page
+                                dispatch(showLoading());
+
+                                // Navigate with a slight delay to show loading
+                                setTimeout(() => {
+                                  navigate(
+                                    `/mentor/edit-course/${
+                                      course._id || course.id
+                                    }`
+                                  );
+                                }, 300);
                               }}
                             >
                               Edit Course
@@ -3806,31 +3986,39 @@ const MentorProfile = () => {
                                           </div>
                                         </div>
 
-                                        {/* Action Buttons */}
-                                        <div className="flex gap-3">
-                                          <button
-                                            onClick={() =>
-                                              handleEditSchedule(schedule)
-                                            }
-                                            className="flex items-center gap-1 px-3 py-2 text-sm font-medium border border-blue-300 text-blue-600 rounded-lg hover:bg-blue-50 transition-all duration-200"
-                                          >
-                                            <span className="text-xs">✏️</span>{" "}
-                                            Edit
-                                          </button>
-                                          {schedule.canDelete && (
+                                        {/* Action Buttons - Only show for upcoming schedules */}
+                                        {schedule.status !== "past" && (
+                                          <div className="flex gap-3">
                                             <button
-                                              onClick={() =>
-                                                openDeleteConfirmModal(schedule)
-                                              }
-                                              className="flex items-center gap-1 px-3 py-2 text-sm font-medium border border-red-300 text-red-600 rounded-lg hover:bg-red-50 transition-all duration-200"
+                                              onClick={(e) => {
+                                                e.preventDefault();
+                                                e.stopPropagation();
+                                                handleEditSchedule(schedule);
+                                              }}
+                                              className="flex items-center gap-1 px-3 py-2 text-sm font-medium border border-blue-300 text-blue-600 rounded-lg hover:bg-blue-50 transition-all duration-200"
                                             >
                                               <span className="text-xs">
-                                                🗑️
+                                                ✏️
                                               </span>{" "}
-                                              Delete
+                                              Edit
                                             </button>
-                                          )}
-                                        </div>
+                                            {schedule.canDelete && (
+                                              <button
+                                                onClick={() =>
+                                                  openDeleteConfirmModal(
+                                                    schedule
+                                                  )
+                                                }
+                                                className="flex items-center gap-1 px-3 py-2 text-sm font-medium border border-red-300 text-red-600 rounded-lg hover:bg-red-50 transition-all duration-200"
+                                              >
+                                                <span className="text-xs">
+                                                  🗑️
+                                                </span>{" "}
+                                                Delete
+                                              </button>
+                                            )}
+                                          </div>
+                                        )}
 
                                         {/* Time Slots Preview */}
                                         <div className="mt-4 p-4 bg-gray-50 rounded-lg">
@@ -4442,7 +4630,9 @@ const MentorProfile = () => {
                     Consultation Reviews (
                     {
                       allReviews.filter(
-                        (review) => review.targetType === "consultation"
+                        (review) =>
+                          review.targetType === "consultation" ||
+                          review.targetType === "Booking"
                       ).length
                     }
                     )
@@ -4496,7 +4686,7 @@ const MentorProfile = () => {
                       currentReviews.map((review) => (
                         <div
                           key={review._id || review.id}
-                          className="border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow"
+                          className="border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow overflow-hidden"
                         >
                           {/* Review Header */}
                           <div className="flex items-start gap-4 mb-4">
@@ -4522,14 +4712,30 @@ const MentorProfile = () => {
                                         }`.trim() || review.author.userName
                                       : "Unknown User"}
                                   </h4>
-                                  <button
-                                    onClick={() =>
-                                      openCourseDetailPopup(review.course)
-                                    }
-                                    className="text-xs bg-blue-100 hover:bg-blue-200 text-blue-700 px-3 py-1 rounded-full transition-colors duration-200 font-medium"
-                                  >
-                                    Detail
-                                  </button>
+                                  {/* Show different info based on review type */}
+                                  {review.targetType === "Booking" ? (
+                                    <button
+                                      onClick={() =>
+                                        openBookingDetailPopup(review.target)
+                                      }
+                                      className="text-xs bg-orange-100 hover:bg-orange-200 text-orange-700 px-3 py-1 rounded-full transition-colors duration-200 font-medium"
+                                    >
+                                      Consultation Review
+                                    </button>
+                                  ) : review.course ? (
+                                    <button
+                                      onClick={() =>
+                                        openCourseDetailPopup(review.course)
+                                      }
+                                      className="text-xs bg-blue-100 hover:bg-blue-200 text-blue-700 px-3 py-1 rounded-full transition-colors duration-200 font-medium"
+                                    >
+                                      Course: {review.course.title}
+                                    </button>
+                                  ) : (
+                                    <span className="text-xs bg-gray-100 text-gray-700 px-3 py-1 rounded-full font-medium">
+                                      Review
+                                    </span>
+                                  )}
                                 </div>
                                 <div className="flex items-center gap-2">
                                   <div className="flex text-yellow-400 text-sm">
@@ -4554,8 +4760,17 @@ const MentorProfile = () => {
                           </div>
 
                           {/* Review Content */}
-                          <div className="mb-4">
-                            <p className="text-gray-700 text-sm leading-relaxed">
+                          <div className="mb-4 overflow-hidden">
+                            <p
+                              className="text-gray-700 text-sm leading-relaxed break-words overflow-wrap-break-word word-break-break-all max-w-full"
+                              style={{
+                                wordWrap: "break-word",
+                                overflowWrap: "break-word",
+                                wordBreak: "break-word",
+                                maxWidth: "100%",
+                                whiteSpace: "pre-wrap",
+                              }}
+                            >
                               {review.content}
                             </p>
                           </div>
@@ -4830,7 +5045,7 @@ const MentorProfile = () => {
       )}
 
       {/* Custom Animations */}
-      <style jsx>{`
+      <style>{`
         @keyframes modalAppear {
           0% {
             opacity: 0;
@@ -4953,11 +5168,19 @@ const MentorProfile = () => {
               {/* Description */}
               {(selectedReviewCourse.description ||
                 selectedReviewCourse.shortDescription) && (
-                <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200 overflow-hidden">
                   <h5 className="text-sm font-semibold text-gray-700 mb-2">
                     📖 Description
                   </h5>
-                  <div className="text-sm text-gray-700 leading-relaxed">
+                  <div
+                    className="text-sm text-gray-700 leading-relaxed break-words overflow-wrap-break-word max-w-full"
+                    style={{
+                      wordWrap: "break-word",
+                      overflowWrap: "break-word",
+                      wordBreak: "break-word",
+                      whiteSpace: "pre-wrap",
+                    }}
+                  >
                     {(() => {
                       const desc =
                         selectedReviewCourse.description ||
@@ -4972,7 +5195,7 @@ const MentorProfile = () => {
                         // If description seems corrupted or too long, show a fallback
                         return (
                           <div>
-                            <div className="bg-gray-100 p-2 rounded text-xs font-mono break-all">
+                            <div className="bg-gray-100 p-2 rounded text-xs font-mono break-words overflow-wrap-break-word">
                               {desc.slice(0, 100)}...
                             </div>
                           </div>
@@ -4994,38 +5217,43 @@ const MentorProfile = () => {
               <div className="mb-6 grid grid-cols-2 md:grid-cols-4 gap-4">
                 {selectedReviewCourse.price !== undefined &&
                   selectedReviewCourse.price !== null && (
-                    <div className="text-center p-3 bg-purple-50 rounded-lg border border-purple-200">
-                      <div className="text-lg font-bold text-purple-700">
+                    <div className="text-center p-4 bg-purple-50 rounded-lg border border-purple-200 hover:shadow-md transition-shadow">
+                      <div className="text-xs text-purple-600 font-medium mb-2">
+                        Price
+                      </div>
+                      <div className="text-2xl font-bold text-purple-700">
                         ${selectedReviewCourse.price}
                       </div>
-                      <div className="text-xs text-purple-600">Price</div>
                     </div>
                   )}
                 {selectedReviewCourse.lectures && (
-                  <div className="text-center p-3 bg-blue-50 rounded-lg border border-blue-200">
-                    <div className="text-lg font-bold text-blue-700">
+                  <div className="text-center p-4 bg-blue-50 rounded-lg border border-blue-200 hover:shadow-md transition-shadow">
+                    <div className="text-xs text-blue-600 font-medium mb-2">
+                      Lectures
+                    </div>
+                    <div className="text-2xl font-bold text-blue-700">
                       {selectedReviewCourse.lectures}
                     </div>
-                    <div className="text-xs text-blue-600">Lectures</div>
                   </div>
                 )}
                 {selectedReviewCourse.duration && (
-                  <div className="text-center p-3 bg-green-50 rounded-lg border border-green-200">
-                    <div className="text-lg font-bold text-green-700">
+                  <div className="text-center p-4 bg-green-50 rounded-lg border border-green-200 hover:shadow-md transition-shadow">
+                    <div className="text-xs text-green-600 font-medium mb-2">
+                      Duration
+                    </div>
+                    <div className="text-2xl font-bold text-green-700">
                       {selectedReviewCourse.duration}h
                     </div>
-                    <div className="text-xs text-green-600">Duration</div>
                   </div>
                 )}
                 {selectedReviewCourse.rate && (
-                  <div className="text-center p-3 bg-yellow-50 rounded-lg border border-yellow-200">
-                    <div className="flex justify-center items-center gap-1 mb-1">
-                      {renderStars(selectedReviewCourse.rate)}
+                  <div className="text-center p-4 bg-yellow-50 rounded-lg border border-yellow-200 hover:shadow-md transition-shadow">
+                    <div className="text-xs text-yellow-600 font-medium mb-2">
+                      Rating
                     </div>
-                    <div className="text-lg font-bold text-yellow-700">
+                    <div className="text-2xl font-bold text-yellow-700 mb-1">
                       {selectedReviewCourse.rate.toFixed(1)}/5
                     </div>
-                    <div className="text-xs text-yellow-600">Rating</div>
                   </div>
                 )}
               </div>
@@ -5194,6 +5422,248 @@ const MentorProfile = () => {
               <button
                 onClick={closeCourseDetailPopup}
                 className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors duration-200 font-medium"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Booking Detail Popup */}
+      {isBookingDetailPopupOpen && selectedReviewBooking && (
+        <div
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-300"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              closeBookingDetailPopup();
+            }
+          }}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-2xl max-w-lg w-full mx-4 transform transition-all animate-in slide-in-from-bottom-8 zoom-in-95 duration-500 ease-out"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              animation: "modalAppear 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)",
+            }}
+          >
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-gray-100 animate-in slide-in-from-top-4 duration-300 delay-100">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xl font-bold text-gray-900">
+                  Consultation Details
+                </h3>
+                <button
+                  onClick={closeBookingDetailPopup}
+                  className="text-gray-400 hover:text-gray-600 transition-all duration-200 p-1 hover:bg-gray-100 rounded-full hover:scale-110"
+                >
+                  <svg
+                    className="w-6 h-6"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            {/* Content */}
+            <div className="px-6 py-6 animate-in slide-in-from-bottom-4 duration-400 delay-200">
+              {/* Booking Header */}
+              <div className="flex items-start gap-4 mb-6">
+                <div className="w-24 h-18 bg-orange-100 rounded-xl shadow-md flex-shrink-0 flex items-center justify-center">
+                  <svg
+                    className="w-8 h-8 text-orange-600"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 002 2z"
+                    />
+                  </svg>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h4 className="font-bold text-gray-900 mb-2 text-xl leading-tight">
+                    Consultation Session
+                  </h4>
+                  <p className="text-base text-gray-600 mb-3">
+                    Booking ID: {selectedReviewBooking._id || "N/A"}
+                  </p>
+                  {/* Show mentee info if available */}
+                  {selectedReviewBooking.mentee && (
+                    <p className="text-sm text-gray-500 mb-3">
+                      With: {selectedReviewBooking.mentee.firstName}{" "}
+                      {selectedReviewBooking.mentee.lastName}
+                    </p>
+                  )}
+                  <div className="flex items-center gap-4 text-sm text-gray-500">
+                    <div className="flex items-center gap-1">
+                      <svg
+                        className="w-4 h-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 002 2z"
+                        />
+                      </svg>
+                      <span>
+                        {selectedReviewBooking.date
+                          ? new Date(
+                              selectedReviewBooking.date
+                            ).toLocaleDateString("vi-VN")
+                          : "Date not available"}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <svg
+                        className="w-4 h-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                        />
+                      </svg>
+                      <span>
+                        {selectedReviewBooking.start || "Time not available"}
+                        {selectedReviewBooking.end &&
+                          ` - ${selectedReviewBooking.end}`}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Booking Details */}
+              <div className="space-y-4">
+                <div className="p-4 bg-gray-50 rounded-xl">
+                  <h5 className="font-semibold text-gray-900 mb-2">Status</h5>
+                  {(() => {
+                    // Calculate effective status based on time
+                    let effectiveStatus = selectedReviewBooking.status;
+                    let statusColor = "bg-gray-100 text-gray-800";
+                    let statusText =
+                      selectedReviewBooking.status || "Completed";
+
+                    // Check if booking is past time
+                    if (
+                      selectedReviewBooking.status === "active" &&
+                      selectedReviewBooking.date &&
+                      selectedReviewBooking.start
+                    ) {
+                      try {
+                        const dateStr = new Date(selectedReviewBooking.date)
+                          .toISOString()
+                          .split("T")[0];
+                        let bookingDateTime = new Date(
+                          `${dateStr}T${selectedReviewBooking.start}:00`
+                        );
+
+                        if (isNaN(bookingDateTime.getTime())) {
+                          bookingDateTime = new Date(
+                            `${selectedReviewBooking.date} ${selectedReviewBooking.start}`
+                          );
+                        }
+
+                        const isPastTime = bookingDateTime < new Date();
+                        if (isPastTime) {
+                          effectiveStatus = "finished";
+                          statusText = "Finished";
+                          statusColor = "bg-green-100 text-green-800";
+                        } else {
+                          statusText = "Active";
+                          statusColor = "bg-blue-100 text-blue-800";
+                        }
+                      } catch (error) {
+                        // Fallback to original status
+                        statusText = "Active";
+                        statusColor = "bg-blue-100 text-blue-800";
+                      }
+                    } else if (selectedReviewBooking.status === "finished") {
+                      statusText = "Finished";
+                      statusColor = "bg-green-100 text-green-800";
+                    } else if (selectedReviewBooking.status === "cancelled") {
+                      statusText = "Cancelled";
+                      statusColor = "bg-red-100 text-red-800";
+                    } else if (selectedReviewBooking.status === "active") {
+                      statusText = "Active";
+                      statusColor = "bg-blue-100 text-blue-800";
+                    }
+
+                    return (
+                      <span
+                        className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${statusColor}`}
+                      >
+                        {statusText}
+                      </span>
+                    );
+                  })()}
+                </div>
+
+                <div className="p-4 bg-gray-50 rounded-xl">
+                  <h5 className="font-semibold text-gray-900 mb-2">
+                    Consultation Type
+                  </h5>
+                  <p className="text-gray-600">One-on-one mentoring session</p>
+                </div>
+
+                {/* Show notes if available */}
+                {selectedReviewBooking.notes && (
+                  <div className="p-4 bg-gray-50 rounded-xl">
+                    <h5 className="font-semibold text-gray-900 mb-2">Notes</h5>
+                    <p className="text-gray-600 text-sm">
+                      {selectedReviewBooking.notes}
+                    </p>
+                  </div>
+                )}
+
+                {/* Show created date */}
+                {selectedReviewBooking.createdAt && (
+                  <div className="p-4 bg-gray-50 rounded-xl">
+                    <h5 className="font-semibold text-gray-900 mb-2">
+                      Booked On
+                    </h5>
+                    <p className="text-gray-600 text-sm">
+                      {new Date(
+                        selectedReviewBooking.createdAt
+                      ).toLocaleDateString("vi-VN", {
+                        year: "numeric",
+                        month: "long",
+                        day: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 py-4 border-t border-gray-100 animate-in slide-in-from-bottom-4 duration-300 delay-300">
+              <button
+                onClick={closeBookingDetailPopup}
+                className="w-full bg-orange-600 text-white py-2 px-4 rounded-lg hover:bg-orange-700 transition-colors duration-200 font-medium"
               >
                 Close
               </button>

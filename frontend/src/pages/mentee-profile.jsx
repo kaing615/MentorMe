@@ -11,6 +11,7 @@ import { BsCalendarDate } from "react-icons/bs";
 import profileApi from "../api/modules/profile.api";
 import purchasedCourseApi from "../api/modules/purchasedCourse.api";
 import bookingApi from "../api/modules/booking.api";
+import reviewApi from "../api/modules/review.api";
 import authUtils from "../utils/auth.utils";
 import minatoImg from "../assets/minato.jpg";
 import courseApi from "../api/modules/course.api";
@@ -23,7 +24,6 @@ const MenteeProfile = () => {
       localStorage.getItem("actkn") || localStorage.getItem("token");
     const userStr =
       localStorage.getItem("user") || localStorage.getItem("user");
-    console.log("Token:", token);
     let user = null;
     if (!token) {
       navigate("/auth/signin");
@@ -113,8 +113,19 @@ const MenteeProfile = () => {
   const [isReviewPopupOpen, setIsReviewPopupOpen] = useState(false);
   const [reviewCourse, setReviewCourse] = useState(null);
   const [reviewRating, setReviewRating] = useState(0);
+  const [reviewHoverRating, setReviewHoverRating] = useState(0);
   const [reviewComment, setReviewComment] = useState("");
   const [isSubmittingReview, setIsSubmittingReview] = useState(false);
+
+  // Booking review popup states
+  const [isBookingReviewPopupOpen, setIsBookingReviewPopupOpen] =
+    useState(false);
+  const [reviewBooking, setReviewBooking] = useState(null);
+  const [bookingReviewRating, setBookingReviewRating] = useState(0);
+  const [bookingReviewHoverRating, setBookingReviewHoverRating] = useState(0);
+  const [bookingReviewComment, setBookingReviewComment] = useState("");
+  const [isSubmittingBookingReview, setIsSubmittingBookingReview] =
+    useState(false);
 
   // Đổi avatar khi upload ảnh mới
   const handleImageUpload = (e) => {
@@ -287,24 +298,6 @@ const MenteeProfile = () => {
           console.warn("Error parsing user:", e);
         }
 
-        // Check for mock purchased courses in localStorage for current user
-        const mockKey = currentUserId
-          ? `mockPurchasedCourses_${currentUserId}`
-          : "mockPurchasedCourses";
-        const mockPurchasedCourses = localStorage.getItem(mockKey);
-
-        if (mockPurchasedCourses) {
-          try {
-            const courses = JSON.parse(mockPurchasedCourses);
-            if (Array.isArray(courses) && courses.length > 0) {
-              setPurchasedCourses(courses);
-              return;
-            }
-          } catch (e) {
-            console.warn("Error parsing mock purchased courses:", e);
-          }
-        }
-
         const { response, error } =
           await purchasedCourseApi.getPurchasedCourses();
 
@@ -355,6 +348,7 @@ const MenteeProfile = () => {
   const openReviewPopup = (course) => {
     setReviewCourse(course);
     setReviewRating(0);
+    setReviewHoverRating(0);
     setReviewComment("");
     setIsReviewPopupOpen(true);
   };
@@ -363,6 +357,7 @@ const MenteeProfile = () => {
     setIsReviewPopupOpen(false);
     setReviewCourse(null);
     setReviewRating(0);
+    setReviewHoverRating(0);
     setReviewComment("");
   };
 
@@ -405,9 +400,151 @@ const MenteeProfile = () => {
     }
   };
 
+  // Booking review functions
+  const openBookingReviewPopup = (booking) => {
+    setReviewBooking(booking);
+    setBookingReviewRating(0);
+    setBookingReviewHoverRating(0);
+    setBookingReviewComment("");
+    setIsBookingReviewPopupOpen(true);
+  };
+
+  const closeBookingReviewPopup = () => {
+    setIsBookingReviewPopupOpen(false);
+    setReviewBooking(null);
+    setBookingReviewRating(0);
+    setBookingReviewHoverRating(0);
+    setBookingReviewComment("");
+  };
+
+  const handleBookingStarClick = (rating) => {
+    setBookingReviewRating(rating);
+  };
+
+  const submitBookingReview = async () => {
+    if (!reviewBooking || bookingReviewRating === 0) {
+      toast.error("Vui lòng chọn số sao đánh giá");
+      return;
+    }
+
+    // Check if booking is past consultation time
+    let bookingDateTime;
+    try {
+      if (reviewBooking.date && reviewBooking.start) {
+        const dateStr = new Date(reviewBooking.date)
+          .toISOString()
+          .split("T")[0];
+        bookingDateTime = new Date(`${dateStr}T${reviewBooking.start}:00`);
+        if (isNaN(bookingDateTime.getTime())) {
+          bookingDateTime = new Date(
+            `${reviewBooking.date} ${reviewBooking.start}`
+          );
+        }
+      } else {
+        bookingDateTime = new Date(reviewBooking.date);
+      }
+    } catch (error) {
+      bookingDateTime = new Date(reviewBooking.date);
+    }
+
+    const isPastConsultation = bookingDateTime < new Date();
+
+    // Consider booking as finished if it's past consultation time
+    const isEffectivelyFinished =
+      reviewBooking.status === "finished" ||
+      (reviewBooking.status === "active" && isPastConsultation);
+
+    if (!isEffectivelyFinished) {
+      console.error(
+        "REVIEW BLOCKED: Booking is not finished or past consultation time"
+      );
+      toast.error("Chỉ có thể đánh giá sau khi buổi tư vấn đã kết thúc");
+      return;
+    }
+
+    setIsSubmittingBookingReview(true);
+    try {
+      const reviewData = {
+        targetType: "Booking",
+        target: reviewBooking._id,
+        rate: bookingReviewRating,
+        content: bookingReviewComment.trim(),
+      };
+
+      // Check user token
+      const token =
+        localStorage.getItem("actkn") || localStorage.getItem("token");
+      const userStr = localStorage.getItem("user");
+
+      const { response, error } = await reviewApi.createReview(reviewData);
+
+      if (error) {
+        console.error("API Error details:", error);
+        console.log("🔍 Error message:", error.message);
+        console.log("🔍 Full error object:", JSON.stringify(error, null, 2));
+
+        // Check for duplicate review error patterns
+        const errorMessage = error.message || "";
+        const errorString = JSON.stringify(error).toLowerCase();
+
+        if (
+          errorMessage.includes("duplicate") ||
+          errorMessage.includes("already reviewed") ||
+          errorMessage.includes("đã đánh giá") ||
+          errorMessage.includes("E11000") ||
+          errorMessage.includes("already exists") ||
+          errorString.includes("duplicate") ||
+          errorString.includes("already") ||
+          error.status === 409
+        ) {
+          // Conflict status often used for duplicates
+          toast.warning("This consultation has already been reviewed");
+          closeBookingReviewPopup();
+          return;
+        }
+
+        if (error.status === 403) {
+          toast.error(
+            "Bạn không có quyền đánh giá booking này. Booking có thể chưa hoàn thành hoặc không thuộc về bạn."
+          );
+        } else if (error.status === 401) {
+          toast.error("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.");
+        } else {
+          throw new Error(error.message || "Không thể gửi đánh giá");
+        }
+        return;
+      }
+
+      console.log("Review created successfully:", response);
+      toast.success("Đánh giá tư vấn của bạn đã được gửi thành công!");
+      closeBookingReviewPopup();
+
+      // Optionally refresh bookings to update the UI
+      // fetchBookings();
+    } catch (error) {
+      console.error("Error submitting booking review:", error);
+
+      // Check for specific duplicate error patterns in catch block
+      const errorMessage = error.message || "";
+      if (
+        errorMessage.includes("duplicate") ||
+        errorMessage.includes("already reviewed") ||
+        errorMessage.includes("đã đánh giá") ||
+        errorMessage.includes("E11000") ||
+        errorMessage.includes("already exists")
+      ) {
+        toast.warning("This consultation has already been reviewed");
+        closeBookingReviewPopup();
+      } else {
+        toast.error(errorMessage || "Có lỗi xảy ra khi gửi đánh giá");
+      }
+    } finally {
+      setIsSubmittingBookingReview(false);
+    }
+  };
+
   // Course management state
   const [searchTerm, setSearchTerm] = useState("");
-  const [filterBy, setFilterBy] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
   const coursesPerPage = 6;
 
@@ -612,7 +749,7 @@ const MenteeProfile = () => {
 
   // Filter and search logic for courses
   const getFilteredCourses = () => {
-    let filtered = purchasedCourses.filter(
+    const filtered = purchasedCourses.filter(
       (item) =>
         item.courseInfo.title
           .toLowerCase()
@@ -625,15 +762,6 @@ const MenteeProfile = () => {
           .includes(searchTerm.toLowerCase()) ||
         ""
     );
-
-    switch (filterBy) {
-      case "available":
-        // Just show all courses since we removed progress logic
-        filtered = filtered;
-        break;
-      default:
-        break;
-    }
 
     return filtered;
   };
@@ -1133,21 +1261,9 @@ const MenteeProfile = () => {
                       </svg>
                     </div>
                     <div className="flex gap-2">
-                      <select
-                        value={filterBy}
-                        onChange={(e) => {
-                          setFilterBy(e.target.value);
-                          setCurrentPage(1);
-                        }}
-                        className="px-4 py-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                      >
-                        <option value="all">All Courses</option>
-                        <option value="available">Available</option>
-                      </select>
                       <button
                         onClick={() => {
                           setSearchTerm("");
-                          setFilterBy("all");
                           setCurrentPage(1);
                         }}
                         className="px-4 py-2 border border-gray-300 rounded-lg bg-white hover:bg-gray-50 transition flex items-center gap-2"
@@ -1279,33 +1395,16 @@ const MenteeProfile = () => {
                               <div className="flex gap-2">
                                 <button
                                   onClick={() => {
-                                    // Smart navigation: Nếu có purchasedCourseId thì dùng, không thì dùng courseId
-                                    if (item.purchasedCourseId) {
-                                      // NEW: Navigate với purchasedCourseId
-                                      navigate(
-                                        `/order-complete-course/${item.purchasedCourseId}`,
-                                        {
-                                          state: {
-                                            purchasedCourseId:
-                                              item.purchasedCourseId,
-                                            courseId: course._id,
-                                            courseInfo: course,
-                                          },
-                                        }
-                                      );
-                                    } else {
-                                      // LEGACY: Navigate với courseId (cho courses cũ)
-                                      navigate(
-                                        `/order-complete-course/${course._id}`,
-                                        {
-                                          state: {
-                                            courseId: course._id,
-                                            courseInfo: course,
-                                            isLegacyCourse: true, // Flag để biết đây là legacy
-                                          },
-                                        }
-                                      );
-                                    }
+                                    // Navigate directly to course using courseId
+                                    navigate(
+                                      `/order-complete-course/${course._id}`,
+                                      {
+                                        state: {
+                                          courseId: course._id,
+                                          courseInfo: course,
+                                        },
+                                      }
+                                    );
                                   }}
                                   className="flex-1 bg-blue-600 text-white py-2 px-3 rounded-lg hover:bg-blue-700 transition text-sm font-medium"
                                 >
@@ -1320,47 +1419,14 @@ const MenteeProfile = () => {
                                 </button>
                               </div>
 
-                              {/* Progress Bar (only for courses with purchasedCourseId) */}
-                              {item.purchasedCourseId && (
-                                <div className="mb-3">
-                                  <div className="flex justify-between items-center mb-1">
-                                    <span className="text-xs text-gray-600">
-                                      Progress
-                                    </span>
-                                    <span className="text-xs font-medium text-gray-700">
-                                      {item.progress || 0}%
-                                    </span>
-                                  </div>
-                                  <div className="w-full bg-gray-200 rounded-full h-2">
-                                    <div
-                                      className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                                      style={{
-                                        width: `${item.progress || 0}%`,
-                                      }}
-                                    ></div>
-                                  </div>
-                                </div>
-                              )}
-
                               {/* Purchase Date */}
                               <div className="mt-3 pt-3 border-t border-gray-100">
-                                <div className="flex justify-between items-center">
-                                  <p className="text-xs text-gray-500">
-                                    Purchased on{" "}
-                                    {new Date(
-                                      item.purchaseDate
-                                    ).toLocaleDateString()}
-                                  </p>
-                                  {item.purchasedCourseId ? (
-                                    <span className="text-xs text-green-600 font-medium">
-                                      ✓ Trackable
-                                    </span>
-                                  ) : (
-                                    <span className="text-xs text-gray-500">
-                                      Legacy
-                                    </span>
-                                  )}
-                                </div>
+                                <p className="text-xs text-gray-500">
+                                  Purchased on{" "}
+                                  {new Date(
+                                    item.purchaseDate
+                                  ).toLocaleDateString()}
+                                </p>
                               </div>
                             </div>
                           </div>
@@ -1373,11 +1439,11 @@ const MenteeProfile = () => {
                           No courses found
                         </p>
                         <p className="text-gray-400">
-                          {searchTerm || filterBy !== "all"
-                            ? "Try adjusting your search or filter criteria"
+                          {searchTerm
+                            ? "Try adjusting your search criteria"
                             : "You haven't purchased any courses yet"}
                         </p>
-                        {!searchTerm && filterBy === "all" && (
+                        {!searchTerm && (
                           <button
                             onClick={() => navigate("/all-courses")}
                             className="mt-4 bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition"
@@ -1821,8 +1887,8 @@ const MenteeProfile = () => {
                                     </p>
                                   )}
 
-                                  {/* Date and Time */}
-                                  <div className="grid grid-cols-2 gap-6">
+                                  {/* Date, Time and Review Button */}
+                                  <div className="grid grid-cols-3 gap-6">
                                     <div>
                                       <div className="flex items-center gap-2 mb-1">
                                         <BsCalendarDate className="w-5 h-5 text-blue-600" />
@@ -1865,6 +1931,125 @@ const MenteeProfile = () => {
                                       <p className="font-bold text-gray-900">
                                         {booking.start}
                                       </p>
+                                    </div>
+
+                                    {/* Review Button Column */}
+                                    <div>
+                                      {(() => {
+                                        // Debug: Log booking info
+                                        console.log(
+                                          "🔍 Booking review check:",
+                                          {
+                                            bookingId: booking._id,
+                                            status: booking.status,
+                                            date: booking.date,
+                                            start: booking.start,
+                                            currentTime: new Date().toString(),
+                                          }
+                                        );
+
+                                        // Better date/time parsing
+                                        let bookingDateTime;
+                                        try {
+                                          // Handle different date/time formats
+                                          if (booking.date && booking.start) {
+                                            // Try combining date and time
+                                            const dateStr = new Date(
+                                              booking.date
+                                            )
+                                              .toISOString()
+                                              .split("T")[0];
+                                            const timeStr = booking.start;
+                                            bookingDateTime = new Date(
+                                              `${dateStr}T${timeStr}:00`
+                                            );
+
+                                            // If invalid, try alternative parsing
+                                            if (
+                                              isNaN(bookingDateTime.getTime())
+                                            ) {
+                                              bookingDateTime = new Date(
+                                                `${booking.date} ${booking.start}`
+                                              );
+                                            }
+                                          } else {
+                                            bookingDateTime = new Date(
+                                              booking.date
+                                            );
+                                          }
+                                        } catch (error) {
+                                          console.error(
+                                            "Error parsing booking date/time:",
+                                            error
+                                          );
+                                          bookingDateTime = new Date(
+                                            booking.date
+                                          );
+                                        }
+
+                                        const isPastConsultation =
+                                          bookingDateTime < new Date();
+
+                                        // If booking is past consultation time, consider it finished
+                                        const isFinished =
+                                          booking.status === "finished" ||
+                                          (booking.status === "active" &&
+                                            isPastConsultation);
+
+                                        // Only show review button for finished bookings
+                                        const canReview = isFinished;
+
+                                        // Debug: Log review check result
+                                        console.log("📊 Review check result:", {
+                                          isFinished,
+                                          isPastConsultation,
+                                          canReview,
+                                          bookingDateTime:
+                                            bookingDateTime.toString(),
+                                        });
+
+                                        return (
+                                          <>
+                                            {/* Show review button for finished or past active/accepted bookings */}
+                                            {canReview && (
+                                              <div>
+                                                <div className="flex items-center gap-2 mb-1">
+                                                  <svg
+                                                    className="w-5 h-5 text-orange-600"
+                                                    fill="none"
+                                                    stroke="currentColor"
+                                                    viewBox="0 0 24 24"
+                                                  >
+                                                    <path
+                                                      strokeLinecap="round"
+                                                      strokeLinejoin="round"
+                                                      strokeWidth={2}
+                                                      d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.196-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"
+                                                    />
+                                                  </svg>
+                                                  <span className="text-orange-600 font-semibold text-sm">
+                                                    Review
+                                                  </span>
+                                                </div>
+                                                <button
+                                                  onClick={() =>
+                                                    openBookingReviewPopup(
+                                                      booking
+                                                    )
+                                                  }
+                                                  className="w-full bg-gradient-to-r from-orange-500 to-orange-600 text-white py-2 px-3 rounded-lg hover:from-orange-600 hover:to-orange-700 transition-all duration-300 flex items-center justify-center gap-2 font-medium shadow-md hover:shadow-lg transform hover:-translate-y-0.5 text-sm"
+                                                  title="Rate this consultation session"
+                                                >
+                                                  <span className="text-base">
+                                                    ⭐
+                                                  </span>
+                                                  <span>Rate</span>
+                                                </button>
+                                              </div>
+                                            )}
+                                          </>
+                                        );
+                                      })()}
                                     </div>
                                   </div>
 
@@ -2791,9 +2976,11 @@ const MenteeProfile = () => {
                       key={star}
                       type="button"
                       onClick={() => handleStarClick(star)}
+                      onMouseEnter={() => setReviewHoverRating(star)}
+                      onMouseLeave={() => setReviewHoverRating(0)}
                       disabled={isSubmittingReview}
                       className={`text-3xl transition-all duration-300 transform hover:scale-125 active:scale-110 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:ring-opacity-50 rounded ${
-                        star <= reviewRating
+                        star <= (reviewHoverRating || reviewRating)
                           ? "text-yellow-400 hover:text-yellow-500"
                           : "text-gray-300 hover:text-yellow-300"
                       } ${
@@ -2803,7 +2990,7 @@ const MenteeProfile = () => {
                       }`}
                       style={{
                         filter:
-                          star <= reviewRating
+                          star <= (reviewHoverRating || reviewRating)
                             ? "drop-shadow(0 2px 4px rgba(251, 191, 36, 0.3))"
                             : "none",
                         animationDelay: `${star * 100}ms`,
@@ -2813,7 +3000,12 @@ const MenteeProfile = () => {
                     </button>
                   ))}
                   <div className="ml-4 text-sm animate-in fade-in duration-300 delay-500">
-                    {reviewRating > 0 ? (
+                    {reviewHoverRating > 0 ? (
+                      <span className="text-yellow-500 font-medium">
+                        {reviewHoverRating} star
+                        {reviewHoverRating > 1 ? "s" : ""}
+                      </span>
+                    ) : reviewRating > 0 ? (
                       <span className="text-yellow-600 font-medium">
                         {reviewRating} star{reviewRating > 1 ? "s" : ""}{" "}
                         selected
@@ -2928,8 +3120,258 @@ const MenteeProfile = () => {
         </div>
       )}
 
+      {/* Booking Review Popup */}
+      {isBookingReviewPopupOpen && (
+        <div
+          className="fixed inset-0 booking-review-backdrop backdrop-fade-in z-50 flex items-center justify-center p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !isSubmittingBookingReview) {
+              closeBookingReviewPopup();
+            }
+          }}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4 transform transition-all animate-in slide-in-from-bottom-8 zoom-in-95 duration-500 ease-out"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              animation: "modalAppear 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)",
+            }}
+          >
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-gray-100 animate-in slide-in-from-top-4 duration-300 delay-100">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xl font-bold text-gray-900">
+                  Rate Consultation
+                </h3>
+                <button
+                  onClick={closeBookingReviewPopup}
+                  disabled={isSubmittingBookingReview}
+                  className="text-gray-400 hover:text-gray-600 transition-all duration-200 p-1 hover:bg-gray-100 rounded-full hover:scale-110"
+                >
+                  <svg
+                    className="w-6 h-6"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            {/* Content */}
+            <div className="px-6 py-6 animate-in slide-in-from-bottom-4 duration-400 delay-200">
+              {/* Booking Info */}
+              {reviewBooking && (
+                <div className="flex items-start gap-4 mb-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-100 transform transition-all duration-300 hover:shadow-md">
+                  <div className="flex-shrink-0">
+                    {reviewBooking.mentor?.avatarUrl ? (
+                      <img
+                        src={reviewBooking.mentor.avatarUrl}
+                        alt={`${reviewBooking.mentor.firstName} ${reviewBooking.mentor.lastName}`}
+                        className="w-16 h-16 rounded-full object-cover shadow-sm"
+                      />
+                    ) : (
+                      <div className="w-16 h-16 rounded-full bg-blue-500 flex items-center justify-center text-white font-semibold text-lg">
+                        {reviewBooking.mentor?.firstName?.[0]}
+                        {reviewBooking.mentor?.lastName?.[0]}
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex-1">
+                    <h4 className="font-semibold text-gray-900 mb-1 leading-tight">
+                      Consultation with{" "}
+                      {reviewBooking.mentor?.firstName || "Unknown"}{" "}
+                      {reviewBooking.mentor?.lastName || "Mentor"}
+                    </h4>
+                    <p className="text-sm text-gray-600">
+                      {new Date(reviewBooking.date).toLocaleDateString(
+                        "en-US",
+                        {
+                          weekday: "long",
+                          year: "numeric",
+                          month: "long",
+                          day: "numeric",
+                        }
+                      )}{" "}
+                      at {reviewBooking.start}
+                    </p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="text-xs text-blue-600 bg-blue-100 px-2 py-1 rounded-full">
+                        Consultation Session
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Star Rating */}
+              <div className="mb-6 animate-in slide-in-from-bottom-4 duration-400 delay-300">
+                <label className="block text-sm font-medium text-gray-700 mb-3 transform transition-all duration-300">
+                  Your Rating <span className="text-red-500">*</span>
+                </label>
+                <div className="flex items-center gap-1">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <button
+                      key={star}
+                      type="button"
+                      onClick={() => handleBookingStarClick(star)}
+                      onMouseEnter={() => setBookingReviewHoverRating(star)}
+                      onMouseLeave={() => setBookingReviewHoverRating(0)}
+                      disabled={isSubmittingBookingReview}
+                      className={`text-3xl transition-all duration-300 transform hover:scale-125 active:scale-110 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:ring-opacity-50 rounded ${
+                        star <=
+                        (bookingReviewHoverRating || bookingReviewRating)
+                          ? "text-yellow-400 hover:text-yellow-500"
+                          : "text-gray-300 hover:text-yellow-300"
+                      } ${
+                        isSubmittingBookingReview
+                          ? "cursor-not-allowed opacity-50"
+                          : "cursor-pointer hover:drop-shadow-lg hover:rotate-12"
+                      }`}
+                      style={{
+                        filter:
+                          star <=
+                          (bookingReviewHoverRating || bookingReviewRating)
+                            ? "drop-shadow(0 2px 4px rgba(251, 191, 36, 0.3))"
+                            : "none",
+                        animationDelay: `${star * 100}ms`,
+                      }}
+                    >
+                      ★
+                    </button>
+                  ))}
+                  <div className="ml-4 text-sm animate-in fade-in duration-300 delay-500">
+                    {bookingReviewHoverRating > 0 ? (
+                      <span className="text-yellow-500 font-medium">
+                        {bookingReviewHoverRating} star
+                        {bookingReviewHoverRating > 1 ? "s" : ""}
+                      </span>
+                    ) : bookingReviewRating > 0 ? (
+                      <span className="text-yellow-600 font-medium">
+                        {bookingReviewRating} star
+                        {bookingReviewRating > 1 ? "s" : ""} selected
+                      </span>
+                    ) : (
+                      <span className="text-gray-500">Click stars to rate</span>
+                    )}
+                  </div>
+                </div>
+                {bookingReviewRating > 0 && (
+                  <div className="mt-2 text-xs text-gray-600 animate-in fade-in slide-in-from-bottom-2 duration-300 delay-600">
+                    {bookingReviewRating === 1 && "😞 Poor"}
+                    {bookingReviewRating === 2 && "😐 Fair"}
+                    {bookingReviewRating === 3 && "🙂 Good"}
+                    {bookingReviewRating === 4 && "😊 Very Good"}
+                    {bookingReviewRating === 5 && "🤩 Excellent"}
+                  </div>
+                )}
+              </div>
+
+              {/* Comment */}
+              <div className="mb-6 animate-in slide-in-from-bottom-4 duration-400 delay-400">
+                <label
+                  htmlFor="booking-review-comment"
+                  className="block text-sm font-medium text-gray-700 mb-2 transform transition-all duration-300"
+                >
+                  Your Review (Optional)
+                </label>
+                <div className="relative">
+                  <textarea
+                    id="booking-review-comment"
+                    value={bookingReviewComment}
+                    onChange={(e) => setBookingReviewComment(e.target.value)}
+                    disabled={isSubmittingBookingReview}
+                    placeholder="Share your experience with this consultation... How was the mentor's guidance? What did you learn?"
+                    className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none transition-all duration-300 disabled:bg-gray-50 disabled:cursor-not-allowed hover:border-blue-300 focus:scale-[1.02] focus:shadow-lg"
+                    rows={4}
+                    maxLength={500}
+                  />
+                  <div className="absolute bottom-2 right-2 text-xs text-gray-400 animate-in fade-in duration-300 delay-700">
+                    {bookingReviewComment.length}/500
+                  </div>
+                </div>
+                {bookingReviewComment.length > 450 && (
+                  <div className="text-xs text-orange-500 mt-1">
+                    You're approaching the character limit
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 py-4 border-t border-gray-100 bg-gray-50 rounded-b-2xl animate-in slide-in-from-bottom-4 duration-400 delay-500">
+              <div className="flex gap-3">
+                <button
+                  onClick={closeBookingReviewPopup}
+                  disabled={isSubmittingBookingReview}
+                  className="flex-1 px-4 py-2.5 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed font-medium hover:scale-105 active:scale-95"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={submitBookingReview}
+                  disabled={
+                    isSubmittingBookingReview || bookingReviewRating === 0
+                  }
+                  className="flex-1 px-4 py-2.5 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-lg hover:from-orange-600 hover:to-orange-700 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 font-medium shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 hover:scale-105 active:scale-95"
+                >
+                  {isSubmittingBookingReview ? (
+                    <>
+                      <svg
+                        className="animate-spin w-4 h-4"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                      >
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                        ></circle>
+                        <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                        ></path>
+                      </svg>
+                      Submitting...
+                    </>
+                  ) : (
+                    <>
+                      <svg
+                        className="w-4 h-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
+                        />
+                      </svg>
+                      Submit Review
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Custom Animations */}
-      <style jsx>{`
+      <style>{`
         @keyframes modalAppear {
           0% {
             opacity: 0;
@@ -2958,6 +3400,29 @@ const MenteeProfile = () => {
 
         .modal-exit {
           animation: modalDisappear 0.2s ease-in forwards;
+        }
+
+        /* Enhanced backdrop blur for booking review popup */
+        .booking-review-backdrop {
+          background: rgba(0, 0, 0, 0.75);
+          backdrop-filter: blur(8px);
+          -webkit-backdrop-filter: blur(8px);
+        }
+
+        /* Smooth fade-in animation for backdrop */
+        @keyframes backdropFadeIn {
+          0% {
+            opacity: 0;
+            backdrop-filter: blur(0px);
+          }
+          100% {
+            opacity: 1;
+            backdrop-filter: blur(8px);
+          }
+        }
+
+        .backdrop-fade-in {
+          animation: backdropFadeIn 0.4s ease-out forwards;
         }
       `}</style>
     </>

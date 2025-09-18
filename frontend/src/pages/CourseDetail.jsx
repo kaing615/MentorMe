@@ -363,6 +363,8 @@ const CourseDetail = () => {
       return;
     }
 
+    // Show loading page
+    dispatch(showLoading());
     setIsAddingToCart(true);
 
     try {
@@ -398,6 +400,7 @@ const CourseDetail = () => {
             errorMessage = "Không thể thêm vào giỏ hàng";
           }
 
+          dispatch(hideLoading());
           toast.error(errorMessage);
           return;
         }
@@ -407,9 +410,11 @@ const CourseDetail = () => {
       }
     } catch (error) {
       console.error("Buy now error:", error);
+      dispatch(hideLoading());
       toast.error("Có lỗi xảy ra khi thực hiện mua hàng");
     } finally {
       setIsAddingToCart(false);
+      // Note: hideLoading will be called when new page loads
     }
   };
 
@@ -549,34 +554,54 @@ const CourseDetail = () => {
 
           <div
             title="rating (star) | total time of course, number of lectures and level required"
-            className="flex flex-row pt-3 items-center space-x-4"
+            className="flex flex-col pt-3 text-slate-700"
           >
-            <div className="flex flex-row items-center">
-              <div className="flex flex-row">
-                {renderStars(courseData.rate || 0)}
+            {/* Rating + Duration + Lectures */}
+            <div className="flex flex-row items-center space-x-4">
+              {/* Rating */}
+              <div className="flex flex-row items-center">
+                <div className="flex flex-row">
+                  {renderStars(courseData.rate || 0)}
+                </div>
+                <span className="pl-2 text-lg font-medium">
+                  {courseData.rate || 0}
+                </span>
               </div>
-              <span className="pl-2 text-lg font-medium">
-                {courseData.rate || 0}
-              </span>
+
+              <p className="text-lg">|</p>
+
+              {/* Duration */}
+              <div className="flex flex-row items-center">
+                <span className="text-lg">
+                  {courseData.duration} total hours
+                </span>
+              </div>
+
+              {/* Lectures */}
+              <div className="flex flex-row items-center">
+                <span className="text-lg">{courseData.lectures} Lectures</span>
+              </div>
             </div>
 
-            <p className="text-lg text-slate-700">|</p>
-
-            <div className="flex flex-row items-center text-slate-700">
-              <span>{courseData.duration} total hours</span>
-            </div>
-
-            <div className="flex flex-row items-center text-slate-700">
-              <span>{courseData.lectures} Lectures</span>
-            </div>
-
-            <div className="flex flex-row items-center text-slate-700">
-              <span>
-                {Array.isArray(courseData.category)
-                  ? courseData.category.join(", ")
-                  : courseData.category}
-              </span>
-            </div>
+            {/* Category */}
+            {courseData.category && (
+              <div className="mt-2">
+                <span
+                  className="inline-flex w-fit items-center gap-2 px-3 py-2 
+                     rounded-full bg-green-100 border border-green-300
+                     self-start"
+                >
+                  <span className="font-semibold text-green-800">
+                    Category:
+                  </span>
+                  <span className="text-green-900 text-sm font-medium">
+                    {Array.isArray(courseData.category)
+                      ? courseData.category.join(", ")
+                      : courseData.category}
+                  </span>
+                </span>
+              </div>
+            )}
           </div>
 
           <div title="hold author" className="flex flex-row mt-4">
@@ -645,7 +670,7 @@ const CourseDetail = () => {
                           {langs.slice(0, 3).map((lang, index) => (
                             <span
                               key={index}
-                              className="inline-block bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full font-medium max-w-[120px] truncate"
+                              className="inline-block bg-red-100 text-red-800 text-xs px-2 py-1 rounded-full font-medium max-w-[120px] truncate"
                             >
                               {lang.trim()}
                             </span>
