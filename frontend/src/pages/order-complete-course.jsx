@@ -108,12 +108,12 @@ const OrderCompleteCourse = () => {
   const purchasedCourseId =
     location.state?.purchasedCourseId ||
     new URLSearchParams(location.search).get("purchasedCourseId") ||
-    urlId; // Assume URL id is purchasedCourseId first
+    null;
 
   const courseId =
     location.state?.courseId ||
     new URLSearchParams(location.search).get("courseId") ||
-    (!location.state?.purchasedCourseId ? urlId : null); // Fallback: treat urlId as courseId
+    urlId; // Fallback: treat urlId as courseId
 
   // Helper function to check if course is already purchased (from mentor-page.jsx)
   const isCourseAlreadyPurchased = (courseId) => {
@@ -1983,7 +1983,7 @@ const OrderCompleteCourse = () => {
                 )}
 
                 {/* Custom CSS for scrollbar */}
-                <style jsx>{`
+                <style>{`
                   .custom-scrollbar::-webkit-scrollbar {
                     width: 8px;
                   }

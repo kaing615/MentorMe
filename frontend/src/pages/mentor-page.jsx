@@ -57,7 +57,6 @@ const MentorPage = () => {
       localStorage.getItem("actkn") || localStorage.getItem("token");
     const userStr =
       localStorage.getItem("user") || localStorage.getItem("user");
-    console.log("Token:", token);
     let user = null;
     if (!token) {
       navigate("/auth/signin");
@@ -113,7 +112,12 @@ const MentorPage = () => {
 
   // Helper function to check if course is already purchased
   const isCourseAlreadyPurchased = (courseId) => {
-    // Get current user ID for user-specific localStorage
+    // First check API-based purchasedCoursesMap
+    if (purchasedCoursesMap.has(courseId)) {
+      return true;
+    }
+
+    // Then check localStorage for immediate feedback and fallback
     const userStr = localStorage.getItem("user");
     let currentUserId = null;
     try {
@@ -138,7 +142,6 @@ const MentorPage = () => {
               purchased.courseId) === courseId
         );
       } catch (error) {
-        console.error("Error parsing purchased courses:", error);
         return false;
       }
     }
@@ -211,8 +214,6 @@ const MentorPage = () => {
           throw new Error(error.message || "API failed");
         }
       } catch (apiError) {
-        console.log("API failed, using localStorage fallback:", apiError);
-
         // Fallback to localStorage
         const existingCart = localStorage.getItem("mockCart");
         let cartItems = existingCart ? JSON.parse(existingCart) : [];
@@ -242,7 +243,6 @@ const MentorPage = () => {
         toast.success("Course added to cart successfully!");
       }
     } catch (error) {
-      console.error("Add to cart error:", error);
       toast.error("Failed to add course to cart");
     } finally {
       dispatch(hideLoading());
@@ -287,16 +287,12 @@ const MentorPage = () => {
   // Function to fetch mentor reviews and calculate statistics
   const fetchMentorReviews = async (mentorId, mentorCourses = []) => {
     try {
-      console.log("🔍 Fetching reviews for mentor:", mentorId);
-
       // Fetch mentor course reviews
       const { response: courseReviewsResponse, error: courseReviewsError } =
         await reviewApi.getMentorCourseReviews(mentorId);
 
       // Try to estimate mentees from available data
       let estimatedMentees = 0;
-
-      console.log("� Purchased course mentees: 0 (API not implemented yet)");
 
       // NOTE: getMentorBookings() only returns bookings for the currently logged-in mentor,
       // not for the mentor whose page we're viewing. For security reasons, users can't
@@ -320,11 +316,6 @@ const MentorPage = () => {
             });
           }
         });
-        console.log(
-          "Found",
-          courseMenteeIds.size,
-          "unique mentees from courses"
-        );
       }
 
       // Step 2: Try to get mentees from bookings (if possible)
@@ -357,19 +348,12 @@ const MentorPage = () => {
                 }
               }
             });
-            console.log(
-              "Found",
-              bookingMenteeIds.size,
-              "unique mentees from successful bookings"
-            );
           }
         } catch (error) {
-          console.log("Could not fetch booking data:", error.message);
+          // Could not fetch booking data
         }
       } else {
-        console.log(
-          "Cannot access booking data for other mentors (security restriction)"
-        );
+        // Cannot access booking data for other mentors (security restriction)
       }
 
       // Step 3: Combine and deduplicate all mentee IDs
@@ -378,14 +362,6 @@ const MentorPage = () => {
         ...bookingMenteeIds,
       ]);
       estimatedMentees = allUniqueMenteeIds.size;
-
-      console.log(
-        "Total unique mentees (courses + bookings):",
-        estimatedMentees
-      );
-      console.log("   - From courses:", courseMenteeIds.size);
-      console.log("   - From bookings:", bookingMenteeIds.size);
-      console.log("   - Total unique:", allUniqueMenteeIds.size);
 
       let allReviews = [];
       let courseReviews = [];
@@ -407,14 +383,27 @@ const MentorPage = () => {
           }
         });
         // NOTE: Don't overwrite estimatedMentees here - we already calculated it from course.mentees arrays
-        console.log("Course reviews:", courseReviews.length);
       }
 
-      console.log("Final estimated unique mentees:", estimatedMentees);
+      // Fetch consultation/booking reviews
+      let consultationReviews = [];
+      try {
+        const { response: bookingReviewsResponse, error: bookingReviewsError } =
+          await reviewApi.getBookingReviews(mentorId);
 
-      // TODO: Add consultation reviews API call when available
-      // const consultationReviews = await reviewApi.getMentorConsultationReviews(mentorId);
-      // allReviews = [...allReviews, ...consultationReviews];
+        if (
+          bookingReviewsResponse &&
+          bookingReviewsResponse.data &&
+          bookingReviewsResponse.data.items
+        ) {
+          consultationReviews = bookingReviewsResponse.data.items;
+          allReviews = [...allReviews, ...consultationReviews];
+        } else if (bookingReviewsError) {
+          // Error fetching booking reviews
+        }
+      } catch (error) {
+        // Error in booking reviews API call
+      }
 
       // Calculate statistics
       const totalReviews = allReviews.length;
@@ -428,15 +417,13 @@ const MentorPage = () => {
         totalReviews,
         averageRating: Math.round(averageRating * 10) / 10, // Round to 1 decimal
         courseReviews: courseReviews.length,
-        consultationReviews: 0, // TODO: Update when consultation reviews API is available
+        consultationReviews: consultationReviews.length, // Use actual count instead of hardcoded 0
         totalMentees: estimatedMentees,
       };
 
-      console.log("📊 Mentor stats calculated:", stats);
       setMentorStats(stats);
       setReviews(allReviews);
     } catch (error) {
-      console.error("Error fetching mentor reviews:", error);
       setMentorStats({
         totalReviews: 0,
         averageRating: 0,
@@ -453,11 +440,6 @@ const MentorPage = () => {
     window.scrollTo({ top: 0, behavior: "smooth" });
 
     const fetchMentorData = async () => {
-      console.log("=== Mentor Page Debug ===");
-      console.log("URL params ID:", id);
-      console.log("Location state:", location.state);
-      console.log("Mentor data from state:", location.state?.mentorData);
-
       if (!id) return; // Nếu không có ID thì không fetch
 
       setLoading(true);
@@ -465,21 +447,14 @@ const MentorPage = () => {
 
       try {
         // Fetch mentor profile by ID first
-        console.log("Fetching mentor profile for ID:", id);
         const mentorProfile = await profileApi.getMentorById(id);
-        console.log("Mentor profile response:", mentorProfile);
 
         if (mentorProfile && mentorProfile.data) {
-          console.log("Setting mentor data:", mentorProfile.data);
           setMentor(mentorProfile.data);
-        } else {
-          console.log("No mentor profile data found");
         }
 
         // Fetch mentor's courses using ID from params
-        console.log("Fetching courses for mentor ID:", id);
         const coursesRes = await courseApi.getCoursesByMentor(id);
-        console.log("Courses response:", coursesRes);
 
         if (Array.isArray(coursesRes)) {
           setCourses(coursesRes);
@@ -490,16 +465,11 @@ const MentorPage = () => {
           await fetchMentorReviews(id, []);
         }
       } catch (err) {
-        console.error("Error fetching mentor data:", err);
         setError("Không thể tải dữ liệu mentor hoặc khóa học");
 
         // Fallback: Nếu có mentorData từ state (từ CourseDetail), sử dụng luôn
         const mentorDataFromState = location.state?.mentorData;
         if (mentorDataFromState) {
-          console.log(
-            "API failed, using mentor data from navigation state:",
-            mentorDataFromState
-          );
           setMentor({ user: mentorDataFromState });
         }
       }
@@ -509,14 +479,6 @@ const MentorPage = () => {
   }, [id, location.state]); // Thêm location.state vào dependency array
 
   // Debug log when mentor state changes
-  useEffect(() => {
-    console.log("=== Mentor State Updated ===");
-    console.log("Current mentor object:", mentor);
-    if (mentor?.user) {
-      console.log("Mentor user data:", mentor.user);
-    }
-  }, [mentor]);
-
   // Fetch purchased courses for smart navigation
   useEffect(() => {
     const fetchPurchasedCourses = async () => {
@@ -542,7 +504,7 @@ const MentorPage = () => {
           setPurchasedCoursesMap(coursesMap);
         }
       } catch (error) {
-        console.error("Error fetching purchased courses:", error);
+        // Error fetching purchased courses
       }
     };
 
@@ -572,7 +534,6 @@ const MentorPage = () => {
         );
 
       if (error) {
-        console.error("Error loading mentor availability:", error);
         toast.error("Không thể tải lịch mentor");
         setAvailabilities([]);
       } else {
@@ -586,7 +547,6 @@ const MentorPage = () => {
         );
       }
     } catch (err) {
-      console.error("Error:", err);
       toast.error("Có lỗi xảy ra khi tải lịch");
       setAvailabilities([]);
     } finally {
@@ -722,8 +682,6 @@ const MentorPage = () => {
         notes: bookingNotes.trim() || undefined,
       };
 
-      console.log("Creating booking with data:", bookingData);
-
       // Gọi API tạo booking
       const { response, error } = await bookingApi.createBooking(
         mentorId,
@@ -736,11 +694,9 @@ const MentorPage = () => {
         // Reload availability để cập nhật trạng thái
         loadMentorAvailability();
       } else {
-        console.error("Booking API error:", error);
         toast.error(error?.message || "Có lỗi xảy ra khi đặt lịch");
       }
     } catch (err) {
-      console.error("Booking error:", err);
       toast.error("Có lỗi xảy ra khi đặt lịch");
     } finally {
       setBookingLoading(false);
@@ -846,12 +802,6 @@ const MentorPage = () => {
                     <div className="text-lg font-bold text-gray-900">
                       {mentorStats.totalReviews || "0"} Total Reviews
                     </div>
-                    {mentorStats.totalReviews > 0 && (
-                      <div className="text-sm text-gray-600 mt-1">
-                        {mentorStats.courseReviews} Courses •{" "}
-                        {mentorStats.consultationReviews} Consultations
-                      </div>
-                    )}
                   </div>
                 </div>
                 {/* About Section merged here */}
@@ -1001,15 +951,6 @@ const MentorPage = () => {
                   >
                     Facebook
                   </a>
-                  {!(mentor?.profile?.introVideo || mentor?.user?.introVideo) &&
-                    (() => {
-                      console.log(
-                        "Không có introVideo:",
-                        mentor?.profile?.introVideo,
-                        mentor?.user?.introVideo
-                      );
-                      return null;
-                    })()}
                   {mentor?.profile?.introVideo || mentor?.user?.introVideo ? (
                     <button
                       className="w-full border border-blue-500 rounded py-2 text-center text-blue-700 font-medium hover:bg-blue-50 transition"
@@ -1024,12 +965,15 @@ const MentorPage = () => {
                       Intro Video
                     </button>
                   ) : null}
-                  <button
-                    className="w-full bg-gray-900 text-white rounded py-2 font-semibold mt-2 hover:bg-gray-800 transition"
-                    onClick={openBookingModal}
-                  >
-                    Book Now
-                  </button>
+                  {/* Only show Book Now button for mentees */}
+                  {user && user.role === "mentee" && (
+                    <button
+                      className="w-full bg-gray-900 text-white rounded py-2 font-semibold mt-2 hover:bg-gray-800 transition"
+                      onClick={openBookingModal}
+                    >
+                      Book Now
+                    </button>
+                  )}
                 </div>
               </div>
             </div>

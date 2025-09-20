@@ -22,6 +22,16 @@ router.get(
   reviewController.getReviews
 );
 
+//GET /reviews/my - get reviews by current user (mentee's own reviews)
+router.get("/my", tokenMiddleware.auth, reviewController.getMyReviews);
+
+//GET /reviews/booking/:mentorId - get booking reviews for mentor
+router.get(
+  "/booking/:mentorId",
+  tokenMiddleware.auth,
+  reviewController.getBookingReview
+);
+
 //PATCH /reviews/:id - update
 router.patch(
   "/:id",
@@ -31,10 +41,6 @@ router.patch(
 );
 
 //DELETE /reviews/:id - delete
-router.delete(
-  "/:id",
-  tokenMiddleware.auth,
-  reviewController.deleteReview
-);
+router.delete("/:id", tokenMiddleware.auth, reviewController.deleteReview);
 
 export default router;

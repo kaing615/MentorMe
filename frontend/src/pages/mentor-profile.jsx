@@ -17,673 +17,6 @@ import { AiFillYoutube } from "react-icons/ai";
 import { IoStar, IoStarOutline } from "react-icons/io5";
 import courseApi from "../api/modules/course.api";
 
-// Capitalize initials of each word
-function capitalizeWords(str) {
-  if (!str) return "";
-  return str
-    .split(" ")
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-    .join(" ");
-}
-
-// --- Schedule Builder Helpers ---------------------------------------------------------------
-function toMinutes(hhmm) {
-  const [h, m] = hhmm.split(":").map(Number);
-  return h * 60 + (m || 0);
-}
-function toHHMM(mins) {
-  const h = Math.floor(mins / 60);
-  const m = mins % 60;
-  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
-}
-function generateTimes(startHH = 8, endHH = 22, stepMin = 30) {
-  const out = [];
-  let t = startHH * 60;
-  const end = endHH * 60;
-  while (t < end) {
-    out.push(toHHMM(t));
-    t += stepMin;
-  }
-  return out;
-}
-function todayKey() {
-  const d = new Date();
-  return d.toISOString().slice(0, 10);
-}
-function isPast(dateStr) {
-  const today = new Date(todayKey() + "T00:00:00");
-  const d = new Date(dateStr + "T00:00:00");
-  return d < today;
-}
-function isInCurrentYear(dateStr) {
-  const y = new Date().getFullYear();
-  const d = new Date(dateStr + "T00:00:00");
-  return d.getFullYear() === y;
-}
-function formatHuman(dateStr) {
-  try {
-    const d = new Date(dateStr + "T00:00:00");
-    return d.toLocaleDateString(undefined, {
-      weekday: "short",
-      year: "numeric",
-      month: "short",
-      day: "2-digit",
-    });
-  } catch {
-    return dateStr;
-  }
-}
-
-// Helper function to check if time is in the past for today
-function isTimeInPast(timeStr, dateStr) {
-  const today = todayKey();
-  if (dateStr !== today) return false; // Not today, so time is not in past
-
-  const now = new Date();
-  const currentMinutes = now.getHours() * 60 + now.getMinutes();
-  const timeMinutes = toMinutes(timeStr);
-
-  return timeMinutes <= currentMinutes;
-}
-
-// Helper function to filter out past times for today
-function getAvailableTimes(dateStr) {
-  const allTimes = generateTimes(8, 22, 30);
-  const today = todayKey();
-
-  if (dateStr !== today) return allTimes; // Not today, return all times
-
-  // For today, filter out past times
-  return allTimes.filter((time) => !isTimeInPast(time, dateStr));
-}
-
-// --- Schedule Builder Component ---------------------------------------------------------------
-function MentorAvailabilityBuilder({ onBack, onSave, editingSchedule }) {
-  const [mode, setMode] = useState("builder"); // 'builder' | 'review'
-  const [selectedDate, setSelectedDate] = useState("");
-  const [error, setError] = useState("");
-  const [pickedForDay, setPickedForDay] = useState(new Set()); // working selection
-  const [availability, setAvailability] = useState({}); // committed while editing
-  const [savedSnapshot, setSavedSnapshot] = useState(null); // what we "persisted"
-  const [bookedSlots, setBookedSlots] = useState({}); // Track booked slots by date
-
-  // Load editing data when component mounts or editingSchedule changes
-  useEffect(() => {
-    if (editingSchedule) {
-      setAvailability(editingSchedule.availability || {});
-
-      // Extract booked slots info if editing
-      if (editingSchedule.slots) {
-        const booked = {};
-        const dateKey = editingSchedule.date;
-        booked[dateKey] = editingSchedule.slots
-          .filter((slot) => slot.status === "booked")
-          .map((slot) => ({
-            time: slot.start,
-            bookingId: slot.bookingId,
-            bookedBy: slot.bookedBy,
-          }));
-        setBookedSlots(booked);
-      }
-    } else {
-      setAvailability({});
-      setBookedSlots({});
-    }
-  }, [editingSchedule]);
-
-  const times = useMemo(() => getAvailableTimes(selectedDate), [selectedDate]);
-
-  function validateDate(dateStr) {
-    if (!dateStr) return "Please choose a date.";
-    if (isPast(dateStr))
-      return "Selected date is in the past. Please choose today or a future date.";
-    if (!isInCurrentYear(dateStr))
-      return "Only dates within the current year are allowed.";
-    return "";
-  }
-
-  function onDateChange(v) {
-    setSelectedDate(v);
-    setError(validateDate(v));
-    const saved = availability[v] || [];
-    // Filter out past times if it's today
-    const validSavedTimes = saved.filter((time) => !isTimeInPast(time, v));
-
-    // Auto-include booked slots for this date (they cannot be unselected)
-    const bookedTimes = bookedSlots[v]?.map((slot) => slot.time) || [];
-    const allSelectedTimes = [...new Set([...validSavedTimes, ...bookedTimes])];
-
-    setPickedForDay(new Set(allSelectedTimes));
-  }
-
-  function toggleTime(t) {
-    // Check if this time slot is booked (cannot be toggled off)
-    const isBooked = bookedSlots[selectedDate]?.find((slot) => slot.time === t);
-    if (isBooked) {
-      return; // Do nothing for booked slots
-    }
-
-    const next = new Set(pickedForDay);
-    if (next.has(t)) next.delete(t);
-    else next.add(t);
-    setPickedForDay(next);
-  }
-
-  function submitDay() {
-    const e = validateDate(selectedDate);
-    if (e) {
-      setError(e);
-      return;
-    }
-    if (pickedForDay.size === 0) {
-      setError("Please select at least one time slot before submitting.");
-      return;
-    }
-    setError("");
-    const arr = Array.from(pickedForDay).sort(
-      (a, b) => toMinutes(a) - toMinutes(b)
-    );
-    setAvailability((prev) => ({ ...prev, [selectedDate]: arr }));
-  }
-
-  function removeDay(dateKey) {
-    const copy = { ...availability };
-    delete copy[dateKey];
-    setAvailability(copy);
-    if (dateKey === selectedDate) setPickedForDay(new Set());
-  }
-
-  async function saveAll() {
-    // Guard: must have at least 1 submitted day before saving
-    if (Object.keys(availability).length === 0) {
-      alert("Please submit at least one day before saving.");
-      return;
-    }
-    // In a real app, call your API here then navigate to a separate page.
-    const payload = {
-      slots: availability,
-      createdAt: new Date().toISOString(),
-    };
-
-    if (onSave) {
-      onSave(payload);
-    } else {
-      setSavedSnapshot(payload);
-      setMode("review");
-    }
-  }
-
-  if (mode === "review") {
-    return (
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-        <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <h1 className="text-2xl font-semibold">Your Availability</h1>
-            <div className="flex gap-3">
-              <button
-                onClick={() => setMode("builder")}
-                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition text-sm font-medium flex items-center gap-2"
-              >
-                <svg
-                  className="w-4 h-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 4v16m8-8H4"
-                  />
-                </svg>
-                Create schedule
-              </button>
-              <button
-                onClick={() => alert("Publish stub: wire to your API.")}
-                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition text-sm font-medium flex items-center gap-2"
-              >
-                <svg
-                  className="w-4 h-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M5 13l4 4L19 7"
-                  />
-                </svg>
-                Publish
-              </button>
-            </div>
-          </div>
-
-          <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
-            <div className="p-6 space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600">Saved at</p>
-                  <p className="font-medium">
-                    {new Date(
-                      savedSnapshot?.createdAt || Date.now()
-                    ).toLocaleString()}
-                  </p>
-                </div>
-                <div className="text-sm text-gray-600">
-                  {Object.keys(savedSnapshot?.slots || {}).length} day(s)
-                </div>
-              </div>
-
-              {Object.keys(savedSnapshot?.slots || {}).length === 0 ? (
-                <p className="text-sm text-gray-600">
-                  No availability to show.
-                </p>
-              ) : (
-                <div className="space-y-4">
-                  {Object.entries(savedSnapshot.slots)
-                    .sort(([a], [b]) => a.localeCompare(b))
-                    .map(([dateKey, list]) => (
-                      <div
-                        key={dateKey}
-                        className="rounded-lg border border-gray-200 p-4"
-                      >
-                        <div className="mb-2 font-medium">
-                          {formatHuman(dateKey)} ({dateKey})
-                        </div>
-                        <div className="grid grid-cols-3 gap-2 md:grid-cols-4 lg:grid-cols-6">
-                          {list.map((t) => (
-                            <div
-                              key={t}
-                              className="rounded-lg border border-gray-200 px-3 py-2 text-sm text-center"
-                            >
-                              {t}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    ))}
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="text-sm text-gray-600">
-            Tip: This page is a read-only summary of what you saved. Use{" "}
-            <b>Create schedule</b> to add or modify availability, then save
-            again.
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // --- Builder view -------------------------------------------------------
-  return (
-    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-      <div className="flex items-center gap-3 mb-6">
-        <button
-          onClick={onBack}
-          className="p-2 hover:bg-gray-100 rounded-lg transition"
-        >
-          <svg
-            className="w-5 h-5"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M15 19l-7-7 7-7"
-            />
-          </svg>
-        </button>
-        <h1 className="text-2xl font-semibold">
-          {editingSchedule
-            ? `Edit Schedule ${editingSchedule.name}`
-            : "Set Specific-Day Availability"}
-        </h1>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-[1.2fr_1fr] gap-6">
-        <div className="bg-gradient-to-br from-white to-blue-50/30 border border-blue-200 rounded-xl shadow-sm">
-          <div className="p-6 space-y-6">
-            <header className="text-center pb-4 border-b border-blue-100">
-              <p className="text-sm text-blue-600">
-                {editingSchedule
-                  ? "Modify your existing schedule by adding/removing dates and time slots."
-                  : "Pick a date, toggle the available times, then submit that day."}
-              </p>
-              {editingSchedule &&
-                Object.values(bookedSlots).some(
-                  (slots) => slots.length > 0
-                ) && (
-                  <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
-                    <div className="flex items-center gap-2 text-red-700">
-                      <span className="text-lg">⚠️</span>
-                      <div className="text-sm">
-                        <p className="font-semibold">Protected Bookings</p>
-                        <p>
-                          Red slots with 🔒 have active bookings and cannot be
-                          removed. They will be preserved automatically.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-            </header>
-
-            {/* Date */}
-            <section className="space-y-3">
-              <label className="flex items-center gap-2 text-sm font-semibold text-blue-900">
-                <div className="p-1.5 bg-blue-100 rounded-lg">
-                  <svg
-                    className="w-4 h-4 text-blue-600"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-                    />
-                  </svg>
-                </div>
-                Choose a date (current year only)
-              </label>
-              <div className="relative">
-                <input
-                  type="date"
-                  value={selectedDate}
-                  onChange={(e) => onDateChange(e.target.value)}
-                  className="w-full px-4 py-3 border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm text-gray-900 font-medium"
-                />
-              </div>
-              {error && (
-                <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-                  <p className="text-sm text-red-600 flex items-center gap-2">
-                    <svg
-                      className="w-4 h-4"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                      />
-                    </svg>
-                    {error}
-                  </p>
-                </div>
-              )}
-            </section>
-
-            {/* Time grid */}
-            <section className="space-y-4">
-              <div className="flex items-center justify-between">
-                <label className="flex items-center gap-2 text-sm font-semibold text-blue-900">
-                  <div className="p-1.5 bg-blue-100 rounded-lg">
-                    <svg
-                      className="w-4 h-4 text-blue-600"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                      />
-                    </svg>
-                  </div>
-                  Available times for selected date
-                </label>
-                {selectedDate === todayKey() && (
-                  <div className="text-xs text-orange-700 bg-gradient-to-r from-orange-100 to-yellow-100 border border-orange-200 px-3 py-1.5 rounded-full font-medium">
-                    Current:{" "}
-                    {new Date().toLocaleTimeString([], {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                  </div>
-                )}
-              </div>
-
-              <div className="bg-white/70 border border-blue-200 rounded-lg p-4">
-                <div className="grid grid-cols-3 gap-3 md:grid-cols-4 lg:grid-cols-5">
-                  {times.map((t) => {
-                    const active = pickedForDay.has(t);
-                    const isPastTime = isTimeInPast(t, selectedDate);
-                    const isBooked = bookedSlots[selectedDate]?.find(
-                      (slot) => slot.time === t
-                    );
-
-                    return (
-                      <button
-                        key={t}
-                        type="button"
-                        onClick={() => toggleTime(t)}
-                        disabled={isPastTime || isBooked}
-                        title={
-                          isBooked
-                            ? "This slot has an active booking and cannot be removed"
-                            : undefined
-                        }
-                        className={`rounded-lg border px-3 py-2.5 text-sm text-center transition-all duration-200 font-medium relative ${
-                          isPastTime
-                            ? "bg-gray-100 text-gray-400 cursor-not-allowed border-gray-200"
-                            : isBooked
-                            ? "bg-red-100 text-red-800 border-red-300 cursor-not-allowed shadow-sm"
-                            : active
-                            ? "border-blue-600 bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-md transform scale-105"
-                            : "border-gray-300 bg-white hover:bg-blue-50 hover:border-blue-300 hover:shadow-sm"
-                        }`}
-                      >
-                        {t}
-                        {isBooked && (
-                          <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full flex items-center justify-center">
-                            <span className="text-white text-xs">🔒</span>
-                          </span>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                    <p className="text-sm text-blue-800 font-medium">
-                      {pickedForDay.size === 0
-                        ? "No times selected"
-                        : `${pickedForDay.size} time(s) selected`}
-                    </p>
-                    {selectedDate === todayKey() && times.length === 0 && (
-                      <span className="ml-2 text-orange-600 text-xs bg-orange-100 px-2 py-0.5 rounded-full font-medium">
-                        No more slots today
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setPickedForDay(new Set())}
-                      className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm hover:bg-gray-50 transition font-medium text-gray-700"
-                    >
-                      Clear
-                    </button>
-                    <button
-                      onClick={submitDay}
-                      disabled={pickedForDay.size === 0}
-                      className="px-4 py-1.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg text-sm hover:from-blue-700 hover:to-blue-800 transition disabled:opacity-50 disabled:cursor-not-allowed font-medium shadow-sm"
-                    >
-                      Submit day
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </section>
-          </div>
-        </div>
-
-        {/* Right: committed list */}
-        <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
-          <div className="p-6 space-y-6">
-            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-5 shadow-sm">
-              <div className="flex items-center gap-2 mb-4">
-                <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                <h2 className="text-lg font-semibold text-blue-900">
-                  Availability Preview
-                </h2>
-              </div>
-              {Object.keys(availability).length === 0 ? (
-                <div className="text-center py-8">
-                  <svg
-                    className="w-12 h-12 text-blue-300 mx-auto mb-3"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-                    />
-                  </svg>
-                  <p className="text-blue-600 text-sm">No days added yet</p>
-                  <p className="text-blue-500 text-xs mt-1">
-                    Start by selecting a date and time slots
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {Object.entries(availability)
-                    .sort(([a], [b]) => a.localeCompare(b))
-                    .map(([dateKey, times]) => (
-                      <div
-                        key={dateKey}
-                        className="bg-white/70 backdrop-blur-sm border border-blue-200 rounded-lg p-4 shadow-sm"
-                      >
-                        <div className="flex items-center justify-between mb-3">
-                          <div className="flex items-center gap-2">
-                            <div className="w-1.5 h-1.5 bg-blue-500 rounded-full"></div>
-                            <div className="font-medium text-blue-900 text-sm">
-                              {formatHuman(dateKey)}
-                            </div>
-                            <span className="text-blue-600 text-xs bg-blue-100 px-2 py-0.5 rounded-full">
-                              {dateKey}
-                            </span>
-                          </div>
-                          <button
-                            onClick={() => removeDay(dateKey)}
-                            className="text-red-500 hover:text-red-700 transition text-sm p-1 rounded hover:bg-red-50"
-                            title="Remove this day"
-                          >
-                            <svg
-                              className="w-4 h-4"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M6 18L18 6M6 6l12 12"
-                              />
-                            </svg>
-                          </button>
-                        </div>
-                        <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-4">
-                          {times.map((t) => (
-                            <div
-                              key={t}
-                              className="bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200 text-blue-800 px-3 py-2.5 text-sm text-center rounded-md font-medium shadow-sm hover:from-blue-100 hover:to-blue-150 transition-colors duration-200 flex items-center justify-center min-w-0"
-                            >
-                              {t}
-                            </div>
-                          ))}
-                        </div>
-                        <div className="mt-2 text-right">
-                          <span className="text-blue-600 text-xs">
-                            {times.length} slot{times.length > 1 ? "s" : ""}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                </div>
-              )}
-            </div>
-
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <h3 className="mb-2 font-medium text-blue-900 flex items-center gap-2">
-                <svg
-                  className="w-4 h-4 text-blue-600"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                  />
-                </svg>
-                Rules enforced
-              </h3>
-              <ul className="list-disc pl-6 text-sm text-blue-800 space-y-1">
-                <li>Cannot select past dates.</li>
-                <li>
-                  Only dates in the <b>current year</b> are allowed.
-                </li>
-                <li>
-                  For today's date, only <b>future time slots</b> are available.
-                </li>
-                <li>
-                  Must select at least one time slot before submitting a day.
-                </li>
-              </ul>
-            </div>
-
-            <div className="flex justify-end gap-3">
-              <button
-                onClick={() => {
-                  setAvailability({});
-                  setPickedForDay(new Set());
-                }}
-                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition text-sm"
-              >
-                Reset all
-              </button>
-              <button
-                onClick={saveAll}
-                disabled={Object.keys(availability).length === 0}
-                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {editingSchedule ? "Update Schedule" : "Save all"}
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // Stars render function
 const renderStars = (rating) => {
   const stars = [];
@@ -1707,6 +1040,7 @@ const MentorProfile = () => {
   // Real reviews data from MongoDB API
   // No mock data, empty reviews array
   const [allReviews, setAllReviews] = useState([]);
+  const [mentorReviews, setMentorReviews] = useState([]);
   const [reviewsLoading, setReviewsLoading] = useState(false);
   const [reviewsError, setReviewsError] = useState(null);
 
@@ -1723,7 +1057,7 @@ const MentorProfile = () => {
   const [mentorBookings, setMentorBookings] = useState([]);
 
   // Review tabs state
-  const [activeReviewTab, setActiveReviewTab] = useState("all"); // "all", "course", "consultation"
+  const [activeReviewTab, setActiveReviewTab] = useState("all"); // "all", "course", "consultation", "mentor"
 
   // Load courses from MongoDB
   const loadCourses = async () => {
@@ -1796,18 +1130,9 @@ const MentorProfile = () => {
 
       console.log("🔍 Getting booking reviews for mentor:", mentorId);
 
-      // First, get all bookings for this mentor to know which bookings belong to them
-      const mentorBookingsResult = await bookingApi.getMentorBookings();
-      console.log("📅 Mentor bookings result:", mentorBookingsResult);
-
-      // Cache mentor bookings for later use
-      if (mentorBookingsResult.response?.data) {
-        setMentorBookings(mentorBookingsResult.response.data);
-        console.log(
-          "💾 Cached mentor bookings:",
-          mentorBookingsResult.response.data
-        );
-      }
+      // Use the new getBookingReviews API to get all booking reviews for this mentor
+      const bookingReviewsResult = await reviewApi.getBookingReviews(mentorId);
+      console.log("� Booking reviews result:", bookingReviewsResult);
 
       let allReviewsData = [];
 
@@ -1816,43 +1141,59 @@ const MentorProfile = () => {
         allReviewsData = [...courseReviewsResult.response.data.items];
       }
 
-      // Process booking reviews (get reviews for each booking)
+      // Process booking reviews
+      if (bookingReviewsResult.response?.data?.items) {
+        console.log(
+          "� All booking reviews for this mentor:",
+          bookingReviewsResult.response.data.items
+        );
+        allReviewsData = [
+          ...allReviewsData,
+          ...bookingReviewsResult.response.data.items,
+        ];
+      }
+
+      // Get direct mentor reviews using the new API
+      console.log("🔍 Getting direct mentor reviews for mentor:", mentorId);
+      const mentorReviewsResult = await reviewApi.getMentorReviews(mentorId);
+      console.log("👨‍🏫 Mentor reviews result:", mentorReviewsResult);
+
+      // Process direct mentor reviews
+      if (mentorReviewsResult.response?.data?.items) {
+        console.log(
+          "👨‍🏫 All direct mentor reviews:",
+          mentorReviewsResult.response.data.items
+        );
+        // Set separate state for mentor reviews
+        setMentorReviews(mentorReviewsResult.response.data.items);
+        // Also add to combined reviews data
+        allReviewsData = [
+          ...allReviewsData,
+          ...mentorReviewsResult.response.data.items,
+        ];
+      } else {
+        setMentorReviews([]);
+      }
+
+      // Still get mentor bookings for caching (needed for booking detail popup)
+      const mentorBookingsResult = await bookingApi.getMentorBookings();
       if (mentorBookingsResult.response?.data) {
-        const bookingReviews = [];
-
-        // Get reviews for each booking individually
-        for (const booking of mentorBookingsResult.response.data) {
-          try {
-            console.log(`🔍 Getting reviews for booking: ${booking._id}`);
-            const bookingReviewResult = await reviewApi.getReviews({
-              targetType: "Booking",
-              target: booking._id,
-            });
-
-            if (bookingReviewResult.response?.data?.items) {
-              bookingReviews.push(...bookingReviewResult.response.data.items);
-            }
-          } catch (err) {
-            console.warn(
-              `Failed to get reviews for booking ${booking._id}:`,
-              err
-            );
-          }
-        }
-
-        console.log("📅 All booking reviews for this mentor:", bookingReviews);
-        allReviewsData = [...allReviewsData, ...bookingReviews];
+        setMentorBookings(mentorBookingsResult.response.data);
+        console.log(
+          "💾 Cached mentor bookings:",
+          mentorBookingsResult.response.data
+        );
       }
 
       console.log("✅ Combined reviews data:", allReviewsData);
 
-      if (courseReviewsResult.error && bookingReviewsResult.error) {
-        console.error("Both reviews API calls failed:", {
-          courseError: courseReviewsResult.error,
-          bookingError: bookingReviewsResult.error,
-        });
-        setReviewsError("Failed to load reviews");
-        setAllReviews([]);
+      if (courseReviewsResult.error) {
+        console.error(
+          "Course reviews API call failed:",
+          courseReviewsResult.error
+        );
+        setReviewsError("Failed to load course reviews");
+        setAllReviews(allReviewsData); // Still set booking reviews if any
       } else {
         setAllReviews(allReviewsData);
         setReviewsError(null);
@@ -1899,73 +1240,167 @@ const MentorProfile = () => {
     setSelectedReviewCourse(null);
   };
 
-  // Booking detail popup functions
-  const openBookingDetailPopup = async (bookingId) => {
-    console.log("🔍 Opening booking detail popup for booking:", bookingId);
+  // Helper function để format DateTime từ UTC sang múi giờ Việt Nam
+  const formatDateTimeUTCToVN = (utcDateString) => {
+    if (!utcDateString) return null;
 
     try {
-      // First, try to find the booking in our cached mentor bookings
-      let bookingDetail = mentorBookings.find(
-        (booking) => booking._id === bookingId
-      );
+      const date = new Date(utcDateString);
+      if (isNaN(date.getTime())) return null;
 
-      // If not found in cache, fetch fresh data
-      if (!bookingDetail) {
-        console.log("📡 Booking not in cache, fetching fresh data...");
-        const mentorBookingsResult = await bookingApi.getMentorBookings();
+      return date.toLocaleString("en-US", {
+        timeZone: "Asia/Ho_Chi_Minh",
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+      });
+    } catch (error) {
+      console.error("Error formatting date:", error);
+      return null;
+    }
+  };
 
-        if (mentorBookingsResult.response?.data) {
-          setMentorBookings(mentorBookingsResult.response.data);
-          bookingDetail = mentorBookingsResult.response.data.find(
-            (booking) => booking._id === bookingId
-          );
+  // Booking detail popup functions
+  const openBookingDetailPopup = async (bookingId) => {
+    const asId = (v) => (v == null ? "" : String(v));
+    const log = (...args) => console.log("🔍[openBookingDetailPopup]", ...args);
+
+    // Gom alias field về 1 shape thống nhất cho UI
+    const normalizeBooking = (raw) => {
+      if (!raw) return null;
+      const mentee =
+        raw.mentee && typeof raw.mentee === "object"
+          ? raw.mentee
+          : raw.menteeId && typeof raw.menteeId === "object"
+          ? raw.menteeId
+          : raw.user && typeof raw.user === "object"
+          ? raw.user
+          : null;
+
+      return {
+        ...raw,
+        _id: asId(raw._id || raw.id || raw.bookingId),
+        date: raw.date || raw.bookingDate || raw.day || null,
+        start: raw.start || raw.startTime || raw.time || raw.timeStart || null,
+        end: raw.end || raw.endTime || raw.timeEnd || null,
+        status: raw.status || raw.state || raw.bookingStatus || null,
+        notes: raw.notes || raw.message || raw.remark || "",
+        mentee,
+        createdAt: raw.createdAt || raw.created_date || null,
+      };
+    };
+
+    // Nếu chỉ có review (không có booking thật), hiển thị review-only
+    const openReviewOnly = (reviewLike) => {
+      const relatedReview =
+        reviewLike ??
+        (Array.isArray(allReviews)
+          ? allReviews.find(
+              (rv) =>
+                rv?.targetType === "Booking" &&
+                asId(rv?.target) === asId(bookingId)
+            )
+          : null);
+
+      const fb = normalizeBooking({
+        _id: bookingId,
+        date: relatedReview?.createdAt || new Date(),
+        start: null,
+        end: null,
+        status: "completed",
+        notes: relatedReview?.content || "No additional notes available",
+        mentee: relatedReview?.author
+          ? {
+              firstName: relatedReview.author.firstName || "",
+              lastName: relatedReview.author.lastName || "",
+              email: relatedReview.author.email || "",
+              avatarUrl: relatedReview.author.avatarUrl || "",
+            }
+          : null,
+        createdAt: relatedReview?.createdAt || new Date(),
+      });
+
+      setSelectedReviewBooking(fb);
+      setIsBookingDetailPopupOpen(true);
+      log("✅ Opened review-only (fallback) with", fb);
+    };
+
+    try {
+      log("Opening booking detail popup for bookingId:", bookingId);
+
+      // 1) Tìm trong cache mentorBookings (ép id về string để so sánh)
+      let bookingDetail =
+        Array.isArray(mentorBookings) &&
+        mentorBookings.find((b) => asId(b?._id) === asId(bookingId));
+
+      // 2) Nếu không có, thử cache transformed "bookings"
+      if (!bookingDetail && Array.isArray(bookings)) {
+        const tb = bookings.find((b) => asId(b?.id) === asId(bookingId));
+        if (tb) {
+          bookingDetail = normalizeBooking({
+            _id: tb.id,
+            date: tb.date,
+            start: tb.time, // field của bạn
+            end: tb.endTime,
+            status: tb.status,
+            notes: tb.message,
+            mentee: {
+              firstName: (tb.menteeName || "").split(" ")[0] || "",
+              lastName:
+                (tb.menteeName || "").split(" ").slice(1).join(" ") || "",
+              email: tb.menteeEmail,
+              avatarUrl: tb.avatarUrl,
+            },
+            createdAt: tb.createdAt,
+          });
+          log("📦 Found in transformed cache:", bookingDetail);
         }
       }
 
+      // 3) Nếu vẫn chưa có, fetch mới
+      if (!bookingDetail) {
+        log("📡 Not in cache → fetching mentor bookings...");
+        const mentorBookingsResult = await bookingApi.getMentorBookings();
+        const list = mentorBookingsResult?.response?.data;
+
+        if (Array.isArray(list)) {
+          setMentorBookings(list); // cập nhật cache
+          const hit = list.find((b) => asId(b?._id) === asId(bookingId));
+          if (hit) bookingDetail = normalizeBooking(hit);
+        }
+      }
+
+      // 4) Nếu vẫn chưa có, thử gọi API chi tiết theo id (nếu backend có)
+      if (!bookingDetail && bookingApi.getBookingById) {
+        try {
+          log("🔎 Fetching single booking by id...");
+          const r = await bookingApi.getBookingById(bookingId);
+          const data =
+            r?.response?.data?.booking || r?.response?.data || r?.data;
+          if (data) bookingDetail = normalizeBooking(data);
+        } catch (e) {
+          log("ℹ️ getBookingById not available or failed:", e?.message);
+        }
+      }
+
+      // 5) Quyết định mở popup
       if (bookingDetail) {
-        console.log("📅 Found booking detail:", bookingDetail);
-        console.log("📋 Booking info:", {
-          id: bookingDetail._id,
-          date: bookingDetail.date,
-          start: bookingDetail.start,
-          end: bookingDetail.end,
-          status: bookingDetail.status,
-          mentor: bookingDetail.mentor,
-          mentee: bookingDetail.mentee,
-          notes: bookingDetail.notes,
-        });
         setSelectedReviewBooking(bookingDetail);
         setIsBookingDetailPopupOpen(true);
-        console.log("✅ Popup state set with real booking data");
-      } else {
-        console.warn("⚠️ Booking not found in mentor bookings, using fallback");
-        // Fallback with minimal info
-        const fallbackBooking = {
-          _id: bookingId,
-          date: new Date().toISOString(),
-          start: "Time not available",
-          status: "Completed",
-        };
-        setSelectedReviewBooking(fallbackBooking);
-        setIsBookingDetailPopupOpen(true);
-        console.log("✅ Fallback popup state set");
+        log("✅ Popup set with REAL booking:", bookingDetail);
+        return;
       }
+
+      // 6) Không tìm thấy booking thực sự → fallback review-only (nhưng có kiểm soát)
+      log("⚠️ Booking not found anywhere → open review-only");
+      openReviewOnly(null);
     } catch (err) {
-      console.error("Failed to load booking details:", err);
-      // Still open popup with minimal info
-      const fallbackBooking = {
-        _id: bookingId,
-        date: new Date().toISOString(),
-        start: "Time not available",
-        status: "Completed",
-      };
-      console.log(
-        "📅 Setting error fallback booking popup state:",
-        fallbackBooking
-      );
-      setSelectedReviewBooking(fallbackBooking);
-      setIsBookingDetailPopupOpen(true);
-      console.log("✅ Error fallback popup state set");
+      console.error("❌ Failed to load booking details:", err);
+      // Fallback an toàn
+      openReviewOnly(null);
     }
   };
 
@@ -1978,6 +1413,8 @@ const MentorProfile = () => {
   useEffect(() => {
     if (activeTab === "reviews") {
       loadReviews();
+      // Also load bookings cache to ensure booking details are available
+      loadMentorBookings();
     }
   }, [activeTab]);
 
@@ -2217,6 +1654,12 @@ const MentorProfile = () => {
           (review) =>
             review.targetType === "consultation" ||
             review.targetType === "Booking"
+        );
+        break;
+      case "mentor":
+        // Filter mentor reviews
+        filtered = allReviews.filter(
+          (review) => review.targetType === "Mentor"
         );
         break;
       case "all":
@@ -4637,6 +4080,22 @@ const MentorProfile = () => {
                     }
                     )
                   </button>
+                  <button
+                    onClick={() => setActiveReviewTab("mentor")}
+                    className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
+                      activeReviewTab === "mentor"
+                        ? "border-blue-500 text-blue-600"
+                        : "border-transparent text-gray-500 hover:text-gray-700"
+                    }`}
+                  >
+                    Mentor Reviews (
+                    {
+                      allReviews.filter(
+                        (review) => review.targetType === "Mentor"
+                      ).length
+                    }
+                    )
+                  </button>
                 </div>
 
                 {/* Reviews Grid - Dynamic rendering based on filtered data */}
@@ -4722,6 +4181,10 @@ const MentorProfile = () => {
                                     >
                                       Consultation Review
                                     </button>
+                                  ) : review.targetType === "Mentor" ? (
+                                    <span className="text-xs bg-purple-100 text-purple-700 px-3 py-1 rounded-full font-medium">
+                                      Mentor Review
+                                    </span>
                                   ) : review.course ? (
                                     <button
                                       onClick={() =>
@@ -4771,7 +4234,13 @@ const MentorProfile = () => {
                                 whiteSpace: "pre-wrap",
                               }}
                             >
-                              {review.content}
+                              {review.content ? (
+                                review.content
+                              ) : (
+                                <span className="text-gray-500 italic">
+                                  Mentee did not leave any comments
+                                </span>
+                              )}
                             </p>
                           </div>
 
@@ -5431,86 +4900,211 @@ const MentorProfile = () => {
       )}
 
       {/* Booking Detail Popup */}
-      {isBookingDetailPopupOpen && selectedReviewBooking && (
-        <div
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-300"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) {
-              closeBookingDetailPopup();
-            }
-          }}
-        >
-          <div
-            className="bg-white rounded-2xl shadow-2xl max-w-lg w-full mx-4 transform transition-all animate-in slide-in-from-bottom-8 zoom-in-95 duration-500 ease-out"
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              animation: "modalAppear 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)",
-            }}
-          >
-            {/* Header */}
-            <div className="px-6 py-4 border-b border-gray-100 animate-in slide-in-from-top-4 duration-300 delay-100">
-              <div className="flex items-center justify-between">
-                <h3 className="text-xl font-bold text-gray-900">
-                  Consultation Details
-                </h3>
-                <button
-                  onClick={closeBookingDetailPopup}
-                  className="text-gray-400 hover:text-gray-600 transition-all duration-200 p-1 hover:bg-gray-100 rounded-full hover:scale-110"
-                >
-                  <svg
-                    className="w-6 h-6"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M6 18L18 6M6 6l12 12"
-                    />
-                  </svg>
-                </button>
-              </div>
-            </div>
+      {isBookingDetailPopupOpen &&
+        selectedReviewBooking &&
+        (() => {
+          // ---- Helpers ----
+          const TZ = "Asia/Ho_Chi_Minh";
 
-            {/* Content */}
-            <div className="px-6 py-6 animate-in slide-in-from-bottom-4 duration-400 delay-200">
-              {/* Booking Header */}
-              <div className="flex items-start gap-4 mb-6">
-                <div className="w-24 h-18 bg-orange-100 rounded-xl shadow-md flex-shrink-0 flex items-center justify-center">
-                  <svg
-                    className="w-8 h-8 text-orange-600"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 002 2z"
-                    />
-                  </svg>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h4 className="font-bold text-gray-900 mb-2 text-xl leading-tight">
-                    Consultation Session
-                  </h4>
-                  <p className="text-base text-gray-600 mb-3">
-                    Booking ID: {selectedReviewBooking._id || "N/A"}
-                  </p>
-                  {/* Show mentee info if available */}
-                  {selectedReviewBooking.mentee && (
-                    <p className="text-sm text-gray-500 mb-3">
-                      With: {selectedReviewBooking.mentee.firstName}{" "}
-                      {selectedReviewBooking.mentee.lastName}
-                    </p>
-                  )}
-                  <div className="flex items-center gap-4 text-sm text-gray-500">
-                    <div className="flex items-center gap-1">
+          const normalizeBooking = (raw) => {
+            if (!raw) return null;
+            const date =
+              raw.date ||
+              raw.bookingDate ||
+              raw.day ||
+              raw.scheduledDate ||
+              null;
+            const start =
+              raw.start || raw.startTime || raw.timeStart || raw.from || null;
+            const end = raw.end || raw.endTime || raw.timeEnd || raw.to || null;
+            const mentee =
+              raw.mentee || raw.menteeId || raw.user || raw.student || null;
+            const createdAt =
+              raw.createdAt || raw.created_date || raw.createdDate || null;
+            const status = raw.status || raw.state || raw.bookingStatus || null;
+
+            return { ...raw, date, start, end, mentee, createdAt, status };
+          };
+
+          const toHhMm = (t) => {
+            if (!t) return null;
+            // "9:00 AM", "09:00", "9:0", "0900"
+            const ampm = t.match(/^(\d{1,2})(?::?(\d{2}))?\s*(AM|PM)$/i);
+            if (ampm) {
+              let hh = parseInt(ampm[1], 10);
+              const mm = ampm[2] ?? "00";
+              const isPM = /PM/i.test(ampm[3]);
+              const isAM = /AM/i.test(ampm[3]);
+              if (isPM && hh < 12) hh += 12;
+              if (isAM && hh === 12) hh = 0;
+              return `${String(hh).padStart(2, "0")}:${String(mm).padStart(
+                2,
+                "0"
+              )}`;
+            }
+            // "0900" -> "09:00"
+            const compact = t.match(/^(\d{2})(\d{2})$/);
+            if (compact) return `${compact[1]}:${compact[2]}`;
+            // "9:0" -> "09:00"
+            const colon = t.match(/^(\d{1,2}):(\d{1,2})$/);
+            if (colon) {
+              const hh = String(colon[1]).padStart(2, "0");
+              const mm = String(colon[2]).padStart(2, "0");
+              return `${hh}:${mm}`;
+            }
+            // Already "HH:MM"?
+            if (/^\d{1,2}:\d{2}$/.test(t)) return t;
+            return null;
+          };
+
+          const dateOnly = (d) => {
+            if (!d) return null;
+            // Prefer "YYYY-MM-DD" from raw, else derive from Date
+            if (/^\d{4}-\d{2}-\d{2}/.test(d)) return d.slice(0, 10);
+            const dd = new Date(d);
+            if (isNaN(dd)) return null;
+            const y = dd.getFullYear();
+            const m = String(dd.getMonth() + 1).padStart(2, "0");
+            const day = String(dd.getDate()).padStart(2, "0");
+            return `${y}-${m}-${day}`;
+          };
+
+          const parseLocalDateTime = (d, t /* HH:MM */) => {
+            const day = dateOnly(d);
+            const time = toHhMm(t) ?? "00:00";
+            if (!day) return null;
+            // new Date("YYYY-MM-DDTHH:MM:SS") -> local time
+            const dt = new Date(`${day}T${time}:00`);
+            return isNaN(dt) ? null : dt;
+          };
+
+          const fmtDate = (d) => {
+            if (!d) return "Date not available";
+            try {
+              const dd = parseLocalDateTime(d, "00:00") || new Date(d);
+              return new Intl.DateTimeFormat("vi-VN", {
+                timeZone: TZ,
+                year: "numeric",
+                month: "2-digit",
+                day: "2-digit",
+              }).format(dd);
+            } catch {
+              return "Date not available";
+            }
+          };
+
+          const fmtTimeRange = (s, e) => {
+            const show = (t) => {
+              const hhmm = toHhMm(t);
+              return hhmm ? hhmm : t || "";
+            };
+            const sTxt = show(s) || "Time not available";
+            const eTxt = show(e);
+            return eTxt ? `${sTxt} - ${eTxt}` : sTxt;
+          };
+
+          // ---- Normalize & derive ----
+          const b = normalizeBooking(selectedReviewBooking);
+          const startDT = parseLocalDateTime(b?.date, b?.start);
+          const endDT = parseLocalDateTime(b?.date, b?.end);
+          const now = new Date();
+
+          // Status logic:
+          // - finished if end < now
+          // - else if start < now < end -> active
+          // - else if start > now -> upcoming/active
+          let statusText = "Completed";
+          let statusColor = "bg-gray-100 text-gray-800";
+
+          if (b?.status === "cancelled") {
+            statusText = "Cancelled";
+            statusColor = "bg-red-100 text-red-800";
+          } else {
+            if (endDT && endDT < now) {
+              statusText = "Finished";
+              statusColor = "bg-green-100 text-green-800";
+            } else if (startDT && startDT <= now && (!endDT || endDT >= now)) {
+              statusText = "Active";
+              statusColor = "bg-blue-100 text-blue-800";
+            } else if (startDT && startDT > now) {
+              statusText = "Active";
+              statusColor = "bg-blue-100 text-blue-800";
+            } else if (b?.status) {
+              // Fallback to server status naming
+              const map = {
+                finished: ["Finished", "bg-green-100 text-green-800"],
+                active: ["Active", "bg-blue-100 text-blue-800"],
+                cancelled: ["Cancelled", "bg-red-100 text-red-800"],
+                completed: ["Completed", "bg-gray-100 text-gray-800"],
+              };
+              const m = map[b.status] || [
+                "Completed",
+                "bg-gray-100 text-gray-800",
+              ];
+              statusText = m[0];
+              statusColor = m[1];
+            }
+          }
+
+          const menteeName =
+            b?.mentee && typeof b.mentee === "object"
+              ? [b.mentee.firstName, b.mentee.lastName]
+                  .filter(Boolean)
+                  .join(" ")
+              : "";
+
+          // Sử dụng helper function để format thời gian tạo booking từ UTC sang VN
+          const createdText = formatDateTimeUTCToVN(b?.createdAt);
+
+          return (
+            <div
+              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-300"
+              onClick={(e) => {
+                if (e.target === e.currentTarget) closeBookingDetailPopup();
+              }}
+            >
+              <div
+                className="bg-white rounded-2xl shadow-2xl max-w-lg w-full mx-4 transform transition-all animate-in slide-in-from-bottom-8 zoom-in-95 duration-500 ease-out"
+                onClick={(e) => e.stopPropagation()}
+                style={{
+                  animation:
+                    "modalAppear 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)",
+                }}
+              >
+                {/* Header */}
+                <div className="px-6 py-4 border-b border-gray-100 animate-in slide-in-from-top-4 duration-300 delay-100">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-xl font-bold text-gray-900">
+                      Consultation Details
+                    </h3>
+                    <button
+                      onClick={closeBookingDetailPopup}
+                      className="text-gray-400 hover:text-gray-600 transition-all duration-200 p-1 hover:bg-gray-100 rounded-full hover:scale-110"
+                    >
                       <svg
-                        className="w-4 h-4"
+                        className="w-6 h-6"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M6 18L18 6M6 6l12 12"
+                        />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Content */}
+                <div className="px-6 py-6 animate-in slide-in-from-bottom-4 duration-400 delay-200">
+                  {/* Booking Header */}
+                  <div className="flex items-start gap-4 mb-6">
+                    <div className="w-24 h-20 bg-orange-100 rounded-xl shadow-md flex-shrink-0 flex items-center justify-center">
+                      <svg
+                        className="w-8 h-8 text-orange-600"
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
@@ -5522,157 +5116,771 @@ const MentorProfile = () => {
                           d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 002 2z"
                         />
                       </svg>
-                      <span>
-                        {selectedReviewBooking.date
-                          ? new Date(
-                              selectedReviewBooking.date
-                            ).toLocaleDateString("vi-VN")
-                          : "Date not available"}
-                      </span>
                     </div>
-                    <div className="flex items-center gap-1">
-                      <svg
-                        className="w-4 h-4"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                        />
-                      </svg>
-                      <span>
-                        {selectedReviewBooking.start || "Time not available"}
-                        {selectedReviewBooking.end &&
-                          ` - ${selectedReviewBooking.end}`}
-                      </span>
+                    <div className="flex-1 min-w-0">
+                      <h4 className="font-bold text-gray-900 mb-2 text-xl leading-tight">
+                        Consultation Session
+                      </h4>
+                      <p className="text-base text-gray-600 mb-3">
+                        Booking ID: {b?._id || "N/A"}
+                      </p>
+                      {menteeName && (
+                        <p className="text-sm text-gray-500 mb-3">
+                          With: {menteeName}
+                        </p>
+                      )}
+                      <div className="flex items-center gap-4 text-sm text-gray-500">
+                        <div className="flex items-center gap-1">
+                          <svg
+                            className="w-4 h-4"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 002 2z"
+                            />
+                          </svg>
+                          <span>{fmtDate(b?.date)}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <svg
+                            className="w-4 h-4"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                            />
+                          </svg>
+                          <span>{fmtTimeRange(b?.start, b?.end)}</span>
+                        </div>
+                      </div>
                     </div>
                   </div>
-                </div>
-              </div>
 
-              {/* Booking Details */}
-              <div className="space-y-4">
-                <div className="p-4 bg-gray-50 rounded-xl">
-                  <h5 className="font-semibold text-gray-900 mb-2">Status</h5>
-                  {(() => {
-                    // Calculate effective status based on time
-                    let effectiveStatus = selectedReviewBooking.status;
-                    let statusColor = "bg-gray-100 text-gray-800";
-                    let statusText =
-                      selectedReviewBooking.status || "Completed";
-
-                    // Check if booking is past time
-                    if (
-                      selectedReviewBooking.status === "active" &&
-                      selectedReviewBooking.date &&
-                      selectedReviewBooking.start
-                    ) {
-                      try {
-                        const dateStr = new Date(selectedReviewBooking.date)
-                          .toISOString()
-                          .split("T")[0];
-                        let bookingDateTime = new Date(
-                          `${dateStr}T${selectedReviewBooking.start}:00`
-                        );
-
-                        if (isNaN(bookingDateTime.getTime())) {
-                          bookingDateTime = new Date(
-                            `${selectedReviewBooking.date} ${selectedReviewBooking.start}`
-                          );
-                        }
-
-                        const isPastTime = bookingDateTime < new Date();
-                        if (isPastTime) {
-                          effectiveStatus = "finished";
-                          statusText = "Finished";
-                          statusColor = "bg-green-100 text-green-800";
-                        } else {
-                          statusText = "Active";
-                          statusColor = "bg-blue-100 text-blue-800";
-                        }
-                      } catch (error) {
-                        // Fallback to original status
-                        statusText = "Active";
-                        statusColor = "bg-blue-100 text-blue-800";
-                      }
-                    } else if (selectedReviewBooking.status === "finished") {
-                      statusText = "Finished";
-                      statusColor = "bg-green-100 text-green-800";
-                    } else if (selectedReviewBooking.status === "cancelled") {
-                      statusText = "Cancelled";
-                      statusColor = "bg-red-100 text-red-800";
-                    } else if (selectedReviewBooking.status === "active") {
-                      statusText = "Active";
-                      statusColor = "bg-blue-100 text-blue-800";
-                    }
-
-                    return (
+                  {/* Booking Details */}
+                  <div className="space-y-4">
+                    <div className="p-4 bg-gray-50 rounded-xl">
+                      <h5 className="font-semibold text-gray-900 mb-2">
+                        Status
+                      </h5>
                       <span
                         className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${statusColor}`}
                       >
                         {statusText}
                       </span>
-                    );
-                  })()}
+                    </div>
+
+                    <div className="p-4 bg-gray-50 rounded-xl">
+                      <h5 className="font-semibold text-gray-900 mb-2">
+                        Consultation Type
+                      </h5>
+                      <p className="text-gray-600">
+                        One-on-one mentoring session
+                      </p>
+                    </div>
+
+                    {createdText && (
+                      <div className="p-4 bg-gray-50 rounded-xl">
+                        <h5 className="font-semibold text-gray-900 mb-2">
+                          Booked On
+                        </h5>
+                        <p className="text-gray-600 text-sm">{createdText}</p>
+                      </div>
+                    )}
+                  </div>
                 </div>
 
-                <div className="p-4 bg-gray-50 rounded-xl">
-                  <h5 className="font-semibold text-gray-900 mb-2">
-                    Consultation Type
-                  </h5>
-                  <p className="text-gray-600">One-on-one mentoring session</p>
+                {/* Footer */}
+                <div className="px-6 py-4 border-t border-gray-100 animate-in slide-in-from-bottom-4 duration-300 delay-300">
+                  <button
+                    onClick={closeBookingDetailPopup}
+                    className="w-full bg-orange-600 text-white py-2 px-4 rounded-lg hover:bg-orange-700 transition-colors duration-200 font-medium"
+                  >
+                    Close
+                  </button>
                 </div>
+              </div>
+            </div>
+          );
+        })()}
+    </div>
+  );
+};
 
-                {/* Show notes if available */}
-                {selectedReviewBooking.notes && (
-                  <div className="p-4 bg-gray-50 rounded-xl">
-                    <h5 className="font-semibold text-gray-900 mb-2">Notes</h5>
-                    <p className="text-gray-600 text-sm">
-                      {selectedReviewBooking.notes}
-                    </p>
+// Capitalize initials of each word
+function capitalizeWords(str) {
+  if (!str) return "";
+  return str
+    .split(" ")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(" ");
+}
+
+// --- Schedule Builder Helpers ---------------------------------------------------------------
+function toMinutes(hhmm) {
+  const [h, m] = hhmm.split(":").map(Number);
+  return h * 60 + (m || 0);
+}
+function toHHMM(mins) {
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+}
+function generateTimes(startHH = 8, endHH = 22, stepMin = 30) {
+  const out = [];
+  let t = startHH * 60;
+  const end = endHH * 60;
+  while (t < end) {
+    out.push(toHHMM(t));
+    t += stepMin;
+  }
+  return out;
+}
+function todayKey() {
+  const d = new Date();
+  return d.toISOString().slice(0, 10);
+}
+function isPast(dateStr) {
+  const today = new Date(todayKey() + "T00:00:00");
+  const d = new Date(dateStr + "T00:00:00");
+  return d < today;
+}
+function isInCurrentYear(dateStr) {
+  const y = new Date().getFullYear();
+  const d = new Date(dateStr + "T00:00:00");
+  return d.getFullYear() === y;
+}
+function formatHuman(dateStr) {
+  try {
+    const d = new Date(dateStr + "T00:00:00");
+    return d.toLocaleDateString(undefined, {
+      weekday: "short",
+      year: "numeric",
+      month: "short",
+      day: "2-digit",
+    });
+  } catch {
+    return dateStr;
+  }
+}
+
+// Helper function to check if time is in the past for today
+function isTimeInPast(timeStr, dateStr) {
+  const today = todayKey();
+  if (dateStr !== today) return false; // Not today, so time is not in past
+
+  const now = new Date();
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+  const timeMinutes = toMinutes(timeStr);
+
+  return timeMinutes <= currentMinutes;
+}
+
+// Helper function to filter out past times for today
+function getAvailableTimes(dateStr) {
+  const allTimes = generateTimes(8, 22, 30);
+  const today = todayKey();
+
+  if (dateStr !== today) return allTimes; // Not today, return all times
+
+  // For today, filter out past times
+  return allTimes.filter((time) => !isTimeInPast(time, dateStr));
+}
+
+// --- Schedule Builder Component ---------------------------------------------------------------
+function MentorAvailabilityBuilder({ onBack, onSave, editingSchedule }) {
+  const [mode, setMode] = useState("builder"); // 'builder' | 'review'
+  const [selectedDate, setSelectedDate] = useState("");
+  const [error, setError] = useState("");
+  const [pickedForDay, setPickedForDay] = useState(new Set()); // working selection
+  const [availability, setAvailability] = useState({}); // committed while editing
+  const [savedSnapshot, setSavedSnapshot] = useState(null); // what we "persisted"
+  const [bookedSlots, setBookedSlots] = useState({}); // Track booked slots by date
+
+  // Load editing data when component mounts or editingSchedule changes
+  useEffect(() => {
+    if (editingSchedule) {
+      setAvailability(editingSchedule.availability || {});
+
+      // Extract booked slots info if editing
+      if (editingSchedule.slots) {
+        const booked = {};
+        const dateKey = editingSchedule.date;
+        booked[dateKey] = editingSchedule.slots
+          .filter((slot) => slot.status === "booked")
+          .map((slot) => ({
+            time: slot.start,
+            bookingId: slot.bookingId,
+            bookedBy: slot.bookedBy,
+          }));
+        setBookedSlots(booked);
+      }
+    } else {
+      setAvailability({});
+      setBookedSlots({});
+    }
+  }, [editingSchedule]);
+
+  const times = useMemo(() => getAvailableTimes(selectedDate), [selectedDate]);
+
+  function validateDate(dateStr) {
+    if (!dateStr) return "Please choose a date.";
+    if (isPast(dateStr))
+      return "Selected date is in the past. Please choose today or a future date.";
+    if (!isInCurrentYear(dateStr))
+      return "Only dates within the current year are allowed.";
+    return "";
+  }
+
+  function onDateChange(v) {
+    setSelectedDate(v);
+    setError(validateDate(v));
+    const saved = availability[v] || [];
+    // Filter out past times if it's today
+    const validSavedTimes = saved.filter((time) => !isTimeInPast(time, v));
+
+    // Auto-include booked slots for this date (they cannot be unselected)
+    const bookedTimes = bookedSlots[v]?.map((slot) => slot.time) || [];
+    const allSelectedTimes = [...new Set([...validSavedTimes, ...bookedTimes])];
+
+    setPickedForDay(new Set(allSelectedTimes));
+  }
+
+  function toggleTime(t) {
+    // Check if this time slot is booked (cannot be toggled off)
+    const isBooked = bookedSlots[selectedDate]?.find((slot) => slot.time === t);
+    if (isBooked) {
+      return; // Do nothing for booked slots
+    }
+
+    const next = new Set(pickedForDay);
+    if (next.has(t)) next.delete(t);
+    else next.add(t);
+    setPickedForDay(next);
+  }
+
+  function submitDay() {
+    const e = validateDate(selectedDate);
+    if (e) {
+      setError(e);
+      return;
+    }
+    if (pickedForDay.size === 0) {
+      setError("Please select at least one time slot before submitting.");
+      return;
+    }
+    setError("");
+    const arr = Array.from(pickedForDay).sort(
+      (a, b) => toMinutes(a) - toMinutes(b)
+    );
+    setAvailability((prev) => ({ ...prev, [selectedDate]: arr }));
+  }
+
+  function removeDay(dateKey) {
+    const copy = { ...availability };
+    delete copy[dateKey];
+    setAvailability(copy);
+    if (dateKey === selectedDate) setPickedForDay(new Set());
+  }
+
+  async function saveAll() {
+    // Guard: must have at least 1 submitted day before saving
+    if (Object.keys(availability).length === 0) {
+      alert("Please submit at least one day before saving.");
+      return;
+    }
+    // In a real app, call your API here then navigate to a separate page.
+    const payload = {
+      slots: availability,
+      createdAt: new Date().toISOString(),
+    };
+
+    if (onSave) {
+      onSave(payload);
+    } else {
+      setSavedSnapshot(payload);
+      setMode("review");
+    }
+  }
+
+  if (mode === "review") {
+    return (
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <h1 className="text-2xl font-semibold">Your Availability</h1>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setMode("builder")}
+                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition text-sm font-medium flex items-center gap-2"
+              >
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 4v16m8-8H4"
+                  />
+                </svg>
+                Create schedule
+              </button>
+              <button
+                onClick={() => alert("Publish stub: wire to your API.")}
+                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition text-sm font-medium flex items-center gap-2"
+              >
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M5 13l4 4L19 7"
+                  />
+                </svg>
+                Publish
+              </button>
+            </div>
+          </div>
+
+          <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
+            <div className="p-6 space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600">Saved at</p>
+                  <p className="font-medium">
+                    {new Date(
+                      savedSnapshot?.createdAt || Date.now()
+                    ).toLocaleString()}
+                  </p>
+                </div>
+                <div className="text-sm text-gray-600">
+                  {Object.keys(savedSnapshot?.slots || {}).length} day(s)
+                </div>
+              </div>
+
+              {Object.keys(savedSnapshot?.slots || {}).length === 0 ? (
+                <p className="text-sm text-gray-600">
+                  No availability to show.
+                </p>
+              ) : (
+                <div className="space-y-4">
+                  {Object.entries(savedSnapshot.slots)
+                    .sort(([a], [b]) => a.localeCompare(b))
+                    .map(([dateKey, list]) => (
+                      <div
+                        key={dateKey}
+                        className="rounded-lg border border-gray-200 p-4"
+                      >
+                        <div className="mb-2 font-medium">
+                          {formatHuman(dateKey)} ({dateKey})
+                        </div>
+                        <div className="grid grid-cols-3 gap-2 md:grid-cols-4 lg:grid-cols-6">
+                          {list.map((t) => (
+                            <div
+                              key={t}
+                              className="rounded-lg border border-gray-200 px-3 py-2 text-sm text-center"
+                            >
+                              {t}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="text-sm text-gray-600">
+            Tip: This page is a read-only summary of what you saved. Use{" "}
+            <b>Create schedule</b> to add or modify availability, then save
+            again.
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // --- Builder view -------------------------------------------------------
+  return (
+    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+      <div className="flex items-center gap-3 mb-6">
+        <button
+          onClick={onBack}
+          className="p-2 hover:bg-gray-100 rounded-lg transition"
+        >
+          <svg
+            className="w-5 h-5"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M15 19l-7-7 7-7"
+            />
+          </svg>
+        </button>
+        <h1 className="text-2xl font-semibold">
+          {editingSchedule
+            ? `Edit Schedule ${editingSchedule.name}`
+            : "Set Specific-Day Availability"}
+        </h1>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-[1.2fr_1fr] gap-6">
+        <div className="bg-gradient-to-br from-white to-blue-50/30 border border-blue-200 rounded-xl shadow-sm">
+          <div className="p-6 space-y-6">
+            <header className="text-center pb-4 border-b border-blue-100">
+              <p className="text-sm text-blue-600">
+                {editingSchedule
+                  ? "Modify your existing schedule by adding/removing dates and time slots."
+                  : "Pick a date, toggle the available times, then submit that day."}
+              </p>
+              {editingSchedule &&
+                Object.values(bookedSlots).some(
+                  (slots) => slots.length > 0
+                ) && (
+                  <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
+                    <div className="flex items-center gap-2 text-red-700">
+                      <span className="text-lg">⚠️</span>
+                      <div className="text-sm">
+                        <p className="font-semibold">Protected Bookings</p>
+                        <p>
+                          Red slots with 🔒 have active bookings and cannot be
+                          removed. They will be preserved automatically.
+                        </p>
+                      </div>
+                    </div>
                   </div>
                 )}
+            </header>
 
-                {/* Show created date */}
-                {selectedReviewBooking.createdAt && (
-                  <div className="p-4 bg-gray-50 rounded-xl">
-                    <h5 className="font-semibold text-gray-900 mb-2">
-                      Booked On
-                    </h5>
-                    <p className="text-gray-600 text-sm">
-                      {new Date(
-                        selectedReviewBooking.createdAt
-                      ).toLocaleDateString("vi-VN", {
-                        year: "numeric",
-                        month: "long",
-                        day: "numeric",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                    </p>
+            {/* Date */}
+            <section className="space-y-3">
+              <label className="flex items-center gap-2 text-sm font-semibold text-blue-900">
+                <div className="p-1.5 bg-blue-100 rounded-lg">
+                  <svg
+                    className="w-4 h-4 text-blue-600"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                    />
+                  </svg>
+                </div>
+                Choose a date (current year only)
+              </label>
+              <div className="relative">
+                <input
+                  type="date"
+                  value={selectedDate}
+                  onChange={(e) => onDateChange(e.target.value)}
+                  className="w-full px-4 py-3 border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm text-gray-900 font-medium"
+                />
+              </div>
+              {error && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                  <p className="text-sm text-red-600 flex items-center gap-2">
+                    <svg
+                      className="w-4 h-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                      />
+                    </svg>
+                    {error}
+                  </p>
+                </div>
+              )}
+            </section>
+
+            {/* Time grid */}
+            <section className="space-y-4">
+              <div className="flex items-center justify-between">
+                <label className="flex items-center gap-2 text-sm font-semibold text-blue-900">
+                  <div className="p-1.5 bg-blue-100 rounded-lg">
+                    <svg
+                      className="w-4 h-4 text-blue-600"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                      />
+                    </svg>
+                  </div>
+                  Available times for selected date
+                </label>
+                {selectedDate === todayKey() && (
+                  <div className="text-xs text-orange-700 bg-gradient-to-r from-orange-100 to-yellow-100 border border-orange-200 px-3 py-1.5 rounded-full font-medium">
+                    Current:{" "}
+                    {new Date().toLocaleTimeString([], {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
                   </div>
                 )}
               </div>
+
+              <div className="bg-white/70 border border-blue-200 rounded-lg p-4">
+                <div className="grid grid-cols-3 gap-3 md:grid-cols-4 lg:grid-cols-5">
+                  {times.map((t) => {
+                    const active = pickedForDay.has(t);
+                    const isPastTime = isTimeInPast(t, selectedDate);
+                    const isBooked = bookedSlots[selectedDate]?.find(
+                      (slot) => slot.time === t
+                    );
+
+                    return (
+                      <button
+                        key={t}
+                        type="button"
+                        onClick={() => toggleTime(t)}
+                        disabled={isPastTime || isBooked}
+                        title={
+                          isBooked
+                            ? "This slot has an active booking and cannot be removed"
+                            : undefined
+                        }
+                        className={`rounded-lg border px-3 py-2.5 text-sm text-center transition-all duration-200 font-medium relative ${
+                          isPastTime
+                            ? "bg-gray-100 text-gray-400 cursor-not-allowed border-gray-200"
+                            : isBooked
+                            ? "bg-red-100 text-red-800 border-red-300 cursor-not-allowed shadow-sm"
+                            : active
+                            ? "border-blue-600 bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-md transform scale-105"
+                            : "border-gray-300 bg-white hover:bg-blue-50 hover:border-blue-300 hover:shadow-sm"
+                        }`}
+                      >
+                        {t}
+                        {isBooked && (
+                          <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full flex items-center justify-center">
+                            <span className="text-white text-xs">🔒</span>
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                    <p className="text-sm text-blue-800 font-medium">
+                      {pickedForDay.size === 0
+                        ? "No times selected"
+                        : `${pickedForDay.size} time(s) selected`}
+                    </p>
+                    {selectedDate === todayKey() && times.length === 0 && (
+                      <span className="ml-2 text-orange-600 text-xs bg-orange-100 px-2 py-0.5 rounded-full font-medium">
+                        No more slots today
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setPickedForDay(new Set())}
+                      className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm hover:bg-gray-50 transition font-medium text-gray-700"
+                    >
+                      Clear
+                    </button>
+                    <button
+                      onClick={submitDay}
+                      disabled={pickedForDay.size === 0}
+                      className="px-4 py-1.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg text-sm hover:from-blue-700 hover:to-blue-800 transition disabled:opacity-50 disabled:cursor-not-allowed font-medium shadow-sm"
+                    >
+                      Submit day
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </section>
+          </div>
+        </div>
+
+        {/* Right: committed list */}
+        <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
+          <div className="p-6 space-y-6">
+            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-5 shadow-sm">
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                <h2 className="text-lg font-semibold text-blue-900">
+                  Availability Preview
+                </h2>
+              </div>
+              {Object.keys(availability).length === 0 ? (
+                <div className="text-center py-8">
+                  <svg
+                    className="w-12 h-12 text-blue-300 mx-auto mb-3"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                    />
+                  </svg>
+                  <p className="text-blue-600 text-sm">No days added yet</p>
+                  <p className="text-blue-500 text-xs mt-1">
+                    Start by selecting a date and time slots
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {Object.entries(availability)
+                    .sort(([a], [b]) => a.localeCompare(b))
+                    .map(([dateKey, times]) => (
+                      <div
+                        key={dateKey}
+                        className="bg-white/70 backdrop-blur-sm border border-blue-200 rounded-lg p-4 shadow-sm"
+                      >
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-2">
+                            <div className="w-1.5 h-1.5 bg-blue-500 rounded-full"></div>
+                            <div className="font-medium text-blue-900 text-sm">
+                              {formatHuman(dateKey)}
+                            </div>
+                            <span className="text-blue-600 text-xs bg-blue-100 px-2 py-0.5 rounded-full">
+                              {dateKey}
+                            </span>
+                          </div>
+                          <button
+                            onClick={() => removeDay(dateKey)}
+                            className="text-red-500 hover:text-red-700 transition text-sm p-1 rounded hover:bg-red-50"
+                            title="Remove this day"
+                          >
+                            <svg
+                              className="w-4 h-4"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M6 18L18 6M6 6l12 12"
+                              />
+                            </svg>
+                          </button>
+                        </div>
+                        <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-4">
+                          {times.map((t) => (
+                            <div
+                              key={t}
+                              className="bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200 text-blue-800 px-3 py-2.5 text-sm text-center rounded-md font-medium shadow-sm hover:from-blue-100 hover:to-blue-150 transition-colors duration-200 flex items-center justify-center min-w-0"
+                            >
+                              {t}
+                            </div>
+                          ))}
+                        </div>
+                        <div className="mt-2 text-right">
+                          <span className="text-blue-600 text-xs">
+                            {times.length} slot{times.length > 1 ? "s" : ""}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              )}
             </div>
 
-            {/* Footer */}
-            <div className="px-6 py-4 border-t border-gray-100 animate-in slide-in-from-bottom-4 duration-300 delay-300">
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <h3 className="mb-2 font-medium text-blue-900 flex items-center gap-2">
+                <svg
+                  className="w-4 h-4 text-blue-600"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+                Rules enforced
+              </h3>
+              <ul className="list-disc pl-6 text-sm text-blue-800 space-y-1">
+                <li>Cannot select past dates.</li>
+                <li>
+                  Only dates in the <b>current year</b> are allowed.
+                </li>
+                <li>
+                  For today's date, only <b>future time slots</b> are available.
+                </li>
+                <li>
+                  Must select at least one time slot before submitting a day.
+                </li>
+              </ul>
+            </div>
+
+            <div className="flex justify-end gap-3">
               <button
-                onClick={closeBookingDetailPopup}
-                className="w-full bg-orange-600 text-white py-2 px-4 rounded-lg hover:bg-orange-700 transition-colors duration-200 font-medium"
+                onClick={() => {
+                  setAvailability({});
+                  setPickedForDay(new Set());
+                }}
+                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition text-sm"
               >
-                Close
+                Reset all
+              </button>
+              <button
+                onClick={saveAll}
+                disabled={Object.keys(availability).length === 0}
+                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {editingSchedule ? "Update Schedule" : "Save all"}
               </button>
             </div>
           </div>
         </div>
-      )}
+      </div>
     </div>
   );
-};
+}
 
 export default MentorProfile;

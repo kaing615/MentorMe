@@ -203,7 +203,6 @@ const HomeScreen = () => {
       localStorage.getItem("actkn") || localStorage.getItem("token");
     const userStr =
       localStorage.getItem("user") || localStorage.getItem("user");
-    console.log("Token:", token);
     let user = null;
     if (!token) {
       navigate("/auth/signin");
@@ -244,7 +243,12 @@ const HomeScreen = () => {
 
   // Helper function to check if course is already purchased
   const isCourseAlreadyPurchased = (courseId) => {
-    // First check localStorage for immediate feedback
+    // First check API-based purchasedCoursesMap
+    if (purchasedCoursesMap.has(courseId)) {
+      return true;
+    }
+
+    // Then check localStorage for immediate feedback and fallback
     const userStr = localStorage.getItem("user");
     let currentUserId = null;
     try {
@@ -259,16 +263,9 @@ const HomeScreen = () => {
       : "mockPurchasedCourses";
     const mockPurchasedCourses = localStorage.getItem(mockKey);
 
-    console.log(
-      `[DEBUG] Checking if course ${courseId} is purchased for user ${currentUserId}`
-    );
-    console.log(`[DEBUG] Using localStorage key: ${mockKey}`);
-    console.log(`[DEBUG] localStorage data:`, mockPurchasedCourses);
-
     if (mockPurchasedCourses) {
       try {
         const purchasedCourses = JSON.parse(mockPurchasedCourses);
-        console.log(`[DEBUG] Parsed purchased courses:`, purchasedCourses);
 
         const isPurchased = purchasedCourses.some((purchased) => {
           const purchasedCourseId =
@@ -276,13 +273,9 @@ const HomeScreen = () => {
             purchased.course?.id ||
             purchased.courseId ||
             purchased.courseInfo?._id;
-          console.log(
-            `[DEBUG] Comparing ${courseId} with purchased course ${purchasedCourseId}`
-          );
           return purchasedCourseId === courseId;
         });
 
-        console.log(`[DEBUG] Course ${courseId} is purchased: ${isPurchased}`);
         return isPurchased;
       } catch (error) {
         console.error("Error parsing purchased courses:", error);
@@ -358,8 +351,6 @@ const HomeScreen = () => {
           throw new Error(error.message || "API failed");
         }
       } catch (apiError) {
-        console.log("API failed, using localStorage fallback:", apiError);
-
         // Fallback to localStorage
         const existingCart = localStorage.getItem("mockCart");
         let cartItems = existingCart ? JSON.parse(existingCart) : [];
@@ -431,7 +422,7 @@ const HomeScreen = () => {
 
     // Navigate with a slight delay to show loading
     setTimeout(() => {
-      navigate(`/course-detail/${courseId}`);
+      navigate(`/shoppingcart`);
     }, 300);
   };
 
@@ -549,12 +540,10 @@ const HomeScreen = () => {
       setMentorsLoading(true);
       try {
         const response = await profileApi.getTopMentors(6);
-        console.log("Top mentors response:", response);
 
         if (response && response.data?.mentors) {
           setTopMentors(response.data.mentors);
         } else {
-          console.log("No mentors data, using fallback");
           setTopMentors(fallbackMentors);
         }
       } catch (error) {
@@ -1263,9 +1252,6 @@ const HomeScreen = () => {
               <h2 className="text-2xl font-bold text-slate-800">
                 What Our Customer Say
               </h2>
-              <span className="text-base text-slate-500 font-medium">
-                About Us
-              </span>
             </div>
             <div className="flex gap-2 mt-4 md:mt-0">
               <button

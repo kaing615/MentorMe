@@ -39,7 +39,6 @@ const Header = () => {
       try {
         const userData = localUser ? JSON.parse(localUser) : user;
         userRole = userData?.role;
-        console.log("Setting mentorMode based on user role:", userRole);
       } catch (e) {
         console.error("Error parsing user data:", e);
       }
@@ -48,12 +47,6 @@ const Header = () => {
         const shouldShowCategories = userRole === "mentor";
         setShowCategories(shouldShowCategories);
         localStorage.setItem("mentorMode", shouldShowCategories.toString());
-        console.log(
-          "MentorMode set to:",
-          shouldShowCategories,
-          "for role:",
-          userRole
-        );
 
         // NOTE: Removed cross-user localStorage cleanup for production safety
         // Instead, each user should have their own storage keys or use sessionStorage
@@ -98,7 +91,25 @@ const Header = () => {
             onClick={() => {
               localStorage.setItem("mentorMode", "false");
               setShowCategories(false);
-              navigate("/");
+              // redirect theo role
+              // mentor thì về /mentor/home
+              // mentee thì về /home
+              if (isLoggedIn) {
+                const userData = localUser ? JSON.parse(localUser) : user;
+                const userRole = userData?.role;
+                if (userRole === "mentor") {
+                  setShowCategories(true);
+                  localStorage.setItem("mentorMode", "true");
+                  navigate("/mentor/home");
+                } else {
+                  setShowCategories(false);
+                  localStorage.setItem("mentorMode", "false");
+                  navigate("/home");
+                }
+              } else {
+                // đăng nhập
+                navigate("/auth/signin");
+              }
             }}
           >
             MentorMe

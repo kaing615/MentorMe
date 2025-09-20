@@ -72,7 +72,12 @@ const AllCoursePage = () => {
 
   // Helper function to check if course is already purchased
   const isCourseAlreadyPurchased = (courseId) => {
-    // Get current user ID for user-specific localStorage
+    // First check API-based purchasedCoursesMap
+    if (purchasedCoursesMap.has(courseId)) {
+      return true;
+    }
+
+    // Then check localStorage for immediate feedback and fallback
     const userStr = localStorage.getItem("user");
     let currentUserId = null;
     try {
@@ -116,7 +121,6 @@ const AllCoursePage = () => {
 
     if (purchasedCourseId) {
       // NEW: Navigate với purchasedCourseId (course đã mua)
-      console.log(`🎯 Navigating to purchased course: ${purchasedCourseId}`);
       navigate(`/order-complete-course/${purchasedCourseId}`, {
         state: {
           purchasedCourseId: purchasedCourseId,
@@ -217,7 +221,6 @@ const AllCoursePage = () => {
     }
   };
 
-  // Buy Now function
   // Buy Now function
   const handleBuyNow = (e, course) => {
     e.stopPropagation();
@@ -352,7 +355,6 @@ const AllCoursePage = () => {
 
         if (!error && response?.data?.courses) {
           const purchasedCourses = response.data.courses;
-          console.log("✅ Found purchased courses:", purchasedCourses.length);
 
           // Tạo Map: courseId -> purchasedCourseId
           const courseMap = new Map();
@@ -948,14 +950,6 @@ const AllCoursePage = () => {
                           Bestseller
                         </span>
                       )}
-                      {/* ⭐ NEW: Purchased indicator */}
-                      {user &&
-                        user.role === "mentee" &&
-                        getPurchasedCourseId(course.id) && (
-                          <span className="absolute top-2 right-2 bg-green-500 text-white text-xs font-bold px-2 py-1 rounded flex items-center gap-1">
-                            ✓ Purchased
-                          </span>
-                        )}
                     </div>
                     <div className="flex flex-col px-5 py-4 flex-1">
                       <div

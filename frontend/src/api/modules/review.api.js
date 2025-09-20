@@ -6,6 +6,7 @@ const privateClient = createPrivateClient();
 const endpoints = {
   list: "/reviews",
   detail: (id) => `/reviews/${id}`,
+  my: "/reviews/my",
 };
 
 const reviewApi = {
@@ -19,17 +20,23 @@ const reviewApi = {
     }
   },
 
+  // Get current user's own reviews (reviews written by the user)
+  getMyReviews: async (params = {}) => {
+    try {
+      const response = await privateClient.get(endpoints.my, { params });
+      return { response };
+    } catch (err) {
+      return { error: err };
+    }
+  },
+
   // Get reviews for mentor's courses
   getMentorCourseReviews: async (mentorId) => {
     try {
-      console.log("🔍 Getting courses for mentor:", mentorId);
-
       // First, get all courses by this mentor
       const courses = await courseApi.getCoursesByMentor(mentorId);
-      console.log("📚 Found courses:", courses);
 
       if (!courses || courses.length === 0) {
-        console.log("⚠️ No courses found for mentor");
         return { response: { data: { items: [], total: 0 } } };
       }
 
@@ -38,10 +45,6 @@ const reviewApi = {
 
       for (const basicCourse of courses) {
         try {
-          console.log(
-            `🔍 Getting full details for course: ${basicCourse.title} (${basicCourse._id})`
-          );
-
           // Get full course details first
           const { response: courseDetailResponse, error: courseDetailError } =
             await courseApi.getDetail({ courseId: basicCourse._id });
@@ -60,26 +63,12 @@ const reviewApi = {
             continue;
           }
 
-          console.log(
-            `📊 Full course data for ${fullCourse.title}:`,
-            fullCourse
-          );
-
           // Now get reviews for this course
           const { response: reviewResponse, error } =
             await courseApi.getCourseReviews({
               courseId: fullCourse._id,
               params: { limit: 50 },
             });
-
-          console.log(`📝 Reviews for ${fullCourse.title}:`, {
-            reviewResponse,
-            error,
-          });
-          console.log(
-            `🔍 reviewResponse structure:`,
-            JSON.stringify(reviewResponse, null, 2)
-          );
 
           // Check different possible response structures
           let reviews = null;
@@ -90,8 +79,6 @@ const reviewApi = {
           } else if (Array.isArray(reviewResponse)) {
             reviews = reviewResponse;
           }
-
-          console.log(`📋 Extracted reviews:`, reviews);
 
           if (reviews && Array.isArray(reviews) && reviews.length > 0) {
             // Add full course info to each review
@@ -118,10 +105,6 @@ const reviewApi = {
               },
             }));
             allReviews.push(...reviewsWithCourse);
-            console.log(
-              `✅ Added ${reviewsWithCourse.length} reviews for ${fullCourse.title}`
-            );
-            console.log(`📊 Sample course data:`, reviewsWithCourse[0]?.course);
           } else if (error) {
             console.error(
               `❌ Error in courseApi.getCourseReviews for ${fullCourse.title}:`,
@@ -136,8 +119,6 @@ const reviewApi = {
         }
       }
 
-      console.log("🎯 Total reviews collected:", allReviews.length);
-
       // Sort by creation date (newest first)
       allReviews.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
@@ -150,10 +131,39 @@ const reviewApi = {
         },
       };
 
-      console.log("📤 Returning reviews result:", result);
       return result;
     } catch (err) {
       console.error("❌ Error in getMentorCourseReviews:", err);
+      return { error: err };
+    }
+  },
+
+  // Get reviews for mentor's bookings
+  getBookingReviews: async (mentorId, params = {}) => {
+    try {
+      const response = await privateClient.get(`/reviews/booking/${mentorId}`, {
+        params,
+      });
+      return { response };
+    } catch (err) {
+      console.error("❌ Error in getBookingReviews:", err);
+      return { error: err };
+    }
+  },
+
+  // Get reviews for a specific mentor
+  getMentorReviews: async (mentorId, params = {}) => {
+    try {
+      const response = await privateClient.get(endpoints.list, {
+        params: {
+          targetType: "Mentor",
+          target: mentorId,
+          ...params,
+        },
+      });
+      return { response };
+    } catch (err) {
+      console.error("❌ Error in getMentorReviews:", err);
       return { error: err };
     }
   },
