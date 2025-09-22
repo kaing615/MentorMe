@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { toast } from "react-toastify";
 import { FaUserCircle } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
@@ -347,11 +347,24 @@ const MenteeProfile = () => {
           mentorSpecialty: review.targetInfo?.mentorSpecialty || null,
           rating: review.rate || review.rating || 0,
           comment: review.content || review.comment || "",
-          date: new Date(review.createdAt).toLocaleDateString("vi-VN"),
+          date: new Date(review.createdAt).toLocaleDateString("en-US"),
           helpfulCount: review.helpfulCount || 0,
           mentorReply: review.mentorReply,
           mentorAvatar: review.mentorAvatar,
           mentorName: review.mentorName,
+          // Add consultation details for booking reviews
+          consultationDate:
+            review.targetType === "Booking" &&
+            review.targetInfo?.consultationDate
+              ? new Date(review.targetInfo.consultationDate).toLocaleDateString(
+                  "en-US"
+                )
+              : null,
+          consultationTime:
+            review.targetType === "Booking" &&
+            review.targetInfo?.consultationTime
+              ? review.targetInfo.consultationTime
+              : null,
         }));
 
         setAllReviews(transformedReviews);
@@ -1188,7 +1201,10 @@ const MenteeProfile = () => {
   };
 
   // Pagination logic for mentors
-  const filteredMentors = getFilteredMentors();
+  const filteredMentors = useMemo(() => {
+    return getFilteredMentors();
+  }, [allMentors, mentorSearchTerm, mentorFilterBy]);
+
   const totalMentorPages = Math.ceil(filteredMentors.length / mentorsPerPage);
   const mentorStartIndex = (mentorCurrentPage - 1) * mentorsPerPage;
   const currentMentors = filteredMentors.slice(
@@ -3132,14 +3148,14 @@ const MenteeProfile = () => {
                         </svg>
                       </div>
                       <h3 className="text-lg font-medium text-gray-900 mb-2">
-                        Không thể tải đánh giá
+                        Unable to load reviews
                       </h3>
                       <p className="text-gray-600 mb-4">{reviewsError}</p>
                       <button
                         onClick={fetchMenteeReviews}
                         className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
                       >
-                        Thử lại
+                        Try Again
                       </button>
                     </div>
                   </div>
@@ -3148,60 +3164,11 @@ const MenteeProfile = () => {
                 {/* My Reviews Section */}
                 {!reviewsLoading && !reviewsError && (
                   <div className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100">
-                    {/* Header with search and sort */}
+                    {/* Header */}
                     <div className="mb-6">
-                      {/* Title and Rating Row */}
-                      <div className="flex items-center gap-4 mb-4">
-                        <h3 className="text-lg font-semibold text-gray-900">
-                          Đánh giá của tôi ({allReviews.length})
-                        </h3>
-                      </div>
-
-                      {/* Search and Controls Row */}
-                      <div className="flex gap-3 items-center">
-                        <div className="relative flex-1">
-                          <input
-                            type="text"
-                            placeholder="Tìm kiếm đánh giá..."
-                            className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 w-full"
-                          />
-                          <svg
-                            className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                            />
-                          </svg>
-                        </div>
-                        <select className="px-3 py-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
-                          <option>Mới nhất</option>
-                          <option>Cũ nhất</option>
-                          <option>Đánh giá cao nhất</option>
-                          <option>Đánh giá thấp nhất</option>
-                        </select>
-                        <button className="flex items-center gap-2 px-3 py-2 border border-gray-300 rounded-lg bg-white hover:bg-gray-50 transition">
-                          <svg
-                            className="w-4 h-4"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"
-                            />
-                          </svg>
-                          Xóa
-                        </button>
-                      </div>
+                      <h3 className="text-lg font-semibold text-gray-900">
+                        My Reviews ({allReviews.length})
+                      </h3>
                     </div>
                     {/* Filter tabs */}
                     <div className="flex gap-1 mb-6 bg-gray-100 p-1 rounded-lg w-fit">
@@ -3213,7 +3180,7 @@ const MenteeProfile = () => {
                             : "text-gray-600 hover:text-gray-900"
                         }`}
                       >
-                        Tất cả ({allReviews.length})
+                        All ({allReviews.length})
                       </button>
                       <button
                         onClick={() => handleReviewFilterChange("course")}
@@ -3283,6 +3250,70 @@ const MenteeProfile = () => {
                                         : review.targetTitle}
                                     </h4>
 
+                                    {/* Course mentor information */}
+                                    {review.type === "course" &&
+                                      review.instructor && (
+                                        <div className="text-sm text-gray-600 mb-2 bg-blue-50 px-2 py-1 rounded">
+                                          <div className="flex items-center gap-1">
+                                            <svg
+                                              className="w-4 h-4 text-blue-600"
+                                              fill="none"
+                                              stroke="currentColor"
+                                              viewBox="0 0 24 24"
+                                            >
+                                              <path
+                                                strokeLinecap="round"
+                                                strokeLinejoin="round"
+                                                strokeWidth={2}
+                                                d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                                              />
+                                            </svg>
+                                            <span className="font-medium text-blue-800">
+                                              Instructor:{" "}
+                                            </span>
+                                            <span className="text-blue-700">
+                                              {review.instructor}
+                                            </span>
+                                          </div>
+                                        </div>
+                                      )}
+
+                                    {/* Consultation details for consulting reviews */}
+                                    {review.type === "consulting" &&
+                                      (review.consultationDate ||
+                                        review.consultationTime) && (
+                                        <div className="text-sm text-gray-600 mb-2 bg-purple-50 px-2 py-1 rounded">
+                                          <div className="flex items-center gap-1">
+                                            <svg
+                                              className="w-4 h-4 text-purple-600"
+                                              fill="none"
+                                              stroke="currentColor"
+                                              viewBox="0 0 24 24"
+                                            >
+                                              <path
+                                                strokeLinecap="round"
+                                                strokeLinejoin="round"
+                                                strokeWidth={2}
+                                                d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                                              />
+                                            </svg>
+                                            <span className="font-medium text-purple-800">
+                                              Consultation Date:{" "}
+                                            </span>
+                                            {review.consultationDate && (
+                                              <span className="text-purple-700">
+                                                {review.consultationDate}
+                                              </span>
+                                            )}
+                                            {review.consultationTime && (
+                                              <span className="text-purple-700 ml-1">
+                                                ({review.consultationTime})
+                                              </span>
+                                            )}
+                                          </div>
+                                        </div>
+                                      )}
+
                                     {/* Rating and Date */}
                                     <div className="flex items-center gap-2 mt-1">
                                       <div className="flex text-yellow-400 text-sm">
@@ -3308,7 +3339,7 @@ const MenteeProfile = () => {
                                     {review.type === "course"
                                       ? "Course"
                                       : review.type === "consulting"
-                                      ? "Consulting"
+                                      ? "Consultation"
                                       : "Mentor"}
                                   </span>
                                 </div>
@@ -3389,25 +3420,25 @@ const MenteeProfile = () => {
                           </div>
                           <h3 className="text-lg font-medium text-gray-900 mb-2">
                             {reviewFilter === "all"
-                              ? "Chưa có đánh giá nào"
-                              : `Chưa có đánh giá ${
+                              ? "No reviews yet"
+                              : `No ${
                                   reviewFilter === "course"
-                                    ? "khóa học"
+                                    ? "course"
                                     : reviewFilter === "consulting"
-                                    ? "tư vấn"
+                                    ? "consultation"
                                     : "mentor"
-                                } nào`}
+                                } reviews yet`}
                           </h3>
                           <p className="text-gray-600">
                             {reviewFilter === "all"
-                              ? "Bắt đầu học và để lại đánh giá đầu tiên của bạn!"
-                              : `Bạn chưa viết đánh giá ${
+                              ? "Start learning and leave your first review!"
+                              : `You haven't written any ${
                                   reviewFilter === "course"
-                                    ? "khóa học"
+                                    ? "course"
                                     : reviewFilter === "consulting"
-                                    ? "tư vấn"
+                                    ? "consultation"
                                     : "mentor"
-                                } nào.`}
+                                } reviews yet.`}
                           </p>
                         </div>
                       )}
@@ -3436,7 +3467,7 @@ const MenteeProfile = () => {
                               d="M15 19l-7-7 7-7"
                             />
                           </svg>
-                          Trước
+                          Previous
                         </button>
 
                         {[...Array(totalReviewPages)].map((_, index) => {
@@ -3463,7 +3494,7 @@ const MenteeProfile = () => {
                           disabled={reviewCurrentPage === totalReviewPages}
                           className="flex items-center px-3 py-2 text-sm text-gray-500 hover:text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
                         >
-                          Sau
+                          Next
                           <svg
                             className="w-4 h-4 ml-1"
                             fill="none"

@@ -45,6 +45,34 @@ const renderStars = (rating) => {
   return stars;
 };
 
+// Helper function to get rating breakdown for progress bars
+const getRatingBreakdown = (reviews) => {
+  if (!Array.isArray(reviews) || reviews.length === 0) {
+    return {
+      counts: { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 },
+      percentages: { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 },
+    };
+  }
+
+  const counts = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
+
+  reviews.forEach((review) => {
+    const rating = Math.round(Number(review.rate || review.rating) || 0);
+    if (rating >= 1 && rating <= 5) {
+      counts[rating]++;
+    }
+  });
+
+  const total = reviews.length;
+  const percentages = {};
+
+  for (let i = 1; i <= 5; i++) {
+    percentages[i] = total > 0 ? (counts[i] / total) * 100 : 0;
+  }
+
+  return { counts, percentages };
+};
+
 const MentorPage = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
@@ -112,62 +140,33 @@ const MentorPage = () => {
 
   // Helper function to check if course is already purchased
   const isCourseAlreadyPurchased = (courseId) => {
-    // First check API-based purchasedCoursesMap
-    if (purchasedCoursesMap.has(courseId)) {
-      return true;
-    }
-
-    // Then check localStorage for immediate feedback and fallback
-    const userStr = localStorage.getItem("user");
-    let currentUserId = null;
-    try {
-      const user = userStr ? JSON.parse(userStr) : null;
-      currentUserId = user?.id || user?._id;
-    } catch (e) {
-      // Ignore parse errors
-    }
-
-    const mockKey = currentUserId
-      ? `mockPurchasedCourses_${currentUserId}`
-      : "mockPurchasedCourses";
-    const mockPurchasedCourses = localStorage.getItem(mockKey);
-
-    if (mockPurchasedCourses) {
-      try {
-        const purchasedCourses = JSON.parse(mockPurchasedCourses);
-        return purchasedCourses.some(
-          (purchased) =>
-            (purchased.course?._id ||
-              purchased.course?.id ||
-              purchased.courseId) === courseId
-        );
-      } catch (error) {
-        return false;
-      }
-    }
-    return false;
+    // Check from API-based purchasedCoursesMap (Course.mentees array check)
+    return (
+      purchasedCoursesMap.has(courseId) && purchasedCoursesMap.get(courseId)
+    );
   };
 
   // Helper function to get purchased course ID if it exists
   const getPurchasedCourseId = (courseId) => {
-    return purchasedCoursesMap.get(courseId);
+    // Since we're now only checking Course.mentees array, we don't have purchasedCourse IDs
+    // Return the courseId if purchased, null otherwise
+    return isCourseAlreadyPurchased(courseId) ? courseId : null;
   };
 
   // Smart navigation function for View Course button
   const handleSmartViewCourse = (e, course) => {
     e.stopPropagation();
     const courseId = course._id || course.id;
-    const purchasedCourseId = getPurchasedCourseId(courseId);
 
-    if (purchasedCourseId) {
-      // Navigate with purchasedCourseId for new purchased courses
-      navigate(`/order-complete-course/${purchasedCourseId}`, {
-        state: { purchasedCourseId, courseInfo: course },
-      });
-    } else {
-      // Fallback to courseId for legacy courses
+    if (isCourseAlreadyPurchased(courseId)) {
+      // Navigate to purchased course view
       navigate(`/order-complete-course/${courseId}`, {
         state: { courseId, courseInfo: course },
+      });
+    } else {
+      // Fallback to course detail page if not purchased
+      navigate(`/course-detail/${courseId}`, {
+        state: { courseInfo: course },
       });
     }
   };
@@ -285,153 +284,89 @@ const MentorPage = () => {
   };
 
   // Function to fetch mentor reviews and calculate statistics
-  const fetchMentorReviews = async (mentorId, mentorCourses = []) => {
+  const fetchMentorReviews = async (mentorId) => {
+    let allReviews = [];
+
+    // 1. Course reviews
+    let courseReviews = [];
     try {
-      // Fetch mentor course reviews
-      const { response: courseReviewsResponse, error: courseReviewsError } =
-        await reviewApi.getMentorCourseReviews(mentorId);
-
-      // Try to estimate mentees from available data
-      let estimatedMentees = 0;
-
-      // NOTE: getMentorBookings() only returns bookings for the currently logged-in mentor,
-      // not for the mentor whose page we're viewing. For security reasons, users can't
-      // access other mentors' booking data. Only admins can query bookings by mentor ID.
-      //
-      // For now, we'll estimate mentees from review data as a fallback.
-      // Step 1: Extract mentees from courses
-      const courseMenteeIds = new Set();
-      if (mentorCourses && mentorCourses.length > 0) {
-        mentorCourses.forEach((course) => {
-          if (course.mentees && Array.isArray(course.mentees)) {
-            course.mentees.forEach((menteeId) => {
-              // Handle both ObjectId string and populated object
-              const id =
-                typeof menteeId === "string"
-                  ? menteeId
-                  : menteeId._id || menteeId.id;
-              if (id) {
-                courseMenteeIds.add(id);
-              }
-            });
-          }
-        });
+      const { response: courseRes } = await reviewApi.getMentorCourseReviews(
+        mentorId
+      );
+      if (courseRes?.data?.items) {
+        courseReviews = courseRes.data.items;
+        allReviews = [...allReviews, ...courseReviews];
       }
+    } catch (_) {}
 
-      // Step 2: Try to get mentees from bookings (if possible)
-      // NOTE: For security reasons, we can only access bookings if user is admin or the mentor themselves
-      const bookingMenteeIds = new Set();
+    // 2. Booking reviews
+    let consultationReviews = [];
+    try {
+      const { response: bookingRes } = await reviewApi.getBookingReviews(
+        mentorId
+      );
+      if (bookingRes?.data?.items) {
+        consultationReviews = bookingRes.data.items;
+        allReviews = [...allReviews, ...consultationReviews];
+      }
+    } catch (_) {}
 
-      // If current user is the same mentor being viewed, we can get their booking data
-      const currentUserId = user?.id || user?._id;
-      if (currentUserId === mentorId) {
-        try {
-          const { response: mentorBookingsResponse } =
-            await bookingApi.getMentorBookings();
-          if (mentorBookingsResponse && mentorBookingsResponse.data) {
-            const bookings = Array.isArray(mentorBookingsResponse.data)
-              ? mentorBookingsResponse.data
-              : mentorBookingsResponse.data.bookings || [];
-
-            bookings.forEach((booking) => {
-              if (
-                booking.status === "confirmed" ||
-                booking.status === "completed"
-              ) {
-                const menteeId =
-                  booking.mentee?._id ||
-                  booking.mentee?.id ||
-                  booking.menteeId ||
-                  booking.userId;
-                if (menteeId) {
-                  bookingMenteeIds.add(menteeId);
-                }
-              }
-            });
-          }
-        } catch (error) {
-          // Could not fetch booking data
+    // 3. Mentor-only (direct) reviews
+    let mentorOnlyReviews = [];
+    try {
+      if (typeof reviewApi.getMentorOnlyReviews === "function") {
+        const { response: mentorOnlyRes } =
+          await reviewApi.getMentorOnlyReviews(mentorId);
+        if (mentorOnlyRes?.data?.items) {
+          mentorOnlyReviews = mentorOnlyRes.data.items;
+          allReviews = [...allReviews, ...mentorOnlyReviews];
         }
-      } else {
-        // Cannot access booking data for other mentors (security restriction)
-      }
-
-      // Step 3: Combine and deduplicate all mentee IDs
-      const allUniqueMenteeIds = new Set([
-        ...courseMenteeIds,
-        ...bookingMenteeIds,
-      ]);
-      estimatedMentees = allUniqueMenteeIds.size;
-
-      let allReviews = [];
-      let courseReviews = [];
-
-      if (
-        courseReviewsResponse &&
-        courseReviewsResponse.data &&
-        courseReviewsResponse.data.items
-      ) {
-        courseReviews = courseReviewsResponse.data.items;
-        allReviews = [...courseReviews];
-
-        // Estimate mentees from course reviews as fallback
-        const uniqueReviewerIds = new Set();
-        courseReviews.forEach((review) => {
-          const userId = review.userId || review.user?._id || review.user?.id;
-          if (userId) {
-            uniqueReviewerIds.add(userId);
-          }
-        });
-        // NOTE: Don't overwrite estimatedMentees here - we already calculated it from course.mentees arrays
-      }
-
-      // Fetch consultation/booking reviews
-      let consultationReviews = [];
-      try {
-        const { response: bookingReviewsResponse, error: bookingReviewsError } =
-          await reviewApi.getBookingReviews(mentorId);
-
-        if (
-          bookingReviewsResponse &&
-          bookingReviewsResponse.data &&
-          bookingReviewsResponse.data.items
-        ) {
-          consultationReviews = bookingReviewsResponse.data.items;
-          allReviews = [...allReviews, ...consultationReviews];
-        } else if (bookingReviewsError) {
-          // Error fetching booking reviews
+      } else if (typeof reviewApi.getMentorReviewsByMentorId === "function") {
+        const { response: mentorOnlyRes2 } =
+          await reviewApi.getMentorReviewsByMentorId(mentorId);
+        if (mentorOnlyRes2?.data?.items) {
+          mentorOnlyReviews = mentorOnlyRes2.data.items;
+          allReviews = [...allReviews, ...mentorOnlyReviews];
         }
-      } catch (error) {
-        // Error in booking reviews API call
+      } else if (typeof reviewApi.getMentorReviews === "function") {
+        const { response: mentorOnlyRes3 } = await reviewApi.getMentorReviews(
+          mentorId
+        );
+        if (mentorOnlyRes3?.data?.items) {
+          mentorOnlyReviews = mentorOnlyRes3.data.items;
+          allReviews = [...allReviews, ...mentorOnlyReviews];
+        }
       }
+    } catch (_) {}
 
-      // Calculate statistics
-      const totalReviews = allReviews.length;
-      const averageRating =
-        totalReviews > 0
-          ? allReviews.reduce((sum, review) => sum + (review.rate || 0), 0) /
-            totalReviews
-          : 0;
+    // 4. Chuẩn hóa & sắp xếp review mới nhất lên đầu
+    allReviews = (allReviews || []).filter(Boolean).sort((a, b) => {
+      const da = new Date(a.createdAt || a.created_at || 0).getTime();
+      const db = new Date(b.createdAt || b.created_at || 0).getTime();
+      return db - da;
+    });
 
-      const stats = {
-        totalReviews,
-        averageRating: Math.round(averageRating * 10) / 10, // Round to 1 decimal
-        courseReviews: courseReviews.length,
-        consultationReviews: consultationReviews.length, // Use actual count instead of hardcoded 0
-        totalMentees: estimatedMentees,
-      };
+    // 5. Tính thống kê
+    const totalReviews = allReviews.length;
+    const averageRating =
+      totalReviews > 0
+        ? allReviews.reduce(
+            (sum, review) => sum + (Number(review.rate) || 0),
+            0
+          ) / totalReviews
+        : 0;
 
-      setMentorStats(stats);
-      setReviews(allReviews);
-    } catch (error) {
-      setMentorStats({
-        totalReviews: 0,
-        averageRating: 0,
-        courseReviews: 0,
-        consultationReviews: 0,
-        totalMentees: 0,
-      });
-    }
+    const stats = {
+      totalReviews,
+      averageRating: Math.round(averageRating * 10) / 10,
+      courseReviews: courseReviews.length,
+      consultationReviews: consultationReviews.length,
+      mentorOnlyReviews: mentorOnlyReviews.length,
+    };
+
+    // 6. Set state
+    setMentorStats(stats);
+    setReviews(allReviews);
   };
 
   // Fetch data from backend API and overwrite default data if available
@@ -484,32 +419,38 @@ const MentorPage = () => {
     const fetchPurchasedCourses = async () => {
       if (!user || user.role !== "mentee") return;
 
-      try {
-        const { response, err } =
-          await purchasedCourseApi.getPurchasedCourses();
-        if (response?.data?.purchasedCourses) {
-          const coursesMap = new Map();
-          response.data.purchasedCourses.forEach((purchasedCourse) => {
-            const courseId =
-              purchasedCourse.course?._id ||
-              purchasedCourse.course?.id ||
-              purchasedCourse.courseId ||
-              purchasedCourse.courseInfo?._id;
-            const purchasedCourseId = purchasedCourse._id || purchasedCourse.id;
+      // Check purchase status for displayed courses
+      if (courses.length > 0) {
+        const statusMap = new Map();
 
-            if (courseId && purchasedCourseId) {
-              coursesMap.set(courseId, purchasedCourseId);
+        await Promise.all(
+          courses.map(async (course) => {
+            const courseId = course._id || course.id || course.courseId;
+            if (courseId) {
+              try {
+                const { response } = await courseApi.checkPurchaseStatus(
+                  courseId
+                );
+                const isPurchased = response?.data?.isPurchased || false;
+                statusMap.set(courseId, isPurchased);
+              } catch (error) {
+                console.error(
+                  `Error checking purchase status for course ${courseId}:`,
+                  error
+                );
+                statusMap.set(courseId, false);
+              }
             }
-          });
-          setPurchasedCoursesMap(coursesMap);
-        }
-      } catch (error) {
-        // Error fetching purchased courses
+          })
+        );
+
+        setPurchasedCoursesMap(statusMap);
+        console.log("Purchase status checked for", statusMap.size, "courses");
       }
     };
 
     fetchPurchasedCourses();
-  }, [user]);
+  }, [user, courses]); // Depend on user and courses to check when courses are loaded
 
   // Booking Functions
   const loadMentorAvailability = async () => {
@@ -799,9 +740,6 @@ const MentorPage = () => {
                           : "0.0"}
                       </span>
                     </div>
-                    <div className="text-lg font-bold text-gray-900">
-                      {mentorStats.totalReviews || "0"} Total Reviews
-                    </div>
                   </div>
                 </div>
                 {/* About Section merged here */}
@@ -879,78 +817,98 @@ const MentorPage = () => {
                   />
                 </div>
                 <div className="flex flex-col gap-3 w-full max-w-xs">
-                  <a
-                    href={
-                      mentor?.profile?.links?.website ||
-                      mentor?.user?.website ||
-                      "#"
-                    }
-                    className="w-full border border-gray-300 rounded py-2 text-center text-gray-700 font-medium hover:bg-gray-100 transition"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    Website
-                  </a>
-                  <a
-                    href={
-                      mentor?.profile?.links?.twitter ||
-                      mentor?.user?.twitter ||
-                      "#"
-                    }
-                    className="w-full border border-gray-300 rounded py-2 text-center text-gray-700 font-medium hover:bg-gray-100 transition"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    Twitter
-                  </a>
-                  <a
-                    href={
-                      mentor?.profile?.links?.linkedin ||
-                      mentor?.user?.linkedinUrl ||
-                      "#"
-                    }
-                    className="w-full border border-gray-300 rounded py-2 text-center text-gray-700 font-medium hover:bg-gray-100 transition"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    LinkedIn
-                  </a>
-                  <a
-                    href={
-                      mentor?.profile?.links?.github ||
-                      mentor?.user?.github ||
-                      "#"
-                    }
-                    className="w-full border border-gray-300 rounded py-2 text-center text-gray-700 font-medium hover:bg-gray-100 transition"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    GitHub
-                  </a>
-                  <a
-                    href={
-                      mentor?.profile?.links?.youtube ||
-                      mentor?.user?.youtube ||
-                      "#"
-                    }
-                    className="w-full border border-gray-300 rounded py-2 text-center text-gray-700 font-medium hover:bg-gray-100 transition"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    Youtube
-                  </a>
-                  <a
-                    href={
-                      mentor?.profile?.links?.facebook ||
-                      mentor?.user?.facebook ||
-                      "#"
-                    }
-                    className="w-full border border-gray-300 rounded py-2 text-center text-gray-700 font-medium hover:bg-gray-100 transition"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    Facebook
-                  </a>
+                  {((mentor?.profile?.links?.website &&
+                    mentor.profile.links.website.trim() !== "") ||
+                    (mentor?.user?.website &&
+                      mentor.user.website.trim() !== "")) && (
+                    <a
+                      href={
+                        mentor?.profile?.links?.website || mentor?.user?.website
+                      }
+                      className="w-full border border-gray-300 rounded py-2 text-center text-gray-700 font-medium hover:bg-gray-100 transition"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      Website
+                    </a>
+                  )}
+                  {((mentor?.profile?.links?.twitter &&
+                    mentor.profile.links.twitter.trim() !== "") ||
+                    (mentor?.user?.twitter &&
+                      mentor.user.twitter.trim() !== "")) && (
+                    <a
+                      href={
+                        mentor?.profile?.links?.twitter || mentor?.user?.twitter
+                      }
+                      className="w-full border border-gray-300 rounded py-2 text-center text-gray-700 font-medium hover:bg-gray-100 transition"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      Twitter
+                    </a>
+                  )}
+                  {((mentor?.profile?.links?.linkedin &&
+                    mentor.profile.links.linkedin.trim() !== "") ||
+                    (mentor?.user?.linkedinUrl &&
+                      mentor.user.linkedinUrl.trim() !== "")) && (
+                    <a
+                      href={
+                        mentor?.profile?.links?.linkedin ||
+                        mentor?.user?.linkedinUrl
+                      }
+                      className="w-full border border-gray-300 rounded py-2 text-center text-gray-700 font-medium hover:bg-gray-100 transition"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      LinkedIn
+                    </a>
+                  )}
+                  {((mentor?.profile?.links?.github &&
+                    mentor.profile.links.github.trim() !== "") ||
+                    (mentor?.user?.github &&
+                      mentor.user.github.trim() !== "")) && (
+                    <a
+                      href={
+                        mentor?.profile?.links?.github || mentor?.user?.github
+                      }
+                      className="w-full border border-gray-300 rounded py-2 text-center text-gray-700 font-medium hover:bg-gray-100 transition"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      GitHub
+                    </a>
+                  )}
+                  {((mentor?.profile?.links?.youtube &&
+                    mentor.profile.links.youtube.trim() !== "") ||
+                    (mentor?.user?.youtube &&
+                      mentor.user.youtube.trim() !== "")) && (
+                    <a
+                      href={
+                        mentor?.profile?.links?.youtube || mentor?.user?.youtube
+                      }
+                      className="w-full border border-gray-300 rounded py-2 text-center text-gray-700 font-medium hover:bg-gray-100 transition"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      Youtube
+                    </a>
+                  )}
+                  {((mentor?.profile?.links?.facebook &&
+                    mentor.profile.links.facebook.trim() !== "") ||
+                    (mentor?.user?.facebook &&
+                      mentor.user.facebook.trim() !== "")) && (
+                    <a
+                      href={
+                        mentor?.profile?.links?.facebook ||
+                        mentor?.user?.facebook
+                      }
+                      className="w-full border border-gray-300 rounded py-2 text-center text-gray-700 font-medium hover:bg-gray-100 transition"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      Facebook
+                    </a>
+                  )}
                   {mentor?.profile?.introVideo || mentor?.user?.introVideo ? (
                     <button
                       className="w-full border border-blue-500 rounded py-2 text-center text-blue-700 font-medium hover:bg-blue-50 transition"
@@ -1220,22 +1178,374 @@ const MentorPage = () => {
               </div>
             </div>
           </section>
-          {/* Mentor Reviews Section - empty UI, ready for API, aligned with My Courses */}
-          <section
-            className="w-full py-10 bg-white"
-            style={{ background: "white" }}
-          >
+
+          {/* Reviews Section */}
+          <section className="w-full py-14 bg-white">
             <div className="max-w-7xl mx-auto w-full px-2 md:px-4">
-              <h3 className="text-[24px] font-bold text-[#222] mb-8">
-                Mentee Reviews
-              </h3>
-              <div className="flex flex-col gap-6 min-h-[180px]">
-                {/* No reviews yet, ready for API integration */}
+              {/* Section Header */}
+              <div className="mb-8">
+                <h3 className="text-[24px] font-bold text-[#222] mb-2">
+                  Reviews from Mentees
+                </h3>
+                <p className="text-gray-600">
+                  What students say about their experience with this mentor
+                </p>
               </div>
-              <div className="flex justify-center mt-8">
-                <button className="border border-gray-300 rounded px-6 py-2 text-gray-700 font-medium hover:bg-gray-100 transition">
-                  View more Reviews
-                </button>
+
+              {/* Two Column Layout */}
+              <div className="grid grid-cols-12 gap-8">
+                {(() => {
+                  const ratingBreakdown = getRatingBreakdown(reviews);
+
+                  return (
+                    <>
+                      {/* Left Column - Rating Summary */}
+                      <div className="col-span-12 lg:col-span-4">
+                        <div className="border border-gray-200 rounded-xl p-6 bg-gray-50">
+                          {/* Overall Rating */}
+                          <div className="text-center mb-6">
+                            <div className="text-4xl font-bold text-gray-900 mb-2">
+                              {mentorStats.averageRating
+                                ? mentorStats.averageRating.toFixed(1)
+                                : "0.0"}
+                            </div>
+                            <div className="flex items-center justify-center gap-1 mb-2">
+                              {renderStars(mentorStats.averageRating || 0)}
+                            </div>
+                            <div className="text-sm text-gray-600">
+                              {mentorStats.totalReviews} total reviews
+                            </div>
+                          </div>
+
+                          {/* Review Type Breakdown */}
+                          <div className="space-y-3 mb-6">
+                            <div className="flex justify-between items-center">
+                              <span className="text-sm font-medium text-blue-700">
+                                Course Reviews
+                              </span>
+                              <span className="text-sm font-bold text-blue-600">
+                                {mentorStats.courseReviews || 0}
+                              </span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                              <span className="text-sm font-medium text-green-700">
+                                Consultation Reviews
+                              </span>
+                              <span className="text-sm font-bold text-green-600">
+                                {mentorStats.consultationReviews || 0}
+                              </span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                              <span className="text-sm font-medium text-purple-700">
+                                General Reviews
+                              </span>
+                              <span className="text-sm font-bold text-purple-600">
+                                {mentorStats.mentorOnlyReviews || 0}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Star Distribution */}
+                          <div className="space-y-2">
+                            <h4 className="text-sm font-semibold text-gray-700 mb-3">
+                              Rating Distribution
+                            </h4>
+                            {[5, 4, 3, 2, 1].map((star) => (
+                              <div
+                                key={star}
+                                className="flex items-center gap-3"
+                              >
+                                <div className="flex items-center gap-1 w-8">
+                                  <span className="text-sm text-gray-600">
+                                    {star}
+                                  </span>
+                                  <IoStar
+                                    className="text-yellow-500"
+                                    size={12}
+                                  />
+                                </div>
+                                <div className="flex-1 bg-gray-200 rounded-full h-2">
+                                  <div
+                                    className="bg-yellow-400 h-2 rounded-full transition-all duration-300"
+                                    style={{
+                                      width: `${ratingBreakdown.percentages[star]}%`,
+                                    }}
+                                  ></div>
+                                </div>
+                                <div className="text-xs text-gray-500 w-8 text-right">
+                                  {ratingBreakdown.counts[star]}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Right Column - Review List */}
+                      <div className="col-span-12 lg:col-span-8">
+                        <div className="h-[600px] overflow-y-auto pr-2 space-y-6 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
+                          {Array.isArray(reviews) && reviews.length > 0 ? (
+                            reviews.map((rv, idx) => {
+                              // Get user information from multiple possible sources
+                              const reviewUser =
+                                rv.author || rv.user || rv.mentee;
+                              const userName =
+                                reviewUser?.fullName ||
+                                (reviewUser?.firstName && reviewUser?.lastName
+                                  ? `${reviewUser.firstName} ${reviewUser.lastName}`.trim()
+                                  : "") ||
+                                reviewUser?.userName ||
+                                reviewUser?.name ||
+                                reviewUser?.username ||
+                                "Anonymous Student";
+
+                              const avatar =
+                                reviewUser?.avatarUrl ||
+                                reviewUser?.avatar ||
+                                reviewUser?.photo ||
+                                reviewUser?.profilePicture ||
+                                `https://ui-avatars.com/api/?name=${encodeURIComponent(
+                                  userName
+                                )}&background=e1f5fe&color=0277bd&size=128`;
+
+                              // Determine review type and get specific details
+                              const isCourse = !!(
+                                rv.course ||
+                                rv.courseId ||
+                                rv.course_id ||
+                                rv.targetType === "Course"
+                              );
+                              const isBooking = !!(
+                                rv.booking ||
+                                rv.bookingId ||
+                                rv.booking_id ||
+                                rv.targetType === "Booking"
+                              );
+                              const isMentorReview =
+                                rv.targetType === "Mentor" ||
+                                (!isCourse && !isBooking);
+
+                              let reviewType = "General Mentor";
+                              let reviewTypeColor =
+                                "bg-purple-100 text-purple-800";
+                              let reviewDetails = "";
+
+                              if (isCourse) {
+                                reviewType = "Course Review";
+                                reviewTypeColor = "bg-blue-100 text-blue-800";
+                                reviewDetails =
+                                  rv.course?.title ||
+                                  rv.courseTitle ||
+                                  "Course review";
+                              } else if (isBooking) {
+                                reviewType = "Consultation Review";
+                                reviewTypeColor = "bg-green-100 text-green-800";
+                                reviewDetails =
+                                  rv.booking?.topic ||
+                                  rv.bookingTopic ||
+                                  "Consultation session";
+                              } else {
+                                reviewType = "Mentor Review";
+                                reviewTypeColor =
+                                  "bg-purple-100 text-purple-800";
+                                reviewDetails = "General mentor evaluation";
+                              }
+
+                              const rating = Number(rv.rate || rv.rating) || 0;
+                              const content =
+                                rv.comment ||
+                                rv.content ||
+                                rv.text ||
+                                rv.review ||
+                                "";
+
+                              const created =
+                                rv.createdAt ||
+                                rv.created_at ||
+                                rv.updatedAt ||
+                                rv.updated_at;
+                              const dateStr = created
+                                ? new Date(created).toLocaleDateString(
+                                    "en-US",
+                                    {
+                                      year: "numeric",
+                                      month: "short",
+                                      day: "numeric",
+                                    }
+                                  )
+                                : "";
+
+                              return (
+                                <div
+                                  key={rv._id || rv.id || idx}
+                                  className="border border-gray-200 rounded-xl p-6 bg-white shadow-sm hover:shadow-md transition-shadow"
+                                >
+                                  {/* Header with avatar and user info */}
+                                  <div className="flex items-start gap-4 mb-4">
+                                    <div className="w-12 h-12 rounded-full overflow-hidden bg-gray-200 flex-shrink-0 border-2 border-gray-100">
+                                      <img
+                                        src={avatar}
+                                        alt={userName}
+                                        className="w-full h-full object-cover"
+                                        onError={(e) => {
+                                          e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(
+                                            userName
+                                          )}&background=e1f5fe&color=0277bd&size=128`;
+                                        }}
+                                      />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex items-center justify-between mb-1">
+                                        <h4 className="font-semibold text-gray-900 truncate">
+                                          {userName}
+                                        </h4>
+                                        <span
+                                          className={`text-xs px-2 py-1 rounded-full font-medium ${reviewTypeColor}`}
+                                        >
+                                          {reviewType}
+                                        </span>
+                                      </div>
+                                      <div className="flex items-center gap-2">
+                                        <div className="flex items-center gap-1">
+                                          {renderStars(rating)}
+                                        </div>
+                                        <span className="text-sm font-medium text-gray-700">
+                                          {rating.toFixed(1)}
+                                        </span>
+                                        {dateStr && (
+                                          <span className="text-sm text-gray-500 ml-2">
+                                            • {dateStr}
+                                          </span>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  {/* Review subject/topic */}
+                                  <div className="mb-3">
+                                    <div className="text-sm font-medium text-gray-800 mb-1">
+                                      {isCourse && (
+                                        <span className="flex items-center gap-2">
+                                          <svg
+                                            className="w-4 h-4 text-blue-600"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            viewBox="0 0 24 24"
+                                          >
+                                            <path
+                                              strokeLinecap="round"
+                                              strokeLinejoin="round"
+                                              strokeWidth={2}
+                                              d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
+                                            />
+                                          </svg>
+                                          Course: {reviewDetails}
+                                        </span>
+                                      )}
+                                      {isBooking && (
+                                        <span className="flex items-center gap-2">
+                                          <svg
+                                            className="w-4 h-4 text-green-600"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            viewBox="0 0 24 24"
+                                          >
+                                            <path
+                                              strokeLinecap="round"
+                                              strokeLinejoin="round"
+                                              strokeWidth={2}
+                                              d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                                            />
+                                          </svg>
+                                          Consultation: {reviewDetails}
+                                        </span>
+                                      )}
+                                      {isMentorReview && (
+                                        <span className="flex items-center gap-2">
+                                          <svg
+                                            className="w-4 h-4 text-purple-600"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            viewBox="0 0 24 24"
+                                          >
+                                            <path
+                                              strokeLinecap="round"
+                                              strokeLinejoin="round"
+                                              strokeWidth={2}
+                                              d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                                            />
+                                          </svg>
+                                          Mentor: {reviewDetails}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+
+                                  {/* Review content */}
+                                  {content && (
+                                    <p className="text-gray-700 text-sm leading-relaxed mb-4 line-clamp-4">
+                                      "{content}"
+                                    </p>
+                                  )}
+                                  {isBooking && rv.booking && (
+                                    <div className="text-xs text-gray-500 bg-green-50 p-3 rounded-lg border-l-2 border-green-200">
+                                      <div className="font-medium text-green-800 mb-1">
+                                        Consultation Details:
+                                      </div>
+                                      <div>
+                                        💬 Topic:{" "}
+                                        {rv.booking.topic ||
+                                          "General consultation"}
+                                      </div>
+                                      {rv.booking.date && (
+                                        <div>
+                                          📅 Date:{" "}
+                                          {new Date(
+                                            rv.booking.date
+                                          ).toLocaleDateString()}
+                                        </div>
+                                      )}
+                                      {rv.booking.duration && (
+                                        <div>
+                                          ⏱️ Duration: {rv.booking.duration}{" "}
+                                          minutes
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })
+                          ) : (
+                            <div className="text-center py-12">
+                              <div className="text-gray-400 mb-2">
+                                <svg
+                                  className="w-16 h-16 mx-auto"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  viewBox="0 0 24 24"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={1}
+                                    d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                                  />
+                                </svg>
+                              </div>
+                              <p className="text-gray-500 text-lg">
+                                No reviews yet
+                              </p>
+                              <p className="text-gray-400 text-sm">
+                                Be the first to leave a review for this mentor!
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </>
+                  );
+                })()}
               </div>
             </div>
           </section>

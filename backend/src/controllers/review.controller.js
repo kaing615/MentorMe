@@ -628,6 +628,11 @@ export const getMyReviews = async (req, res) => {
                 mentorSpecialty: booking.mentor.skills
                   ? booking.mentor.skills.join(", ")
                   : "Consulting",
+                consultationDate: booking.date,
+                consultationTime:
+                  booking.start && booking.end
+                    ? `${booking.start} - ${booking.end}`
+                    : booking.start || null,
               };
             }
           } else if (item.targetType === "Mentor" && item.target) {

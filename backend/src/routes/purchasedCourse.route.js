@@ -18,6 +18,14 @@ router.use(tokenMiddleware.auth);
 router.get("/", purchasedCourseController.getPurchasedCourses);
 
 /**
+ * @route   GET /api/purchased-courses/mentees
+ * @desc    Lấy danh sách mentees của mentor (đã mua khóa học hoặc book tư vấn)
+ * @access  Private (mentor only)
+ * @returns {Object} mentees, total - Danh sách mentees với thông tin tương tác
+ */
+router.get("/mentees", purchasedCourseController.getMenteesOfMentor);
+
+/**
  * @route   GET /api/purchased-courses/check/:courseId
  * @desc    Kiểm tra xem user đã mua khóa học này chưa
  * @access  Private
@@ -50,6 +58,18 @@ router.post(
   "/purchase-success",
   validateBody(userValidation.purchaseSuccessSchema),
   purchasedCourseController.handlePurchaseSuccess
+);
+
+/**
+ * @route   DELETE /api/purchased-courses/:purchasedCourseId
+ * @desc    Xóa purchased course của user (xóa cả PurchasedCourse record và Course.mentees)
+ * @access  Private
+ * @params {String} purchasedCourseId - ID của purchased course cần xóa
+ * @returns {Object} message, deletedPurchasedCourseId, courseId
+ */
+router.delete(
+  "/:purchasedCourseId",
+  purchasedCourseController.deletePurchasedCourse
 );
 
 export default router;

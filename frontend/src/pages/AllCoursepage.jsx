@@ -72,41 +72,10 @@ const AllCoursePage = () => {
 
   // Helper function to check if course is already purchased
   const isCourseAlreadyPurchased = (courseId) => {
-    // First check API-based purchasedCoursesMap
-    if (purchasedCoursesMap.has(courseId)) {
-      return true;
-    }
-
-    // Then check localStorage for immediate feedback and fallback
-    const userStr = localStorage.getItem("user");
-    let currentUserId = null;
-    try {
-      const user = userStr ? JSON.parse(userStr) : null;
-      currentUserId = user?.id || user?._id;
-    } catch (e) {
-      // Ignore parse errors
-    }
-
-    const mockKey = currentUserId
-      ? `mockPurchasedCourses_${currentUserId}`
-      : "mockPurchasedCourses";
-    const mockPurchasedCourses = localStorage.getItem(mockKey);
-
-    if (mockPurchasedCourses) {
-      try {
-        const purchasedCourses = JSON.parse(mockPurchasedCourses);
-        return purchasedCourses.some(
-          (purchased) =>
-            (purchased.course?._id ||
-              purchased.course?.id ||
-              purchased.courseId) === courseId
-        );
-      } catch (error) {
-        console.error("Error parsing purchased courses:", error);
-        return false;
-      }
-    }
-    return false;
+    // Check from API-based purchasedCoursesMap (Course.mentees array check)
+    return (
+      purchasedCoursesMap.has(courseId) && purchasedCoursesMap.get(courseId)
+    );
   };
 
   // ⭐ NEW: Helper function để lấy purchasedCourseId nếu course đã được mua
@@ -341,52 +310,49 @@ const AllCoursePage = () => {
       }
     };
 
+    fetchCourses();
+  }, [user, dispatch]);
+
+  // Separate useEffect for checking purchase status when courses load
+  useEffect(() => {
     const fetchPurchasedCourses = async () => {
       // ⭐ Chỉ fetch purchased courses nếu user là mentee
       if (!user || user.role !== "mentee") {
         return;
       }
 
-      try {
-        console.log("🔍 Fetching purchased courses for mapping...");
+      // Check purchase status for displayed courses
+      if (courses.length > 0) {
+        const statusMap = new Map();
 
-        const { response, error } =
-          await purchasedCourseApi.getPurchasedCourses(dispatch);
-
-        if (!error && response?.data?.courses) {
-          const purchasedCourses = response.data.courses;
-
-          // Tạo Map: courseId -> purchasedCourseId
-          const courseMap = new Map();
-          purchasedCourses.forEach((item) => {
-            const courseId = item.courseId || item.courseInfo?._id;
-            const purchasedCourseId = item.purchasedCourseId;
-
-            if (courseId && purchasedCourseId) {
-              courseMap.set(courseId, purchasedCourseId);
-              console.log(
-                `📋 Mapped courseId ${courseId} -> purchasedCourseId ${purchasedCourseId}`
-              );
+        await Promise.all(
+          courses.map(async (course) => {
+            const courseId = course._id || course.id || course.courseId;
+            if (courseId) {
+              try {
+                const { response, error } = await courseApi.checkPurchaseStatus(
+                  courseId
+                );
+                if (response?.data?.isPurchased) {
+                  statusMap.set(courseId, true);
+                }
+              } catch (error) {
+                console.error(
+                  `Error checking purchase status for course ${courseId}:`,
+                  error
+                );
+              }
             }
-          });
+          })
+        );
 
-          setPurchasedCoursesMap(courseMap);
-          console.log(
-            "🗺️ Purchased courses mapping created:",
-            courseMap.size,
-            "entries"
-          );
-        } else {
-          console.log("ℹ️ No purchased courses found or API error");
-        }
-      } catch (err) {
-        console.warn("⚠️ Failed to fetch purchased courses for mapping:", err);
+        setPurchasedCoursesMap(statusMap);
+        console.log("Purchase status checked for", statusMap.size, "courses");
       }
     };
 
-    fetchCourses();
     fetchPurchasedCourses();
-  }, [user, dispatch]);
+  }, [user, courses]); // Depend on courses to check when they are loaded
 
   // Dynamic filter options based on actual course data
   const categoryOptions = React.useMemo(() => {

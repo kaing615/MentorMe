@@ -59,6 +59,8 @@ const CourseDetail = () => {
   const [error, setError] = useState(null);
   const [isAddingToCart, setIsAddingToCart] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
+  // State để lưu purchased courses status
+  const [purchasedCoursesMap, setPurchasedCoursesMap] = useState(new Map());
 
   // Get current user info
   useEffect(() => {
@@ -175,39 +177,54 @@ const CourseDetail = () => {
     };
   }, []);
 
+  // Fetch purchased courses for smart navigation
+  useEffect(() => {
+    const fetchPurchasedCourses = async () => {
+      if (!currentUser || currentUser.role !== "mentee") return;
+
+      // Check purchase status for main course and related courses
+      const allCourses = [];
+      if (courseData) allCourses.push(courseData);
+      if (relatedCourses.length > 0) allCourses.push(...relatedCourses);
+
+      if (allCourses.length > 0) {
+        const statusMap = new Map();
+
+        await Promise.all(
+          allCourses.map(async (course) => {
+            const courseId = course._id || course.id || course.courseId;
+            if (courseId) {
+              try {
+                const { response } = await courseApi.checkPurchaseStatus(
+                  courseId
+                );
+                const isPurchased = response?.data?.isPurchased || false;
+                statusMap.set(courseId, isPurchased);
+              } catch (error) {
+                console.error(
+                  `Error checking purchase status for course ${courseId}:`,
+                  error
+                );
+                statusMap.set(courseId, false);
+              }
+            }
+          })
+        );
+
+        setPurchasedCoursesMap(statusMap);
+        console.log("Purchase status checked for", statusMap.size, "courses");
+      }
+    };
+
+    fetchPurchasedCourses();
+  }, [currentUser, courseData, relatedCourses]); // Depend on currentUser, courseData, and relatedCourses
+
   // Helper function to check if course is already purchased
   const isCourseAlreadyPurchased = (courseId) => {
-    const userStr = localStorage.getItem("user");
-    let currentUserId = null;
-    try {
-      const user = userStr ? JSON.parse(userStr) : null;
-      currentUserId = user?.id || user?._id;
-    } catch (e) {
-      return false;
-    }
-
-    const mockKey = currentUserId
-      ? `mockPurchasedCourses_${currentUserId}`
-      : "mockPurchasedCourses";
-    const mockPurchasedCourses = localStorage.getItem(mockKey);
-
-    if (mockPurchasedCourses) {
-      try {
-        const purchasedCourses = JSON.parse(mockPurchasedCourses);
-        return purchasedCourses.some((purchased) => {
-          const purchasedCourseId =
-            purchased.course?._id ||
-            purchased.course?.id ||
-            purchased.courseId ||
-            purchased.courseInfo?._id;
-          return purchasedCourseId === courseId;
-        });
-      } catch (error) {
-        console.error("Error parsing purchased courses:", error);
-        return false;
-      }
-    }
-    return false;
+    // Check from API-based purchasedCoursesMap (Course.mentees array check)
+    return (
+      purchasedCoursesMap.has(courseId) && purchasedCoursesMap.get(courseId)
+    );
   };
 
   // Handle Add to Cart (for both main course and related courses)

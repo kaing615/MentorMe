@@ -4,7 +4,6 @@ import { useDispatch, useSelector } from "react-redux";
 import { IoStarOutline, IoStar } from "react-icons/io5";
 import { useNavigate } from "react-router-dom";
 
-import minatoImg from "../assets/minato.webp";
 import oipImg from "../assets/OIP.webp";
 import GradImg from "../assets/grad.png";
 import NiggaImg from "../assets/nigga.png";
@@ -20,6 +19,7 @@ import courseApi from "../api/modules/course.api.js";
 import profileApi from "../api/modules/profile.api.js";
 import cartApi from "../api/modules/cart.api.js";
 import purchasedCourseApi from "../api/modules/purchasedCourse.api.js";
+import reviewApi from "../api/modules/review.api.js";
 import { toast } from "react-toastify";
 
 const categories = [
@@ -161,19 +161,40 @@ const fallbackMentors = [
 
 const testimonials = [
   {
-    name: "Jane Doe",
+    name: "Sarah Johnson",
     text: "MentorMe is a game-changer! I love how easy it is to connect with real mentors who actually get what I'm going through. Every session feels super chill, helpful, and way more personal than any course I've tried. Big fan!",
-    avatar: minatoImg,
+    avatar:
+      "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=100&h=100&fit=crop&crop=face&auto=format",
   },
   {
-    name: "Jane Doe",
-    text: "MentorMe is a game-changer! I love how easy it is to connect with real mentors who actually get what I'm going through. Every session feels super chill, helpful, and way more personal than any course I've tried. Big fan!",
-    avatar: minatoImg,
+    name: "Michael Chen",
+    text: "The mentors on this platform are incredibly knowledgeable and patient. I've learned more in 3 months than I did in years of self-study. The personalized guidance made all the difference in my career transition.",
+    avatar:
+      "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop&crop=face&auto=format",
   },
   {
-    name: "Jane Doe",
-    text: "MentorMe is a game-changer! I love how easy it is to connect with real mentors who actually get what I'm going through. Every session feels super chill, helpful, and way more personal than any course I've tried. Big fan!",
-    avatar: minatoImg,
+    name: "Emily Rodriguez",
+    text: "As a working mom, I needed flexible learning options. MentorMe's one-on-one sessions fit perfectly into my schedule. My mentor understood my challenges and helped me build confidence in my skills.",
+    avatar:
+      "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&h=100&fit=crop&crop=face&auto=format",
+  },
+  {
+    name: "David Kim",
+    text: "I was skeptical about online mentoring, but MentorMe proved me wrong. The quality of mentorship is outstanding, and the platform makes it so easy to book sessions and track progress. Highly recommend!",
+    avatar:
+      "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop&crop=face&auto=format",
+  },
+  {
+    name: "Lisa Thompson",
+    text: "The variety of mentors available is amazing! I found experts in exactly the niche I needed help with. The booking system is seamless and the session quality is consistently excellent.",
+    avatar:
+      "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&h=100&fit=crop&crop=face&auto=format",
+  },
+  {
+    name: "James Wilson",
+    text: "MentorMe has accelerated my professional growth tremendously. My mentor provided insights I couldn't get anywhere else. The platform is intuitive and the community is supportive.",
+    avatar:
+      "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&h=100&fit=crop&crop=face&auto=format",
   },
 ];
 
@@ -231,6 +252,7 @@ const HomeScreen = () => {
   const [coursesLoading, setCoursesLoading] = useState(false);
   const [topMentors, setTopMentors] = useState([]);
   const [mentorsLoading, setMentorsLoading] = useState(false);
+  // State để lưu purchased courses status
   const [purchasedCoursesMap, setPurchasedCoursesMap] = useState(new Map());
 
   const coursesRef = useRef(null);
@@ -241,48 +263,57 @@ const HomeScreen = () => {
   const dragCourses = useHorizontalScrollBlockSwipe();
   const dragMentors = useHorizontalScrollBlockSwipe();
 
+  const computeMentorStats = async (mentorId) => {
+    // 1) Lấy toàn bộ khóa học của mentor để suy ra mentee (unique)
+    let menteeSet = new Set();
+    try {
+      const coursesRes = await courseApi.getCoursesByMentor(mentorId);
+      const courses = Array.isArray(coursesRes) ? coursesRes : [];
+      courses.forEach((c) => {
+        if (Array.isArray(c?.mentees)) {
+          c.mentees.forEach((m) => {
+            const id = typeof m === "string" ? m : m?._id || m?.id;
+            if (id) menteeSet.add(id);
+          });
+        }
+      });
+    } catch (_) {}
+
+    // 2) Lấy reviews (course + booking) rồi tính trung bình
+    let allReviews = [];
+    try {
+      const { response: cr } = await reviewApi.getMentorCourseReviews(mentorId);
+      const courseReviews = cr?.data?.items || [];
+      allReviews = allReviews.concat(courseReviews);
+    } catch (_) {}
+    try {
+      const { response: br } = await reviewApi.getBookingReviews(mentorId);
+      const bookingReviews = br?.data?.items || [];
+      allReviews = allReviews.concat(bookingReviews);
+    } catch (_) {}
+
+    const totalReviews = allReviews.length;
+    const averageRating = totalReviews
+      ? Math.round(
+          (allReviews.reduce((s, r) => s + (Number(r.rate) || 0), 0) /
+            totalReviews) *
+            10
+        ) / 10
+      : 0;
+
+    return {
+      totalMentees: menteeSet.size,
+      totalReviews,
+      averageRating,
+    };
+  };
+
   // Helper function to check if course is already purchased
   const isCourseAlreadyPurchased = (courseId) => {
-    // First check API-based purchasedCoursesMap
-    if (purchasedCoursesMap.has(courseId)) {
-      return true;
-    }
-
-    // Then check localStorage for immediate feedback and fallback
-    const userStr = localStorage.getItem("user");
-    let currentUserId = null;
-    try {
-      const user = userStr ? JSON.parse(userStr) : null;
-      currentUserId = user?.id || user?._id;
-    } catch (e) {
-      console.warn("Error parsing user:", e);
-    }
-
-    const mockKey = currentUserId
-      ? `mockPurchasedCourses_${currentUserId}`
-      : "mockPurchasedCourses";
-    const mockPurchasedCourses = localStorage.getItem(mockKey);
-
-    if (mockPurchasedCourses) {
-      try {
-        const purchasedCourses = JSON.parse(mockPurchasedCourses);
-
-        const isPurchased = purchasedCourses.some((purchased) => {
-          const purchasedCourseId =
-            purchased.course?._id ||
-            purchased.course?.id ||
-            purchased.courseId ||
-            purchased.courseInfo?._id;
-          return purchasedCourseId === courseId;
-        });
-
-        return isPurchased;
-      } catch (error) {
-        console.error("Error parsing purchased courses:", error);
-        return false;
-      }
-    }
-    return false;
+    // Check from API-based purchasedCoursesMap (Course.mentees array check)
+    return (
+      purchasedCoursesMap.has(courseId) && purchasedCoursesMap.get(courseId)
+    );
   };
 
   // Helper function to get purchased course ID if it exists
@@ -540,12 +571,23 @@ const HomeScreen = () => {
       setMentorsLoading(true);
       try {
         const response = await profileApi.getTopMentors(6);
-
-        if (response && response.data?.mentors) {
-          setTopMentors(response.data.mentors);
-        } else {
-          setTopMentors(fallbackMentors);
-        }
+        const raw = response?.data?.mentors || fallbackMentors;
+        // Enrich mỗi mentor với stats
+        const enriched = await Promise.all(
+          raw.map(async (m) => {
+            const mentorId = m?._id || m?.id || m?.user?._id || m?.user?.id;
+            if (!mentorId)
+              return {
+                ...m,
+                averageRating: 0,
+                totalReviews: 0,
+                totalMentees: 0,
+              };
+            const stats = await computeMentorStats(mentorId);
+            return { ...m, ...stats };
+          })
+        );
+        setTopMentors(enriched);
       } catch (error) {
         console.error("Error fetching top mentors:", error);
         setTopMentors(fallbackMentors);
@@ -561,32 +603,38 @@ const HomeScreen = () => {
     const fetchPurchasedCourses = async () => {
       if (!user || user.role !== "mentee") return;
 
-      try {
-        const { response, err } =
-          await purchasedCourseApi.getPurchasedCourses();
-        if (response?.data?.purchasedCourses) {
-          const coursesMap = new Map();
-          response.data.purchasedCourses.forEach((purchasedCourse) => {
-            const courseId =
-              purchasedCourse.course?._id ||
-              purchasedCourse.course?.id ||
-              purchasedCourse.courseId ||
-              purchasedCourse.courseInfo?._id;
-            const purchasedCourseId = purchasedCourse._id || purchasedCourse.id;
+      // Check purchase status for displayed courses
+      if (topCourses.length > 0) {
+        const statusMap = new Map();
 
-            if (courseId && purchasedCourseId) {
-              coursesMap.set(courseId, purchasedCourseId);
+        await Promise.all(
+          topCourses.map(async (course) => {
+            const courseId = course._id || course.id || course.courseId;
+            if (courseId) {
+              try {
+                const { response, error } = await courseApi.checkPurchaseStatus(
+                  courseId
+                );
+                if (response?.data?.isPurchased) {
+                  statusMap.set(courseId, true);
+                }
+              } catch (error) {
+                console.error(
+                  `Error checking purchase status for course ${courseId}:`,
+                  error
+                );
+              }
             }
-          });
-          setPurchasedCoursesMap(coursesMap);
-        }
-      } catch (error) {
-        console.error("Error fetching purchased courses:", error);
+          })
+        );
+
+        setPurchasedCoursesMap(statusMap);
+        console.log("Purchase status checked for", statusMap.size, "courses");
       }
     };
 
     fetchPurchasedCourses();
-  }, [user]);
+  }, [user, topCourses]); // Depend on topCourses to check when courses are loaded
 
   const renderStars = (rating = 0) => {
     const stars = [];
@@ -1190,28 +1238,54 @@ const HomeScreen = () => {
                             {mentor.jobTitle || "Professional"}
                           </div>
                           <div className="text-xs text-[#6B7280] mb-3 text-center">
-                            {(mentor.category || "General")
-                              .charAt(0)
-                              .toUpperCase() +
-                              (mentor.category || "General")
-                                .slice(1)
-                                .toLowerCase()}
+                            {(() => {
+                              let category = mentor.category || "General";
+
+                              // If it's an array, take the first element
+                              if (Array.isArray(category)) {
+                                category = category[0] || "General";
+                              }
+
+                              // If it's a string with commas, take the first part
+                              if (
+                                typeof category === "string" &&
+                                category.includes(",")
+                              ) {
+                                category = category.split(",")[0].trim();
+                              }
+
+                              return (
+                                category.charAt(0).toUpperCase() +
+                                category.slice(1).toLowerCase()
+                              );
+                            })()}
                           </div>
-                          <div className="flex items-center justify-center gap-4 w-full mb-4">
-                            <div className="flex items-center gap-1">
-                              <span className="text-[#F59E1B] text-lg">★</span>
-                              <span className="text-[#1A2233] font-semibold text-base">
-                                {mentor.averageRating
-                                  ? mentor.averageRating.toFixed(1)
-                                  : "4.5"}
+                          <div className="flex items-center justify-between w-full mb-4">
+                            <div className="flex items-center gap-2 px-3 py-2 bg-yellow-50 rounded-full">
+                              <svg
+                                className="w-4 h-4 text-yellow-500"
+                                fill="currentColor"
+                                viewBox="0 0 20 20"
+                              >
+                                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                              </svg>
+                              <span className="text-sm font-bold text-yellow-700">
+                                {(mentor.averageRating ?? 0).toFixed(1)}
                               </span>
                             </div>
-                            <div className="flex items-center gap-1">
-                              <span className="text-[#6B7280] text-base">
-                                {mentor.totalStudents
-                                  ? mentor.totalStudents.toLocaleString()
-                                  : "1000"}{" "}
-                                Students
+                            <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 rounded-full">
+                              <svg
+                                className="w-4 h-4 text-blue-600"
+                                fill="currentColor"
+                                viewBox="0 0 20 20"
+                              >
+                                <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3z" />
+                              </svg>
+                              <span className="text-sm font-medium text-blue-800">
+                                {mentor.totalMentees ?? 0}
+                              </span>
+                              <span className="text-xs text-blue-600">
+                                students
                               </span>
                             </div>
                           </div>

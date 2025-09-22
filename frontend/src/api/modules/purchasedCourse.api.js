@@ -77,18 +77,16 @@ const purchasedCourseApi = {
     }
   },
 
-  // TODO: Implement this API endpoint in the backend
-  // getMenteesByMentor: async (mentorId, dispatch) => {
-  //   try {
-  //     const privateClient = createPrivateClient(dispatch);
-  //     const response = await privateClient.get(
-  //       `/purchased-courses/mentor/${mentorId}/mentees`
-  //     );
-  //     return ok(response);
-  //   } catch (e) {
-  //     return fail(e);
-  //   }
-  // },
+  // Lấy danh sách mentees của mentor (đã mua khóa học hoặc book tư vấn)
+  getMenteesOfMentor: async (dispatch) => {
+    try {
+      const privateClient = createPrivateClient(dispatch);
+      const response = await privateClient.get("/purchased-courses/mentees");
+      return ok(response);
+    } catch (e) {
+      return fail(e);
+    }
+  },
 };
 
 export default purchasedCourseApi;

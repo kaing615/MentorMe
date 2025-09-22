@@ -348,9 +348,187 @@ const handlePurchaseSuccess = async (req, res) => {
   }
 };
 
+/**
+ * @desc Lấy danh sách mentees của mentor (người đã mua khóa học hoặc book tư vấn)
+ * @route GET /api/purchased-courses/mentees
+ * @access Private (chỉ mentor)
+ */
+const getMenteesOfMentor = async (req, res) => {
+  try {
+    const mentorId = req.user.id || req.user._id;
+
+    console.log("Getting mentees for mentor:", mentorId);
+
+    // 1. Lấy mentees từ purchased courses
+    const coursePurchases = await PurchasedCourse.find()
+      .populate({
+        path: "course",
+        match: { mentor: mentorId },
+        select: "title mentor",
+      })
+      .populate({
+        path: "mentee",
+        select: "firstName lastName email avatarUrl",
+      })
+      .populate({
+        path: "order",
+        select: "createdAt",
+      });
+
+    // Filter out records where course is null (not mentor's course)
+    const validCoursePurchases = coursePurchases.filter(
+      (purchase) => purchase.course !== null
+    );
+
+    // 2. Lấy mentees từ bookings (import Booking model ở đầu file)
+    const { default: Booking } = await import("../models/booking.model.js");
+
+    const bookings = await Booking.find({ mentor: mentorId })
+      .populate({
+        path: "mentee",
+        select: "firstName lastName email avatarUrl",
+      })
+      .select("mentee createdAt status");
+
+    // 3. Gộp và deduplicate mentees
+    const menteesMap = new Map();
+
+    // Add mentees from course purchases
+    validCoursePurchases.forEach((purchase) => {
+      if (purchase.mentee) {
+        const menteeId = purchase.mentee._id.toString();
+        const existingMentee = menteesMap.get(menteeId);
+
+        if (existingMentee) {
+          existingMentee.hasCoursePurchase = true;
+          existingMentee.courseCount = (existingMentee.courseCount || 0) + 1;
+        } else {
+          menteesMap.set(menteeId, {
+            _id: purchase.mentee._id,
+            firstName: purchase.mentee.firstName,
+            lastName: purchase.mentee.lastName,
+            email: purchase.mentee.email,
+            avatarUrl: purchase.mentee.avatarUrl,
+            hasCoursePurchase: true,
+            hasBooking: false,
+            courseCount: 1,
+            bookingCount: 0,
+            latestInteraction:
+              purchase.order?.createdAt || purchase.purchaseDate,
+          });
+        }
+      }
+    });
+
+    // Add mentees from bookings
+    bookings.forEach((booking) => {
+      if (booking.mentee) {
+        const menteeId = booking.mentee._id.toString();
+        const existingMentee = menteesMap.get(menteeId);
+
+        if (existingMentee) {
+          existingMentee.hasBooking = true;
+          existingMentee.bookingCount = (existingMentee.bookingCount || 0) + 1;
+          // Update latest interaction if booking is newer
+          if (booking.createdAt > existingMentee.latestInteraction) {
+            existingMentee.latestInteraction = booking.createdAt;
+          }
+        } else {
+          menteesMap.set(menteeId, {
+            _id: booking.mentee._id,
+            firstName: booking.mentee.firstName,
+            lastName: booking.mentee.lastName,
+            email: booking.mentee.email,
+            avatarUrl: booking.mentee.avatarUrl,
+            hasCoursePurchase: false,
+            hasBooking: true,
+            courseCount: 0,
+            bookingCount: 1,
+            latestInteraction: booking.createdAt,
+          });
+        }
+      }
+    });
+
+    // Convert map to array and sort by latest interaction
+    const mentees = Array.from(menteesMap.values()).sort(
+      (a, b) => new Date(b.latestInteraction) - new Date(a.latestInteraction)
+    );
+
+    console.log(
+      `Found ${mentees.length} unique mentees for mentor ${mentorId}`
+    );
+
+    return responseHandler.ok(res, {
+      mentees,
+      total: mentees.length,
+    });
+  } catch (err) {
+    console.error("Lỗi lấy danh sách mentees:", err);
+    return responseHandler.error(res);
+  }
+};
+
+/**
+ * @desc Xóa purchased course của user (xóa cả PurchasedCourse record và Course.mentees)
+ * @route DELETE /api/purchased-courses/:purchasedCourseId
+ * @access Private
+ */
+const deletePurchasedCourse = async (req, res) => {
+  try {
+    const { purchasedCourseId } = req.params;
+    const userId = req.user.id || req.user._id;
+
+    console.log(
+      "Deleting purchased course:",
+      purchasedCourseId,
+      "for user:",
+      userId
+    );
+
+    // Tìm purchased course record
+    const purchasedCourse = await PurchasedCourse.findOne({
+      _id: purchasedCourseId,
+      mentee: userId, // Đảm bảo chỉ user sở hữu mới có thể xóa
+    });
+
+    if (!purchasedCourse) {
+      return responseHandler.notFound(
+        res,
+        "Purchased course not found or you don't have permission."
+      );
+    }
+
+    const courseId = purchasedCourse.course;
+
+    // 1. Xóa PurchasedCourse record
+    await PurchasedCourse.findByIdAndDelete(purchasedCourseId);
+    console.log("Deleted PurchasedCourse record:", purchasedCourseId);
+
+    // 2. Xóa user khỏi Course.mentees array (legacy cleanup)
+    await Course.findByIdAndUpdate(
+      courseId,
+      { $pull: { mentees: userId } },
+      { new: true }
+    );
+    console.log("Removed user from Course.mentees array for course:", courseId);
+
+    return responseHandler.ok(res, {
+      message: "Purchased course deleted successfully.",
+      deletedPurchasedCourseId: purchasedCourseId,
+      courseId: courseId,
+    });
+  } catch (err) {
+    console.error("Error deleting purchased course:", err);
+    return responseHandler.error(res, "Lỗi server khi xóa purchased course.");
+  }
+};
+
 export default {
   getPurchasedCourses,
   getPurchasedCourseById,
   checkCoursePurchase,
   handlePurchaseSuccess,
+  getMenteesOfMentor,
+  deletePurchasedCourse,
 };

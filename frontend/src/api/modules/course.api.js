@@ -31,7 +31,20 @@ const ok = (response) => ({ response });
 const fail = (error) => ({ error, err: error });
 
 const courseApi = {
-  // ===== LIST & DETAIL =====
+  // ===== CHECK PURCHASE STATUS =====
+  checkPurchaseStatus: async (courseId, dispatch) => {
+    try {
+      const privateClient = createPrivateClient(dispatch);
+      const response = await privateClient.get(
+        `/course/${courseId}/purchase-status`
+      );
+      return ok(response);
+    } catch (e) {
+      return fail(e);
+    }
+  },
+
+  // ===== FORM DATA BUILDER =====
   getList: async (params = {}) => {
     try {
       const response = await publicClient.get(ep.list, { params });

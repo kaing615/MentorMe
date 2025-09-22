@@ -9,6 +9,7 @@ import profileApi from "../api/modules/profile.api";
 import availabilityApi from "../api/modules/availability.api";
 import bookingApi from "../api/modules/booking.api";
 import reviewApi from "../api/modules/review.api";
+import purchasedCourseApi from "../api/modules/purchasedCourse.api";
 import { FaFacebook } from "react-icons/fa6";
 import { FaXTwitter } from "react-icons/fa6";
 import { FaLinkedin } from "react-icons/fa";
@@ -410,6 +411,14 @@ const MentorProfile = () => {
   const [reviewCurrentPage, setReviewCurrentPage] = useState(1);
   const reviewsPerPage = 6;
 
+  // Schedule pagination state
+  const [scheduleCurrentPage, setScheduleCurrentPage] = useState(1);
+  const schedulesPerPage = 4;
+
+  // Response pagination state
+  const [responseCurrentPage, setResponseCurrentPage] = useState(1);
+  const responsesPerPage = 6;
+
   // Schedule management state
   const [scheduleMode, setScheduleMode] = useState("list"); // 'list' | 'builder' | 'review'
   const [schedules, setSchedules] = useState([]);
@@ -419,6 +428,11 @@ const MentorProfile = () => {
   const [availabilityLoading, setAvailabilityLoading] = useState(false);
   const [mySchedules, setMySchedules] = useState(null);
   const [mySchedulesLoading, setMySchedulesLoading] = useState(false);
+
+  // States for expandable UI elements
+  const [expandedTags, setExpandedTags] = useState({}); // Track expanded tags per course
+  const [expandedLanguages, setExpandedLanguages] = useState({}); // Track expanded languages per course
+  const [expandedSlots, setExpandedSlots] = useState({}); // Track expanded slots per schedule
 
   // Load availability overview when component mounts or tab changes to schedule
   useEffect(() => {
@@ -614,11 +628,6 @@ const MentorProfile = () => {
 
         // Log if any schedules were removed
         const removedCount = prevSchedules.length - activeSchedules.length;
-        if (removedCount > 0) {
-          console.log(
-            `Automatically removed ${removedCount} expired schedule(s)`
-          );
-        }
 
         return activeSchedules;
       });
@@ -662,12 +671,16 @@ const MentorProfile = () => {
     }
   }, [activeTab]);
 
+  // Reset response pagination when filter changes
+  useEffect(() => {
+    setResponseCurrentPage(1);
+  }, [bookingFilter]);
+
   const loadMentorBookings = async () => {
     setBookingsLoading(true);
     try {
       const { response, error } = await bookingApi.getMentorBookings();
       if (error) {
-        console.error("Error loading mentor bookings:", error);
         toast.error("Không thể tải danh sách booking");
         setBookings([]);
       } else if (response && response.data) {
@@ -693,7 +706,6 @@ const MentorProfile = () => {
         setBookings(transformedBookings);
       }
     } catch (err) {
-      console.error("Error in loadMentorBookings:", err);
       toast.error("Lỗi khi tải danh sách booking");
       setBookings([]);
     } finally {
@@ -721,8 +733,6 @@ const MentorProfile = () => {
     try {
       const { response, error } = await bookingApi.confirmBooking(bookingId);
       if (error) {
-        console.error("Error accepting booking:", error);
-
         // Extract error message from various error formats
         let errorMessage = "";
         if (error.response?.data?.message) {
@@ -809,8 +819,6 @@ const MentorProfile = () => {
 
       toast.success("Đã chấp nhận booking thành công!");
     } catch (err) {
-      console.error("Error in handleAcceptBooking:", err);
-
       // Check if error is related to expired booking
       let errorMessage = "Lỗi khi chấp nhận booking";
       if (err.response?.data?.message) {
@@ -845,7 +853,6 @@ const MentorProfile = () => {
         reason
       );
       if (error) {
-        console.error("Error declining booking:", error);
         toast.error("Không thể từ chối booking");
         return;
       }
@@ -909,13 +916,10 @@ const MentorProfile = () => {
 
   const handleDeleteSchedule = async (scheduleId) => {
     try {
-      console.log(`Deleting schedule ${scheduleId}`);
-
       const { response, error } = await availabilityApi.deleteAvailability(
         scheduleId
       );
       if (error) {
-        console.error("Error deleting schedule:", error);
         toast.error("Không thể xóa lịch trình");
         return;
       }
@@ -951,13 +955,26 @@ const MentorProfile = () => {
 
       toast.success("Đã xóa lịch trình thành công!");
     } catch (err) {
-      console.error("Error in handleDeleteSchedule:", err);
       toast.error("Lỗi khi xóa lịch trình");
     }
   };
 
   // Open delete confirmation modal
   const openDeleteConfirmModal = (schedule) => {
+    // Double check if schedule can be deleted
+    if (!canDeleteSchedule(schedule)) {
+      if (isPast(schedule.date)) {
+        toast.error("Cannot delete past schedules");
+      } else if ((schedule.bookedSlots || 0) > 0) {
+        toast.error(
+          "Cannot delete schedule with active bookings. Please cancel all bookings first."
+        );
+      } else {
+        toast.error("This schedule cannot be deleted");
+      }
+      return;
+    }
+
     const dayOfWeekEn = new Date(schedule.date).toLocaleDateString("en-US", {
       weekday: "long",
     });
@@ -971,6 +988,9 @@ const MentorProfile = () => {
       isOpen: true,
       scheduleId: schedule._id,
       scheduleName: `${dayOfWeekEn} - ${dateEn}`,
+      hasBookings: (schedule.bookedSlots || 0) > 0,
+      totalSlots: schedule.totalSlots || 0,
+      bookedSlots: schedule.bookedSlots || 0,
     });
   };
 
@@ -1031,8 +1051,10 @@ const MentorProfile = () => {
   // No mock data, empty courses array
   const [allCourses, setAllCourses] = useState([]);
 
-  // Real mentees data - TODO: Replace with API data
-  const [allMentees] = useState([]);
+  // Real mentees data from API
+  const [allMentees, setAllMentees] = useState([]);
+  const [menteesLoading, setMenteesLoading] = useState(false);
+  const [menteesError, setMenteesError] = useState(null);
 
   // Real conversations data - TODO: Replace with API data
   const [conversations] = useState([]);
@@ -1099,10 +1121,7 @@ const MentorProfile = () => {
       try {
         const user = userStr ? JSON.parse(userStr) : null;
         mentorId = user?.id || user?._id;
-        console.log("👤 Current user:", user);
-        console.log("🆔 Mentor ID:", mentorId);
       } catch (e) {
-        console.error("Error parsing user data:", e);
         setReviewsError("Unable to get user information");
         setAllReviews([]);
         setReviewsLoading(false);
@@ -1117,22 +1136,15 @@ const MentorProfile = () => {
       }
 
       // Test: Try to get courses first
-      console.log("🔍 Testing: Getting courses for mentor:", mentorId);
       const testCourses = await courseApi.getCoursesByMentor(mentorId);
-      console.log("📚 Test courses result:", testCourses);
 
       // Get reviews from two sources: courses and bookings
-      console.log("🔍 Getting course reviews for mentor:", mentorId);
       const courseReviewsResult = await reviewApi.getMentorCourseReviews(
         mentorId
       );
-      console.log("📚 Course reviews result:", courseReviewsResult);
-
-      console.log("🔍 Getting booking reviews for mentor:", mentorId);
 
       // Use the new getBookingReviews API to get all booking reviews for this mentor
       const bookingReviewsResult = await reviewApi.getBookingReviews(mentorId);
-      console.log("� Booking reviews result:", bookingReviewsResult);
 
       let allReviewsData = [];
 
@@ -1143,10 +1155,6 @@ const MentorProfile = () => {
 
       // Process booking reviews
       if (bookingReviewsResult.response?.data?.items) {
-        console.log(
-          "� All booking reviews for this mentor:",
-          bookingReviewsResult.response.data.items
-        );
         allReviewsData = [
           ...allReviewsData,
           ...bookingReviewsResult.response.data.items,
@@ -1154,16 +1162,10 @@ const MentorProfile = () => {
       }
 
       // Get direct mentor reviews using the new API
-      console.log("🔍 Getting direct mentor reviews for mentor:", mentorId);
       const mentorReviewsResult = await reviewApi.getMentorReviews(mentorId);
-      console.log("👨‍🏫 Mentor reviews result:", mentorReviewsResult);
 
       // Process direct mentor reviews
       if (mentorReviewsResult.response?.data?.items) {
-        console.log(
-          "👨‍🏫 All direct mentor reviews:",
-          mentorReviewsResult.response.data.items
-        );
         // Set separate state for mentor reviews
         setMentorReviews(mentorReviewsResult.response.data.items);
         // Also add to combined reviews data
@@ -1179,19 +1181,9 @@ const MentorProfile = () => {
       const mentorBookingsResult = await bookingApi.getMentorBookings();
       if (mentorBookingsResult.response?.data) {
         setMentorBookings(mentorBookingsResult.response.data);
-        console.log(
-          "💾 Cached mentor bookings:",
-          mentorBookingsResult.response.data
-        );
       }
 
-      console.log("✅ Combined reviews data:", allReviewsData);
-
       if (courseReviewsResult.error) {
-        console.error(
-          "Course reviews API call failed:",
-          courseReviewsResult.error
-        );
         setReviewsError("Failed to load course reviews");
         setAllReviews(allReviewsData); // Still set booking reviews if any
       } else {
@@ -1199,7 +1191,6 @@ const MentorProfile = () => {
         setReviewsError(null);
       }
     } catch (err) {
-      console.error("Error loading reviews:", err);
       setReviewsError("Failed to load reviews");
       setAllReviews([]);
     } finally {
@@ -1207,30 +1198,38 @@ const MentorProfile = () => {
     }
   };
 
+  // Load mentees from MongoDB
+  const loadMentees = async () => {
+    try {
+      setMenteesLoading(true);
+      setMenteesError(null);
+
+      const { response, error } = await purchasedCourseApi.getMenteesOfMentor(
+        dispatch
+      );
+
+      if (error) {
+        setMenteesError("Failed to load mentees data");
+        setAllMentees([]);
+        return;
+      }
+
+      if (response?.data?.mentees) {
+        setAllMentees(response.data.mentees);
+        setMenteesError(null);
+      } else {
+        setAllMentees([]);
+      }
+    } catch (err) {
+      setMenteesError("Failed to load mentees");
+      setAllMentees([]);
+    } finally {
+      setMenteesLoading(false);
+    }
+  };
+
   // Course detail popup functions
   const openCourseDetailPopup = (course) => {
-    console.log("🔍 Opening course detail popup with course data:", course);
-    console.log("📝 Description raw:", course?.description);
-    console.log(
-      "📝 Key Learning Objectives raw:",
-      course?.keyLearningObjectives
-    );
-    console.log("📝 Course fields:", {
-      title: course?.title,
-      description: course?.description,
-      shortDescription: course?.shortDescription,
-      price: course?.price,
-      category: course?.category,
-      level: course?.level,
-      language: course?.language,
-      duration: course?.duration,
-      lectures: course?.lectures,
-      rate: course?.rate,
-      numberOfRatings: course?.numberOfRatings,
-      mentor: course?.mentor,
-      tags: course?.tags,
-      keyLearningObjectives: course?.keyLearningObjectives,
-    });
     setSelectedReviewCourse(course);
     setIsCourseDetailPopupOpen(true);
   };
@@ -1258,7 +1257,6 @@ const MentorProfile = () => {
         hour12: false,
       });
     } catch (error) {
-      console.error("Error formatting date:", error);
       return null;
     }
   };
@@ -1266,7 +1264,6 @@ const MentorProfile = () => {
   // Booking detail popup functions
   const openBookingDetailPopup = async (bookingId) => {
     const asId = (v) => (v == null ? "" : String(v));
-    const log = (...args) => console.log("🔍[openBookingDetailPopup]", ...args);
 
     // Gom alias field về 1 shape thống nhất cho UI
     const normalizeBooking = (raw) => {
@@ -1395,10 +1392,8 @@ const MentorProfile = () => {
       }
 
       // 6) Không tìm thấy booking thực sự → fallback review-only (nhưng có kiểm soát)
-      log("⚠️ Booking not found anywhere → open review-only");
       openReviewOnly(null);
     } catch (err) {
-      console.error("❌ Failed to load booking details:", err);
       // Fallback an toàn
       openReviewOnly(null);
     }
@@ -1418,9 +1413,10 @@ const MentorProfile = () => {
     }
   }, [activeTab]);
 
-  // Load reviews on component mount
+  // Load reviews and mentees on component mount
   useEffect(() => {
     loadReviews();
+    loadMentees();
   }, []);
 
   // Load courses and reviews on component mount
@@ -1486,34 +1482,45 @@ const MentorProfile = () => {
 
   // Mentee filter and search logic
   const getFilteredAndSortedMentees = () => {
-    let filtered = allMentees.filter(
-      (mentee) =>
-        mentee.name.toLowerCase().includes(menteeSearchTerm.toLowerCase()) ||
-        mentee.email.toLowerCase().includes(menteeSearchTerm.toLowerCase()) ||
-        mentee.enrolledCourses.some((course) =>
-          course.courseName
-            .toLowerCase()
-            .includes(menteeSearchTerm.toLowerCase())
-        )
-    );
+    let filtered = allMentees.filter((mentee) => {
+      const fullName = `${mentee.firstName} ${mentee.lastName}`.toLowerCase();
+      const searchLower = menteeSearchTerm.toLowerCase();
+
+      return (
+        fullName.includes(searchLower) ||
+        mentee.email.toLowerCase().includes(searchLower)
+      );
+    });
 
     // Sort mentees
     switch (menteeSortBy) {
       case "latest":
         filtered = filtered.sort(
-          (a, b) => new Date(b.lastActive) - new Date(a.lastActive)
+          (a, b) =>
+            new Date(b.latestInteraction) - new Date(a.latestInteraction)
         );
         break;
       case "oldest":
         filtered = filtered.sort(
-          (a, b) => new Date(a.joinedDate) - new Date(b.joinedDate)
+          (a, b) =>
+            new Date(a.latestInteraction) - new Date(b.latestInteraction)
         );
         break;
       case "most-courses":
-        filtered = filtered.sort((a, b) => b.totalCourses - a.totalCourses);
+        filtered = filtered.sort(
+          (a, b) =>
+            (b.courseCount || 0) +
+            (b.bookingCount || 0) -
+            (a.courseCount || 0) -
+            (a.bookingCount || 0)
+        );
         break;
       case "name":
-        filtered = filtered.sort((a, b) => a.name.localeCompare(b.name));
+        filtered = filtered.sort((a, b) =>
+          `${a.firstName} ${a.lastName}`.localeCompare(
+            `${b.firstName} ${b.lastName}`
+          )
+        );
         break;
       default:
         break;
@@ -1533,6 +1540,8 @@ const MentorProfile = () => {
 
   const handleMenteePageChange = (page) => {
     setMenteeCurrentPage(page);
+    // Scroll to top when changing mentee pages
+    scrollToTop();
   };
 
   const handlePageChange = (page) => {
@@ -1561,14 +1570,12 @@ const MentorProfile = () => {
 
   const handleSaveImage = () => {
     // TODO: Implement save image functionality
-    console.log("Save image functionality to be implemented");
   };
 
   // Message handlers
   const handleSendMessage = () => {
     if (messageInput.trim() && selectedConversation) {
       // TODO: Implement send message functionality with API
-      console.log("Sending message:", messageInput);
       setMessageInput("");
     }
   };
@@ -1578,31 +1585,27 @@ const MentorProfile = () => {
   };
 
   const handleSendMessageToMentee = (menteeId) => {
-    // Find or create conversation with this mentee
-    const existingConversation = conversations.find(
-      (conv) => conv.menteeId === menteeId
-    );
-    if (existingConversation) {
-      setSelectedConversation(existingConversation);
+    // Find the mentee to get their name
+    const mentee = allMentees.find((m) => m._id === menteeId);
+    if (mentee) {
+      // For now, show a toast message indicating the messaging feature
+      // In a real implementation, this would open a messaging interface or redirect to messages
+      toast.info(
+        `Messaging feature would open conversation with ${mentee.firstName} ${mentee.lastName}`,
+        {
+          position: "top-right",
+          autoClose: 3000,
+        }
+      );
+
+      // TODO: Implement actual messaging functionality
+      // This could include:
+      // 1. Opening a messaging modal/sidebar
+      // 2. Redirecting to a dedicated messages page
+      // 3. Creating a new conversation via API
     } else {
-      // Create new conversation - TODO: Implement with API
-      const mentee = allMentees.find((m) => m.id === menteeId);
-      if (mentee) {
-        const newConversation = {
-          id: conversations.length + 1,
-          menteeId: mentee.id,
-          menteeName: mentee.name,
-          menteeAvatar: mentee.avatar,
-          lastMessage: "",
-          lastMessageTime: "Now",
-          isOnline: false,
-          unreadCount: 0,
-          messages: [],
-        };
-        setSelectedConversation(newConversation);
-      }
+      toast.error("Could not find mentee information");
     }
-    setActiveTab("messages");
   };
 
   // Filter conversations based on search
@@ -1613,20 +1616,6 @@ const MentorProfile = () => {
   // Reviews filter and tab logic
   const getFilteredAndSortedReviews = () => {
     let filtered = allReviews;
-
-    // Debug: Log review structure to understand targetType
-    if (allReviews.length > 0) {
-      console.log("🔍 Sample review structure:", allReviews[0]);
-      console.log(
-        "📊 All reviews targetTypes:",
-        allReviews.map((r) => ({
-          id: r._id,
-          targetType: r.targetType,
-          target: r.target,
-          course: r.course,
-        }))
-      );
-    }
 
     // Filter by tab
     switch (activeReviewTab) {
@@ -1668,8 +1657,6 @@ const MentorProfile = () => {
         break;
     }
 
-    console.log(`📋 Filtered reviews for ${activeReviewTab}:`, filtered.length);
-
     // Sort reviews (keeping the sorting logic)
     switch (reviewSortBy) {
       case "latest":
@@ -1704,6 +1691,19 @@ const MentorProfile = () => {
 
   const handleReviewPageChange = (page) => {
     setReviewCurrentPage(page);
+    // Scroll to top when changing review pages
+    scrollToTop();
+  };
+
+  const handleSchedulePageChange = (page) => {
+    setScheduleCurrentPage(page);
+    // Không cần cuộn lên vì đang xem phần lịch ở dưới
+  };
+
+  const handleResponsePageChange = (page) => {
+    setResponseCurrentPage(page);
+    // Scroll to top when changing response pages
+    scrollToTop();
   };
 
   // Scroll lên đầu trang (bao gồm cả header) khi chuyển tab
@@ -2378,20 +2378,31 @@ const MentorProfile = () => {
                               {course.tags && course.tags.length > 0 && (
                                 <div className="mb-2">
                                   <div className="flex flex-wrap gap-1">
-                                    {course.tags
-                                      .slice(0, 3)
-                                      .map((tag, index) => (
-                                        <span
-                                          key={index}
-                                          className="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full font-medium"
-                                        >
-                                          {tag}
-                                        </span>
-                                      ))}
-                                    {course.tags.length > 3 && (
-                                      <span className="inline-block bg-gray-100 text-gray-600 text-xs px-2 py-1 rounded-full">
-                                        +{course.tags.length - 3} more
+                                    {(expandedTags[course._id]
+                                      ? course.tags
+                                      : course.tags.slice(0, 3)
+                                    ).map((tag, index) => (
+                                      <span
+                                        key={index}
+                                        className="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full font-medium"
+                                      >
+                                        {tag}
                                       </span>
+                                    ))}
+                                    {course.tags.length > 3 && (
+                                      <button
+                                        onClick={() =>
+                                          setExpandedTags((prev) => ({
+                                            ...prev,
+                                            [course._id]: !prev[course._id],
+                                          }))
+                                        }
+                                        className="inline-block bg-gray-100 hover:bg-gray-200 text-gray-600 text-xs px-2 py-1 rounded-full transition-colors cursor-pointer"
+                                      >
+                                        {expandedTags[course._id]
+                                          ? "Show less"
+                                          : `+${course.tags.length - 3} more`}
+                                      </button>
                                     )}
                                   </div>
                                 </div>
@@ -2405,20 +2416,33 @@ const MentorProfile = () => {
                                       Languages:
                                     </p>
                                     <div className="flex flex-wrap gap-1">
-                                      {course.language
-                                        .slice(0, 2)
-                                        .map((lang, index) => (
-                                          <span
-                                            key={index}
-                                            className="inline-block bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full"
-                                          >
-                                            {lang}
-                                          </span>
-                                        ))}
-                                      {course.language.length > 2 && (
-                                        <span className="inline-block bg-gray-100 text-gray-600 text-xs px-2 py-1 rounded-full">
-                                          +{course.language.length - 2} more
+                                      {(expandedLanguages[course._id]
+                                        ? course.language
+                                        : course.language.slice(0, 2)
+                                      ).map((lang, index) => (
+                                        <span
+                                          key={index}
+                                          className="inline-block bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full"
+                                        >
+                                          {lang}
                                         </span>
+                                      ))}
+                                      {course.language.length > 2 && (
+                                        <button
+                                          onClick={() =>
+                                            setExpandedLanguages((prev) => ({
+                                              ...prev,
+                                              [course._id]: !prev[course._id],
+                                            }))
+                                          }
+                                          className="inline-block bg-gray-100 hover:bg-gray-200 text-gray-600 text-xs px-2 py-1 rounded-full transition-colors cursor-pointer"
+                                        >
+                                          {expandedLanguages[course._id]
+                                            ? "Show less"
+                                            : `+${
+                                                course.language.length - 2
+                                              } more`}
+                                        </button>
                                       )}
                                     </div>
                                   </div>
@@ -2609,8 +2633,8 @@ const MentorProfile = () => {
                       className="px-4 py-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                     >
                       <option value="latest">Most Active</option>
-                      <option value="oldest">Oldest Member</option>
-                      <option value="most-courses">Most Courses</option>
+                      <option value="oldest">Oldest Interaction</option>
+                      <option value="most-courses">Most Services</option>
                       <option value="name">Name A-Z</option>
                     </select>
                     <button
@@ -2640,108 +2664,122 @@ const MentorProfile = () => {
                 </div>
 
                 {/* Mentees Grid - Dynamic rendering based on filtered data */}
-                <div
-                  className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start content-start"
-                  style={{ height: "2220px" }}
-                >
-                  {currentMentees.length > 0 ? (
-                    currentMentees.map((mentee) => (
-                      <div
-                        key={mentee.id}
-                        className="border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow"
-                      >
-                        <div className="flex items-start gap-4 mb-4">
-                          <img
-                            src={mentee.avatar}
-                            alt={mentee.name}
-                            className="w-16 h-16 rounded-full object-cover"
-                          />
-                          <div className="flex-1">
-                            <h4 className="font-semibold text-gray-900 mb-1">
-                              {mentee.name}
-                            </h4>
-                            <p className="text-sm text-gray-600 mb-2">
-                              {mentee.email}
-                            </p>
-                            <div className="flex items-center gap-4 text-sm text-gray-500">
-                              <span>
-                                Joined:{" "}
-                                {new Date(
-                                  mentee.joinedDate
-                                ).toLocaleDateString()}
-                              </span>
-                              <span>
-                                Last Active:{" "}
-                                {new Date(
-                                  mentee.lastActive
-                                ).toLocaleDateString()}
-                              </span>
+                {menteesLoading ? (
+                  <div className="col-span-full text-center py-12">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                    <p className="text-gray-500">Loading mentees...</p>
+                  </div>
+                ) : menteesError ? (
+                  <div className="col-span-full text-center py-12">
+                    <p className="text-red-500 text-lg mb-2">
+                      Error loading mentees
+                    </p>
+                    <p className="text-gray-400">{menteesError}</p>
+                  </div>
+                ) : (
+                  <div
+                    className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start content-start"
+                    style={{ minHeight: "400px" }}
+                  >
+                    {currentMentees.length > 0 ? (
+                      currentMentees.map((mentee) => (
+                        <div
+                          key={mentee._id}
+                          className="border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow"
+                        >
+                          <div className="flex items-start gap-4 mb-4">
+                            <div className="relative">
+                              {mentee.avatarUrl ? (
+                                <img
+                                  src={mentee.avatarUrl}
+                                  alt={`${mentee.firstName} ${mentee.lastName}`}
+                                  className="w-16 h-16 rounded-full object-cover"
+                                />
+                              ) : (
+                                <div className="w-16 h-16 rounded-full bg-gray-300 flex items-center justify-center">
+                                  <FaUserCircle className="w-12 h-12 text-gray-500" />
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex-1">
+                              <h4 className="font-semibold text-gray-900 mb-1">
+                                {mentee.firstName} {mentee.lastName}
+                              </h4>
+                              <p className="text-sm text-gray-600 mb-2">
+                                {mentee.email}
+                              </p>
+                              <div className="flex items-center gap-2 text-sm text-gray-500">
+                                <span>
+                                  Last interaction:{" "}
+                                  {new Date(
+                                    mentee.latestInteraction
+                                  ).toLocaleDateString()}
+                                </span>
+                              </div>
                             </div>
                           </div>
-                        </div>
 
-                        <div className="mb-4">
-                          <h5 className="font-medium text-gray-900 mb-2">
-                            Enrolled Courses ({mentee.totalCourses})
-                          </h5>
-                          <div className="space-y-2">
-                            {mentee.enrolledCourses.map((course, index) => (
-                              <div
-                                key={index}
-                                className="bg-gray-50 rounded-lg p-3"
+                          {/* Service status badges */}
+                          <div className="mb-4">
+                            <div className="flex flex-wrap gap-2">
+                              {mentee.hasCoursePurchase && (
+                                <span className="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
+                                  📚 Purchased Courses
+                                </span>
+                              )}
+                              {mentee.hasBooking && (
+                                <span className="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
+                                  📞 Booked Consultations
+                                </span>
+                              )}
+                              {!mentee.hasCoursePurchase &&
+                                !mentee.hasBooking && (
+                                  <span className="bg-gray-100 text-gray-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
+                                    No active services
+                                  </span>
+                                )}
+                            </div>
+                          </div>
+
+                          {/* Action buttons */}
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() =>
+                                handleSendMessageToMentee(mentee._id)
+                              }
+                              className="w-full bg-blue-600 text-white py-2 px-3 rounded-lg hover:bg-blue-700 transition text-sm font-medium flex items-center justify-center gap-2"
+                            >
+                              <svg
+                                className="w-4 h-4"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
                               >
-                                <div className="flex justify-between items-start mb-2">
-                                  <h6 className="font-medium text-sm text-gray-900">
-                                    {course.courseName}
-                                  </h6>
-                                  <span className="text-xs text-gray-500">
-                                    {course.progress}%
-                                  </span>
-                                </div>
-                                <div className="flex items-center gap-2 text-xs text-gray-500 mb-2">
-                                  <span>
-                                    Enrolled:{" "}
-                                    {new Date(
-                                      course.enrolledDate
-                                    ).toLocaleDateString()}
-                                  </span>
-                                </div>
-                                <div className="w-full bg-gray-200 rounded-full h-2">
-                                  <div
-                                    className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                                    style={{ width: `${course.progress}%` }}
-                                  ></div>
-                                </div>
-                              </div>
-                            ))}
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                                />
+                              </svg>
+                              Send Message
+                            </button>
                           </div>
                         </div>
-
-                        {/* TODO: Add message/contact functionality with API calls */}
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => handleSendMessageToMentee(mentee.id)}
-                            className="flex-1 bg-blue-600 text-white py-2 px-3 rounded-lg hover:bg-blue-700 transition text-sm font-medium"
-                          >
-                            Send Message
-                          </button>
-                          <button className="px-3 py-2 border border-gray-300 text-gray-600 rounded-lg hover:bg-gray-50 transition text-sm">
-                            View Profile
-                          </button>
-                        </div>
+                      ))
+                    ) : (
+                      <div className="col-span-full text-center py-12">
+                        <p className="text-gray-500 text-lg mb-2">
+                          No mentees found
+                        </p>
+                        <p className="text-gray-400">
+                          You don't have any mentees who have purchased courses
+                          or booked consultations yet.
+                        </p>
                       </div>
-                    ))
-                  ) : (
-                    <div className="col-span-full text-center py-12">
-                      <p className="text-gray-500 text-lg mb-2">
-                        No mentees found
-                      </p>
-                      <p className="text-gray-400">
-                        Try adjusting your search criteria
-                      </p>
-                    </div>
-                  )}
-                </div>
+                    )}
+                  </div>
+                )}
 
                 {/* Pagination - Dynamic based on filtered results */}
                 {totalMenteePages > 1 && (
@@ -3055,12 +3093,6 @@ const MentorProfile = () => {
                     </div>
                   ) : availabilityOverview ? (
                     <div className="space-y-4">
-                      {/* Debug logging */}
-                      {console.log(
-                        "Rendering availabilityOverview:",
-                        availabilityOverview
-                      )}
-
                       {/* Summary Stats */}
                       <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-6 shadow-lg">
                         <h4 className="text-xl font-bold text-blue-900 mb-6 flex items-center gap-2">
@@ -3173,28 +3205,39 @@ const MentorProfile = () => {
                                     Time Slots
                                   </h6>
                                   <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-2">
-                                    {day.slots
-                                      .slice(0, 6)
-                                      .map((slot, slotIndex) => (
-                                        <div
-                                          key={slotIndex}
-                                          className={`text-xs py-2 rounded-lg font-medium transition-all flex items-center justify-center ${
-                                            slot.status === "open"
-                                              ? "bg-green-100 text-green-800 border border-green-200 shadow-sm"
-                                              : slot.status === "booked"
-                                              ? "bg-red-100 text-red-800 border border-red-200 shadow-sm"
-                                              : slot.status === "held"
-                                              ? "bg-yellow-100 text-yellow-800 border border-yellow-200 shadow-sm"
-                                              : "bg-gray-100 text-gray-600 border border-gray-200"
-                                          }`}
-                                        >
-                                          {slot.start}
-                                        </div>
-                                      ))}
-                                    {day.slots.length > 6 && (
-                                      <div className="text-xs py-2 rounded-lg bg-blue-100 text-blue-700 border border-blue-200 font-medium flex items-center justify-center">
-                                        +{day.slots.length - 6} more
+                                    {(expandedSlots[day.date]
+                                      ? day.slots
+                                      : day.slots.slice(0, 6)
+                                    ).map((slot, slotIndex) => (
+                                      <div
+                                        key={slotIndex}
+                                        className={`text-xs py-2 px-2 rounded-lg font-medium transition-all flex items-center justify-center min-w-[50px] min-h-[32px] ${
+                                          slot.status === "open"
+                                            ? "bg-green-100 text-green-800 border border-green-200 shadow-sm"
+                                            : slot.status === "booked"
+                                            ? "bg-red-100 text-red-800 border border-red-200 shadow-sm"
+                                            : slot.status === "held"
+                                            ? "bg-yellow-100 text-yellow-800 border border-yellow-200 shadow-sm"
+                                            : "bg-gray-100 text-gray-600 border border-gray-200"
+                                        }`}
+                                      >
+                                        {slot.start}
                                       </div>
+                                    ))}
+                                    {day.slots.length > 6 && (
+                                      <button
+                                        onClick={() =>
+                                          setExpandedSlots((prev) => ({
+                                            ...prev,
+                                            [day.date]: !prev[day.date],
+                                          }))
+                                        }
+                                        className="text-xs py-2 px-2 rounded-lg bg-blue-100 hover:bg-blue-200 text-blue-700 border border-blue-200 font-medium flex items-center justify-center transition-colors cursor-pointer min-w-[50px] min-h-[32px]"
+                                      >
+                                        {expandedSlots[day.date]
+                                          ? "Show less"
+                                          : `+${day.slots.length - 6} more`}
+                                      </button>
                                     )}
                                   </div>
                                 </div>
@@ -3297,8 +3340,6 @@ const MentorProfile = () => {
                         </div>
 
                         {/* Debug logging */}
-                        {console.log("Rendering mySchedules:", mySchedules)}
-
                         {/* Time Slots Legend */}
                         <div className="mb-6 p-4 bg-gray-50 rounded-lg border">
                           <h4 className="text-sm font-semibold text-gray-700 mb-3">
@@ -3334,33 +3375,54 @@ const MentorProfile = () => {
 
                         {/* Schedules by Month */}
                         <div className="space-y-8">
-                          {mySchedules.schedulesByMonth.map(
-                            (monthGroup, monthIndex) => (
-                              <div key={monthGroup.month} className="relative">
-                                {/* Month Header */}
-                                <div className="flex items-center gap-3 mb-6">
-                                  <div className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-5 py-2 rounded-xl shadow-sm">
-                                    <h4 className="text-base font-semibold">
-                                      {monthGroup.monthName}
-                                    </h4>
-                                  </div>
-                                  <div className="bg-gray-100 text-gray-700 px-3 py-1 rounded-full text-sm font-medium">
-                                    {monthGroup.schedules.length} schedules
-                                  </div>
-                                </div>
+                          {(() => {
+                            // Flatten all schedules with month info
+                            const allSchedules =
+                              mySchedules.schedulesByMonth.flatMap(
+                                (monthGroup) =>
+                                  monthGroup.schedules.map((schedule) => ({
+                                    ...schedule,
+                                    monthName: monthGroup.monthName,
+                                    month: monthGroup.month,
+                                  }))
+                              );
 
-                                {/* Schedules Grid */}
-                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                                  {monthGroup.schedules.map(
-                                    (schedule, scheduleIndex) => (
+                            // Calculate pagination
+                            const scheduleStartIndex =
+                              (scheduleCurrentPage - 1) * schedulesPerPage;
+                            const paginatedSchedules = allSchedules.slice(
+                              scheduleStartIndex,
+                              scheduleStartIndex + schedulesPerPage
+                            );
+
+                            // Create array of 4 items (fill empty slots to maintain layout)
+                            const displaySchedules = Array.from(
+                              { length: schedulesPerPage },
+                              (_, index) => paginatedSchedules[index] || null
+                            );
+
+                            return (
+                              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                {displaySchedules.map((schedule, index) => (
+                                  <div
+                                    key={schedule?._id || `empty-${index}`}
+                                    className="relative"
+                                  >
+                                    {schedule ? (
                                       <div
-                                        key={schedule._id}
                                         className={`relative border-2 rounded-xl p-6 transition-all duration-300 hover:shadow-lg ${
                                           schedule.status === "past"
                                             ? "border-gray-200 bg-gray-50/50 hover:border-gray-300"
                                             : "border-blue-200 bg-gradient-to-br from-blue-50/50 to-indigo-50/30 hover:border-blue-300 hover:shadow-blue-100"
                                         }`}
                                       >
+                                        {/* Month Badge */}
+                                        <div className="absolute top-4 left-4">
+                                          <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded-full text-xs font-medium">
+                                            {schedule.monthName}
+                                          </span>
+                                        </div>
+
                                         {/* Status Badge */}
                                         <div className="absolute top-4 right-4">
                                           <span
@@ -3377,7 +3439,7 @@ const MentorProfile = () => {
                                         </div>
 
                                         {/* Schedule Header */}
-                                        <div className="mb-4">
+                                        <div className="mb-4 mt-8">
                                           <h5 className="text-lg font-bold text-gray-900 mb-2 flex items-center gap-1">
                                             <span className="text-blue-600 text-sm">
                                               📆
@@ -3429,9 +3491,9 @@ const MentorProfile = () => {
                                           </div>
                                         </div>
 
-                                        {/* Action Buttons - Only show for upcoming schedules */}
-                                        {schedule.status !== "past" && (
-                                          <div className="flex gap-3">
+                                        {/* Action Buttons */}
+                                        {canEditSchedule(schedule) && (
+                                          <div className="flex gap-3 mb-4">
                                             <button
                                               onClick={(e) => {
                                                 e.preventDefault();
@@ -3439,13 +3501,14 @@ const MentorProfile = () => {
                                                 handleEditSchedule(schedule);
                                               }}
                                               className="flex items-center gap-1 px-3 py-2 text-sm font-medium border border-blue-300 text-blue-600 rounded-lg hover:bg-blue-50 transition-all duration-200"
+                                              title="Edit this schedule to add/modify time slots"
                                             >
                                               <span className="text-xs">
                                                 ✏️
                                               </span>{" "}
                                               Edit
                                             </button>
-                                            {schedule.canDelete && (
+                                            {canDeleteSchedule(schedule) && (
                                               <button
                                                 onClick={() =>
                                                   openDeleteConfirmModal(
@@ -3453,6 +3516,7 @@ const MentorProfile = () => {
                                                   )
                                                 }
                                                 className="flex items-center gap-1 px-3 py-2 text-sm font-medium border border-red-300 text-red-600 rounded-lg hover:bg-red-50 transition-all duration-200"
+                                                title="Delete this schedule (only when no bookings)"
                                               >
                                                 <span className="text-xs">
                                                   🗑️
@@ -3460,49 +3524,168 @@ const MentorProfile = () => {
                                                 Delete
                                               </button>
                                             )}
+                                            {!canDeleteSchedule(schedule) &&
+                                              canEditSchedule(schedule) &&
+                                              (schedule.bookedSlots || 0) >
+                                                0 && (
+                                                <div
+                                                  className="flex items-center gap-1 px-3 py-2 text-sm font-medium text-gray-400 border border-gray-200 rounded-lg cursor-not-allowed"
+                                                  title="Cannot delete: This schedule has active bookings"
+                                                >
+                                                  <span className="text-xs">
+                                                    🔒
+                                                  </span>{" "}
+                                                  Has Bookings
+                                                </div>
+                                              )}
+                                          </div>
+                                        )}
+
+                                        {/* Show message for past schedules */}
+                                        {!canEditSchedule(schedule) && (
+                                          <div className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-500 bg-gray-50 rounded-lg mb-4">
+                                            <span className="text-xs">⏰</span>
+                                            <span>
+                                              Past schedule - Cannot be modified
+                                            </span>
                                           </div>
                                         )}
 
                                         {/* Time Slots Preview */}
-                                        <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+                                        <div className="p-4 bg-gray-50 rounded-lg">
                                           <h6 className="text-sm font-semibold text-gray-700 mb-3">
                                             Time Slots Preview
                                           </h6>
                                           <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-2">
-                                            {schedule.slots
-                                              .slice(0, 6)
-                                              .map((slot, index) => (
-                                                <div
-                                                  key={index}
-                                                  className={`text-xs py-2 rounded-lg font-medium transition-all flex items-center justify-center ${
-                                                    slot.status === "open"
-                                                      ? "bg-green-100 text-green-800 border border-green-200 shadow-sm"
-                                                      : slot.status === "booked"
-                                                      ? "bg-red-100 text-red-800 border border-red-200 shadow-sm"
-                                                      : slot.status === "held"
-                                                      ? "bg-yellow-100 text-yellow-800 border border-yellow-200 shadow-sm"
-                                                      : "bg-gray-100 text-gray-600 border border-gray-200"
-                                                  }`}
-                                                >
-                                                  {slot.start}
-                                                </div>
-                                              ))}
-                                            {schedule.slots.length > 6 && (
-                                              <div className="text-xs py-2 rounded-lg bg-blue-100 text-blue-700 border border-blue-200 font-medium flex items-center justify-center">
-                                                +{schedule.slots.length - 6}{" "}
-                                                more
+                                            {(expandedSlots[schedule._id]
+                                              ? schedule.slots
+                                              : schedule.slots.slice(0, 6)
+                                            ).map((slot, slotIndex) => (
+                                              <div
+                                                key={slotIndex}
+                                                className={`text-xs py-2 px-2 rounded-lg font-medium transition-all flex items-center justify-center min-w-[50px] min-h-[32px] ${
+                                                  slot.status === "open"
+                                                    ? "bg-green-100 text-green-800 border border-green-200 shadow-sm"
+                                                    : slot.status === "booked"
+                                                    ? "bg-red-100 text-red-800 border border-red-200 shadow-sm"
+                                                    : slot.status === "held"
+                                                    ? "bg-yellow-100 text-yellow-800 border border-yellow-200 shadow-sm"
+                                                    : "bg-gray-100 text-gray-600 border border-gray-200"
+                                                }`}
+                                              >
+                                                {slot.start}
                                               </div>
+                                            ))}
+                                            {schedule.slots.length > 6 && (
+                                              <button
+                                                onClick={() =>
+                                                  setExpandedSlots((prev) => ({
+                                                    ...prev,
+                                                    [schedule._id]:
+                                                      !prev[schedule._id],
+                                                  }))
+                                                }
+                                                className="text-xs py-2 px-2 rounded-lg bg-blue-100 hover:bg-blue-200 text-blue-700 border border-blue-200 font-medium flex items-center justify-center transition-colors cursor-pointer min-w-[50px] min-h-[32px]"
+                                              >
+                                                {expandedSlots[schedule._id]
+                                                  ? "Show less"
+                                                  : `+${
+                                                      schedule.slots.length - 6
+                                                    } more`}
+                                              </button>
                                             )}
                                           </div>
                                         </div>
                                       </div>
-                                    )
-                                  )}
-                                </div>
+                                    ) : (
+                                      // Empty placeholder to maintain grid layout
+                                      <div className="relative border-2 border-dashed border-gray-200 rounded-xl p-6 bg-gray-50/30 min-h-[400px] flex items-center justify-center">
+                                        <div className="text-gray-400 text-center">
+                                          <div className="text-3xl mb-2">
+                                            📅
+                                          </div>
+                                          <p className="text-sm">No schedule</p>
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+                                ))}
                               </div>
-                            )
-                          )}
+                            );
+                          })()}
                         </div>
+
+                        {/* Schedule Pagination */}
+                        {(() => {
+                          const allSchedules =
+                            mySchedules.schedulesByMonth.flatMap((monthGroup) =>
+                              monthGroup.schedules.map((schedule) => ({
+                                ...schedule,
+                                monthName: monthGroup.monthName,
+                                month: monthGroup.month,
+                              }))
+                            );
+                          const totalSchedulePages = Math.ceil(
+                            allSchedules.length / schedulesPerPage
+                          );
+
+                          if (totalSchedulePages <= 1) return null;
+
+                          return (
+                            <div className="flex justify-center items-center mt-8 space-x-2">
+                              <button
+                                onClick={() =>
+                                  handleSchedulePageChange(
+                                    scheduleCurrentPage - 1
+                                  )
+                                }
+                                disabled={scheduleCurrentPage === 1}
+                                className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                                  scheduleCurrentPage === 1
+                                    ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                                    : "bg-blue-50 text-blue-600 hover:bg-blue-100"
+                                }`}
+                              >
+                                Previous
+                              </button>
+
+                              {Array.from(
+                                { length: totalSchedulePages },
+                                (_, i) => i + 1
+                              ).map((page) => (
+                                <button
+                                  key={page}
+                                  onClick={() => handleSchedulePageChange(page)}
+                                  className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                                    page === scheduleCurrentPage
+                                      ? "bg-blue-600 text-white"
+                                      : "bg-blue-50 text-blue-600 hover:bg-blue-100"
+                                  }`}
+                                >
+                                  {page}
+                                </button>
+                              ))}
+
+                              <button
+                                onClick={() =>
+                                  handleSchedulePageChange(
+                                    scheduleCurrentPage + 1
+                                  )
+                                }
+                                disabled={
+                                  scheduleCurrentPage === totalSchedulePages
+                                }
+                                className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                                  scheduleCurrentPage === totalSchedulePages
+                                    ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                                    : "bg-blue-50 text-blue-600 hover:bg-blue-100"
+                                }`}
+                              >
+                                Next
+                              </button>
+                            </div>
+                          );
+                        })()}
                       </div>
                     ) : (
                       <div className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100">
@@ -3529,6 +3712,7 @@ const MentorProfile = () => {
                   }}
                   onSave={handleSaveEditedSchedule}
                   editingSchedule={editingSchedule}
+                  existingSchedules={mySchedules}
                 />
               )}
 
@@ -3643,7 +3827,7 @@ const MentorProfile = () => {
                             {timeSlots.map((time) => (
                               <div
                                 key={time}
-                                className="rounded-lg border px-3 py-2 text-sm text-center bg-blue-50 border-blue-200"
+                                className="rounded-lg border px-3 py-2 text-sm text-center bg-blue-50 border-blue-200 min-w-[50px] min-h-[36px] flex items-center justify-center"
                               >
                                 {time}
                               </div>
@@ -3802,6 +3986,15 @@ const MentorProfile = () => {
                   <div className="space-y-4">
                     {(() => {
                       const filteredBookings = getFilteredBookings();
+
+                      // Calculate pagination for responses
+                      const responseStartIndex =
+                        (responseCurrentPage - 1) * responsesPerPage;
+                      const paginatedBookings = filteredBookings.slice(
+                        responseStartIndex,
+                        responseStartIndex + responsesPerPage
+                      );
+
                       return filteredBookings.length === 0 ? (
                         <div className="text-center py-16">
                           <div className="w-20 h-20 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-full flex items-center justify-center mx-auto mb-6">
@@ -3819,149 +4012,226 @@ const MentorProfile = () => {
                           </p>
                         </div>
                       ) : (
-                        filteredBookings.map((booking) => (
-                          <div
-                            key={booking.id}
-                            className={`border-2 rounded-2xl p-6 transition-all duration-300 hover:shadow-xl ${
-                              booking.status === "pending"
-                                ? "border-orange-200 bg-gradient-to-br from-orange-50/50 to-yellow-50/30 hover:border-orange-300"
-                                : booking.status === "accepted"
-                                ? "border-green-200 bg-gradient-to-br from-green-50/50 to-emerald-50/30 hover:border-green-300"
-                                : "border-red-200 bg-gradient-to-br from-red-50/50 to-pink-50/30 hover:border-red-300"
-                            }`}
-                          >
-                            {/* Status Badge */}
-                            <div className="flex justify-between items-start mb-4">
-                              <span
-                                className={`px-3 py-1 rounded-full text-sm font-bold ${
-                                  booking.status === "pending"
-                                    ? "bg-orange-100 text-orange-800"
+                        <>
+                          {/* Booking Cards */}
+                          {paginatedBookings.map((booking) => (
+                            <div
+                              key={booking.id}
+                              className={`border-2 rounded-2xl p-6 transition-all duration-300 hover:shadow-xl ${
+                                booking.status === "pending"
+                                  ? "border-orange-200 bg-gradient-to-br from-orange-50/50 to-yellow-50/30 hover:border-orange-300"
+                                  : booking.status === "accepted"
+                                  ? "border-green-200 bg-gradient-to-br from-green-50/50 to-emerald-50/30 hover:border-green-300"
+                                  : "border-red-200 bg-gradient-to-br from-red-50/50 to-pink-50/30 hover:border-red-300"
+                              }`}
+                            >
+                              {/* Status Badge */}
+                              <div className="flex justify-between items-start mb-4">
+                                <span
+                                  className={`px-3 py-1 rounded-full text-sm font-bold ${
+                                    booking.status === "pending"
+                                      ? "bg-orange-100 text-orange-800"
+                                      : booking.status === "active"
+                                      ? "bg-green-100 text-green-800"
+                                      : "bg-red-100 text-red-800"
+                                  }`}
+                                >
+                                  {booking.status === "pending"
+                                    ? "⏳ PENDING"
                                     : booking.status === "active"
-                                    ? "bg-green-100 text-green-800"
-                                    : "bg-red-100 text-red-800"
-                                }`}
-                              >
-                                {booking.status === "pending"
-                                  ? "⏳ PENDING"
-                                  : booking.status === "active"
-                                  ? "✅ ACCEPTED"
-                                  : booking.status === "cancelled"
-                                  ? "❌ DECLINED"
-                                  : "❓ " + booking.status.toUpperCase()}
-                              </span>
-                              <span className="text-xs text-gray-500">
-                                {new Date(
-                                  booking.createdAt
-                                ).toLocaleDateString()}
-                              </span>
-                            </div>
+                                    ? "✅ ACCEPTED"
+                                    : booking.status === "cancelled"
+                                    ? "❌ DECLINED"
+                                    : "❓ " + booking.status.toUpperCase()}
+                                </span>
+                                <span className="text-xs text-gray-500">
+                                  {new Date(
+                                    booking.createdAt
+                                  ).toLocaleDateString()}
+                                </span>
+                              </div>
 
-                            <div className="flex items-start justify-between mb-6">
-                              <div className="flex-1">
-                                <div className="flex items-center gap-4 mb-4">
-                                  <div className="w-12 h-12 rounded-full overflow-hidden bg-gradient-to-br from-indigo-100 to-purple-100 flex items-center justify-center">
-                                    {booking.avatarUrl ? (
-                                      <img
-                                        src={booking.avatarUrl}
-                                        alt={booking.menteeName}
-                                        className="w-full h-full object-cover"
-                                        onError={(e) => {
-                                          e.target.style.display = "none";
-                                          e.target.nextSibling.style.display =
-                                            "flex";
+                              <div className="flex items-start justify-between mb-6">
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-4 mb-4">
+                                    <div className="w-12 h-12 rounded-full overflow-hidden bg-gradient-to-br from-indigo-100 to-purple-100 flex items-center justify-center">
+                                      {booking.avatarUrl ? (
+                                        <img
+                                          src={booking.avatarUrl}
+                                          alt={booking.menteeName}
+                                          className="w-full h-full object-cover"
+                                          onError={(e) => {
+                                            e.target.style.display = "none";
+                                            e.target.nextSibling.style.display =
+                                              "flex";
+                                          }}
+                                        />
+                                      ) : null}
+                                      <span
+                                        className="text-indigo-700 font-bold text-lg"
+                                        style={{
+                                          display: booking.avatarUrl
+                                            ? "none"
+                                            : "flex",
                                         }}
-                                      />
-                                    ) : null}
-                                    <span
-                                      className="text-indigo-700 font-bold text-lg"
-                                      style={{
-                                        display: booking.avatarUrl
-                                          ? "none"
-                                          : "flex",
-                                      }}
-                                    >
-                                      {booking.menteeName?.charAt(0) || "M"}
-                                    </span>
-                                  </div>
-                                  <div>
-                                    <h4 className="text-lg font-bold text-gray-900">
-                                      {booking.menteeName}
-                                    </h4>
-                                    <p className="text-sm text-gray-600">
-                                      {booking.menteeEmail}
-                                    </p>
-                                  </div>
-                                </div>
-
-                                <div className="grid grid-cols-2 gap-6 mb-4">
-                                  <div className="bg-white rounded-lg p-4 border border-gray-100">
-                                    <div className="flex items-center gap-2 text-sm text-gray-600 mb-1">
-                                      <span className="text-blue-600">📅</span>
-                                      <span className="font-medium">Date</span>
-                                    </div>
-                                    <span className="font-semibold text-gray-900">
-                                      {new Date(
-                                        booking.date
-                                      ).toLocaleDateString("en-US", {
-                                        weekday: "long",
-                                        year: "numeric",
-                                        month: "long",
-                                        day: "numeric",
-                                      })}
-                                    </span>
-                                  </div>
-                                  <div className="bg-white rounded-lg p-4 border border-gray-100">
-                                    <div className="flex items-center gap-2 text-sm text-gray-600 mb-1">
-                                      <span className="text-green-600">⏰</span>
-                                      <span className="font-medium">Time</span>
-                                    </div>
-                                    <span className="font-semibold text-gray-900">
-                                      {booking.time}
-                                    </span>
-                                  </div>
-                                </div>
-
-                                {booking.message && (
-                                  <div className="bg-white rounded-lg p-4 border border-gray-100 mb-4">
-                                    <div className="flex items-center gap-2 text-sm text-gray-600 mb-2">
-                                      <span className="text-purple-600">
-                                        💬
-                                      </span>
-                                      <span className="font-medium">
-                                        Message from Mentee
+                                      >
+                                        {booking.menteeName?.charAt(0) || "M"}
                                       </span>
                                     </div>
-                                    <p className="text-gray-800 italic">
-                                      "{booking.message}"
-                                    </p>
+                                    <div>
+                                      <h4 className="text-lg font-bold text-gray-900">
+                                        {booking.menteeName}
+                                      </h4>
+                                      <p className="text-sm text-gray-600">
+                                        {booking.menteeEmail}
+                                      </p>
+                                    </div>
                                   </div>
-                                )}
+
+                                  <div className="grid grid-cols-2 gap-6 mb-4">
+                                    <div className="bg-white rounded-lg p-4 border border-gray-100">
+                                      <div className="flex items-center gap-2 text-sm text-gray-600 mb-1">
+                                        <span className="text-blue-600">
+                                          📅
+                                        </span>
+                                        <span className="font-medium">
+                                          Date
+                                        </span>
+                                      </div>
+                                      <span className="font-semibold text-gray-900">
+                                        {new Date(
+                                          booking.date
+                                        ).toLocaleDateString("en-US", {
+                                          weekday: "long",
+                                          year: "numeric",
+                                          month: "long",
+                                          day: "numeric",
+                                        })}
+                                      </span>
+                                    </div>
+                                    <div className="bg-white rounded-lg p-4 border border-gray-100">
+                                      <div className="flex items-center gap-2 text-sm text-gray-600 mb-1">
+                                        <span className="text-green-600">
+                                          ⏰
+                                        </span>
+                                        <span className="font-medium">
+                                          Time
+                                        </span>
+                                      </div>
+                                      <span className="font-semibold text-gray-900">
+                                        {booking.time}
+                                      </span>
+                                    </div>
+                                  </div>
+
+                                  {booking.message && (
+                                    <div className="bg-white rounded-lg p-4 border border-gray-100 mb-4">
+                                      <div className="flex items-center gap-2 text-sm text-gray-600 mb-2">
+                                        <span className="text-purple-600">
+                                          💬
+                                        </span>
+                                        <span className="font-medium">
+                                          Message from Mentee
+                                        </span>
+                                      </div>
+                                      <p className="text-gray-800 italic">
+                                        "{booking.message}"
+                                      </p>
+                                    </div>
+                                  )}
+                                </div>
                               </div>
+
+                              {/* Action Buttons */}
+                              {booking.status === "pending" && (
+                                <div className="flex justify-center gap-3 pt-4 border-t border-gray-200">
+                                  <button
+                                    onClick={() =>
+                                      handleAcceptBooking(booking.id)
+                                    }
+                                    className="flex items-center gap-2 px-6 py-3 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors duration-200"
+                                  >
+                                    Accept
+                                  </button>
+                                  <button
+                                    onClick={() =>
+                                      openDeclineConfirmModal(booking)
+                                    }
+                                    className="flex items-center gap-2 px-6 py-3 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition-colors duration-200"
+                                  >
+                                    Decline
+                                  </button>
+                                </div>
+                              )}
                             </div>
+                          ))}
 
-                            {/* Action Buttons */}
-                            {booking.status === "pending" && (
-                              <div className="flex justify-center gap-3 pt-4 border-t border-gray-200">
+                          {/* Response Pagination */}
+                          {(() => {
+                            const totalResponsePages = Math.ceil(
+                              filteredBookings.length / responsesPerPage
+                            );
+
+                            if (totalResponsePages <= 1) return null;
+
+                            return (
+                              <div className="flex justify-center items-center mt-8 space-x-2">
                                 <button
                                   onClick={() =>
-                                    handleAcceptBooking(booking.id)
+                                    handleResponsePageChange(
+                                      responseCurrentPage - 1
+                                    )
                                   }
-                                  className="flex items-center gap-2 px-6 py-3 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors duration-200"
+                                  disabled={responseCurrentPage === 1}
+                                  className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                                    responseCurrentPage === 1
+                                      ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                                      : "bg-blue-50 text-blue-600 hover:bg-blue-100"
+                                  }`}
                                 >
-                                  Accept
+                                  Previous
                                 </button>
+
+                                {Array.from(
+                                  { length: totalResponsePages },
+                                  (_, i) => i + 1
+                                ).map((page) => (
+                                  <button
+                                    key={page}
+                                    onClick={() =>
+                                      handleResponsePageChange(page)
+                                    }
+                                    className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                                      page === responseCurrentPage
+                                        ? "bg-blue-600 text-white"
+                                        : "bg-blue-50 text-blue-600 hover:bg-blue-100"
+                                    }`}
+                                  >
+                                    {page}
+                                  </button>
+                                ))}
+
                                 <button
                                   onClick={() =>
-                                    openDeclineConfirmModal(booking)
+                                    handleResponsePageChange(
+                                      responseCurrentPage + 1
+                                    )
                                   }
-                                  className="flex items-center gap-2 px-6 py-3 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition-colors duration-200"
+                                  disabled={
+                                    responseCurrentPage === totalResponsePages
+                                  }
+                                  className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                                    responseCurrentPage === totalResponsePages
+                                      ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                                      : "bg-blue-50 text-blue-600 hover:bg-blue-100"
+                                  }`}
                                 >
-                                  Decline
+                                  Next
                                 </button>
                               </div>
-                            )}
-                          </div>
-                        ))
+                            );
+                          })()}
+                        </>
                       );
                     })()}
                   </div>
@@ -4811,7 +5081,7 @@ const MentorProfile = () => {
                             );
                           }
                         } catch (e) {
-                          console.log("Failed to parse objectives as JSON:", e);
+                          // Failed to parse objectives
                         }
                       }
 
@@ -5254,6 +5524,25 @@ function isPast(dateStr) {
   const d = new Date(dateStr + "T00:00:00");
   return d < today;
 }
+
+// Helper function to check if a schedule can be edited
+// Allow editing for today and future dates (can add future time slots)
+function canEditSchedule(schedule) {
+  const scheduleDate = new Date(schedule.date + "T00:00:00");
+  const today = new Date(todayKey() + "T00:00:00");
+  // Allow editing if schedule date is today or in the future
+  return scheduleDate >= today;
+}
+
+// Helper function to check if a schedule can be deleted
+// Allow deletion for today (if no bookings) and future dates
+function canDeleteSchedule(schedule) {
+  const scheduleDate = new Date(schedule.date + "T00:00:00");
+  const today = new Date(todayKey() + "T00:00:00");
+  const isNotPastDate = scheduleDate >= today; // Today or future
+  const hasNoBookings = (schedule.bookedSlots || 0) === 0;
+  return isNotPastDate && hasNoBookings;
+}
 function isInCurrentYear(dateStr) {
   const y = new Date().getFullYear();
   const d = new Date(dateStr + "T00:00:00");
@@ -5297,7 +5586,12 @@ function getAvailableTimes(dateStr) {
 }
 
 // --- Schedule Builder Component ---------------------------------------------------------------
-function MentorAvailabilityBuilder({ onBack, onSave, editingSchedule }) {
+function MentorAvailabilityBuilder({
+  onBack,
+  onSave,
+  editingSchedule,
+  existingSchedules,
+}) {
   const [mode, setMode] = useState("builder"); // 'builder' | 'review'
   const [selectedDate, setSelectedDate] = useState("");
   const [error, setError] = useState("");
@@ -5310,6 +5604,16 @@ function MentorAvailabilityBuilder({ onBack, onSave, editingSchedule }) {
   useEffect(() => {
     if (editingSchedule) {
       setAvailability(editingSchedule.availability || {});
+
+      // Auto-select the date being edited
+      if (editingSchedule.date) {
+        setSelectedDate(editingSchedule.date);
+
+        // Pre-populate the picked times for the selected date
+        const existingTimes =
+          editingSchedule.availability?.[editingSchedule.date] || [];
+        setPickedForDay(new Set(existingTimes));
+      }
 
       // Extract booked slots info if editing
       if (editingSchedule.slots) {
@@ -5327,6 +5631,8 @@ function MentorAvailabilityBuilder({ onBack, onSave, editingSchedule }) {
     } else {
       setAvailability({});
       setBookedSlots({});
+      setSelectedDate("");
+      setPickedForDay(new Set());
     }
   }, [editingSchedule]);
 
@@ -5344,15 +5650,69 @@ function MentorAvailabilityBuilder({ onBack, onSave, editingSchedule }) {
   function onDateChange(v) {
     setSelectedDate(v);
     setError(validateDate(v));
+
+    // First check if there's an existing schedule for this date
+    let existingTimeSlotsForDate = [];
+    let existingBookedSlots = [];
+
+    if (existingSchedules?.schedulesByMonth) {
+      // Find existing schedule for the selected date
+      for (const monthGroup of existingSchedules.schedulesByMonth) {
+        const existingSchedule = monthGroup.schedules.find(
+          (schedule) => schedule.date === v
+        );
+
+        if (existingSchedule) {
+          // Extract time slots from existing schedule
+          existingTimeSlotsForDate = existingSchedule.slots.map(
+            (slot) => slot.start
+          );
+
+          // Extract booked slots
+          existingBookedSlots = existingSchedule.slots
+            .filter((slot) => slot.status === "booked")
+            .map((slot) => ({
+              time: slot.start,
+              bookingId: slot.bookingId,
+              bookedBy: slot.bookedBy,
+            }));
+
+          // Update booked slots state
+          setBookedSlots((prev) => ({
+            ...prev,
+            [v]: existingBookedSlots,
+          }));
+
+          break;
+        }
+      }
+    }
+
+    // Get saved times from current availability state
     const saved = availability[v] || [];
+
+    // Combine existing schedule times with saved times, prioritizing existing schedule
+    const combinedTimes =
+      existingTimeSlotsForDate.length > 0 ? existingTimeSlotsForDate : saved;
+
     // Filter out past times if it's today
-    const validSavedTimes = saved.filter((time) => !isTimeInPast(time, v));
+    const validSavedTimes = combinedTimes.filter(
+      (time) => !isTimeInPast(time, v)
+    );
 
     // Auto-include booked slots for this date (they cannot be unselected)
-    const bookedTimes = bookedSlots[v]?.map((slot) => slot.time) || [];
+    const bookedTimes = existingBookedSlots.map((slot) => slot.time);
     const allSelectedTimes = [...new Set([...validSavedTimes, ...bookedTimes])];
 
     setPickedForDay(new Set(allSelectedTimes));
+
+    // Update availability state with the found times
+    if (existingTimeSlotsForDate.length > 0) {
+      setAvailability((prev) => ({
+        ...prev,
+        [v]: existingTimeSlotsForDate,
+      }));
+    }
   }
 
   function toggleTime(t) {
@@ -5496,7 +5856,7 @@ function MentorAvailabilityBuilder({ onBack, onSave, editingSchedule }) {
                           {list.map((t) => (
                             <div
                               key={t}
-                              className="rounded-lg border border-gray-200 px-3 py-2 text-sm text-center"
+                              className="rounded-lg border border-gray-200 px-3 py-2 text-sm text-center min-w-[50px] min-h-[36px] flex items-center justify-center"
                             >
                               {t}
                             </div>
@@ -5678,7 +6038,7 @@ function MentorAvailabilityBuilder({ onBack, onSave, editingSchedule }) {
                             ? "This slot has an active booking and cannot be removed"
                             : undefined
                         }
-                        className={`rounded-lg border px-3 py-2.5 text-sm text-center transition-all duration-200 font-medium relative ${
+                        className={`rounded-lg border px-3 py-2.5 text-sm text-center transition-all duration-200 font-medium relative min-w-[50px] min-h-[40px] flex items-center justify-center ${
                           isPastTime
                             ? "bg-gray-100 text-gray-400 cursor-not-allowed border-gray-200"
                             : isBooked
@@ -5810,7 +6170,7 @@ function MentorAvailabilityBuilder({ onBack, onSave, editingSchedule }) {
                           {times.map((t) => (
                             <div
                               key={t}
-                              className="bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200 text-blue-800 px-3 py-2.5 text-sm text-center rounded-md font-medium shadow-sm hover:from-blue-100 hover:to-blue-150 transition-colors duration-200 flex items-center justify-center min-w-0"
+                              className="bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200 text-blue-800 px-3 py-2.5 text-sm text-center rounded-md font-medium shadow-sm hover:from-blue-100 hover:to-blue-150 transition-colors duration-200 min-w-[50px] min-h-[40px] flex items-center justify-center"
                             >
                               {t}
                             </div>
