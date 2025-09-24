@@ -15,11 +15,12 @@ axios.interceptors.request.use((config) => {
 const availabilityEndpoints = {
   create: "/api/v1/availability",
   todaySchedule: "/api/v1/availability/today-schedule",
-  mentorRange: "/api/v1/availability/mentor/range", 
+  mentorRange: "/api/v1/availability/mentor/range",
+  mentorPublic: (mentorId) => `/api/v1/availability/mentor/${mentorId}/public`,
   overview: "/api/v1/availability/overview",
   mySchedules: "/api/v1/availability/my-schedules",
   delete: (availabilityId) => `/api/v1/availability/${availabilityId}`,
-  cleanupOld: "/api/v1/availability/cleanup-old"
+  cleanupOld: "/api/v1/availability/cleanup-old",
 };
 
 const availabilityApi = {
@@ -38,7 +39,7 @@ const availabilityApi = {
     try {
       const params = date ? { date } : {};
       const response = await axios.get(availabilityEndpoints.todaySchedule, {
-        params
+        params,
       });
       return { response: response.data };
     } catch (err) {
@@ -52,10 +53,36 @@ const availabilityApi = {
       const params = {};
       if (startDate) params.startDate = startDate;
       if (endDate) params.endDate = endDate;
-      
+
       const response = await axios.get(availabilityEndpoints.mentorRange, {
-        params
+        params,
       });
+      return { response: response.data };
+    } catch (err) {
+      return { error: err.response?.data || err };
+    }
+  },
+
+  // Mentee lấy availability của mentor để booking (public view)
+  getMentorPublicAvailability: async (mentorId, startDate, endDate) => {
+    try {
+      const params = {};
+      if (startDate) params.startDate = startDate;
+      if (endDate) params.endDate = endDate;
+
+      // Add cache-busting parameter
+      params._t = Date.now();
+
+      const response = await axios.get(
+        availabilityEndpoints.mentorPublic(mentorId),
+        {
+          params,
+          headers: {
+            "Cache-Control": "no-cache",
+            Pragma: "no-cache",
+          },
+        }
+      );
       return { response: response.data };
     } catch (err) {
       return { error: err.response?.data || err };
@@ -85,7 +112,9 @@ const availabilityApi = {
   // Xóa availability
   deleteAvailability: async (availabilityId) => {
     try {
-      const response = await axios.delete(availabilityEndpoints.delete(availabilityId));
+      const response = await axios.delete(
+        availabilityEndpoints.delete(availabilityId)
+      );
       return { response: response.data };
     } catch (err) {
       return { error: err.response?.data || err };
@@ -96,13 +125,13 @@ const availabilityApi = {
   cleanupOldAvailabilities: async (daysBack = 3) => {
     try {
       const response = await axios.post(availabilityEndpoints.cleanupOld, {
-        daysBack
+        daysBack,
       });
       return { response: response.data };
     } catch (err) {
       return { error: err.response?.data || err };
     }
-  }
+  },
 };
 
 export default availabilityApi;

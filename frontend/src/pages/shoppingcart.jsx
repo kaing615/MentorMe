@@ -26,7 +26,14 @@ const ShoppingCart = () => {
       toast.warning("Vui lòng chọn ít nhất một khóa học để thanh toán");
       return;
     }
-    navigate("/checkout", { state: { selectedCourses, cartData } });
+
+    // Show loading page
+    dispatch(showLoading());
+
+    // Navigate to checkout with a slight delay to show loading
+    setTimeout(() => {
+      navigate("/checkout", { state: { selectedCourses, cartData } });
+    }, 500); // Small delay to ensure loading page is visible
   };
 
   const [subtotal, setSubtotal] = useState(0);
@@ -292,16 +299,16 @@ const ShoppingCart = () => {
               </svg>
             </div>
             <h3 className="text-lg font-medium text-gray-900 mb-2">
-              Giỏ hàng trống
+              Empty cart
             </h3>
             <p className="text-gray-500 mb-6">
-              Bạn chưa có khóa học nào trong giỏ hàng
+              You don't have any courses in cart
             </p>
             <button
               onClick={() => navigate("/all-courses")}
               className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition duration-200"
             >
-              Khám phá khóa học
+              Explore courses
             </button>
           </div>
         </div>
@@ -393,20 +400,23 @@ const ShoppingCart = () => {
                               </span>
                             </div>
 
-                            {/* Course Info */}
-                            <p className="text-sm text-gray-600 mb-3">
-                              {course.duration} Total Hours • {course.lectures}{" "}
-                              Lectures • {course.level}
-                            </p>
+                            {/* Course Details */}
+                            <div className="text-sm text-gray-700 mb-2 line-clamp-1">
+                              {course.duration || course.totalHours || 0} Total
+                              Hours •{" "}
+                              {course.lectures || course.totalLectures || 0}{" "}
+                              Lectures
+                            </div>
+
+                            {/* Category */}
+                            <div className="mb-3">
+                              <span className="inline-block bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full font-medium">
+                                Category: {course.category || "General"}
+                              </span>
+                            </div>
 
                             {/* Action Buttons */}
                             <div className="flex items-center gap-4">
-                              <button
-                                onClick={() => handleSaveForLater(course.id)}
-                                className="text-sm text-blue-600 hover:text-blue-700"
-                              >
-                                Save for later
-                              </button>
                               <button
                                 onClick={() => handleRemoveCourse(course.id)}
                                 className="text-sm text-red-600 hover:text-red-700"

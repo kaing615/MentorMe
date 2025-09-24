@@ -2,15 +2,19 @@ import React, { useState, useEffect, useMemo } from "react";
 import { toast } from "react-toastify";
 import { FaUserCircle } from "react-icons/fa";
 import { useNavigate, useLocation } from "react-router-dom";
+import { useDispatch } from "react-redux";
+import { showLoading, hideLoading } from "../redux/features/loading.slice";
 import { PATH, MENTOR_PATH } from "../routes/path";
 import profileApi from "../api/modules/profile.api";
 import availabilityApi from "../api/modules/availability.api";
 import bookingApi from "../api/modules/booking.api";
+import reviewApi from "../api/modules/review.api";
+import purchasedCourseApi from "../api/modules/purchasedCourse.api";
 import { FaFacebook } from "react-icons/fa6";
 import { FaXTwitter } from "react-icons/fa6";
 import { FaLinkedin } from "react-icons/fa";
 import { FaGoogle } from "react-icons/fa";
-import { AiFillYoutube } from "react-icons/ai";
+import { AiFillYoutube } from 'react-icons/ai';
 import courseApi from "../api/modules/course.api";
 
 // Capitalize initials of each word
@@ -107,17 +111,17 @@ function MentorAvailabilityBuilder({ onBack, onSave, editingSchedule }) {
   useEffect(() => {
     if (editingSchedule) {
       setAvailability(editingSchedule.availability || {});
-
+      
       // Extract booked slots info if editing
       if (editingSchedule.slots) {
         const booked = {};
         const dateKey = editingSchedule.date;
         booked[dateKey] = editingSchedule.slots
-          .filter((slot) => slot.status === "booked")
-          .map((slot) => ({
+          .filter(slot => slot.status === 'booked')
+          .map(slot => ({
             time: slot.start,
             bookingId: slot.bookingId,
-            bookedBy: slot.bookedBy,
+            bookedBy: slot.bookedBy
           }));
         setBookedSlots(booked);
       }
@@ -144,21 +148,21 @@ function MentorAvailabilityBuilder({ onBack, onSave, editingSchedule }) {
     const saved = availability[v] || [];
     // Filter out past times if it's today
     const validSavedTimes = saved.filter((time) => !isTimeInPast(time, v));
-
+    
     // Auto-include booked slots for this date (they cannot be unselected)
-    const bookedTimes = bookedSlots[v]?.map((slot) => slot.time) || [];
+    const bookedTimes = bookedSlots[v]?.map(slot => slot.time) || [];
     const allSelectedTimes = [...new Set([...validSavedTimes, ...bookedTimes])];
-
+    
     setPickedForDay(new Set(allSelectedTimes));
   }
 
   function toggleTime(t) {
     // Check if this time slot is booked (cannot be toggled off)
-    const isBooked = bookedSlots[selectedDate]?.find((slot) => slot.time === t);
+    const isBooked = bookedSlots[selectedDate]?.find(slot => slot.time === t);
     if (isBooked) {
       return; // Do nothing for booked slots
     }
-
+    
     const next = new Set(pickedForDay);
     if (next.has(t)) next.delete(t);
     else next.add(t);
@@ -355,23 +359,17 @@ function MentorAvailabilityBuilder({ onBack, onSave, editingSchedule }) {
                   ? "Modify your existing schedule by adding/removing dates and time slots."
                   : "Pick a date, toggle the available times, then submit that day."}
               </p>
-              {editingSchedule &&
-                Object.values(bookedSlots).some(
-                  (slots) => slots.length > 0
-                ) && (
-                  <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
-                    <div className="flex items-center gap-2 text-red-700">
-                      <span className="text-lg">⚠️</span>
-                      <div className="text-sm">
-                        <p className="font-semibold">Protected Bookings</p>
-                        <p>
-                          Red slots with 🔒 have active bookings and cannot be
-                          removed. They will be preserved automatically.
-                        </p>
-                      </div>
+              {editingSchedule && Object.values(bookedSlots).some(slots => slots.length > 0) && (
+                <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
+                  <div className="flex items-center gap-2 text-red-700">
+                    <span className="text-lg">⚠️</span>
+                    <div className="text-sm">
+                      <p className="font-semibold">Protected Bookings</p>
+                      <p>Red slots with 🔒 have active bookings and cannot be removed. They will be preserved automatically.</p>
                     </div>
                   </div>
-                )}
+                </div>
+              )}
             </header>
 
             {/* Date */}
@@ -461,21 +459,15 @@ function MentorAvailabilityBuilder({ onBack, onSave, editingSchedule }) {
                   {times.map((t) => {
                     const active = pickedForDay.has(t);
                     const isPastTime = isTimeInPast(t, selectedDate);
-                    const isBooked = bookedSlots[selectedDate]?.find(
-                      (slot) => slot.time === t
-                    );
-
+                    const isBooked = bookedSlots[selectedDate]?.find(slot => slot.time === t);
+                    
                     return (
                       <button
                         key={t}
                         type="button"
                         onClick={() => toggleTime(t)}
                         disabled={isPastTime || isBooked}
-                        title={
-                          isBooked
-                            ? "This slot has an active booking and cannot be removed"
-                            : undefined
-                        }
+                        title={isBooked ? "This slot has an active booking and cannot be removed" : undefined}
                         className={`rounded-lg border px-3 py-2.5 text-sm text-center transition-all duration-200 font-medium relative ${
                           isPastTime
                             ? "bg-gray-100 text-gray-400 cursor-not-allowed border-gray-200"
@@ -685,6 +677,7 @@ const MentorProfile = () => {
   // State lưu thông tin profile
   const navigate = useNavigate(); // Hook to navigate between routes
   const location = useLocation();
+  const dispatch = useDispatch(); // Hook for Redux actions
   // --- AUTH & ROLE CHECK ---
   useEffect(() => {
     // Check token
@@ -692,7 +685,6 @@ const MentorProfile = () => {
       localStorage.getItem("actkn") || localStorage.getItem("token");
     const userStr =
       localStorage.getItem("user") || localStorage.getItem("user");
-    console.log("Token:", token);
     let user = null;
     if (!token) {
       navigate("/auth/signin");
@@ -721,6 +713,11 @@ const MentorProfile = () => {
     //   return;
     // }
   }, [navigate]);
+
+  // Hide loading when component mounts
+  useEffect(() => {
+    dispatch(hideLoading());
+  }, [dispatch]);
 
   // Save profilepl
   const handleUpdateProfile = async () => {
@@ -855,7 +852,6 @@ const MentorProfile = () => {
         });
       }
     } catch (err) {
-      console.error("Delete failed:", err);
       toast.error("Delete failed - network error", {
         position: "top-right",
         autoClose: 4000,
@@ -893,7 +889,6 @@ const MentorProfile = () => {
       try {
         const data = await profileApi.getProfile();
         const profileData = data?.data;
-        console.log("Profile API response:", profileData);
         if (!profileData || !profileData.user) {
           setError(
             "Không nhận được dữ liệu profile từ API hoặc thiếu thông tin user."
@@ -1034,10 +1029,17 @@ const MentorProfile = () => {
   const [searchMessages, setSearchMessages] = useState("");
 
   // Reviews management state
-  const [reviewSearchTerm, setReviewSearchTerm] = useState("");
   const [reviewSortBy, setReviewSortBy] = useState("latest");
   const [reviewCurrentPage, setReviewCurrentPage] = useState(1);
   const reviewsPerPage = 6;
+
+  // Schedule pagination state
+  const [scheduleCurrentPage, setScheduleCurrentPage] = useState(1);
+  const schedulesPerPage = 4;
+
+  // Response pagination state
+  const [responseCurrentPage, setResponseCurrentPage] = useState(1);
+  const responsesPerPage = 6;
 
   // Schedule management state
   const [scheduleMode, setScheduleMode] = useState("list"); // 'list' | 'builder' | 'review'
@@ -1049,6 +1051,11 @@ const MentorProfile = () => {
   const [mySchedules, setMySchedules] = useState(null);
   const [mySchedulesLoading, setMySchedulesLoading] = useState(false);
 
+  // States for expandable UI elements
+  const [expandedTags, setExpandedTags] = useState({}); // Track expanded tags per course
+  const [expandedLanguages, setExpandedLanguages] = useState({}); // Track expanded languages per course
+  const [expandedSlots, setExpandedSlots] = useState({}); // Track expanded slots per schedule
+
   // Load availability overview when component mounts or tab changes to schedule
   useEffect(() => {
     if (activeTab === "schedule") {
@@ -1059,54 +1066,41 @@ const MentorProfile = () => {
 
   const loadAvailabilityOverview = async () => {
     setAvailabilityLoading(true);
-    console.log("=== LOADING AVAILABILITY OVERVIEW ===");
     try {
-      const { response, error } =
-        await availabilityApi.getAvailabilityOverview();
+      const { response, error } = await availabilityApi.getAvailabilityOverview();
       console.log("API Response:", response);
       console.log("API Error:", error);
-
+      
       if (error) {
-        console.error("Error loading availability overview:", error);
         toast.error("Không thể tải lịch overview");
       } else if (response && response.data) {
-        console.log("Setting availability overview:", response.data);
         setAvailabilityOverview(response.data);
       } else {
-        console.log("No data in response");
       }
     } catch (err) {
-      console.error("Error in loadAvailabilityOverview:", err);
       toast.error("Lỗi khi tải availability overview");
     } finally {
       setAvailabilityLoading(false);
-      console.log("=== AVAILABILITY OVERVIEW LOADING FINISHED ===");
     }
   };
 
   const loadMySchedules = async () => {
     setMySchedulesLoading(true);
-    console.log("=== LOADING MY SCHEDULES ===");
     try {
       const { response, error } = await availabilityApi.getMySchedules();
       console.log("My Schedules API Response:", response);
       console.log("My Schedules API Error:", error);
-
+      
       if (error) {
-        console.error("Error loading my schedules:", error);
         toast.error("Không thể tải danh sách schedules");
       } else if (response && response.data) {
-        console.log("Setting my schedules:", response.data);
         setMySchedules(response.data);
       } else {
-        console.log("No data in my schedules response");
       }
     } catch (err) {
-      console.error("Error in loadMySchedules:", err);
       toast.error("Lỗi khi tải danh sách schedules");
     } finally {
       setMySchedulesLoading(false);
-      console.log("=== MY SCHEDULES LOADING FINISHED ===");
     }
   };
 
@@ -1136,6 +1130,14 @@ const MentorProfile = () => {
 
     setEditingSchedule(editingData);
     setScheduleMode("builder");
+
+    // Scroll to top to show the edit form
+    setTimeout(() => {
+      window.scrollTo({
+        top: 0,
+        behavior: "smooth",
+      });
+    }, 100);
   };
 
   // Helper function to calculate end time
@@ -1154,89 +1156,70 @@ const MentorProfile = () => {
   const handleSaveEditedSchedule = async (scheduleData) => {
     try {
       // Transform scheduleData.slots to backend format with booking protection
-      const availabilityPromises = Object.entries(scheduleData.slots).map(
-        async ([date, times]) => {
-          // First, get existing schedule for this date to check for bookings
-          console.log("Looking for existing schedule for date:", date);
-          console.log("mySchedules structure:", mySchedules);
-
-          const existingSchedule = mySchedules?.schedulesByMonth
-            ?.flatMap((month) => month.schedules)
-            ?.find((schedule) => {
-              const normalizedScheduleDate = schedule.date.split("T")[0]; // Remove time part
-              const normalizedTargetDate = date.split("T")[0]; // Remove time part
-              console.log(
-                "Comparing dates:",
-                normalizedScheduleDate,
-                "vs",
-                normalizedTargetDate
-              );
-              return normalizedScheduleDate === normalizedTargetDate;
-            });
-
-          console.log("Found existing schedule:", existingSchedule);
-
-          const newSlots = [];
-
-          console.log("Processing times for date", date, ":", times);
-          console.log("Existing schedule slots:", existingSchedule?.slots);
-
-          // Convert new times to 30-minute slots
-          times.forEach((time) => {
-            const [hours, minutes] = time.split(":").map(Number);
-            const startTime = `${hours.toString().padStart(2, "0")}:${minutes
-              .toString()
-              .padStart(2, "0")}`;
-            const endMinutes = minutes + 30;
-            const endHours = endMinutes >= 60 ? hours + 1 : hours;
-            const adjustedMinutes =
-              endMinutes >= 60 ? endMinutes - 60 : endMinutes;
-            const endTime = `${endHours
-              .toString()
-              .padStart(2, "0")}:${adjustedMinutes
-              .toString()
-              .padStart(2, "0")}`;
-
-            // Always add the slot - backend will handle preservation of booking status
-            console.log(`Adding slot: ${startTime}`);
-            newSlots.push({
-              start: startTime,
-              end: endTime,
-              status: "open", // Always send as 'open' - backend will preserve booked status
-            });
+      const availabilityPromises = Object.entries(scheduleData.slots).map(async ([date, times]) => {
+        // First, get existing schedule for this date to check for bookings
+        console.log("Looking for existing schedule for date:", date);
+        console.log("mySchedules structure:", mySchedules);
+        
+        const existingSchedule = mySchedules?.schedulesByMonth
+          ?.flatMap(month => month.schedules)
+          ?.find(schedule => {
+            const normalizedScheduleDate = schedule.date.split('T')[0]; // Remove time part
+            const normalizedTargetDate = date.split('T')[0]; // Remove time part
+            console.log("Comparing dates:", normalizedScheduleDate, "vs", normalizedTargetDate);
+            return normalizedScheduleDate === normalizedTargetDate;
           });
+          
+        console.log("Found existing schedule:", existingSchedule);
+
+        const newSlots = [];
+        
+        console.log("Processing times for date", date, ":", times);
+        console.log("Existing schedule slots:", existingSchedule?.slots);
+        
+        // Convert new times to 30-minute slots
+        times.forEach(time => {
+          const [hours, minutes] = time.split(':').map(Number);
+          const startTime = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+          const endMinutes = minutes + 30;
+          const endHours = endMinutes >= 60 ? hours + 1 : hours;
+          const adjustedMinutes = endMinutes >= 60 ? endMinutes - 60 : endMinutes;
+          const endTime = `${endHours.toString().padStart(2, '0')}:${adjustedMinutes.toString().padStart(2, '0')}`;
+          
+          // Always add the slot - backend will handle preservation of booking status
+          console.log(`Adding slot: ${startTime}`);
+          newSlots.push({
+            start: startTime,
+            end: endTime,
+            status: "open" // Always send as 'open' - backend will preserve booked status
+          });
+        });
 
           // Note: Backend will automatically preserve booked/held slots
           // and delete pending/canceled bookings for removed slots
 
-          // Sort slots by start time and log final payload
-          newSlots.sort((a, b) => a.start.localeCompare(b.start));
-          console.log("Final slots payload for", date, ":", newSlots);
+        // Sort slots by start time and log final payload
+        newSlots.sort((a, b) => a.start.localeCompare(b.start));
+        console.log("Final slots payload for", date, ":", newSlots);
 
-          // Call API to create/update availability
-          const payload = {
-            date,
-            slots: newSlots,
-            timezone: "Asia/Ho_Chi_Minh",
-          };
-          console.log("API payload:", payload);
+        // Call API to create/update availability
+        const payload = {
+          date,
+          slots: newSlots,
+          timezone: "Asia/Ho_Chi_Minh"
+        };
+        console.log("API payload:", payload);
+        
+        const { response, error } = await availabilityApi.createOrUpdateAvailability(payload);
 
-          const { response, error } =
-            await availabilityApi.createOrUpdateAvailability(payload);
-
-          if (error) {
-            console.error("API error for date", date, ":", error);
-            throw new Error(
-              `Lỗi cập nhật availability cho ngày ${date}: ${JSON.stringify(
-                error
-              )}`
-            );
-          }
-
-          console.log("API success for date", date, ":", response);
-          return response;
+        if (error) {
+          console.error("API error for date", date, ":", error);
+          throw new Error(`Lỗi cập nhật availability cho ngày ${date}: ${JSON.stringify(error)}`);
         }
-      );
+
+        console.log("API success for date", date, ":", response);
+        return response;
+      });
 
       await Promise.all(availabilityPromises);
 
@@ -1251,7 +1234,6 @@ const MentorProfile = () => {
       await loadMySchedules();
       await loadMentorBookings(); // Refresh bookings - deleted bookings should disappear
     } catch (error) {
-      console.error("Error saving schedule:", error);
       toast.error(error.message || "Lỗi khi cập nhật lịch");
     }
   };
@@ -1271,11 +1253,6 @@ const MentorProfile = () => {
 
         // Log if any schedules were removed
         const removedCount = prevSchedules.length - activeSchedules.length;
-        if (removedCount > 0) {
-          console.log(
-            `Automatically removed ${removedCount} expired schedule(s)`
-          );
-        }
 
         return activeSchedules;
       });
@@ -1319,12 +1296,16 @@ const MentorProfile = () => {
     }
   }, [activeTab]);
 
+  // Reset response pagination when filter changes
+  useEffect(() => {
+    setResponseCurrentPage(1);
+  }, [bookingFilter]);
+
   const loadMentorBookings = async () => {
     setBookingsLoading(true);
     try {
       const { response, error } = await bookingApi.getMentorBookings();
       if (error) {
-        console.error("Error loading mentor bookings:", error);
         toast.error("Không thể tải danh sách booking");
         setBookings([]);
       } else if (response && response.data) {
@@ -1350,7 +1331,6 @@ const MentorProfile = () => {
         setBookings(transformedBookings);
       }
     } catch (err) {
-      console.error("Error in loadMentorBookings:", err);
       toast.error("Lỗi khi tải danh sách booking");
       setBookings([]);
     } finally {
@@ -1378,8 +1358,36 @@ const MentorProfile = () => {
     try {
       const { response, error } = await bookingApi.confirmBooking(bookingId);
       if (error) {
-        console.error("Error accepting booking:", error);
-        toast.error("Không thể chấp nhận booking");
+        // Extract error message from various error formats
+        let errorMessage = "";
+        if (error.response?.data?.message) {
+          errorMessage = error.response.data.message;
+        } else if (error.data?.message) {
+          errorMessage = error.data.message;
+        } else if (error.message) {
+          errorMessage = error.message;
+        } else if (typeof error === "string") {
+          errorMessage = error;
+        } else {
+          errorMessage = "Không thể chấp nhận booking";
+        }
+
+        // Check if error is related to expired booking
+        if (
+          errorMessage.toLowerCase().includes("expired") ||
+          errorMessage.toLowerCase().includes("past session")
+        ) {
+          errorMessage = "Booking has expired and cannot be accepted";
+        }
+
+        toast.error(errorMessage, {
+          position: "top-right",
+          autoClose: 5000,
+          hideProgressBar: false,
+          closeOnClick: true,
+          pauseOnHover: true,
+          draggable: true,
+        });
         return;
       }
 
@@ -1441,14 +1449,12 @@ const MentorProfile = () => {
     }
   };
 
-  const handleDeclineBooking = async (bookingId, reason = "") => {
+  const handleDeclineBooking = async (bookingId) => {
     try {
-      const { response, error } = await bookingApi.cancelBooking(
-        bookingId,
-        reason
-      );
+      const reason = prompt("Lý do từ chối (tuỳ chọn):");
+      
+      const { response, error } = await bookingApi.cancelBooking(bookingId, reason || "");
       if (error) {
-        console.error("Error declining booking:", error);
         toast.error("Không thể từ chối booking");
         return;
       }
@@ -1503,25 +1509,17 @@ const MentorProfile = () => {
       setTimeout(async () => {
         await Promise.all([loadAvailabilityOverview(), loadMySchedules()]);
       }, 1000); // Wait 1 second for backend to complete slot update
-
-      toast.success(
-        "Đã từ chối booking thành công! Thời gian đã trở lại trạng thái có thể đặt lịch."
-      );
+      
+      toast.success("Đã từ chối booking thành công! Thời gian đã trở lại trạng thái có thể đặt lịch.");
     } catch (err) {
-      console.error("Error in handleDeclineBooking:", err);
-      toast.error("Lỗi khi từ chối booking");
+      toast.error("Error declining booking");
     }
   };
 
   const handleDeleteSchedule = async (scheduleId) => {
     try {
-      console.log(`Deleting schedule ${scheduleId}`);
-
-      const { response, error } = await availabilityApi.deleteAvailability(
-        scheduleId
-      );
+      const { response, error } = await availabilityApi.deleteAvailability(scheduleId);
       if (error) {
-        console.error("Error deleting schedule:", error);
         toast.error("Không thể xóa lịch trình");
         return;
       }
@@ -1557,79 +1555,7 @@ const MentorProfile = () => {
 
       toast.success("Đã xóa lịch trình thành công!");
     } catch (err) {
-      console.error("Error in handleDeleteSchedule:", err);
       toast.error("Lỗi khi xóa lịch trình");
-    }
-  };
-
-  // Open delete confirmation modal
-  const openDeleteConfirmModal = (schedule) => {
-    const dayOfWeekEn = new Date(schedule.date).toLocaleDateString("en-US", {
-      weekday: "long",
-    });
-    const dateEn = new Date(schedule.date).toLocaleDateString("en-US", {
-      month: "long",
-      day: "numeric",
-      year: "numeric",
-    });
-
-    setDeleteConfirmModal({
-      isOpen: true,
-      scheduleId: schedule._id,
-      scheduleName: `${dayOfWeekEn} - ${dateEn}`,
-    });
-  };
-
-  // Close delete confirmation modal
-  const closeDeleteConfirmModal = () => {
-    setDeleteConfirmModal({
-      isOpen: false,
-      scheduleId: null,
-      scheduleName: null,
-    });
-  };
-
-  // Confirm delete
-  const confirmDeleteSchedule = async () => {
-    if (deleteConfirmModal.scheduleId) {
-      await handleDeleteSchedule(deleteConfirmModal.scheduleId);
-      closeDeleteConfirmModal();
-    }
-  };
-
-  // Open decline booking confirmation modal
-  const openDeclineConfirmModal = (booking) => {
-    setDeclineConfirmModal({
-      isOpen: true,
-      bookingId: booking.id,
-      bookingInfo: {
-        menteeName: booking.menteeName,
-        date: new Date(booking.date).toLocaleDateString("en-US", {
-          weekday: "long",
-          month: "long",
-          day: "numeric",
-          year: "numeric",
-        }),
-        time: booking.time,
-      },
-    });
-  };
-
-  // Close decline booking confirmation modal
-  const closeDeclineConfirmModal = () => {
-    setDeclineConfirmModal({
-      isOpen: false,
-      bookingId: null,
-      bookingInfo: null,
-    });
-    setDeclineReason(""); // Reset decline reason
-  };
-
-  // Confirm decline booking
-  const confirmDeclineBooking = async () => {
-    if (declineConfirmModal.bookingId) {
-      await handleDeclineBooking(declineConfirmModal.bookingId, declineReason);
-      closeDeclineConfirmModal();
     }
   };
 
@@ -1637,8 +1563,10 @@ const MentorProfile = () => {
   // No mock data, empty courses array
   const [allCourses, setAllCourses] = useState([]);
 
-  // Real mentees data - TODO: Replace with API data
-  const [allMentees] = useState([]);
+  // Real mentees data from API
+  const [allMentees, setAllMentees] = useState([]);
+  const [menteesLoading, setMenteesLoading] = useState(false);
+  const [menteesError, setMenteesError] = useState(null);
 
   // Real conversations data - TODO: Replace with API data
   const [conversations] = useState([]);
@@ -1646,6 +1574,24 @@ const MentorProfile = () => {
   // Real reviews data from MongoDB API
   // No mock data, empty reviews array
   const [allReviews, setAllReviews] = useState([]);
+  const [mentorReviews, setMentorReviews] = useState([]);
+  const [reviewsLoading, setReviewsLoading] = useState(false);
+  const [reviewsError, setReviewsError] = useState(null);
+
+  // Course detail popup states
+  const [isCourseDetailPopupOpen, setIsCourseDetailPopupOpen] = useState(false);
+  const [selectedReviewCourse, setSelectedReviewCourse] = useState(null);
+
+  // Booking detail popup states
+  const [isBookingDetailPopupOpen, setIsBookingDetailPopupOpen] =
+    useState(false);
+  const [selectedReviewBooking, setSelectedReviewBooking] = useState(null);
+
+  // Cache mentor bookings for performance
+  const [mentorBookings, setMentorBookings] = useState([]);
+
+  // Review tabs state
+  const [activeReviewTab, setActiveReviewTab] = useState("all"); // "all", "course", "consultation", "mentor"
 
   // Load courses from MongoDB
   const loadCourses = async () => {
@@ -1678,39 +1624,327 @@ const MentorProfile = () => {
   // Load reviews from MongoDB
   const loadReviews = async () => {
     try {
-      setLoading(true);
-      setError(null);
-      const { response, error } = await courseApi.getAllReviews();
-      console.log("Reviews API Response:", { response, error });
+      setReviewsLoading(true);
+      setReviewsError(null);
 
-      if (error) {
-        console.error("Reviews API Error:", error);
-        setError("Failed to load reviews");
+      // Get current user info to get mentor ID
+      const userStr = localStorage.getItem("user");
+      let mentorId = null;
+      try {
+        const user = userStr ? JSON.parse(userStr) : null;
+        mentorId = user?.id || user?._id;
+      } catch (e) {
+        setReviewsError("Unable to get user information");
         setAllReviews([]);
-      } else if (response && response.data) {
-        if (response.data.reviews && Array.isArray(response.data.reviews)) {
-          setAllReviews(response.data.reviews);
-        } else if (Array.isArray(response.data)) {
-          setAllReviews(response.data);
-        } else {
-          console.error(
-            "Unexpected reviews response structure:",
-            response.data
-          );
-          setAllReviews([]);
-        }
+        setReviewsLoading(false);
+        return;
+      }
+
+      if (!mentorId) {
+        setReviewsError("User not found");
+        setAllReviews([]);
+        setReviewsLoading(false);
+        return;
+      }
+
+      // Test: Try to get courses first
+      const testCourses = await courseApi.getCoursesByMentor(mentorId);
+
+      // Get reviews from two sources: courses and bookings
+      const courseReviewsResult = await reviewApi.getMentorCourseReviews(
+        mentorId
+      );
+
+      // Use the new getBookingReviews API to get all booking reviews for this mentor
+      const bookingReviewsResult = await reviewApi.getBookingReviews(mentorId);
+
+      let allReviewsData = [];
+
+      // Process course reviews
+      if (courseReviewsResult.response?.data?.items) {
+        allReviewsData = [...courseReviewsResult.response.data.items];
+      }
+
+      // Process booking reviews
+      if (bookingReviewsResult.response?.data?.items) {
+        allReviewsData = [
+          ...allReviewsData,
+          ...bookingReviewsResult.response.data.items,
+        ];
+      }
+
+      // Get direct mentor reviews using the new API
+      const mentorReviewsResult = await reviewApi.getMentorReviews(mentorId);
+
+      // Process direct mentor reviews
+      if (mentorReviewsResult.response?.data?.items) {
+        // Set separate state for mentor reviews
+        setMentorReviews(mentorReviewsResult.response.data.items);
+        // Also add to combined reviews data
+        allReviewsData = [
+          ...allReviewsData,
+          ...mentorReviewsResult.response.data.items,
+        ];
       } else {
-        console.error("No reviews response data");
-        setAllReviews([]);
+        setMentorReviews([]);
+      }
+
+      // Still get mentor bookings for caching (needed for booking detail popup)
+      const mentorBookingsResult = await bookingApi.getMentorBookings();
+      if (mentorBookingsResult.response?.data) {
+        setMentorBookings(mentorBookingsResult.response.data);
+      }
+
+      if (courseReviewsResult.error) {
+        setReviewsError("Failed to load course reviews");
+        setAllReviews(allReviewsData); // Still set booking reviews if any
+      } else {
+        setAllReviews(allReviewsData);
+        setReviewsError(null);
       }
     } catch (err) {
-      console.error("Error loading reviews:", err);
-      setError("Failed to load reviews");
+      setReviewsError("Failed to load reviews");
       setAllReviews([]);
     } finally {
-      setLoading(false);
+      setReviewsLoading(false);
     }
   };
+
+  // Load mentees from MongoDB
+  const loadMentees = async () => {
+    console.log("=== LOADING MENTEES ===");
+    try {
+      setMenteesLoading(true);
+      setMenteesError(null);
+
+      console.log("Calling purchasedCourseApi.getMenteesOfMentor...");
+      const { response, error } = await purchasedCourseApi.getMenteesOfMentor(
+        dispatch
+      );
+
+      console.log("API Response:", response);
+      console.log("API Error:", error);
+
+      if (error) {
+        console.log("Error loading mentees:", error);
+        setMenteesError("Failed to load mentees data");
+        setAllMentees([]);
+        return;
+      }
+
+      if (response?.data?.mentees) {
+        console.log("Setting mentees:", response.data.mentees);
+        setAllMentees(response.data.mentees);
+        setMenteesError(null);
+      } else {
+        console.log("No mentees data found");
+        setAllMentees([]);
+      }
+    } catch (err) {
+      console.log("Exception loading mentees:", err);
+      setMenteesError("Failed to load mentees");
+      setAllMentees([]);
+    } finally {
+      setMenteesLoading(false);
+    }
+  };
+
+  // Course detail popup functions
+  const openCourseDetailPopup = (course) => {
+    setSelectedReviewCourse(course);
+    setIsCourseDetailPopupOpen(true);
+  };
+
+  const closeCourseDetailPopup = () => {
+    setIsCourseDetailPopupOpen(false);
+    setSelectedReviewCourse(null);
+  };
+
+  // Helper function để format DateTime từ UTC sang múi giờ Việt Nam
+  const formatDateTimeUTCToVN = (utcDateString) => {
+    if (!utcDateString) return null;
+
+    try {
+      const date = new Date(utcDateString);
+      if (isNaN(date.getTime())) return null;
+
+      return date.toLocaleString("en-US", {
+        timeZone: "Asia/Ho_Chi_Minh",
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+      });
+    } catch (error) {
+      return null;
+    }
+  };
+
+  // Booking detail popup functions
+  const openBookingDetailPopup = async (bookingId) => {
+    const asId = (v) => (v == null ? "" : String(v));
+
+    // Gom alias field về 1 shape thống nhất cho UI
+    const normalizeBooking = (raw) => {
+      if (!raw) return null;
+      const mentee =
+        raw.mentee && typeof raw.mentee === "object"
+          ? raw.mentee
+          : raw.menteeId && typeof raw.menteeId === "object"
+          ? raw.menteeId
+          : raw.user && typeof raw.user === "object"
+          ? raw.user
+          : null;
+
+      return {
+        ...raw,
+        _id: asId(raw._id || raw.id || raw.bookingId),
+        date: raw.date || raw.bookingDate || raw.day || null,
+        start: raw.start || raw.startTime || raw.time || raw.timeStart || null,
+        end: raw.end || raw.endTime || raw.timeEnd || null,
+        status: raw.status || raw.state || raw.bookingStatus || null,
+        notes: raw.notes || raw.message || raw.remark || "",
+        mentee,
+        createdAt: raw.createdAt || raw.created_date || null,
+      };
+    };
+
+    // Nếu chỉ có review (không có booking thật), hiển thị review-only
+    const openReviewOnly = (reviewLike) => {
+      const relatedReview =
+        reviewLike ??
+        (Array.isArray(allReviews)
+          ? allReviews.find(
+              (rv) =>
+                rv?.targetType === "Booking" &&
+                asId(rv?.target) === asId(bookingId)
+            )
+          : null);
+
+      const fb = normalizeBooking({
+        _id: bookingId,
+        date: relatedReview?.createdAt || new Date(),
+        start: null,
+        end: null,
+        status: "completed",
+        notes: relatedReview?.content || "No additional notes available",
+        mentee: relatedReview?.author
+          ? {
+              firstName: relatedReview.author.firstName || "",
+              lastName: relatedReview.author.lastName || "",
+              email: relatedReview.author.email || "",
+              avatarUrl: relatedReview.author.avatarUrl || "",
+            }
+          : null,
+        createdAt: relatedReview?.createdAt || new Date(),
+      });
+
+      setSelectedReviewBooking(fb);
+      setIsBookingDetailPopupOpen(true);
+      log("✅ Opened review-only (fallback) with", fb);
+    };
+
+    try {
+      log("Opening booking detail popup for bookingId:", bookingId);
+
+      // 1) Tìm trong cache mentorBookings (ép id về string để so sánh)
+      let bookingDetail =
+        Array.isArray(mentorBookings) &&
+        mentorBookings.find((b) => asId(b?._id) === asId(bookingId));
+
+      // 2) Nếu không có, thử cache transformed "bookings"
+      if (!bookingDetail && Array.isArray(bookings)) {
+        const tb = bookings.find((b) => asId(b?.id) === asId(bookingId));
+        if (tb) {
+          bookingDetail = normalizeBooking({
+            _id: tb.id,
+            date: tb.date,
+            start: tb.time, // field của bạn
+            end: tb.endTime,
+            status: tb.status,
+            notes: tb.message,
+            mentee: {
+              firstName: (tb.menteeName || "").split(" ")[0] || "",
+              lastName:
+                (tb.menteeName || "").split(" ").slice(1).join(" ") || "",
+              email: tb.menteeEmail,
+              avatarUrl: tb.avatarUrl,
+            },
+            createdAt: tb.createdAt,
+          });
+          log("📦 Found in transformed cache:", bookingDetail);
+        }
+      }
+
+      // 3) Nếu vẫn chưa có, fetch mới
+      if (!bookingDetail) {
+        log("📡 Not in cache → fetching mentor bookings...");
+        const mentorBookingsResult = await bookingApi.getMentorBookings();
+        const list = mentorBookingsResult?.response?.data;
+
+        if (Array.isArray(list)) {
+          setMentorBookings(list); // cập nhật cache
+          const hit = list.find((b) => asId(b?._id) === asId(bookingId));
+          if (hit) bookingDetail = normalizeBooking(hit);
+        }
+      }
+
+      // 4) Nếu vẫn chưa có, thử gọi API chi tiết theo id (nếu backend có)
+      if (!bookingDetail && bookingApi.getBookingById) {
+        try {
+          log("🔎 Fetching single booking by id...");
+          const r = await bookingApi.getBookingById(bookingId);
+          const data =
+            r?.response?.data?.booking || r?.response?.data || r?.data;
+          if (data) bookingDetail = normalizeBooking(data);
+        } catch (e) {
+          log("ℹ️ getBookingById not available or failed:", e?.message);
+        }
+      }
+
+      // 5) Quyết định mở popup
+      if (bookingDetail) {
+        setSelectedReviewBooking(bookingDetail);
+        setIsBookingDetailPopupOpen(true);
+        log("✅ Popup set with REAL booking:", bookingDetail);
+        return;
+      }
+
+      // 6) Không tìm thấy booking thực sự → fallback review-only (nhưng có kiểm soát)
+      openReviewOnly(null);
+    } catch (err) {
+      // Fallback an toàn
+      openReviewOnly(null);
+    }
+  };
+
+  const closeBookingDetailPopup = () => {
+    setIsBookingDetailPopupOpen(false);
+    setSelectedReviewBooking(null);
+  };
+
+  // Load data when specific tabs are active
+  useEffect(() => {
+    console.log("Tab changed to:", activeTab);
+    if (activeTab === "reviews") {
+      console.log("Loading reviews...");
+      loadReviews();
+      // Also load bookings cache to ensure booking details are available
+      loadMentorBookings();
+    }
+    if (activeTab === "mentees") {
+      console.log("Loading mentees...");
+      loadMentees(); // Reload mentees when switching to mentees tab
+    }
+  }, [activeTab]);
+
+  // Load reviews and mentees on component mount
+  useEffect(() => {
+    loadReviews();
+    loadMentees();
+  }, []);
 
   // Load courses and reviews on component mount
   // Không gọi API courses/reviews nữa, chỉ dùng dữ liệu mock
@@ -1775,34 +2009,45 @@ const MentorProfile = () => {
 
   // Mentee filter and search logic
   const getFilteredAndSortedMentees = () => {
-    let filtered = allMentees.filter(
-      (mentee) =>
-        mentee.name.toLowerCase().includes(menteeSearchTerm.toLowerCase()) ||
-        mentee.email.toLowerCase().includes(menteeSearchTerm.toLowerCase()) ||
-        mentee.enrolledCourses.some((course) =>
-          course.courseName
-            .toLowerCase()
-            .includes(menteeSearchTerm.toLowerCase())
-        )
-    );
+    let filtered = allMentees.filter((mentee) => {
+      const fullName = `${mentee.firstName} ${mentee.lastName}`.toLowerCase();
+      const searchLower = menteeSearchTerm.toLowerCase();
+
+      return (
+        fullName.includes(searchLower) ||
+        mentee.email.toLowerCase().includes(searchLower)
+      );
+    });
 
     // Sort mentees
     switch (menteeSortBy) {
       case "latest":
         filtered = filtered.sort(
-          (a, b) => new Date(b.lastActive) - new Date(a.lastActive)
+          (a, b) =>
+            new Date(b.latestInteraction) - new Date(a.latestInteraction)
         );
         break;
       case "oldest":
         filtered = filtered.sort(
-          (a, b) => new Date(a.joinedDate) - new Date(b.joinedDate)
+          (a, b) =>
+            new Date(a.latestInteraction) - new Date(b.latestInteraction)
         );
         break;
       case "most-courses":
-        filtered = filtered.sort((a, b) => b.totalCourses - a.totalCourses);
+        filtered = filtered.sort(
+          (a, b) =>
+            (b.courseCount || 0) +
+            (b.bookingCount || 0) -
+            (a.courseCount || 0) -
+            (a.bookingCount || 0)
+        );
         break;
       case "name":
-        filtered = filtered.sort((a, b) => a.name.localeCompare(b.name));
+        filtered = filtered.sort((a, b) =>
+          `${a.firstName} ${a.lastName}`.localeCompare(
+            `${b.firstName} ${b.lastName}`
+          )
+        );
         break;
       default:
         break;
@@ -1822,6 +2067,8 @@ const MentorProfile = () => {
 
   const handleMenteePageChange = (page) => {
     setMenteeCurrentPage(page);
+    // Scroll to top when changing mentee pages
+    scrollToTop();
   };
 
   const handlePageChange = (page) => {
@@ -1850,14 +2097,12 @@ const MentorProfile = () => {
 
   const handleSaveImage = () => {
     // TODO: Implement save image functionality
-    console.log("Save image functionality to be implemented");
   };
 
   // Message handlers
   const handleSendMessage = () => {
     if (messageInput.trim() && selectedConversation) {
       // TODO: Implement send message functionality with API
-      console.log("Sending message:", messageInput);
       setMessageInput("");
     }
   };
@@ -1867,31 +2112,27 @@ const MentorProfile = () => {
   };
 
   const handleSendMessageToMentee = (menteeId) => {
-    // Find or create conversation with this mentee
-    const existingConversation = conversations.find(
-      (conv) => conv.menteeId === menteeId
-    );
-    if (existingConversation) {
-      setSelectedConversation(existingConversation);
+    // Find the mentee to get their name
+    const mentee = allMentees.find((m) => m._id === menteeId);
+    if (mentee) {
+      // For now, show a toast message indicating the messaging feature
+      // In a real implementation, this would open a messaging interface or redirect to messages
+      toast.info(
+        `Messaging feature would open conversation with ${mentee.firstName} ${mentee.lastName}`,
+        {
+          position: "top-right",
+          autoClose: 3000,
+        }
+      );
+
+      // TODO: Implement actual messaging functionality
+      // This could include:
+      // 1. Opening a messaging modal/sidebar
+      // 2. Redirecting to a dedicated messages page
+      // 3. Creating a new conversation via API
     } else {
-      // Create new conversation - TODO: Implement with API
-      const mentee = allMentees.find((m) => m.id === menteeId);
-      if (mentee) {
-        const newConversation = {
-          id: conversations.length + 1,
-          menteeId: mentee.id,
-          menteeName: mentee.name,
-          menteeAvatar: mentee.avatar,
-          lastMessage: "",
-          lastMessageTime: "Now",
-          isOnline: false,
-          unreadCount: 0,
-          messages: [],
-        };
-        setSelectedConversation(newConversation);
-      }
+      toast.error("Could not find mentee information");
     }
-    setActiveTab("messages");
   };
 
   // Filter conversations based on search
@@ -1899,25 +2140,51 @@ const MentorProfile = () => {
     conv.menteeName.toLowerCase().includes(searchMessages.toLowerCase())
   );
 
-  // Reviews filter and search logic
+  // Reviews filter and tab logic
   const getFilteredAndSortedReviews = () => {
-    let filtered = allReviews.filter((review) => {
-      const studentName = review.author
-        ? `${review.author.firstName || ""} ${
-            review.author.lastName || ""
-          }`.trim() || review.author.userName
-        : "";
-      const courseName = review.target ? review.target.title : "";
-      const reviewText = review.content || "";
+    let filtered = allReviews;
 
-      return (
-        studentName.toLowerCase().includes(reviewSearchTerm.toLowerCase()) ||
-        courseName.toLowerCase().includes(reviewSearchTerm.toLowerCase()) ||
-        reviewText.toLowerCase().includes(reviewSearchTerm.toLowerCase())
-      );
-    });
+    // Filter by tab
+    switch (activeReviewTab) {
+      case "course":
+        // Check multiple possible ways to identify course reviews
+        filtered = allReviews.filter((review) => {
+          // Method 1: Check targetType
+          if (review.targetType === "course") return true;
 
-    // Sort reviews
+          // Method 2: Check if review has course property (from our API)
+          if (review.course && review.course._id) return true;
+
+          // Method 3: Check if target is a course (from review API)
+          if (review.target && !review.targetType) return true;
+
+          // Method 4: Default to course if no targetType specified
+          if (!review.targetType && !review.target) return true;
+
+          return false;
+        });
+        break;
+      case "consultation":
+        // Include both consultation and booking reviews
+        filtered = allReviews.filter(
+          (review) =>
+            review.targetType === "consultation" ||
+            review.targetType === "Booking"
+        );
+        break;
+      case "mentor":
+        // Filter mentor reviews
+        filtered = allReviews.filter(
+          (review) => review.targetType === "Mentor"
+        );
+        break;
+      case "all":
+      default:
+        filtered = allReviews; // Show all reviews
+        break;
+    }
+
+    // Sort reviews (keeping the sorting logic)
     switch (reviewSortBy) {
       case "latest":
         return filtered.sort(
@@ -1951,6 +2218,19 @@ const MentorProfile = () => {
 
   const handleReviewPageChange = (page) => {
     setReviewCurrentPage(page);
+    // Scroll to top when changing review pages
+    scrollToTop();
+  };
+
+  const handleSchedulePageChange = (page) => {
+    setScheduleCurrentPage(page);
+    // Không cần cuộn lên vì đang xem phần lịch ở dưới
+  };
+
+  const handleResponsePageChange = (page) => {
+    setResponseCurrentPage(page);
+    // Scroll to top when changing response pages
+    scrollToTop();
   };
 
   // Scroll lên đầu trang (bao gồm cả header) khi chuyển tab
@@ -2419,9 +2699,17 @@ const MentorProfile = () => {
                       Courses ({filteredCourses.length})
                     </h3>
                     <button
-                      onClick={() =>
-                        navigate(`${PATH.MENTOR}/${MENTOR_PATH.CREATECOURSE}`)
-                      }
+                      onClick={() => {
+                        // Show loading page
+                        dispatch(showLoading());
+
+                        // Navigate with a slight delay to show loading
+                        setTimeout(() => {
+                          navigate(
+                            `${PATH.MENTOR}/${MENTOR_PATH.CREATECOURSE}`
+                          );
+                        }, 300);
+                      }}
                       className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition font-medium text-sm"
                     >
                       New Course
@@ -2601,8 +2889,7 @@ const MentorProfile = () => {
                               </p>
                               <div className="flex items-center gap-2 mb-2">
                                 <div className="flex text-yellow-400 text-sm">
-                                  {"★".repeat(Math.floor(course.rate || 0))}
-                                  {(course.rate || 0) % 1 !== 0 && "☆"}
+                                  {renderStars(course.rate || 0)}
                                 </div>
                                 <span className="text-sm text-gray-600">
                                   ({course.numberOfRatings || 0} Ratings)
@@ -2618,20 +2905,31 @@ const MentorProfile = () => {
                               {course.tags && course.tags.length > 0 && (
                                 <div className="mb-2">
                                   <div className="flex flex-wrap gap-1">
-                                    {course.tags
-                                      .slice(0, 3)
-                                      .map((tag, index) => (
-                                        <span
-                                          key={index}
-                                          className="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full font-medium"
-                                        >
-                                          {tag}
-                                        </span>
-                                      ))}
-                                    {course.tags.length > 3 && (
-                                      <span className="inline-block bg-gray-100 text-gray-600 text-xs px-2 py-1 rounded-full">
-                                        +{course.tags.length - 3} more
+                                    {(expandedTags[course._id]
+                                      ? course.tags
+                                      : course.tags.slice(0, 3)
+                                    ).map((tag, index) => (
+                                      <span
+                                        key={index}
+                                        className="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full font-medium"
+                                      >
+                                        {tag}
                                       </span>
+                                    ))}
+                                    {course.tags.length > 3 && (
+                                      <button
+                                        onClick={() =>
+                                          setExpandedTags((prev) => ({
+                                            ...prev,
+                                            [course._id]: !prev[course._id],
+                                          }))
+                                        }
+                                        className="inline-block bg-gray-100 hover:bg-gray-200 text-gray-600 text-xs px-2 py-1 rounded-full transition-colors cursor-pointer"
+                                      >
+                                        {expandedTags[course._id]
+                                          ? "Show less"
+                                          : `+${course.tags.length - 3} more`}
+                                      </button>
                                     )}
                                   </div>
                                 </div>
@@ -2645,20 +2943,33 @@ const MentorProfile = () => {
                                       Languages:
                                     </p>
                                     <div className="flex flex-wrap gap-1">
-                                      {course.language
-                                        .slice(0, 2)
-                                        .map((lang, index) => (
-                                          <span
-                                            key={index}
-                                            className="inline-block bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full"
-                                          >
-                                            {lang}
-                                          </span>
-                                        ))}
-                                      {course.language.length > 2 && (
-                                        <span className="inline-block bg-gray-100 text-gray-600 text-xs px-2 py-1 rounded-full">
-                                          +{course.language.length - 2} more
+                                      {(expandedLanguages[course._id]
+                                        ? course.language
+                                        : course.language.slice(0, 2)
+                                      ).map((lang, index) => (
+                                        <span
+                                          key={index}
+                                          className="inline-block bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full"
+                                        >
+                                          {lang}
                                         </span>
+                                      ))}
+                                      {course.language.length > 2 && (
+                                        <button
+                                          onClick={() =>
+                                            setExpandedLanguages((prev) => ({
+                                              ...prev,
+                                              [course._id]: !prev[course._id],
+                                            }))
+                                          }
+                                          className="inline-block bg-gray-100 hover:bg-gray-200 text-gray-600 text-xs px-2 py-1 rounded-full transition-colors cursor-pointer"
+                                        >
+                                          {expandedLanguages[course._id]
+                                            ? "Show less"
+                                            : `+${
+                                                course.language.length - 2
+                                              } more`}
+                                        </button>
                                       )}
                                     </div>
                                   </div>
@@ -2693,11 +3004,18 @@ const MentorProfile = () => {
                               className="flex-1 bg-blue-600 text-white py-2 px-3 rounded-lg hover:bg-blue-700 transition text-sm font-medium"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                navigate(
-                                  `/mentor/edit-course/${
-                                    course._id || course.id
-                                  }`
-                                );
+
+                                // Show loading page
+                                dispatch(showLoading());
+
+                                // Navigate with a slight delay to show loading
+                                setTimeout(() => {
+                                  navigate(
+                                    `/mentor/edit-course/${
+                                      course._id || course.id
+                                    }`
+                                  );
+                                }, 300);
                               }}
                             >
                               Edit Course
@@ -2842,8 +3160,8 @@ const MentorProfile = () => {
                       className="px-4 py-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                     >
                       <option value="latest">Most Active</option>
-                      <option value="oldest">Oldest Member</option>
-                      <option value="most-courses">Most Courses</option>
+                      <option value="oldest">Oldest Interaction</option>
+                      <option value="most-courses">Most Services</option>
                       <option value="name">Name A-Z</option>
                     </select>
                     <button
@@ -2873,108 +3191,142 @@ const MentorProfile = () => {
                 </div>
 
                 {/* Mentees Grid - Dynamic rendering based on filtered data */}
-                <div
-                  className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start content-start"
-                  style={{ height: "2220px" }}
-                >
-                  {currentMentees.length > 0 ? (
-                    currentMentees.map((mentee) => (
-                      <div
-                        key={mentee.id}
-                        className="border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow"
-                      >
-                        <div className="flex items-start gap-4 mb-4">
-                          <img
-                            src={mentee.avatar}
-                            alt={mentee.name}
-                            className="w-16 h-16 rounded-full object-cover"
-                          />
-                          <div className="flex-1">
-                            <h4 className="font-semibold text-gray-900 mb-1">
-                              {mentee.name}
-                            </h4>
-                            <p className="text-sm text-gray-600 mb-2">
-                              {mentee.email}
-                            </p>
-                            <div className="flex items-center gap-4 text-sm text-gray-500">
-                              <span>
-                                Joined:{" "}
-                                {new Date(
-                                  mentee.joinedDate
-                                ).toLocaleDateString()}
-                              </span>
-                              <span>
-                                Last Active:{" "}
-                                {new Date(
-                                  mentee.lastActive
-                                ).toLocaleDateString()}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
+                {menteesLoading ? (
+                  <div className="col-span-full text-center py-12">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                    <p className="text-gray-500">Loading mentees...</p>
+                  </div>
+                ) : menteesError ? (
+                  <div className="col-span-full text-center py-12">
+                    <p className="text-red-500 text-lg mb-2">
+                      Error loading mentees
+                    </p>
+                    <p className="text-gray-400">{menteesError}</p>
+                  </div>
+                ) : (
+                  <div
+                    className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start content-start"
+                    style={{ minHeight: "400px" }}
+                  >
+                    {currentMentees.length > 0 ? (
+                      currentMentees.map((mentee) => {
+                        // ✅ Chuẩn hoá cờ hoạt động: chấp nhận boolean / count / array
+                        const hasCourse =
+                          Boolean(mentee.hasCoursePurchase) ||
+                          (typeof mentee.courseCount === "number" &&
+                            mentee.courseCount > 0) ||
+                          (Array.isArray(mentee.purchasedCourses) &&
+                            mentee.purchasedCourses.length > 0) ||
+                          (typeof mentee.purchasedCourseCount === "number" &&
+                            mentee.purchasedCourseCount > 0);
 
-                        <div className="mb-4">
-                          <h5 className="font-medium text-gray-900 mb-2">
-                            Enrolled Courses ({mentee.totalCourses})
-                          </h5>
-                          <div className="space-y-2">
-                            {mentee.enrolledCourses.map((course, index) => (
-                              <div
-                                key={index}
-                                className="bg-gray-50 rounded-lg p-3"
-                              >
-                                <div className="flex justify-between items-start mb-2">
-                                  <h6 className="font-medium text-sm text-gray-900">
-                                    {course.courseName}
-                                  </h6>
-                                  <span className="text-xs text-gray-500">
-                                    {course.progress}%
-                                  </span>
-                                </div>
-                                <div className="flex items-center gap-2 text-xs text-gray-500 mb-2">
+                        const hasBooking =
+                          Boolean(mentee.hasBooking) ||
+                          (typeof mentee.bookingCount === "number" &&
+                            mentee.bookingCount > 0) ||
+                          (Array.isArray(mentee.bookings) &&
+                            mentee.bookings.length > 0) ||
+                          (typeof mentee.consultationCount === "number" &&
+                            mentee.consultationCount > 0);
+
+                        return (
+                          <div
+                            key={mentee._id}
+                            className="border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow"
+                          >
+                            <div className="flex items-start gap-4 mb-4">
+                              <div className="relative">
+                                {mentee.avatarUrl ? (
+                                  <img
+                                    src={mentee.avatarUrl}
+                                    alt={`${mentee.firstName} ${mentee.lastName}`}
+                                    className="w-16 h-16 rounded-full object-cover"
+                                  />
+                                ) : (
+                                  <div className="w-16 h-16 rounded-full bg-gray-300 flex items-center justify-center">
+                                    <FaUserCircle className="w-12 h-12 text-gray-500" />
+                                  </div>
+                                )}
+                              </div>
+                              <div className="flex-1">
+                                <h4 className="font-semibold text-gray-900 mb-1">
+                                  {mentee.firstName} {mentee.lastName}
+                                </h4>
+                                <p className="text-sm text-gray-600 mb-2">
+                                  {mentee.email}
+                                </p>
+                                <div className="flex items-center gap-2 text-sm text-gray-500">
                                   <span>
-                                    Enrolled:{" "}
+                                    Last interaction:{" "}
                                     {new Date(
-                                      course.enrolledDate
+                                      mentee.latestInteraction
                                     ).toLocaleDateString()}
                                   </span>
                                 </div>
-                                <div className="w-full bg-gray-200 rounded-full h-2">
-                                  <div
-                                    className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                                    style={{ width: `${course.progress}%` }}
-                                  ></div>
-                                </div>
                               </div>
-                            ))}
-                          </div>
-                        </div>
+                            </div>
 
-                        {/* TODO: Add message/contact functionality with API calls */}
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => handleSendMessageToMentee(mentee.id)}
-                            className="flex-1 bg-blue-600 text-white py-2 px-3 rounded-lg hover:bg-blue-700 transition text-sm font-medium"
-                          >
-                            Send Message
-                          </button>
-                          <button className="px-3 py-2 border border-gray-300 text-gray-600 rounded-lg hover:bg-gray-50 transition text-sm">
-                            View Profile
-                          </button>
-                        </div>
+                            {/* Service status badges */}
+                            <div className="mb-4">
+                              <div className="flex flex-wrap gap-2">
+                                {hasCourse && (
+                                  <span className="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
+                                    📚 Purchased Courses
+                                  </span>
+                                )}
+                                {hasBooking && (
+                                  <span className="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
+                                    📞 Booked Consultations
+                                  </span>
+                                )}
+                                {!hasCourse && !hasBooking && (
+                                  <span className="bg-gray-100 text-gray-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
+                                    No active services
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Action buttons */}
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() =>
+                                  handleSendMessageToMentee(mentee._id)
+                                }
+                                className="w-full bg-blue-600 text-white py-2 px-3 rounded-lg hover:bg-blue-700 transition text-sm font-medium flex items-center justify-center gap-2"
+                              >
+                                <svg
+                                  className="w-4 h-4"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  viewBox="0 0 24 24"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                                  />
+                                </svg>
+                                Send Message
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })
+                    ) : (
+                      <div className="col-span-full text-center py-12">
+                        <p className="text-gray-500 text-lg mb-2">
+                          No mentees found
+                        </p>
+                        <p className="text-gray-400">
+                          You don't have any mentees who have purchased courses
+                          or booked consultations yet.
+                        </p>
                       </div>
-                    ))
-                  ) : (
-                    <div className="col-span-full text-center py-12">
-                      <p className="text-gray-500 text-lg mb-2">
-                        No mentees found
-                      </p>
-                      <p className="text-gray-400">
-                        Try adjusting your search criteria
-                      </p>
-                    </div>
-                  )}
-                </div>
+                    )}
+                  </div>
+                )}
 
                 {/* Pagination - Dynamic based on filtered results */}
                 {totalMenteePages > 1 && (
@@ -3289,11 +3641,8 @@ const MentorProfile = () => {
                   ) : availabilityOverview ? (
                     <div className="space-y-4">
                       {/* Debug logging */}
-                      {console.log(
-                        "Rendering availabilityOverview:",
-                        availabilityOverview
-                      )}
-
+                      {console.log("Rendering availabilityOverview:", availabilityOverview)}
+                      
                       {/* Summary Stats */}
                       <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-6 shadow-lg">
                         <h4 className="text-xl font-bold text-blue-900 mb-6 flex items-center gap-2">
@@ -3397,41 +3746,35 @@ const MentorProfile = () => {
                                 )}
                               </div>
                             </div>
-
-                            {day.hasAvailability &&
-                              day.slots &&
-                              day.slots.length > 0 && (
-                                <div className="bg-white rounded-lg p-4 border border-gray-100">
-                                  <h6 className="text-sm font-semibold text-gray-700 mb-3">
-                                    Time Slots
-                                  </h6>
-                                  <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-2">
-                                    {day.slots
-                                      .slice(0, 6)
-                                      .map((slot, slotIndex) => (
-                                        <div
-                                          key={slotIndex}
-                                          className={`text-xs py-2 rounded-lg font-medium transition-all flex items-center justify-center ${
-                                            slot.status === "open"
-                                              ? "bg-green-100 text-green-800 border border-green-200 shadow-sm"
-                                              : slot.status === "booked"
-                                              ? "bg-red-100 text-red-800 border border-red-200 shadow-sm"
-                                              : slot.status === "held"
-                                              ? "bg-yellow-100 text-yellow-800 border border-yellow-200 shadow-sm"
-                                              : "bg-gray-100 text-gray-600 border border-gray-200"
-                                          }`}
-                                        >
-                                          {slot.start}
-                                        </div>
-                                      ))}
-                                    {day.slots.length > 6 && (
-                                      <div className="text-xs py-2 rounded-lg bg-blue-100 text-blue-700 border border-blue-200 font-medium flex items-center justify-center">
-                                        +{day.slots.length - 6} more
-                                      </div>
-                                    )}
-                                  </div>
+                            
+                            {day.hasAvailability && day.slots && day.slots.length > 0 && (
+                              <div className="bg-white rounded-lg p-4 border border-gray-100">
+                                <h6 className="text-sm font-semibold text-gray-700 mb-3">Time Slots</h6>
+                                <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-2">
+                                  {day.slots.slice(0, 6).map((slot, slotIndex) => (
+                                    <div
+                                      key={slotIndex}
+                                      className={`text-xs py-2 rounded-lg font-medium transition-all flex items-center justify-center ${
+                                        slot.status === 'open' 
+                                          ? 'bg-green-100 text-green-800 border border-green-200 shadow-sm'
+                                          : slot.status === 'booked'
+                                          ? 'bg-red-100 text-red-800 border border-red-200 shadow-sm'
+                                          : slot.status === 'held'
+                                          ? 'bg-yellow-100 text-yellow-800 border border-yellow-200 shadow-sm'
+                                          : 'bg-gray-100 text-gray-600 border border-gray-200'
+                                      }`}
+                                    >
+                                      {slot.start}
+                                    </div>
+                                  ))}
+                                  {day.slots.length > 6 && (
+                                    <div className="text-xs py-2 rounded-lg bg-blue-100 text-blue-700 border border-blue-200 font-medium flex items-center justify-center">
+                                      +{day.slots.length - 6} more
+                                    </div>
+                                  )}
                                 </div>
-                              )}
+                              </div>
+                            )}
                           </div>
                         ))}
                       </div>
@@ -3530,8 +3873,6 @@ const MentorProfile = () => {
                         </div>
 
                         {/* Debug logging */}
-                        {console.log("Rendering mySchedules:", mySchedules)}
-
                         {/* Time Slots Legend */}
                         <div className="mb-6 p-4 bg-gray-50 rounded-lg border">
                           <h4 className="text-sm font-semibold text-gray-700 mb-3">
@@ -3567,70 +3908,55 @@ const MentorProfile = () => {
 
                         {/* Schedules by Month */}
                         <div className="space-y-8">
-                          {mySchedules.schedulesByMonth.map(
-                            (monthGroup, monthIndex) => (
-                              <div key={monthGroup.month} className="relative">
-                                {/* Month Header */}
-                                <div className="flex items-center gap-3 mb-6">
-                                  <div className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-5 py-2 rounded-xl shadow-sm">
-                                    <h4 className="text-base font-semibold">
-                                      {monthGroup.monthName}
-                                    </h4>
-                                  </div>
-                                  <div className="bg-gray-100 text-gray-700 px-3 py-1 rounded-full text-sm font-medium">
-                                    {monthGroup.schedules.length} schedules
-                                  </div>
+                          {mySchedules.schedulesByMonth.map((monthGroup, monthIndex) => (
+                            <div key={monthGroup.month} className="relative">
+                              {/* Month Header */}
+                              <div className="flex items-center gap-3 mb-6">
+                                <div className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-5 py-2 rounded-xl shadow-sm">
+                                  <h4 className="text-base font-semibold">
+                                    {monthGroup.monthName}
+                                  </h4>
                                 </div>
+                                <div className="bg-gray-100 text-gray-700 px-3 py-1 rounded-full text-sm font-medium">
+                                  {monthGroup.schedules.length} schedules
+                                </div>
+                              </div>
+                              
+                              {/* Schedules Grid */}
+                              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                {monthGroup.schedules.map((schedule, scheduleIndex) => (
+                                  <div
+                                    key={schedule._id}
+                                    className={`relative border-2 rounded-xl p-6 transition-all duration-300 hover:shadow-lg ${
+                                      schedule.status === "past"
+                                        ? "border-gray-200 bg-gray-50/50 hover:border-gray-300"
+                                        : "border-blue-200 bg-gradient-to-br from-blue-50/50 to-indigo-50/30 hover:border-blue-300 hover:shadow-blue-100"
+                                    }`}
+                                  >
+                                    {/* Status Badge */}
+                                    <div className="absolute top-4 right-4">
+                                      <span className={`px-3 py-1 rounded-full text-xs font-bold ${
+                                        schedule.status === "past" 
+                                          ? "bg-gray-200 text-gray-600"
+                                          : "bg-green-100 text-green-700 shadow-sm"
+                                      }`}>
+                                        {schedule.status === "past" ? "COMPLETED" : "UPCOMING"}
+                                      </span>
+                                    </div>
 
-                                {/* Schedules Grid */}
-                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                                  {monthGroup.schedules.map(
-                                    (schedule, scheduleIndex) => (
-                                      <div
-                                        key={schedule._id}
-                                        className={`relative border-2 rounded-xl p-6 transition-all duration-300 hover:shadow-lg ${
-                                          schedule.status === "past"
-                                            ? "border-gray-200 bg-gray-50/50 hover:border-gray-300"
-                                            : "border-blue-200 bg-gradient-to-br from-blue-50/50 to-indigo-50/30 hover:border-blue-300 hover:shadow-blue-100"
-                                        }`}
-                                      >
-                                        {/* Status Badge */}
-                                        <div className="absolute top-4 right-4">
-                                          <span
-                                            className={`px-3 py-1 rounded-full text-xs font-bold ${
-                                              schedule.status === "past"
-                                                ? "bg-gray-200 text-gray-600"
-                                                : "bg-green-100 text-green-700 shadow-sm"
-                                            }`}
-                                          >
-                                            {schedule.status === "past"
-                                              ? "COMPLETED"
-                                              : "UPCOMING"}
-                                          </span>
-                                        </div>
-
-                                        {/* Schedule Header */}
-                                        <div className="mb-4">
-                                          <h5 className="text-lg font-bold text-gray-900 mb-2 flex items-center gap-1">
-                                            <span className="text-blue-600 text-sm">
-                                              📆
-                                            </span>
-                                            {new Date(
-                                              schedule.date
-                                            ).toLocaleDateString("en-US", {
-                                              weekday: "long",
-                                            })}
-                                          </h5>
-                                          <p className="text-gray-600 font-medium text-sm">
-                                            {new Date(
-                                              schedule.date
-                                            ).toLocaleDateString("en-US", {
-                                              month: "long",
-                                              day: "numeric",
-                                              year: "numeric",
-                                            })}
-                                          </p>
-                                        </div>
+                                    {/* Schedule Header */}
+                                    <div className="mb-4">
+                                      <h5 className="text-lg font-bold text-gray-900 mb-2 flex items-center gap-1">
+                                        <span className="text-blue-600 text-sm">📆</span> {schedule.dayOfWeek}
+                                      </h5>
+                                      <p className="text-gray-600 font-medium text-sm">
+                                        {new Date(schedule.date).toLocaleDateString('en-US', {
+                                          month: 'long',
+                                          day: 'numeric',
+                                          year: 'numeric'
+                                        })}
+                                      </p>
+                                    </div>
 
                                         {/* Slots Summary */}
                                         <div className="mb-4">
@@ -3662,71 +3988,60 @@ const MentorProfile = () => {
                                           </div>
                                         </div>
 
-                                        {/* Action Buttons */}
-                                        <div className="flex gap-3">
-                                          <button
-                                            onClick={() =>
-                                              handleEditSchedule(schedule)
+                                    {/* Action Buttons */}
+                                    <div className="flex gap-3">
+                                      <button
+                                        onClick={() => handleEditSchedule(schedule)}
+                                        className="flex items-center gap-1 px-3 py-2 text-sm font-medium border border-blue-300 text-blue-600 rounded-lg hover:bg-blue-50 transition-all duration-200"
+                                      >
+                                        <span className="text-xs">✏️</span> Edit
+                                      </button>
+                                      {schedule.canDelete && (
+                                        <button
+                                          onClick={() => {
+                                            if (window.confirm("Bạn có chắc chắn muốn xóa lịch trình này không?")) {
+                                              handleDeleteSchedule(schedule._id);
                                             }
-                                            className="flex items-center gap-1 px-3 py-2 text-sm font-medium border border-blue-300 text-blue-600 rounded-lg hover:bg-blue-50 transition-all duration-200"
-                                          >
-                                            <span className="text-xs">✏️</span>{" "}
-                                            Edit
-                                          </button>
-                                          {schedule.canDelete && (
-                                            <button
-                                              onClick={() =>
-                                                openDeleteConfirmModal(schedule)
-                                              }
-                                              className="flex items-center gap-1 px-3 py-2 text-sm font-medium border border-red-300 text-red-600 rounded-lg hover:bg-red-50 transition-all duration-200"
-                                            >
-                                              <span className="text-xs">
-                                                🗑️
-                                              </span>{" "}
-                                              Delete
-                                            </button>
-                                          )}
-                                        </div>
+                                          }}
+                                          className="flex items-center gap-1 px-3 py-2 text-sm font-medium border border-red-300 text-red-600 rounded-lg hover:bg-red-50 transition-all duration-200"
+                                        >
+                                          <span className="text-xs">🗑️</span> Delete
+                                        </button>
+                                      )}
+                                    </div>
 
-                                        {/* Time Slots Preview */}
-                                        <div className="mt-4 p-4 bg-gray-50 rounded-lg">
-                                          <h6 className="text-sm font-semibold text-gray-700 mb-3">
-                                            Time Slots Preview
-                                          </h6>
-                                          <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-2">
-                                            {schedule.slots
-                                              .slice(0, 6)
-                                              .map((slot, index) => (
-                                                <div
-                                                  key={index}
-                                                  className={`text-xs py-2 rounded-lg font-medium transition-all flex items-center justify-center ${
-                                                    slot.status === "open"
-                                                      ? "bg-green-100 text-green-800 border border-green-200 shadow-sm"
-                                                      : slot.status === "booked"
-                                                      ? "bg-red-100 text-red-800 border border-red-200 shadow-sm"
-                                                      : slot.status === "held"
-                                                      ? "bg-yellow-100 text-yellow-800 border border-yellow-200 shadow-sm"
-                                                      : "bg-gray-100 text-gray-600 border border-gray-200"
-                                                  }`}
-                                                >
-                                                  {slot.start}
-                                                </div>
-                                              ))}
-                                            {schedule.slots.length > 6 && (
-                                              <div className="text-xs py-2 rounded-lg bg-blue-100 text-blue-700 border border-blue-200 font-medium flex items-center justify-center">
-                                                +{schedule.slots.length - 6}{" "}
-                                                more
-                                              </div>
-                                            )}
+                                    {/* Time Slots Preview */}
+                                    <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+                                      <h6 className="text-sm font-semibold text-gray-700 mb-3">Time Slots Preview</h6>
+                                      <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-2">
+                                        {schedule.slots.slice(0, 6).map((slot, index) => (
+                                          <div
+                                            key={index}
+                                            className={`text-xs py-2 rounded-lg font-medium transition-all flex items-center justify-center ${
+                                              slot.status === 'open' 
+                                                ? 'bg-green-100 text-green-800 border border-green-200 shadow-sm'
+                                                : slot.status === 'booked'
+                                                ? 'bg-red-100 text-red-800 border border-red-200 shadow-sm'
+                                                : slot.status === 'held'
+                                                ? 'bg-yellow-100 text-yellow-800 border border-yellow-200 shadow-sm'
+                                                : 'bg-gray-100 text-gray-600 border border-gray-200'
+                                            }`}
+                                          >
+                                            {slot.start}
                                           </div>
-                                        </div>
+                                        ))}
+                                        {schedule.slots.length > 6 && (
+                                          <div className="text-xs py-2 rounded-lg bg-blue-100 text-blue-700 border border-blue-200 font-medium flex items-center justify-center">
+                                            +{schedule.slots.length - 6} more
+                                          </div>
+                                        )}
                                       </div>
-                                    )
-                                  )}
-                                </div>
+                                    </div>
+                                  </div>
+                                ))}
                               </div>
-                            )
-                          )}
+                            </div>
+                          ))}
                         </div>
                       </div>
                     ) : (
@@ -3754,6 +4069,7 @@ const MentorProfile = () => {
                   }}
                   onSave={handleSaveEditedSchedule}
                   editingSchedule={editingSchedule}
+                  existingSchedules={mySchedules}
                 />
               )}
 
@@ -3868,7 +4184,7 @@ const MentorProfile = () => {
                             {timeSlots.map((time) => (
                               <div
                                 key={time}
-                                className="rounded-lg border px-3 py-2 text-sm text-center bg-blue-50 border-blue-200"
+                                className="rounded-lg border px-3 py-2 text-sm text-center bg-blue-50 border-blue-200 min-w-[50px] min-h-[36px] flex items-center justify-center"
                               >
                                 {time}
                               </div>
@@ -4026,9 +4342,7 @@ const MentorProfile = () => {
                   {/* Booking List */}
                   <div className="space-y-4">
                     {(() => {
-                      const filteredBookings = getFilteredBookings().sort(
-                        (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
-                      ); // Sort by newest first
+                      const filteredBookings = getFilteredBookings();
                       return filteredBookings.length === 0 ? (
                         <div className="text-center py-16">
                           <div className="w-20 h-20 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-full flex items-center justify-center mx-auto mb-6">
@@ -4052,34 +4366,26 @@ const MentorProfile = () => {
                             className={`border-2 rounded-2xl p-6 transition-all duration-300 hover:shadow-xl ${
                               booking.status === "pending"
                                 ? "border-orange-200 bg-gradient-to-br from-orange-50/50 to-yellow-50/30 hover:border-orange-300"
-                                : booking.status === "active"
+                                : booking.status === "accepted"
                                 ? "border-green-200 bg-gradient-to-br from-green-50/50 to-emerald-50/30 hover:border-green-300"
                                 : "border-red-200 bg-gradient-to-br from-red-50/50 to-pink-50/30 hover:border-red-300"
                             }`}
                           >
                             {/* Status Badge */}
                             <div className="flex justify-between items-start mb-4">
-                              <span
-                                className={`px-3 py-1 rounded-full text-sm font-bold ${
-                                  booking.status === "pending"
-                                    ? "bg-orange-100 text-orange-800"
-                                    : booking.status === "active"
-                                    ? "bg-green-100 text-green-800"
-                                    : "bg-red-100 text-red-800"
-                                }`}
-                              >
-                                {booking.status === "pending"
-                                  ? "⏳ PENDING"
+                              <span className={`px-3 py-1 rounded-full text-sm font-bold ${
+                                booking.status === "pending"
+                                  ? "bg-orange-100 text-orange-800"
                                   : booking.status === "active"
-                                  ? "✅ ACCEPTED"
-                                  : booking.status === "cancelled"
-                                  ? "❌ DECLINED"
-                                  : "❓ " + booking.status.toUpperCase()}
+                                  ? "bg-green-100 text-green-800"
+                                  : "bg-red-100 text-red-800"
+                              }`}>
+                                {booking.status === "pending" ? "⏳ PENDING" : 
+                                 booking.status === "active" ? "✅ ACCEPTED" : 
+                                 booking.status === "cancelled" ? "❌ DECLINED" : "❓ " + booking.status.toUpperCase()}
                               </span>
                               <span className="text-xs text-gray-500">
-                                {new Date(
-                                  booking.createdAt
-                                ).toLocaleDateString()}
+                                {new Date(booking.createdAt).toLocaleDateString()}
                               </span>
                             </div>
 
@@ -4093,21 +4399,16 @@ const MentorProfile = () => {
                                         alt={booking.menteeName}
                                         className="w-full h-full object-cover"
                                         onError={(e) => {
-                                          e.target.style.display = "none";
-                                          e.target.nextSibling.style.display =
-                                            "flex";
+                                          e.target.style.display = 'none';
+                                          e.target.nextSibling.style.display = 'flex';
                                         }}
                                       />
                                     ) : null}
-                                    <span
+                                    <span 
                                       className="text-indigo-700 font-bold text-lg"
-                                      style={{
-                                        display: booking.avatarUrl
-                                          ? "none"
-                                          : "flex",
-                                      }}
+                                      style={{ display: booking.avatarUrl ? 'none' : 'flex' }}
                                     >
-                                      {booking.menteeName?.charAt(0) || "M"}
+                                      {booking.menteeName?.charAt(0) || 'M'}
                                     </span>
                                   </div>
                                   <div>
@@ -4127,9 +4428,7 @@ const MentorProfile = () => {
                                       <span className="font-medium">Date</span>
                                     </div>
                                     <span className="font-semibold text-gray-900">
-                                      {new Date(
-                                        booking.date
-                                      ).toLocaleDateString("en-US", {
+                                      {new Date(booking.date).toLocaleDateString("en-US", {
                                         weekday: "long",
                                         year: "numeric",
                                         month: "long",
@@ -4151,16 +4450,10 @@ const MentorProfile = () => {
                                 {booking.message && (
                                   <div className="bg-white rounded-lg p-4 border border-gray-100 mb-4">
                                     <div className="flex items-center gap-2 text-sm text-gray-600 mb-2">
-                                      <span className="text-purple-600">
-                                        💬
-                                      </span>
-                                      <span className="font-medium">
-                                        Message from Mentee
-                                      </span>
+                                      <span className="text-purple-600">💬</span>
+                                      <span className="font-medium">Message from Mentee</span>
                                     </div>
-                                    <p className="text-gray-800 italic">
-                                      "{booking.message}"
-                                    </p>
+                                    <p className="text-gray-800 italic">"{booking.message}"</p>
                                   </div>
                                 )}
                               </div>
@@ -4170,17 +4463,13 @@ const MentorProfile = () => {
                             {booking.status === "pending" && (
                               <div className="flex justify-center gap-3 pt-4 border-t border-gray-200">
                                 <button
-                                  onClick={() =>
-                                    handleAcceptBooking(booking.id)
-                                  }
+                                  onClick={() => handleAcceptBooking(booking.id)}
                                   className="flex items-center gap-2 px-6 py-3 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors duration-200"
                                 >
                                   Accept
                                 </button>
                                 <button
-                                  onClick={() =>
-                                    openDeclineConfirmModal(booking)
-                                  }
+                                  onClick={() => handleDeclineBooking(booking.id)}
                                   className="flex items-center gap-2 px-6 py-3 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition-colors duration-200"
                                 >
                                   Decline
@@ -4242,67 +4531,102 @@ const MentorProfile = () => {
             <div className="space-y-6">
               {/* Reviews Section - TODO: Connect to real API for fetching mentor's reviews */}
               <div className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100">
-                {/* Header with review count and search/filter */}
+                {/* Header with review count */}
                 <div className="flex justify-between items-center mb-6">
                   <div className="flex items-center gap-4">
                     <h3 className="text-lg font-semibold text-gray-900">
-                      My Reviews ({filteredReviews.length})
+                      {activeReviewTab === "all" &&
+                        `My Reviews (${filteredReviews.length})`}
+                      {activeReviewTab === "course" &&
+                        `Course Reviews (${filteredReviews.length})`}
+                      {activeReviewTab === "consultation" &&
+                        `Consultation Reviews (${filteredReviews.length})`}
                     </h3>
                   </div>
                 </div>
 
-                {/* Search and Filter Bar */}
-                <div className="flex gap-4 mb-6">
-                  <div className="flex-1 relative">
-                    <input
-                      type="text"
-                      placeholder="Search Reviews"
-                      value={reviewSearchTerm}
-                      onChange={(e) => {
-                        setReviewSearchTerm(e.target.value);
-                        setReviewCurrentPage(1); // Reset to page 1 when searching
-                      }}
-                      className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                    />
-                    <svg
-                      className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                      />
-                    </svg>
+                {/* Review Tabs */}
+                <div className="flex border-b border-gray-200 mb-6">
+                  <button
+                    onClick={() => setActiveReviewTab("all")}
+                    className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
+                      activeReviewTab === "all"
+                        ? "border-blue-500 text-blue-600"
+                        : "border-transparent text-gray-500 hover:text-gray-700"
+                    }`}
+                  >
+                    All ({allReviews.length})
+                  </button>
+                  <button
+                    onClick={() => setActiveReviewTab("course")}
+                    className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
+                      activeReviewTab === "course"
+                        ? "border-blue-500 text-blue-600"
+                        : "border-transparent text-gray-500 hover:text-gray-700"
+                    }`}
+                  >
+                    Course Reviews (
+                    {
+                      allReviews.filter((review) => {
+                        // Same logic as in getFilteredAndSortedReviews
+                        if (review.targetType === "course") return true;
+                        if (review.course && review.course._id) return true;
+                        if (review.target && !review.targetType) return true;
+                        if (!review.targetType && !review.target) return true;
+                        return false;
+                      }).length
+                    }
+                    )
+                  </button>
+                  <button
+                    onClick={() => setActiveReviewTab("consultation")}
+                    className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
+                      activeReviewTab === "consultation"
+                        ? "border-blue-500 text-blue-600"
+                        : "border-transparent text-gray-500 hover:text-gray-700"
+                    }`}
+                  >
+                    Consultation Reviews (
+                    {
+                      allReviews.filter(
+                        (review) =>
+                          review.targetType === "consultation" ||
+                          review.targetType === "Booking"
+                      ).length
+                    }
+                    )
+                  </button>
+                  <button
+                    onClick={() => setActiveReviewTab("mentor")}
+                    className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
+                      activeReviewTab === "mentor"
+                        ? "border-blue-500 text-blue-600"
+                        : "border-transparent text-gray-500 hover:text-gray-700"
+                    }`}
+                  >
+                    Mentor Reviews (
+                    {
+                      allReviews.filter(
+                        (review) => review.targetType === "Mentor"
+                      ).length
+                    }
+                    )
+                  </button>
+                </div>
+
+                {/* Reviews Grid - Dynamic rendering based on filtered data */}
+                {reviewsLoading ? (
+                  <div className="flex justify-center items-center py-20">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                    <span className="ml-3 text-gray-600">
+                      Loading reviews...
+                    </span>
                   </div>
-                  <div className="flex gap-2">
-                    <select
-                      value={reviewSortBy}
-                      onChange={(e) => {
-                        setReviewSortBy(e.target.value);
-                        setReviewCurrentPage(1);
-                      }}
-                      className="px-4 py-2 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                    >
-                      <option value="latest">Latest</option>
-                      <option value="oldest">Oldest</option>
-                      <option value="highest-rating">Highest Rating</option>
-                      <option value="lowest-rating">Lowest Rating</option>
-                      <option value="most-helpful">Most Helpful</option>
-                    </select>
-                    <button
-                      onClick={() => {
-                        setReviewSearchTerm("");
-                        setReviewSortBy("latest");
-                        setReviewCurrentPage(1);
-                      }}
-                      className="px-4 py-2 border border-gray-300 rounded-lg bg-white hover:bg-gray-50 transition flex items-center gap-2"
-                    >
+                ) : reviewsError ? (
+                  <div className="text-center py-20">
+                    <div className="text-red-500 mb-4">
                       <svg
-                        className="w-4 h-4"
+                        className="w-16 h-16 mx-auto mb-4"
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
@@ -4311,144 +4635,175 @@ const MentorProfile = () => {
                           strokeLinecap="round"
                           strokeLinejoin="round"
                           strokeWidth={2}
-                          d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"
+                          d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
                         />
                       </svg>
-                      Clear
+                      <p className="text-lg font-medium">
+                        Error loading reviews
+                      </p>
+                      <p className="text-sm text-gray-500 mt-2">
+                        {reviewsError}
+                      </p>
+                    </div>
+                    <button
+                      onClick={loadReviews}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                    >
+                      Try Again
                     </button>
                   </div>
-                </div>
-
-                {/* Reviews Grid - Dynamic rendering based on filtered data */}
-                <div
-                  className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start content-start"
-                  style={{ minHeight: "900px" }}
-                >
-                  {currentReviews.length > 0 ? (
-                    currentReviews.map((review) => (
-                      <div
-                        key={review._id || review.id}
-                        className="border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow"
-                      >
-                        {/* Review Header */}
-                        <div className="flex items-start gap-4 mb-4">
-                          <img
-                            src={
-                              review.author?.avatarUrl ||
-                              "/placeholder-avatar.jpg"
-                            }
-                            alt={
-                              review.author
-                                ? `${review.author.firstName} ${review.author.lastName}`
-                                : "User"
-                            }
-                            className="w-12 h-12 rounded-full object-cover"
-                          />
-                          <div className="flex-1">
-                            <div className="flex items-start justify-between mb-2">
-                              <div>
-                                <h4 className="font-semibold text-gray-900 mb-1">
-                                  {review.author
-                                    ? `${review.author.firstName || ""} ${
-                                        review.author.lastName || ""
-                                      }`.trim() || review.author.userName
-                                    : "Unknown User"}
-                                </h4>
-                                <p className="text-sm text-blue-600 font-medium">
-                                  {review.target?.name || "Unknown Course"}
-                                </p>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <div className="flex text-yellow-400 text-sm">
-                                  {"★".repeat(review.rate || 0)}
-                                  {"☆".repeat(5 - (review.rate || 0))}
+                ) : (
+                  <div
+                    className="grid grid-cols-1 gap-6 items-start content-start"
+                    style={{ minHeight: "900px" }}
+                  >
+                    {currentReviews.length > 0 ? (
+                      currentReviews.map((review) => (
+                        <div
+                          key={review._id || review.id}
+                          className="border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow overflow-hidden"
+                        >
+                          {/* Review Header */}
+                          <div className="flex items-start gap-4 mb-4">
+                            <img
+                              src={
+                                review.author?.avatarUrl ||
+                                "/placeholder-avatar.jpg"
+                              }
+                              alt={
+                                review.author
+                                  ? `${review.author.firstName} ${review.author.lastName}`
+                                  : "User"
+                              }
+                              className="w-12 h-12 rounded-full object-cover"
+                            />
+                            <div className="flex-1">
+                              <div className="flex items-start justify-between mb-2">
+                                <div>
+                                  <h4 className="font-semibold text-gray-900 mb-1">
+                                    {review.author
+                                      ? `${review.author.firstName || ""} ${
+                                          review.author.lastName || ""
+                                        }`.trim() || review.author.userName
+                                      : "Unknown User"}
+                                  </h4>
+                                  {/* Show different info based on review type */}
+                                  {review.targetType === "Booking" ? (
+                                    <button
+                                      onClick={() =>
+                                        openBookingDetailPopup(review.target)
+                                      }
+                                      className="text-xs bg-orange-100 hover:bg-orange-200 text-orange-700 px-3 py-1 rounded-full transition-colors duration-200 font-medium"
+                                    >
+                                      Consultation Review
+                                    </button>
+                                  ) : review.targetType === "Mentor" ? (
+                                    <span className="text-xs bg-purple-100 text-purple-700 px-3 py-1 rounded-full font-medium">
+                                      Mentor Review
+                                    </span>
+                                  ) : review.course ? (
+                                    <button
+                                      onClick={() =>
+                                        openCourseDetailPopup(review.course)
+                                      }
+                                      className="text-xs bg-blue-100 hover:bg-blue-200 text-blue-700 px-3 py-1 rounded-full transition-colors duration-200 font-medium"
+                                    >
+                                      Course: {review.course.title}
+                                    </button>
+                                  ) : (
+                                    <span className="text-xs bg-gray-100 text-gray-700 px-3 py-1 rounded-full font-medium">
+                                      Review
+                                    </span>
+                                  )}
                                 </div>
-                                <span className="text-sm text-gray-600">
-                                  {review.rate || 0}/5
-                                </span>
+                                <div className="flex items-center gap-2">
+                                  <div className="flex text-yellow-400 text-sm">
+                                    {renderStars(review.rate || 0)}
+                                  </div>
+                                  <span className="text-sm text-gray-600">
+                                    {review.rate || 0}/5
+                                  </span>
+                                </div>
                               </div>
+                              <p className="text-xs text-gray-500">
+                                {new Date(review.createdAt).toLocaleDateString(
+                                  "en-US",
+                                  {
+                                    year: "numeric",
+                                    month: "long",
+                                    day: "numeric",
+                                  }
+                                )}
+                              </p>
                             </div>
-                            <p className="text-xs text-gray-500">
-                              {new Date(review.createdAt).toLocaleDateString(
-                                "en-US",
-                                {
-                                  year: "numeric",
-                                  month: "long",
-                                  day: "numeric",
-                                }
+                          </div>
+
+                          {/* Review Content */}
+                          <div className="mb-4 overflow-hidden">
+                            <p
+                              className="text-gray-700 text-sm leading-relaxed break-words overflow-wrap-break-word word-break-break-all max-w-full"
+                              style={{
+                                wordWrap: "break-word",
+                                overflowWrap: "break-word",
+                                wordBreak: "break-word",
+                                maxWidth: "100%",
+                                whiteSpace: "pre-wrap",
+                              }}
+                            >
+                              {review.content ? (
+                                review.content
+                              ) : (
+                                <span className="text-gray-500 italic">
+                                  Mentee did not leave any comments
+                                </span>
                               )}
                             </p>
                           </div>
-                        </div>
 
-                        {/* Review Content */}
-                        <div className="mb-4">
-                          <p className="text-gray-700 text-sm leading-relaxed">
-                            {review.content}
-                          </p>
-                        </div>
-
-                        {/* Review Footer */}
-                        <div className="flex items-center justify-between text-sm">
-                          <div className="flex items-center gap-2">
-                            <button className="flex items-center gap-1 text-gray-500 hover:text-blue-600 transition">
-                              <svg
-                                className="w-4 h-4"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V18m-7-8a2 2 0 01-2-2V6a2 2 0 012-2h2.343M11 7L9 5l2-2m0 4l2-2 2 2m-2 2h6"
-                                />
-                              </svg>
-                              <span>{review.helpfulCount} found helpful</span>
-                            </button>
+                          {/* Review Footer */}
+                          <div className="flex items-center justify-between text-sm">
+                            <div className="flex gap-2">
+                              <button className="text-blue-600 hover:text-blue-700 transition text-sm font-medium">
+                                Reply
+                              </button>
+                              <button className="text-gray-500 hover:text-gray-700 transition text-sm">
+                                Report
+                              </button>
+                            </div>
                           </div>
-                          <div className="flex gap-2">
-                            <button className="text-blue-600 hover:text-blue-700 transition text-sm font-medium">
-                              Reply
-                            </button>
-                            <button className="text-gray-500 hover:text-gray-700 transition text-sm">
-                              Report
-                            </button>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="col-span-full text-center py-12">
+                        <div className="flex flex-col items-center gap-4">
+                          <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center">
+                            <svg
+                              className="w-8 h-8 text-gray-400"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"
+                              />
+                            </svg>
+                          </div>
+                          <div>
+                            <p className="text-gray-500 text-lg mb-2">
+                              No reviews found
+                            </p>
+                            <p className="text-gray-400">
+                              Try adjusting your search criteria
+                            </p>
                           </div>
                         </div>
                       </div>
-                    ))
-                  ) : (
-                    <div className="col-span-full text-center py-12">
-                      <div className="flex flex-col items-center gap-4">
-                        <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center">
-                          <svg
-                            className="w-8 h-8 text-gray-400"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"
-                            />
-                          </svg>
-                        </div>
-                        <div>
-                          <p className="text-gray-500 text-lg mb-2">
-                            No reviews found
-                          </p>
-                          <p className="text-gray-400">
-                            Try adjusting your search criteria
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
+                    )}
+                  </div>
+                )}
 
                 {/* Pagination - Dynamic based on filtered results */}
                 {totalReviewPages > 1 && (
@@ -4520,153 +4875,6 @@ const MentorProfile = () => {
           )}
         </div>
       </div>
-
-      {/* Delete Confirmation Modal */}
-      {deleteConfirmModal.isOpen && (
-        <div
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200"
-          onClick={closeDeleteConfirmModal}
-        >
-          <div
-            className="bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4 transform transition-all animate-in zoom-in-95 duration-200"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Modal Header */}
-            <div className="border-b border-gray-100 p-6">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center animate-pulse">
-                  <span className="text-red-600 text-xl">🗑️</span>
-                </div>
-                <div>
-                  <h3 className="text-lg font-bold text-gray-900">
-                    Confirm Delete Schedule
-                  </h3>
-                  <p className="text-sm text-gray-600">
-                    This action cannot be undone
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Modal Body */}
-            <div className="p-6">
-              <div className="mb-4">
-                <p className="text-gray-700 mb-2">
-                  Are you sure you want to delete this schedule?
-                </p>
-                <div className="bg-gray-50 rounded-lg p-3 border border-gray-200 shadow-sm">
-                  <p className="font-medium text-gray-900">
-                    {deleteConfirmModal.scheduleName}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Modal Footer */}
-            <div className="border-t border-gray-100 p-6 flex gap-3">
-              <button
-                onClick={closeDeleteConfirmModal}
-                className="flex-1 px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg font-medium transition-all duration-200 hover:scale-105"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={confirmDeleteSchedule}
-                className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-all duration-200 hover:scale-105 shadow-md hover:shadow-lg"
-              >
-                Delete Schedule
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Decline Booking Confirmation Modal */}
-      {declineConfirmModal.isOpen && (
-        <div
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200"
-          onClick={closeDeclineConfirmModal}
-        >
-          <div
-            className="bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4 transform transition-all animate-in zoom-in-95 duration-200"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Modal Header */}
-            <div className="border-b border-gray-100 p-6">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center animate-pulse">
-                  <span className="text-red-600 text-xl">❌</span>
-                </div>
-                <div>
-                  <h3 className="text-lg font-bold text-gray-900">
-                    Decline Booking
-                  </h3>
-                  <p className="text-sm text-gray-600">
-                    Confirm booking rejection
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Modal Body */}
-            <div className="p-6">
-              <div className="mb-4">
-                <p className="text-gray-700 mb-3">
-                  Are you sure you want to decline this booking request?
-                </p>
-                <div className="bg-gray-50 rounded-lg p-4 border border-gray-200 shadow-sm">
-                  <div className="space-y-2">
-                    <p className="font-medium text-gray-900">
-                      {declineConfirmModal.bookingInfo?.menteeName}
-                    </p>
-                    <p className="text-sm text-gray-600">
-                      📅 {declineConfirmModal.bookingInfo?.date}
-                    </p>
-                    <p className="text-sm text-gray-600">
-                      🕐 {declineConfirmModal.bookingInfo?.time}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Decline Reason Input */}
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Decline Reason (Optional)
-                </label>
-                <textarea
-                  value={declineReason}
-                  onChange={(e) => setDeclineReason(e.target.value)}
-                  placeholder="Enter reason for declining this booking..."
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 resize-none"
-                  rows={3}
-                  maxLength={500}
-                />
-                <div className="flex justify-between text-xs text-gray-500 mt-1">
-                  <span>This reason will be shared with the mentee</span>
-                  <span>{declineReason.length}/500</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Modal Footer */}
-            <div className="border-t border-gray-100 p-6 flex gap-3">
-              <button
-                onClick={closeDeclineConfirmModal}
-                className="flex-1 px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg font-medium transition-all duration-200 hover:scale-105"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={confirmDeclineBooking}
-                className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-all duration-200 hover:scale-105 shadow-md hover:shadow-lg"
-              >
-                Decline Booking
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

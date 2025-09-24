@@ -75,6 +75,17 @@ router.delete(
 );
 
 /**
+ * @route   GET /api/availability/mentor/:mentorId/public
+ * @desc    Mentee lấy availability của mentor để booking
+ * @access  Private (Authenticated users)
+ */
+router.get(
+  "/mentor/:mentorId/public",
+  tokenMiddleware.auth,
+  availabilityController.getMentorPublicAvailability
+);
+
+/**
  * @route   POST /api/availability/cleanup-old
  * @desc    Manual cleanup of old availability records (Admin only)
  * @access  Private (Admin only)

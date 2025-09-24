@@ -18,12 +18,12 @@ router.use(tokenMiddleware.auth);
 router.get("/", purchasedCourseController.getPurchasedCourses);
 
 /**
- * @route   GET /api/purchased-courses/stats
- * @desc    Lấy thống kê học tập của user
- * @access  Private
- * @returns {Object} data - Thống kê tổng quan về tiến độ học tập
+ * @route   GET /api/purchased-courses/mentees
+ * @desc    Lấy danh sách mentees của mentor (đã mua khóa học hoặc book tư vấn)
+ * @access  Private (mentor only)
+ * @returns {Object} mentees, total - Danh sách mentees với thông tin tương tác
  */
-router.get("/stats", purchasedCourseController.getLearningStats);
+router.get("/mentees", purchasedCourseController.getMenteesOfMentor);
 
 /**
  * @route   GET /api/purchased-courses/check/:courseId
@@ -35,18 +35,15 @@ router.get("/stats", purchasedCourseController.getLearningStats);
 router.get("/check/:courseId", purchasedCourseController.checkCoursePurchase);
 
 /**
- * @route   PUT /api/purchased-courses/:courseId/progress
- * @desc    Cập nhật tiến độ học khóa học
+ * @route   GET /api/purchased-courses/details/:purchasedCourseId
+ * @desc    Lấy chi tiết purchased course theo purchasedCourseId
  * @access  Private
- * @middleware validateBody(courseProgressSchema) - Joi validation cho progress
- * @params {String} courseId - ID của khóa học
- * @body {Number} progress - Tiến độ học từ 0-100%
- * @returns {Object} data - Thông tin tiến độ đã cập nhật
+ * @params {String} purchasedCourseId - ID của purchased course
+ * @returns {Object} data - Chi tiết purchased course với thông tin course và mentor
  */
-router.put(
-  "/:courseId/progress",
-  validateBody(userValidation.courseProgressSchema),
-  purchasedCourseController.updateCourseProgress
+router.get(
+  "/details/:purchasedCourseId",
+  purchasedCourseController.getPurchasedCourseById
 );
 
 /**
@@ -61,6 +58,18 @@ router.post(
   "/purchase-success",
   validateBody(userValidation.purchaseSuccessSchema),
   purchasedCourseController.handlePurchaseSuccess
+);
+
+/**
+ * @route   DELETE /api/purchased-courses/:purchasedCourseId
+ * @desc    Xóa purchased course của user (xóa cả PurchasedCourse record và Course.mentees)
+ * @access  Private
+ * @params {String} purchasedCourseId - ID của purchased course cần xóa
+ * @returns {Object} message, deletedPurchasedCourseId, courseId
+ */
+router.delete(
+  "/:purchasedCourseId",
+  purchasedCourseController.deletePurchasedCourse
 );
 
 export default router;

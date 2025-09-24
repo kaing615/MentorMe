@@ -29,9 +29,10 @@ const createPrivateClient = (dispatch) => {
       ...config.headers,
     };
 
-    // Ưu tiên sessionStorage, fallback localStorage
+    // Ưu tiên localStorage.getItem("actkn") trước, fallback sessionStorage và token
     const raw =
-      sessionStorage.getItem("actkn") || localStorage.getItem("actkn");
+      localStorage.getItem("actkn") ||
+      localStorage.getItem("token");
     // Làm sạch nếu lỡ lưu kèm "Bearer " hoặc có dấu "
     const token = raw?.replace(/^Bearer\s+/i, "")?.replace(/^"|"$/g, "");
 

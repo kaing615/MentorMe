@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, use } from "react";
 import { useNavigate, useLocation, Outlet } from "react-router-dom";
 import { useSelector, useDispatch } from "react-redux";
 import { clearUser } from "../../redux/features/user.slice";
@@ -14,18 +14,45 @@ const Header = () => {
 
   // Get user data from Redux store
   const user = useSelector((state) => state.user);
-  const isLoggedIn = user?.isLoggedIn || false;
+  const localLoggedIn = localStorage.getItem("isLoggedIn") === "true";
+  const localUser = localStorage.getItem("user");
+  const localToken =
+    localStorage.getItem("actkn") || localStorage.getItem("token");
+
+  // Improved authentication check - persistent across tabs and sessions
+  const isLoggedIn =
+    (user?.isLoggedIn && localLoggedIn && localUser && localToken) ||
+    (localLoggedIn && localUser && localToken && !user?.isLoggedIn);
+
+  // Khởi tạo trạng thái header từ localStorage khi component mount
+  useEffect(() => {
+    const savedMentorMode = localStorage.getItem("mentorMode");
+    if (savedMentorMode !== null) {
+      setShowCategories(savedMentorMode === "true");
+    }
+  }, []);
 
   useEffect(() => {
-    // Khi user thay đổi (đăng nhập/đăng xuất), cập nhật mentorMode đúng role
-    if (user && user.role) {
-      localStorage.setItem(
-        "mentorMode",
-        user.role === "mentor" ? "true" : "false"
-      );
-      setShowCategories(user.role === "mentor");
+    if (isLoggedIn) {
+      // Nếu đã đăng nhập, set dựa trên role của user
+      let userRole = null;
+      try {
+        const userData = localUser ? JSON.parse(localUser) : user;
+        userRole = userData?.role;
+      } catch (e) {
+        console.error("Error parsing user data:", e);
+      }
+
+      if (userRole) {
+        const shouldShowCategories = userRole === "mentor";
+        setShowCategories(shouldShowCategories);
+        localStorage.setItem("mentorMode", shouldShowCategories.toString());
+
+        // NOTE: Removed cross-user localStorage cleanup for production safety
+        // Instead, each user should have their own storage keys or use sessionStorage
+      }
     } else {
-      // Nếu chưa đăng nhập, giữ logic cũ cho trang auth
+      // Nếu chưa đăng nhập, set dựa trên current path
       const currentPath = location.pathname;
       const shouldShowCategories =
         currentPath.includes("/auth/signin") ||
@@ -33,6 +60,7 @@ const Header = () => {
       setShowCategories(shouldShowCategories);
       localStorage.setItem("mentorMode", shouldShowCategories.toString());
     }
+
     const handleStorageChange = (e) => {
       if (e.key === "mentorMode" && !isLoggedIn) {
         // Chỉ cập nhật khi chưa đăng nhập
@@ -41,7 +69,7 @@ const Header = () => {
     };
     window.addEventListener("storage", handleStorageChange);
     return () => window.removeEventListener("storage", handleStorageChange);
-  }, [location.pathname, user]);
+  }, [location.pathname, isLoggedIn, localUser, user]);
 
   const handleAPICall = (id, action) => {
     console.log(`API Call - ID: ${id}, Action: ${action}`);
@@ -63,7 +91,25 @@ const Header = () => {
             onClick={() => {
               localStorage.setItem("mentorMode", "false");
               setShowCategories(false);
-              navigate("/");
+              // redirect theo role
+              // mentor thì về /mentor/home
+              // mentee thì về /home
+              if (isLoggedIn) {
+                const userData = localUser ? JSON.parse(localUser) : user;
+                const userRole = userData?.role;
+                if (userRole === "mentor") {
+                  setShowCategories(true);
+                  localStorage.setItem("mentorMode", "true");
+                  navigate("/mentor/home");
+                } else {
+                  setShowCategories(false);
+                  localStorage.setItem("mentorMode", "false");
+                  navigate("/home");
+                }
+              } else {
+                // đăng nhập
+                navigate("/auth/signin");
+              }
             }}
           >
             MentorMe
