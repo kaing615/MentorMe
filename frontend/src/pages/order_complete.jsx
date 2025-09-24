@@ -103,11 +103,11 @@ const OrderComplete = () => {
   }, [navigate, dispatch, orderInfo, searchParams]);
 
   const handleContinueShopping = () => {
-    navigate("/mentee/courses");
+    navigate("/all-courses");
   };
 
-  const handleBackToHome = () => {
-    navigate("/home");
+  const handleBackToProfile = () => {
+    navigate("/profile");
   };
 
   // Loading state
@@ -254,7 +254,7 @@ const OrderComplete = () => {
 
           <div className="space-y-4">
             <button
-              onClick={handleBackToHome}
+              onClick={handleBackToProfile}
               className="w-full bg-blue-600 text-white py-3 px-6 rounded-lg font-medium hover:bg-blue-700 transition-colors"
             >
               Quay về trang chủ

@@ -14,5 +14,15 @@ const ReviewSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+ReviewSchema.index(
+  { author: 1, targetType: 1, target: 1 }, 
+  { unique: true }
+);
+
+ReviewSchema.index(
+  { targetType: 1, target: 1, createdAt: -1 }
+);
+
+
 
 export default mongoose.model("Review", ReviewSchema);

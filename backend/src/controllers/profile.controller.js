@@ -2,6 +2,7 @@ import { v2 as cloudinary } from "cloudinary";
 import responseHandler from "../handlers/response.handler.js";
 import Profile from "../models/profile.model.js";
 import User from "../models/user.model.js";
+import Course from "../models/course.model.js";
 import { uploadImage } from "../utils/cloudinary.js";
 
 const sanitizeUser = (userDoc) => {
@@ -337,9 +338,30 @@ export const getMentorById = async (req, res) => {
       updatedAt: profile.updatedAt,
     };
 
+    // Calculate total unique students from all courses taught by this mentor
+    let totalMentees = 0;
+    try {
+      const mentorCourses = await Course.find({ mentor: mentorId }).lean();
+      const uniqueMentees = new Set();
+
+      mentorCourses.forEach((course) => {
+        if (course.mentees && Array.isArray(course.mentees)) {
+          course.mentees.forEach((menteeId) => {
+            uniqueMentees.add(menteeId.toString());
+          });
+        }
+      });
+
+      totalMentees = uniqueMentees.size;
+    } catch (courseErr) {
+      console.warn("Error calculating total mentees:", courseErr);
+      totalMentees = 0;
+    }
+
     return responseHandler.ok(res, {
       profile: mergedProfile,
       user: { ...sanitizeUser(user), experience: mergedProfile.experience }, // Đảm bảo user cũng có trường experience
+      totalMentees: totalMentees,
     });
   } catch (err) {
     console.error("Lỗi lấy thông tin mentor:", err);

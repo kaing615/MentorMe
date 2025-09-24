@@ -1,14 +1,17 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { useDispatch } from "react-redux";
 import { useForm } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
 import * as yup from "yup";
 import { toast } from "react-toastify";
 import courseApi from "../api/modules/course.api";
+import { showLoading, hideLoading } from "../redux/features/loading.slice";
 
 const EditCoursePage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const dispatch = useDispatch();
 
   // --- AUTH & ROLE CHECK ---
   useEffect(() => {
@@ -47,6 +50,11 @@ const EditCoursePage = () => {
     // }
   }, [navigate]);
 
+  // Hide loading when component mounts
+  useEffect(() => {
+    dispatch(hideLoading());
+  }, [dispatch]);
+
   const [imagePreview, setImagePreview] = useState(null);
   const [imageFile, setImageFile] = useState(null);
   const [imageError, setImageError] = useState("");
@@ -55,6 +63,10 @@ const EditCoursePage = () => {
 
   // State for Key Learning Objectives
   const [objectives, setObjectives] = useState([""]);
+
+  // State for character counts
+  const [titleCount, setTitleCount] = useState(0);
+  const [overviewCount, setOverviewCount] = useState(0);
 
   // Functions to manage objectives
   const addObjective = () => {
@@ -89,34 +101,70 @@ const EditCoursePage = () => {
 
   // Validation schema
   const courseSchema = yup.object({
-    title: yup.string().required("Title is required"),
+    title: yup
+      .string()
+      .min(5, "Course title must be between 5-100 characters")
+      .max(100, "Course title must be between 5-100 characters")
+      .required("Course title is required"),
     price: yup
       .number()
       .typeError("Price must be a number")
-      .positive("Price must be positive")
-      .required("Price is required"),
-    courseOverview: yup.string().required("Course overview is required"),
+      .min(0, "Price must be greater than or equal to 0")
+      .required("Course price is required"),
+    courseOverview: yup
+      .string()
+      .min(20, "Course overview must be between 20-1000 characters")
+      .max(1000, "Course overview must be between 20-1000 characters")
+      .required("Course overview is required"),
     lectures: yup
       .number()
       .typeError("Number of lectures must be a number")
-      .positive("Number of lectures must be positive")
+      .min(1, "Number of lectures must be between 1-500")
+      .max(500, "Number of lectures must be between 1-500")
       .required("Number of lectures is required"),
     driveLink: yup
       .string()
-      .url("Must be a valid Google Drive URL")
+      .url("Drive link must be a valid URL")
+      .min(10, "Drive link must be between 10-500 characters")
+      .max(500, "Drive link must be between 10-500 characters")
       .required("Google Drive link is required"),
     duration: yup
       .number()
       .transform((value, originalValue) => {
         return originalValue === "" ? undefined : value;
       })
-      .positive("Duration must be positive")
+      .min(0, "Duration must be between 0-1000 hours")
+      .max(1000, "Duration must be between 0-1000 hours")
       .optional()
       .nullable(),
-    category: yup.string().required("Category is required"),
-    level: yup.string().required("Level is required"),
+    category: yup
+      .string()
+      .min(2, "Category must be between 2-50 characters")
+      .max(50, "Category must be between 2-50 characters")
+      .required("Category is required"),
+    level: yup
+      .string()
+      .oneOf(
+        ["Beginner", "Intermediate", "Advanced", "Expert"],
+        "Level must be one of: Beginner, Intermediate, Advanced, Expert"
+      )
+      .required("Level is required"),
     tags: yup
       .string()
+      .test(
+        "tags-length",
+        "Each tag must be between 1-30 characters",
+        function (value) {
+          if (typeof value === "string" && value.trim()) {
+            const tags = value
+              .split(",")
+              .map((tag) => tag.trim())
+              .filter(Boolean);
+            return tags.every((tag) => tag.length >= 1 && tag.length <= 30);
+          }
+          return true;
+        }
+      )
       .test(
         "is-required-for-programming",
         "Programming languages are required for Programming category",
@@ -129,7 +177,27 @@ const EditCoursePage = () => {
           return true; // Not required for other categories
         }
       ),
-    language: yup.string().required("Language is required"),
+    language: yup
+      .string()
+      .min(2, "Language field must be between 2-100 characters")
+      .max(100, "Language field must be between 2-100 characters")
+      .test(
+        "language-tags-length",
+        "Each language must be between 2-30 characters",
+        function (value) {
+          if (typeof value === "string" && value.trim()) {
+            const languages = value
+              .split(",")
+              .map((lang) => lang.trim())
+              .filter(Boolean);
+            return languages.every(
+              (lang) => lang.length >= 2 && lang.length <= 30
+            );
+          }
+          return true;
+        }
+      )
+      .required("Language is required"),
   });
 
   const {
@@ -148,7 +216,19 @@ const EditCoursePage = () => {
       try {
         const { response, error } = await courseApi.getDetail({ courseId: id });
         if (error || !response?.data?.course) {
-          toast.error("Không thể tải dữ liệu khóa học");
+          toast.error("Cannot load course data", {
+            position: "top-right",
+            autoClose: 5000,
+            hideProgressBar: false,
+            closeOnClick: true,
+            pauseOnHover: true,
+            draggable: true,
+            style: {
+              backgroundColor: "#fee2e2",
+              color: "#dc2626",
+              border: "1px solid #fca5a5",
+            },
+          });
           return;
         }
         const course = response.data.course;
@@ -226,6 +306,10 @@ const EditCoursePage = () => {
               .join(", ");
           })(),
         });
+
+        // Set character counts for initial values
+        setTitleCount((course.title || "").length);
+        setOverviewCount((course.description || "").length);
         const thumb =
           course.thumbnail ||
           course.image ||
@@ -239,7 +323,19 @@ const EditCoursePage = () => {
           );
         }
       } catch (err) {
-        toast.error("Lỗi khi tải dữ liệu khóa học");
+        toast.error("Error loading course data", {
+          position: "top-right",
+          autoClose: 5000,
+          hideProgressBar: false,
+          closeOnClick: true,
+          pauseOnHover: true,
+          draggable: true,
+          style: {
+            backgroundColor: "#fee2e2",
+            color: "#dc2626",
+            border: "1px solid #fca5a5",
+          },
+        });
       }
     };
     fetchCourse();
@@ -277,8 +373,43 @@ const EditCoursePage = () => {
       // Validate objectives array
       const validObjectives = objectives.filter((obj) => obj.trim() !== "");
       if (validObjectives.length === 0) {
-        toast.error("At least one learning objective is required");
+        toast.error("At least one learning objective is required", {
+          position: "top-right",
+          autoClose: 5000,
+          hideProgressBar: false,
+          closeOnClick: true,
+          pauseOnHover: true,
+          draggable: true,
+          style: {
+            backgroundColor: "#fee2e2",
+            color: "#dc2626",
+            border: "1px solid #fca5a5",
+          },
+        });
         return;
+      }
+
+      // Validate each objective length
+      for (let i = 0; i < validObjectives.length; i++) {
+        if (validObjectives[i].length < 10 || validObjectives[i].length > 200) {
+          toast.error(
+            `Learning objective ${i + 1} must be between 10-200 characters`,
+            {
+              position: "top-right",
+              autoClose: 5000,
+              hideProgressBar: false,
+              closeOnClick: true,
+              pauseOnHover: true,
+              draggable: true,
+              style: {
+                backgroundColor: "#fee2e2",
+                color: "#dc2626",
+                border: "1px solid #fca5a5",
+              },
+            }
+          );
+          return;
+        }
       }
 
       // Xử lý tags khi submit (giống CreateCoursePage)
@@ -329,11 +460,27 @@ const EditCoursePage = () => {
       });
       if (error) {
         console.error("Error updating course:", error);
-        const errorMessage = error.message || "Cập nhật khóa học thất bại";
-        toast.error(errorMessage);
+        const errorMessage = error.message || "Course update failed";
+        toast.error(errorMessage, {
+          position: "top-right",
+          autoClose: 5000,
+          hideProgressBar: false,
+          closeOnClick: true,
+          pauseOnHover: true,
+          draggable: true,
+          style: {
+            backgroundColor: "#fee2e2",
+            color: "#dc2626",
+            border: "1px solid #fca5a5",
+          },
+        });
         return;
       }
-      toast.success("Cập nhật khóa học thành công!");
+      toast.success("Course updated successfully!");
+
+      // Show loading page for navigation
+      dispatch(showLoading());
+
       setTimeout(() => {
         navigate("/mentor/profile", { state: { tab: "mycourses" } });
         window.scrollTo({ top: 0, behavior: "smooth" });
@@ -343,8 +490,20 @@ const EditCoursePage = () => {
       const errorMessage =
         error.response?.data?.message ||
         error.message ||
-        "Lỗi khi cập nhật khóa học";
-      toast.error(errorMessage);
+        "Error updating course";
+      toast.error(errorMessage, {
+        position: "top-right",
+        autoClose: 5000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+        style: {
+          backgroundColor: "#fee2e2",
+          color: "#dc2626",
+          border: "1px solid #fca5a5",
+        },
+      });
     }
   };
 
@@ -429,14 +588,26 @@ const EditCoursePage = () => {
 
                 {/* Course Overview */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Course Overview <span className="text-red-500">*</span>
-                  </label>
+                  <div className="flex justify-between items-center mb-2">
+                    <label className="block text-sm font-medium text-gray-700">
+                      Course Overview <span className="text-red-500">*</span>
+                    </label>
+                    <span className="text-xs text-gray-500">
+                      {overviewCount}/1000
+                    </span>
+                  </div>
                   <textarea
                     {...register("courseOverview")}
                     rows={4}
                     placeholder="Provide a comprehensive overview of your course..."
                     className="w-full px-0 py-3 text-gray-900 border-0 border-b border-gray-200 focus:border-blue-500 focus:ring-0 bg-transparent placeholder-gray-400 resize-none"
+                    onChange={(e) => {
+                      setOverviewCount(e.target.value.length);
+                      // Call the original register onChange if it exists
+                      const originalOnChange =
+                        register("courseOverview").onChange;
+                      if (originalOnChange) originalOnChange(e);
+                    }}
                   />
                   {errors.courseOverview && (
                     <p className="mt-1 text-sm text-red-600">
@@ -453,37 +624,42 @@ const EditCoursePage = () => {
                   </label>
                   <div className="space-y-3">
                     {objectives.map((objective, index) => (
-                      <div key={index} className="flex items-center gap-2">
-                        <input
-                          type="text"
-                          value={objective}
-                          onChange={(e) =>
-                            updateObjective(index, e.target.value)
-                          }
-                          placeholder={`Learning objective ${index + 1}`}
-                          className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                        />
-                        {objectives.length > 1 && (
-                          <button
-                            type="button"
-                            onClick={() => removeObjective(index)}
-                            className="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-md transition-colors"
-                          >
-                            <svg
-                              className="w-4 h-4"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
+                      <div key={index} className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="text"
+                            value={objective}
+                            onChange={(e) =>
+                              updateObjective(index, e.target.value)
+                            }
+                            placeholder={`Learning objective ${index + 1}`}
+                            className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                          />
+                          {objectives.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => removeObjective(index)}
+                              className="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-md transition-colors"
                             >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M6 18L18 6M6 6l12 12"
-                              />
-                            </svg>
-                          </button>
-                        )}
+                              <svg
+                                className="w-4 h-4"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M6 18L18 6M6 6l12 12"
+                                />
+                              </svg>
+                            </button>
+                          )}
+                        </div>
+                        <div className="text-xs text-gray-500 text-right">
+                          {objective.length}/200
+                        </div>
                       </div>
                     ))}
                     <button
@@ -520,14 +696,25 @@ const EditCoursePage = () => {
               <div className="space-y-6">
                 {/* Title */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Title <span className="text-red-500">*</span>
-                  </label>
+                  <div className="flex justify-between items-center mb-2">
+                    <label className="block text-sm font-medium text-gray-700">
+                      Title <span className="text-red-500">*</span>
+                    </label>
+                    <span className="text-xs text-gray-500">
+                      {titleCount}/100
+                    </span>
+                  </div>
                   <input
                     type="text"
                     {...register("title")}
                     placeholder="Enter course title"
                     className="w-full px-0 py-3 text-gray-900 border-0 border-b border-gray-200 focus:border-blue-500 focus:ring-0 bg-transparent placeholder-gray-400"
+                    onChange={(e) => {
+                      setTitleCount(e.target.value.length);
+                      // Call the original register onChange if it exists
+                      const originalOnChange = register("title").onChange;
+                      if (originalOnChange) originalOnChange(e);
+                    }}
                   />
                   {errors.title && (
                     <p className="mt-1 text-sm text-red-600">
@@ -655,6 +842,9 @@ const EditCoursePage = () => {
                   </label>
                   <input
                     type="number"
+                    step="0.1"
+                    min="0"
+                    max="1000"
                     {...register("duration")}
                     placeholder="Enter course duration in hours"
                     className="w-full px-0 py-3 text-gray-900 border-0 border-b border-gray-200 focus:border-blue-500 focus:ring-0 bg-transparent placeholder-gray-400"

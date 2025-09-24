@@ -16,7 +16,7 @@ import {
   addContentSchema,
   addReviewSchema,
 } from "../validations/course.validation.js";
-
+//
 const getParamId = (req) => req.params.courseId || req.params.id;
 const isMentorOfCourse = (course, userId) =>
   course.mentor && course.mentor.toString() === userId.toString();
@@ -300,9 +300,6 @@ export const getMyCourses = async (req, res) => {
 
 export const createCourse = async (req, res) => {
   try {
-    console.log("=== CREATE COURSE REQUEST ===");
-    console.log("Request body:", req.body);
-    console.log("Request file:", req.file ? "File uploaded" : "No file");
 
     const { id: userId } = req.user;
     let {
@@ -323,11 +320,9 @@ export const createCourse = async (req, res) => {
 
     // Xử lý description - ưu tiên courseOverview
     const finalDescription = courseOverview || description || "";
-    console.log("Final description:", finalDescription);
 
     // Xử lý link - ưu tiên driveLink
     const finalLink = driveLink || link || "";
-    console.log("Final link:", finalLink);
 
     // Parse tags
     if (typeof tags === "string") {
@@ -395,23 +390,6 @@ export const createCourse = async (req, res) => {
       thumbnailPublicId = result.public_id;
     }
 
-    console.log("Creating course with data:", {
-      title,
-      description: finalDescription,
-      keyLearningObjectives,
-      price: Number(price),
-      mentor: userId,
-      category,
-      tags,
-      language,
-      duration: Number(duration) || 0,
-      link: finalLink,
-      lectures: Number(lectures),
-      level,
-      thumbnail: thumbnailUrl,
-      thumbnailPublicId,
-    });
-
     const newCourse = new Course({
       title,
       description: finalDescription,
@@ -430,7 +408,6 @@ export const createCourse = async (req, res) => {
     });
 
     await newCourse.save();
-    console.log("Course created successfully:", newCourse._id);
 
     const populatedCourse = await Course.findById(newCourse._id).populate(
       "mentor",
@@ -716,7 +693,9 @@ export const getCourseReviews = async (req, res) => {
     const reviews = await Review.find({
       target: courseId,
       targetType: "Course",
-    }).populate("author", "userName avatar");
+    }).populate("author", "userName firstName lastName avatar avatarUrl");
+
+    console.log(`Found ${reviews.length} reviews for course ${courseId}`);
     return responseHandler.ok(res, reviews);
   } catch (err) {
     console.error("Error getting course reviews:", err);
