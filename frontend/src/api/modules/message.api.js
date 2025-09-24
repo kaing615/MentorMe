@@ -1,8 +1,8 @@
 /**
  * API Module for Message/Chat functionality
- * 
+ *
  * Tích hợp với backend MentorMe để xử lý tin nhắn giữa mentor và mentee
- * 
+ *
  * Endpoints:
  * - GET /api/v1/messages/conversations - Lấy danh sách cuộc trò chuyện
  * - GET /api/v1/messages?peer=userId - Lấy tin nhắn với một người cụ thể
@@ -20,18 +20,21 @@ import axios from "axios";
 export const getConversations = async () => {
   try {
     // Temporarily bypass apiClient to test
-    const token = sessionStorage.getItem("actkn") || localStorage.getItem("actkn");
+    const token =
+      sessionStorage.getItem("actkn") || localStorage.getItem("actkn");
     const cleanToken = token?.replace(/^Bearer\s+/i, "")?.replace(/^"|"$/g, "");
-    
-    const response = await axios.get("http://localhost:4000/api/v1/messages/conversations", {
-      headers: {
-        'Authorization': `Bearer ${cleanToken}`,
-        'Content-Type': 'application/json',
-        'Cache-Control': 'no-cache'
+
+    const response = await axios.get(
+      "http://localhost:4000/api/v1/messages/conversations",
+      {
+        headers: {
+          Authorization: `Bearer ${cleanToken}`,
+          "Content-Type": "application/json",
+          "Cache-Control": "no-cache",
+        },
       }
-    });
-    
-    console.log("✅ Direct axios call successful:", response.data);
+    );
+
     return response.data;
   } catch (error) {
     console.error("❌ Direct axios call failed:", error);
@@ -51,24 +54,24 @@ export const getConversations = async () => {
 export const getMessages = async (peerId, limit = 50, cursor = null) => {
   try {
     // Temporarily bypass apiClient for getMessages too
-    const token = sessionStorage.getItem("actkn") || localStorage.getItem("actkn");
+    const token =
+      sessionStorage.getItem("actkn") || localStorage.getItem("actkn");
     const cleanToken = token?.replace(/^Bearer\s+/i, "")?.replace(/^"|"$/g, "");
-    
+
     // Build URL with query params manually
     let url = `http://localhost:4000/api/v1/messages?peer=${peerId}&limit=${limit}`;
     if (cursor) {
       url += `&cursor=${encodeURIComponent(cursor)}`;
     }
-    
+
     const response = await axios.get(url, {
       headers: {
-        'Authorization': `Bearer ${cleanToken}`,
-        'Content-Type': 'application/json',
-        'Cache-Control': 'no-cache'
-      }
+        Authorization: `Bearer ${cleanToken}`,
+        "Content-Type": "application/json",
+        "Cache-Control": "no-cache",
+      },
     });
-    
-    console.log("✅ Direct getMessages call successful:", response.data);
+
     return response.data;
   } catch (error) {
     console.error("❌ Direct getMessages call failed:", error);
@@ -86,27 +89,36 @@ export const getMessages = async (peerId, limit = 50, cursor = null) => {
  * @param {Array} attachments - Mảng file đính kèm (optional)
  * @returns {Promise<Object>} Tin nhắn đã được tạo
  */
-export const sendMessage = async (receiverId, content, messageType = "text", attachments = []) => {
+export const sendMessage = async (
+  receiverId,
+  content,
+  messageType = "text",
+  attachments = []
+) => {
   try {
     // Temporarily bypass apiClient for sendMessage too
-    const token = sessionStorage.getItem("actkn") || localStorage.getItem("actkn");
+    const token =
+      sessionStorage.getItem("actkn") || localStorage.getItem("actkn");
     const cleanToken = token?.replace(/^Bearer\s+/i, "")?.replace(/^"|"$/g, "");
-    
+
     const payload = {
       receiver: receiverId,
       content: content.trim(),
       messageType,
-      attachments
+      attachments,
     };
-    
-    const response = await axios.post("http://localhost:4000/api/v1/messages", payload, {
-      headers: {
-        'Authorization': `Bearer ${cleanToken}`,
-        'Content-Type': 'application/json'
+
+    const response = await axios.post(
+      "http://localhost:4000/api/v1/messages",
+      payload,
+      {
+        headers: {
+          Authorization: `Bearer ${cleanToken}`,
+          "Content-Type": "application/json",
+        },
       }
-    });
-    
-    console.log("✅ Direct sendMessage call successful:", response.data);
+    );
+
     return response.data;
   } catch (error) {
     console.error("❌ Direct sendMessage call failed:", error);
@@ -123,20 +135,21 @@ export const sendMessage = async (receiverId, content, messageType = "text", att
 export const markMessagesAsRead = async (peerId) => {
   try {
     // Temporarily bypass apiClient for markMessagesAsRead too
-    const token = sessionStorage.getItem("actkn") || localStorage.getItem("actkn");
+    const token =
+      sessionStorage.getItem("actkn") || localStorage.getItem("actkn");
     const cleanToken = token?.replace(/^Bearer\s+/i, "")?.replace(/^"|"$/g, "");
-    
-    const response = await axios.post("http://localhost:4000/api/v1/messages/mark-read", 
-      { peerId }, 
+
+    const response = await axios.post(
+      "http://localhost:4000/api/v1/messages/mark-read",
+      { peerId },
       {
         headers: {
-          'Authorization': `Bearer ${cleanToken}`,
-          'Content-Type': 'application/json'
-        }
+          Authorization: `Bearer ${cleanToken}`,
+          "Content-Type": "application/json",
+        },
       }
     );
-    
-    console.log("✅ Direct markMessagesAsRead call successful:", response.data);
+
     return response.data;
   } catch (error) {
     console.error("❌ Direct markMessagesAsRead call failed:", error);
@@ -152,7 +165,9 @@ export const markMessagesAsRead = async (peerId) => {
  */
 export const markMessagesAsDelivered = async (messageIds) => {
   try {
-    const response = await apiClient.post("/messages/mark-delivered", { ids: messageIds });
+    const response = await apiClient.post("/messages/mark-delivered", {
+      ids: messageIds,
+    });
     return response.data;
   } catch (error) {
     console.error("[API] Error marking messages as delivered:", error);
@@ -169,17 +184,54 @@ export const searchConversations = async (query) => {
   try {
     // Tạm thời sử dụng getConversations và filter phía client
     // Có thể mở rộng backend để support search query
-    const { items } = await getConversations();
-    
+    const response = await getConversations();
+    const items = response?.items || response?.data?.items || response || [];
+
     if (!query.trim()) return items;
-    
+
+    // Ensure items is an array before filtering
+    if (!Array.isArray(items)) {
+      console.warn("searchConversations: items is not an array:", items);
+      return [];
+    }
+
     const searchTerm = query.toLowerCase().trim();
-    return items.filter(conversation => {
-      // Giả sử trong tương lai backend sẽ populate thông tin user
-      // Hiện tại filter dựa trên peerId hoặc lastMessage content
+
+    // Support searching by individual words
+    const searchWords = searchTerm
+      .split(/\s+/)
+      .filter((word) => word.length > 0);
+
+    return items.filter((conversation) => {
+      const peerInfo = conversation.peerInfo || {};
+
+      // Create full name for better search
+      const firstName = peerInfo.firstName || "";
+      const lastName = peerInfo.lastName || "";
+      const fullName = `${firstName} ${lastName}`.trim().toLowerCase();
+      const userName = (peerInfo.userName || "").toLowerCase();
+      const messageContent = (
+        conversation.lastMessage?.content || ""
+      ).toLowerCase();
+
+      // Create searchable text combining all fields
+      const searchableText = [
+        conversation.peerId?.toString(),
+        messageContent,
+        firstName.toLowerCase(),
+        lastName.toLowerCase(),
+        fullName,
+        userName,
+        // Also search reversed name order
+        `${lastName} ${firstName}`.trim().toLowerCase(),
+      ]
+        .filter(Boolean)
+        .join(" ");
+
+      // Check if all search words are found in the searchable text
       return (
-        conversation.peerId?.toString().includes(searchTerm) ||
-        conversation.lastMessage?.content?.toLowerCase().includes(searchTerm)
+        searchWords.every((word) => searchableText.includes(word)) ||
+        searchableText.includes(searchTerm)
       );
     });
   } catch (error) {
@@ -194,5 +246,5 @@ export default {
   sendMessage,
   markMessagesAsRead,
   markMessagesAsDelivered,
-  searchConversations
+  searchConversations,
 };

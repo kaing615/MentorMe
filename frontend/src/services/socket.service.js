@@ -11,7 +11,6 @@ class SocketService {
   // Khởi tạo kết nối socket
   connect(userId) {
     if (this.socket?.connected) {
-      console.log('🔌 Socket already connected');
       return;
     }
 
@@ -32,7 +31,6 @@ class SocketService {
 
       this.setupEventListeners();
       
-      console.log('🚀 Socket connecting...', { userId, backendURL });
     } catch (error) {
       console.error('❌ Socket connection error:', error);
     }
@@ -42,12 +40,10 @@ class SocketService {
   setupEventListeners() {
     this.socket.on('connect', () => {
       this.isConnected = true;
-      console.log('✅ Socket connected:', this.socket.id);
     });
 
     this.socket.on('disconnect', (reason) => {
       this.isConnected = false;
-      console.log('❌ Socket disconnected:', reason);
     });
 
     this.socket.on('connect_error', (error) => {
@@ -59,7 +55,6 @@ class SocketService {
     });
 
     this.socket.on('reconnect', (attemptNumber) => {
-      console.log('🔄 Socket reconnected after', attemptNumber, 'attempts');
     });
 
     this.socket.on('reconnect_error', (error) => {
@@ -78,7 +73,6 @@ class SocketService {
       this.socket = null;
       this.isConnected = false;
       this.listeners.clear();
-      console.log('🔌 Socket disconnected manually');
     }
   }
 
@@ -90,10 +84,8 @@ class SocketService {
         return;
       }
 
-      console.log("🔥 Sending message via socket:", messageData);
       
       this.socket.emit('message:send', messageData, (response) => {
-        console.log("🔥 Socket response:", response);
         if (response?.ok) {
           resolve(response.data);
         } else {

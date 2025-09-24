@@ -15,8 +15,8 @@ import bookingApi from "../api/modules/booking.api";
 import reviewApi from "../api/modules/review.api";
 import authUtils from "../utils/auth.utils";
 import minatoImg from "../assets/minato.jpg";
-import MentorMenteeChat from "../components/MentorMenteeChat";
 import courseApi from "../api/modules/course.api";
+import MentorMenteeChat from "../components/MentorMenteeChat";
 
 // Stars render function
 const renderStars = (rating) => {
@@ -82,10 +82,6 @@ const MenteeProfile = () => {
       navigate("/home");
       return;
     }
-    // if (user.role === "admin") {
-    //   navigate("/admin/profile");
-    //   return;
-    // }
   }, [navigate]);
 
   const [activeTab, setActiveTab] = useState(() => {
@@ -101,12 +97,6 @@ const MenteeProfile = () => {
     }
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, []);
-
-  // TODO: Replace with API call - fetch user profile data
-  // const fetchUserProfile = async (userId) => {
-  //   const response = await fetch(`/api/users/${userId}/profile`);
-  //   return response.json();
-  // };
 
   // State lưu thông tin profile
   const [profile, setProfile] = useState(null);
@@ -170,6 +160,9 @@ const MenteeProfile = () => {
   const [mentorRatingComment, setMentorRatingComment] = useState("");
   const [isSubmittingMentorRating, setIsSubmittingMentorRating] =
     useState(false);
+
+  // Chat/Message states
+  const [selectedMentorForChat, setSelectedMentorForChat] = useState(null);
 
   // Đổi avatar khi upload ảnh mới
   const handleImageUpload = (e) => {
@@ -397,45 +390,45 @@ const MenteeProfile = () => {
     }
   };
 
-  // Helper functions to extract information from review objects
-  const getTargetTitle = (review) => {
-    if (review.course?.title) return review.course.title;
-    if (review.mentor?.firstName && review.mentor?.lastName) {
-      return `${review.mentor.firstName} ${review.mentor.lastName}`;
-    }
-    if (review.booking?.mentor?.firstName && review.booking?.mentor?.lastName) {
-      return `${review.booking.mentor.firstName} ${review.booking.mentor.lastName}`;
-    }
-    return "Unknown";
-  };
+  // // Helper functions to extract information from review objects
+  // const getTargetTitle = (review) => {
+  //   if (review.course?.title) return review.course.title;
+  //   if (review.mentor?.firstName && review.mentor?.lastName) {
+  //     return `${review.mentor.firstName} ${review.mentor.lastName}`;
+  //   }
+  //   if (review.booking?.mentor?.firstName && review.booking?.mentor?.lastName) {
+  //     return `${review.booking.mentor.firstName} ${review.booking.mentor.lastName}`;
+  //   }
+  //   return "Unknown";
+  // };
 
-  const getTargetImage = (review) => {
-    if (review.course?.thumbnail) return review.course.thumbnail;
-    if (review.mentor?.avatarUrl) return review.mentor.avatarUrl;
-    if (review.booking?.mentor?.avatarUrl)
-      return review.booking.mentor.avatarUrl;
-    return minatoImg; // fallback
-  };
+  // const getTargetImage = (review) => {
+  //   if (review.course?.thumbnail) return review.course.thumbnail;
+  //   if (review.mentor?.avatarUrl) return review.mentor.avatarUrl;
+  //   if (review.booking?.mentor?.avatarUrl)
+  //     return review.booking.mentor.avatarUrl;
+  //   return minatoImg; // fallback
+  // };
 
-  const getInstructor = (review) => {
-    if (review.course?.mentor?.firstName && review.course?.mentor?.lastName) {
-      return `${review.course.mentor.firstName} ${review.course.mentor.lastName}`;
-    }
-    return null;
-  };
+  // const getInstructor = (review) => {
+  //   if (review.course?.mentor?.firstName && review.course?.mentor?.lastName) {
+  //     return `${review.course.mentor.firstName} ${review.course.mentor.lastName}`;
+  //   }
+  //   return null;
+  // };
 
-  const getMentorSpecialty = (review) => {
-    if (review.mentor?.skills && review.mentor.skills.length > 0) {
-      return review.mentor.skills.join(", ");
-    }
-    if (
-      review.booking?.mentor?.skills &&
-      review.booking.mentor.skills.length > 0
-    ) {
-      return review.booking.mentor.skills.join(", ");
-    }
-    return "Tư vấn";
-  };
+  // const getMentorSpecialty = (review) => {
+  //   if (review.mentor?.skills && review.mentor.skills.length > 0) {
+  //     return review.mentor.skills.join(", ");
+  //   }
+  //   if (
+  //     review.booking?.mentor?.skills &&
+  //     review.booking.mentor.skills.length > 0
+  //   ) {
+  //     return review.booking.mentor.skills.join(", ");
+  //   }
+  //   return "Tư vấn";
+  // };
 
   // Fetch reviews when component mounts and when "reviews" tab is active
   useEffect(() => {
@@ -598,9 +591,6 @@ const MenteeProfile = () => {
     }
   };
 
-  // Function to extract unique mentors from purchased courses and bookings
-  // Lấy danh sách mentor từ purchasedCourses và bookings (không trùng lặp)
-  // Lấy danh sách mentor từ purchasedCourses & bookings (unique) + tính studentCount & averageRating (courses + bookings)
   const extractMentorsFromData = async () => {
     setMentorsLoading(true);
 
@@ -1117,6 +1107,29 @@ const MenteeProfile = () => {
     }
   };
 
+  // Handle opening chat with mentor
+  const handleOpenChatWithMentor = (mentor) => {
+    console.log("Opening chat with mentor:", mentor);
+
+    // Set the selected mentor for chat context
+    setSelectedMentorForChat(mentor);
+
+    // Switch to messages tab
+    setActiveTab("messages");
+
+    // Store mentor info for chat component to access
+    localStorage.setItem(
+      "chatWithMentor",
+      JSON.stringify({
+        mentorId: mentor._id,
+        mentorName: mentor.displayName,
+        mentorAvatar: mentor.avatarUrl,
+      })
+    );
+
+    toast.success(`Opening chat with ${mentor.displayName}`);
+  };
+
   // Course management state
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
@@ -1135,7 +1148,9 @@ const MenteeProfile = () => {
   const [mentorFilterBy, setMentorFilterBy] = useState("all");
   const [mentorCurrentPage, setMentorCurrentPage] = useState(1);
   const mentorsPerPage = 6;
-  // Removed old chat-related states as they're now handled by MentorMenteeChat component
+  const [selectedChatMentor, setSelectedChatMentor] = useState(null);
+  const [chatMessages, setChatMessages] = useState([]);
+  const [newMessage, setNewMessage] = useState("");
   const [reviewFilter, setReviewFilter] = useState("all");
   const [reviewCurrentPage, setReviewCurrentPage] = useState(1);
   const reviewsPerPage = 6;
@@ -1215,23 +1230,9 @@ const MenteeProfile = () => {
     setMentorCurrentPage(page);
   };
 
-  const handleConnectMentor = (mentorId) => {
-    console.log("Connect to mentor:", mentorId);
-    // TODO: Implement connect functionality
-  };
-
   const handleStartChat = (mentor) => {
-    // TODO: Replace with API call to start/fetch chat
-    // const startChat = async (mentorId) => {
-    //   const response = await fetch('/api/chats/start', {
-    //     method: 'POST',
-    //     body: JSON.stringify({ mentorId, userId: currentUserId })
-    //   });
-    //   return response.json();
-    // };
-
-    // Switch to messages tab - MentorMenteeChat component will handle the rest
     setActiveTab("messages");
+  };
 
   const handleBackToMessages = () => {
     setSelectedChatMentor(null);
@@ -1484,6 +1485,9 @@ const MenteeProfile = () => {
                     setActiveTab("messages");
                     setSelectedChatMentor(null);
                     setChatMessages([]);
+                    setTimeout(() => {
+                      window.scrollTo({ top: 0, left: 0, behavior: "smooth" });
+                    }, 100);
                   }}
                 >
                   Message
@@ -2765,12 +2769,7 @@ const MenteeProfile = () => {
                           </div>
                           <div className="grid grid-cols-1">
                             <button
-                              onClick={() => {
-                                // Navigate to message or open message modal
-                                toast.info(
-                                  "Messaging feature is under development"
-                                );
-                              }}
+                              onClick={() => handleOpenChatWithMentor(mentor)}
                               className="bg-blue-600 text-white py-2 px-3 rounded-lg hover:bg-blue-700 transition text-sm font-medium"
                             >
                               💬 Send Message
@@ -2916,60 +2915,6 @@ const MenteeProfile = () => {
                             strokeLinejoin="round"
                             strokeWidth={2}
                             d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                          />
-                        </svg>
-                      </div>
-                      <h3 className="text-lg font-medium text-gray-900 mb-2">
-                        Unable to load reviews
-                      </h3>
-                      <p className="text-gray-600 mb-4">{reviewsError}</p>
-                      <button
-                        onClick={fetchMenteeReviews}
-                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
-                      >
-                        Try Again
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {/* My Reviews Section */}
-                {!reviewsLoading && !reviewsError && (
-                  <div className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100">
-                    {/* Header */}
-                    <div className="mb-6">
-                      <h3 className="text-lg font-semibold text-gray-900">
-                        My Reviews ({allReviews.length})
-                      </h3>
-                      <div className="flex items-center gap-2">
-                        <div className="flex text-yellow-400 text-sm">
-                          ★★★★★
-                        </div>
-                        <span className="text-sm text-gray-600">
-                          4.7 average rating
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Search and Controls Row */}
-                    <div className="flex gap-3 items-center">
-                      <div className="relative flex-1">
-                        <input
-                          type="text"
-                          placeholder="Search Reviews"
-                          className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 w-full"
-                        />
-                        <svg
-                          className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
                           />
                         </svg>
                       </div>
