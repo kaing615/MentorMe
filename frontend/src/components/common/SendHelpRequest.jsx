@@ -1,8 +1,13 @@
 import React, { useState } from "react";
 import { toast } from "react-toastify";
+import { useSelector } from "react-redux";
+import { createHelpRequest } from "../../api/modules/help.api";
 
 const SendHelpRequest = () => {
   console.log("SendHelpRequest component rendered");
+  
+  // Get user info from Redux if logged in
+  const { user, isAuthenticated } = useSelector((state) => state.auth);
   
   const [formData, setFormData] = useState({
     name: "",
@@ -13,6 +18,17 @@ const SendHelpRequest = () => {
     message: ""
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Auto-fill form if user is logged in
+  React.useEffect(() => {
+    if (isAuthenticated && user) {
+      setFormData(prev => ({
+        ...prev,
+        name: `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.username || "",
+        email: user.email || ""
+      }));
+    }
+  }, [isAuthenticated, user]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -34,22 +50,49 @@ const SendHelpRequest = () => {
     setIsSubmitting(true);
     
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      // Prepare data for API - match backend expectations
+      const requestData = {
+        subject: formData.subject,
+        message: formData.message,
+        issueCategory: formData.category || "General Inquiry",
+        priorityLevel: formData.priority.charAt(0).toUpperCase() + formData.priority.slice(1), // Convert to "Medium", "High", etc.
+      };
+
+      // If user is logged in, don't send guest info
+      if (!isAuthenticated || !user) {
+        requestData.guestName = formData.name;
+        requestData.guestEmail = formData.email;
+      }
+
+      console.log("Sending help request:", requestData);
       
-      toast.success("Help request sent successfully! We'll respond as fast as we can.");
+      // Call actual API
+      const response = await createHelpRequest(requestData);
       
-      // Reset form
-      setFormData({
-        name: "",
-        email: "",
-        subject: "",
-        category: "",
-        priority: "medium",
-        message: ""
-      });
+      console.log("Help request response:", response);
+      
+      if (response.success) {
+        const ticketNumber = response.data?.ticketNumber;
+        const message = response.data?.message || `Help request sent successfully! Your ticket number is: ${ticketNumber}. We'll respond as fast as we can.`;
+        toast.success(message);
+        
+        // Reset form
+        setFormData({
+          name: "",
+          email: "",
+          subject: "",
+          category: "",
+          priority: "medium",
+          message: ""
+        });
+      } else {
+        throw new Error(response.message || "Failed to send help request");
+      }
+      
     } catch (error) {
-      toast.error("An error occurred. Please try again later.");
+      console.error("Help request error:", error);
+      const message = error.response?.data?.message || error.message || "An error occurred. Please try again later.";
+      toast.error(message);
     } finally {
       setIsSubmitting(false);
     }
@@ -73,11 +116,14 @@ const SendHelpRequest = () => {
           <div className="lg:col-span-2">
             <div className="bg-white rounded-lg shadow-sm border p-6">
               <form onSubmit={handleSubmit} className="space-y-6">
-                {/* Personal Info */}
+                {/* Personal Info - only show for guests or allow editing for logged in users */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Full Name <span className="text-red-500">*</span>
+                      {isAuthenticated && user && (
+                        <span className="text-sm text-green-600 ml-2">(Auto-filled from account)</span>
+                      )}
                     </label>
                     <input
                       type="text"
@@ -86,11 +132,15 @@ const SendHelpRequest = () => {
                       onChange={handleInputChange}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
                       placeholder="Enter your full name"
+                      readOnly={isAuthenticated && user}
                     />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Email for Response <span className="text-red-500">*</span>
+                      {isAuthenticated && user && (
+                        <span className="text-sm text-green-600 ml-2">(Auto-filled from account)</span>
+                      )}
                     </label>
                     <input
                       type="email"
@@ -99,6 +149,7 @@ const SendHelpRequest = () => {
                       onChange={handleInputChange}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
                       placeholder="your.email@example.com"
+                      readOnly={isAuthenticated && user}
                     />
                   </div>
                 </div>
