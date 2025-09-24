@@ -5,6 +5,7 @@ import courseRoute from "./course.route.js";
 import profileRoute from "./profile.route.js";
 import purchasedCourseRoute from "./purchasedCourse.route.js";
 import userRoute from "./user.route.js";
+import helpRoute from "./help.route.js";
 
 const router = express.Router();
 
@@ -14,5 +15,6 @@ router.use("/course", courseRoute);
 router.use("/purchased-courses", purchasedCourseRoute);
 router.use("/cart", cartRoute);
 router.use("/courses", courseRoute);
+router.use("/help", helpRoute);
 
 export default router;
