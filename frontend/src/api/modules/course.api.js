@@ -158,10 +158,13 @@ const courseApi = {
   },
 
   // Kiểm tra xem user đã mua khóa học hay chưa
-  checkPurchaseStatus: async ({ courseId }) => {
+  checkPurchaseStatus: async (arg, dispatch) => {
     try {
+      const privateClient = createPrivateClient(dispatch);
+      const courseId = typeof arg === "string" ? arg : arg?.courseId;
+      if (!courseId) throw new Error("Missing courseId");
       const response = await privateClient.get(
-        `${ep.detail(courseId)}/purchase-status`
+        `/course/${courseId}/purchase-status`
       );
       return ok(response);
     } catch (e) {

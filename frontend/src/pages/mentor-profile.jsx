@@ -1200,27 +1200,36 @@ const MentorProfile = () => {
 
   // Load mentees from MongoDB
   const loadMentees = async () => {
+    console.log("=== LOADING MENTEES ===");
     try {
       setMenteesLoading(true);
       setMenteesError(null);
 
+      console.log("Calling purchasedCourseApi.getMenteesOfMentor...");
       const { response, error } = await purchasedCourseApi.getMenteesOfMentor(
         dispatch
       );
 
+      console.log("API Response:", response);
+      console.log("API Error:", error);
+
       if (error) {
+        console.log("Error loading mentees:", error);
         setMenteesError("Failed to load mentees data");
         setAllMentees([]);
         return;
       }
 
       if (response?.data?.mentees) {
+        console.log("Setting mentees:", response.data.mentees);
         setAllMentees(response.data.mentees);
         setMenteesError(null);
       } else {
+        console.log("No mentees data found");
         setAllMentees([]);
       }
     } catch (err) {
+      console.log("Exception loading mentees:", err);
       setMenteesError("Failed to load mentees");
       setAllMentees([]);
     } finally {
@@ -1404,12 +1413,18 @@ const MentorProfile = () => {
     setSelectedReviewBooking(null);
   };
 
-  // Load reviews when reviews tab is active
+  // Load data when specific tabs are active
   useEffect(() => {
+    console.log("Tab changed to:", activeTab);
     if (activeTab === "reviews") {
+      console.log("Loading reviews...");
       loadReviews();
       // Also load bookings cache to ensure booking details are available
       loadMentorBookings();
+    }
+    if (activeTab === "mentees") {
+      console.log("Loading mentees...");
+      loadMentees(); // Reload mentees when switching to mentees tab
     }
   }, [activeTab]);
 
@@ -2682,91 +2697,111 @@ const MentorProfile = () => {
                     style={{ minHeight: "400px" }}
                   >
                     {currentMentees.length > 0 ? (
-                      currentMentees.map((mentee) => (
-                        <div
-                          key={mentee._id}
-                          className="border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow"
-                        >
-                          <div className="flex items-start gap-4 mb-4">
-                            <div className="relative">
-                              {mentee.avatarUrl ? (
-                                <img
-                                  src={mentee.avatarUrl}
-                                  alt={`${mentee.firstName} ${mentee.lastName}`}
-                                  className="w-16 h-16 rounded-full object-cover"
-                                />
-                              ) : (
-                                <div className="w-16 h-16 rounded-full bg-gray-300 flex items-center justify-center">
-                                  <FaUserCircle className="w-12 h-12 text-gray-500" />
+                      currentMentees.map((mentee) => {
+                        // ✅ Chuẩn hoá cờ hoạt động: chấp nhận boolean / count / array
+                        const hasCourse =
+                          Boolean(mentee.hasCoursePurchase) ||
+                          (typeof mentee.courseCount === "number" &&
+                            mentee.courseCount > 0) ||
+                          (Array.isArray(mentee.purchasedCourses) &&
+                            mentee.purchasedCourses.length > 0) ||
+                          (typeof mentee.purchasedCourseCount === "number" &&
+                            mentee.purchasedCourseCount > 0);
+
+                        const hasBooking =
+                          Boolean(mentee.hasBooking) ||
+                          (typeof mentee.bookingCount === "number" &&
+                            mentee.bookingCount > 0) ||
+                          (Array.isArray(mentee.bookings) &&
+                            mentee.bookings.length > 0) ||
+                          (typeof mentee.consultationCount === "number" &&
+                            mentee.consultationCount > 0);
+
+                        return (
+                          <div
+                            key={mentee._id}
+                            className="border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow"
+                          >
+                            <div className="flex items-start gap-4 mb-4">
+                              <div className="relative">
+                                {mentee.avatarUrl ? (
+                                  <img
+                                    src={mentee.avatarUrl}
+                                    alt={`${mentee.firstName} ${mentee.lastName}`}
+                                    className="w-16 h-16 rounded-full object-cover"
+                                  />
+                                ) : (
+                                  <div className="w-16 h-16 rounded-full bg-gray-300 flex items-center justify-center">
+                                    <FaUserCircle className="w-12 h-12 text-gray-500" />
+                                  </div>
+                                )}
+                              </div>
+                              <div className="flex-1">
+                                <h4 className="font-semibold text-gray-900 mb-1">
+                                  {mentee.firstName} {mentee.lastName}
+                                </h4>
+                                <p className="text-sm text-gray-600 mb-2">
+                                  {mentee.email}
+                                </p>
+                                <div className="flex items-center gap-2 text-sm text-gray-500">
+                                  <span>
+                                    Last interaction:{" "}
+                                    {new Date(
+                                      mentee.latestInteraction
+                                    ).toLocaleDateString()}
+                                  </span>
                                 </div>
-                              )}
-                            </div>
-                            <div className="flex-1">
-                              <h4 className="font-semibold text-gray-900 mb-1">
-                                {mentee.firstName} {mentee.lastName}
-                              </h4>
-                              <p className="text-sm text-gray-600 mb-2">
-                                {mentee.email}
-                              </p>
-                              <div className="flex items-center gap-2 text-sm text-gray-500">
-                                <span>
-                                  Last interaction:{" "}
-                                  {new Date(
-                                    mentee.latestInteraction
-                                  ).toLocaleDateString()}
-                                </span>
                               </div>
                             </div>
-                          </div>
 
-                          {/* Service status badges */}
-                          <div className="mb-4">
-                            <div className="flex flex-wrap gap-2">
-                              {mentee.hasCoursePurchase && (
-                                <span className="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
-                                  📚 Purchased Courses
-                                </span>
-                              )}
-                              {mentee.hasBooking && (
-                                <span className="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
-                                  📞 Booked Consultations
-                                </span>
-                              )}
-                              {!mentee.hasCoursePurchase &&
-                                !mentee.hasBooking && (
+                            {/* Service status badges */}
+                            <div className="mb-4">
+                              <div className="flex flex-wrap gap-2">
+                                {hasCourse && (
+                                  <span className="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
+                                    📚 Purchased Courses
+                                  </span>
+                                )}
+                                {hasBooking && (
+                                  <span className="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
+                                    📞 Booked Consultations
+                                  </span>
+                                )}
+                                {!hasCourse && !hasBooking && (
                                   <span className="bg-gray-100 text-gray-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
                                     No active services
                                   </span>
                                 )}
+                              </div>
+                            </div>
+
+                            {/* Action buttons */}
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() =>
+                                  handleSendMessageToMentee(mentee._id)
+                                }
+                                className="w-full bg-blue-600 text-white py-2 px-3 rounded-lg hover:bg-blue-700 transition text-sm font-medium flex items-center justify-center gap-2"
+                              >
+                                <svg
+                                  className="w-4 h-4"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  viewBox="0 0 24 24"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                                  />
+                                </svg>
+                                Send Message
+                              </button>
                             </div>
                           </div>
-
-                          {/* Action buttons */}
-                          <div className="flex gap-2">
-                            <button
-                              onClick={() =>
-                                handleSendMessageToMentee(mentee._id)
-                              }
-                              className="w-full bg-blue-600 text-white py-2 px-3 rounded-lg hover:bg-blue-700 transition text-sm font-medium flex items-center justify-center gap-2"
-                            >
-                              <svg
-                                className="w-4 h-4"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
-                                />
-                              </svg>
-                              Send Message
-                            </button>
-                          </div>
-                        </div>
-                      ))
+                        );
+                      })
                     ) : (
                       <div className="col-span-full text-center py-12">
                         <p className="text-gray-500 text-lg mb-2">

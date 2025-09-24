@@ -359,11 +359,44 @@ const getMenteesOfMentor = async (req, res) => {
 
     console.log("Getting mentees for mentor:", mentorId);
 
-    // 1. Lấy mentees từ purchased courses
-    const coursePurchases = await PurchasedCourse.find()
+    // 1. Lấy danh sách khóa học của mentor trước
+    const mentorCourses = await Course.find({ mentor: mentorId }).select(
+      "_id title"
+    );
+    const mentorCourseIds = mentorCourses.map((course) => course._id);
+
+    console.log(
+      "Found mentor courses:",
+      mentorCourses.length,
+      mentorCourses.map((c) => ({ id: c._id, title: c.title }))
+    );
+
+    // 2. Kiểm tra mentees trực tiếp từ Course.mentees array
+    const coursesWithMentees = await Course.find({ mentor: mentorId })
+      .populate({
+        path: "mentees",
+        select: "firstName lastName email avatarUrl",
+      })
+      .select("title mentees");
+
+    console.log("Found courses with mentees:");
+    coursesWithMentees.forEach((course) => {
+      console.log(
+        `Course: ${course.title}, Mentees: ${course.mentees?.length || 0}`
+      );
+      course.mentees?.forEach((mentee) => {
+        console.log(
+          `  - ${mentee.firstName} ${mentee.lastName} (${mentee.email})`
+        );
+      });
+    });
+
+    // 3. Lấy mentees từ purchased courses của mentor
+    const validCoursePurchases = await PurchasedCourse.find({
+      course: { $in: mentorCourseIds },
+    })
       .populate({
         path: "course",
-        match: { mentor: mentorId },
         select: "title mentor",
       })
       .populate({
@@ -375,34 +408,97 @@ const getMenteesOfMentor = async (req, res) => {
         select: "createdAt",
       });
 
-    // Filter out records where course is null (not mentor's course)
-    const validCoursePurchases = coursePurchases.filter(
-      (purchase) => purchase.course !== null
-    );
+    console.log("Found course purchases:", validCoursePurchases.length);
+    validCoursePurchases.forEach((purchase) => {
+      console.log("Purchase:", {
+        mentee: purchase.mentee?.firstName + " " + purchase.mentee?.lastName,
+        course: purchase.course?.title,
+        purchaseDate: purchase.purchaseDate,
+      });
+    });
 
-    // 2. Lấy mentees từ bookings (import Booking model ở đầu file)
+    // 3. ALTERNATIVE: Lấy mentees từ Orders với courses của mentor
+    const alternativeOrders = await Order.find({
+      "items.course": { $in: mentorCourseIds },
+      status: "completed",
+    })
+      .populate({
+        path: "user",
+        select: "firstName lastName email avatarUrl",
+      })
+      .populate({
+        path: "items.course",
+        select: "title mentor",
+      });
+
+    console.log("Found alternative orders:", alternativeOrders.length);
+    alternativeOrders.forEach((order) => {
+      console.log("Order:", {
+        user: order.user?.firstName + " " + order.user?.lastName,
+        items: order.items?.map((item) => item.course?.title),
+        createdAt: order.createdAt,
+      });
+    });
+
+    // 3. Lấy mentees từ bookings đã được accept (import Booking model ở đầu file)
     const { default: Booking } = await import("../models/booking.model.js");
 
-    const bookings = await Booking.find({ mentor: mentorId })
+    const bookings = await Booking.find({
+      mentor: mentorId,
+      status: "active", // Chỉ lấy booking đã được accept
+    })
       .populate({
         path: "mentee",
         select: "firstName lastName email avatarUrl",
       })
       .select("mentee createdAt status");
 
-    // 3. Gộp và deduplicate mentees
+    console.log("Found active bookings:", bookings.length);
+
+    // 5. Gộp và deduplicate mentees
     const menteesMap = new Map();
 
-    // Add mentees from course purchases
-    validCoursePurchases.forEach((purchase) => {
-      if (purchase.mentee) {
-        const menteeId = purchase.mentee._id.toString();
+    // Add mentees from Course.mentees array (most reliable source)
+    coursesWithMentees.forEach((course) => {
+      course.mentees?.forEach((mentee) => {
+        const menteeId = mentee._id.toString();
         const existingMentee = menteesMap.get(menteeId);
 
         if (existingMentee) {
           existingMentee.hasCoursePurchase = true;
           existingMentee.courseCount = (existingMentee.courseCount || 0) + 1;
         } else {
+          menteesMap.set(menteeId, {
+            _id: mentee._id,
+            firstName: mentee.firstName,
+            lastName: mentee.lastName,
+            email: mentee.email,
+            avatarUrl: mentee.avatarUrl,
+            hasCoursePurchase: true,
+            hasBooking: false,
+            courseCount: 1,
+            bookingCount: 0,
+            latestInteraction: new Date(), // Default to now, will be updated if we find order/purchase data
+          });
+        }
+      });
+    });
+
+    // Add mentees from course purchases (PurchasedCourse model)
+    validCoursePurchases.forEach((purchase) => {
+      if (purchase.mentee) {
+        const menteeId = purchase.mentee._id.toString();
+        const existingMentee = menteesMap.get(menteeId);
+
+        if (existingMentee) {
+          // Update timestamp if this purchase is newer
+          const purchaseDate =
+            purchase.order?.createdAt || purchase.purchaseDate;
+          if (purchaseDate && purchaseDate > existingMentee.latestInteraction) {
+            existingMentee.latestInteraction = purchaseDate;
+          }
+        } else {
+          // Should not happen since we already added from Course.mentees, but just in case
           menteesMap.set(menteeId, {
             _id: purchase.mentee._id,
             firstName: purchase.mentee.firstName,
@@ -415,6 +511,47 @@ const getMenteesOfMentor = async (req, res) => {
             bookingCount: 0,
             latestInteraction:
               purchase.order?.createdAt || purchase.purchaseDate,
+          });
+        }
+      }
+    });
+
+    // Add mentees from orders (Order model - alternative approach)
+    alternativeOrders.forEach((order) => {
+      if (order.user) {
+        const menteeId = order.user._id.toString();
+        const existingMentee = menteesMap.get(menteeId);
+
+        // Count courses in this order that belong to the mentor
+        const mentorCoursesInOrder =
+          order.items?.filter(
+            (item) =>
+              item.course &&
+              mentorCourseIds.some((courseId) =>
+                courseId.equals(item.course._id)
+              )
+          ).length || 0;
+
+        if (existingMentee) {
+          existingMentee.hasCoursePurchase = true;
+          existingMentee.courseCount =
+            (existingMentee.courseCount || 0) + mentorCoursesInOrder;
+          // Update latest interaction if order is newer
+          if (order.createdAt > existingMentee.latestInteraction) {
+            existingMentee.latestInteraction = order.createdAt;
+          }
+        } else {
+          menteesMap.set(menteeId, {
+            _id: order.user._id,
+            firstName: order.user.firstName,
+            lastName: order.user.lastName,
+            email: order.user.email,
+            avatarUrl: order.user.avatarUrl,
+            hasCoursePurchase: true,
+            hasBooking: false,
+            courseCount: mentorCoursesInOrder,
+            bookingCount: 0,
+            latestInteraction: order.createdAt,
           });
         }
       }
@@ -458,6 +595,18 @@ const getMenteesOfMentor = async (req, res) => {
     console.log(
       `Found ${mentees.length} unique mentees for mentor ${mentorId}`
     );
+
+    // Debug: log each mentee's info
+    mentees.forEach((mentee) => {
+      console.log("Mentee:", {
+        name: mentee.firstName + " " + mentee.lastName,
+        email: mentee.email,
+        hasCoursePurchase: mentee.hasCoursePurchase,
+        hasBooking: mentee.hasBooking,
+        courseCount: mentee.courseCount,
+        bookingCount: mentee.bookingCount,
+      });
+    });
 
     return responseHandler.ok(res, {
       mentees,

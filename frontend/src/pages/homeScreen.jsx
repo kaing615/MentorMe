@@ -424,7 +424,7 @@ const HomeScreen = () => {
   };
 
   // Buy Now function
-  const handleBuyNow = (e, course) => {
+  const handleBuyNow = async (e, course) => {
     e.stopPropagation();
 
     if (!user) {
@@ -448,18 +448,75 @@ const HomeScreen = () => {
       return;
     }
 
-    // Show loading page
-    dispatch(showLoading());
+    // Kiểm tra nếu đã có trong giỏ hàng
+    let alreadyInCart = false;
+    try {
+      // Ưu tiên kiểm tra qua API nếu có
+      if (cartApi && cartApi.getCart) {
+        const { response } = await cartApi.getCart();
+        if (response && Array.isArray(response.items)) {
+          alreadyInCart = response.items.some(
+            (item) => (item._id || item.id) === courseId
+          );
+        }
+      }
+    } catch {
+      // Fallback localStorage
+      const existingCart = localStorage.getItem("mockCart");
+      let cartItems = existingCart ? JSON.parse(existingCart) : [];
+      alreadyInCart = cartItems.some(
+        (item) => (item._id || item.id) === courseId
+      );
+    }
 
-    // Navigate with a slight delay to show loading
-    setTimeout(() => {
-      navigate(`/shoppingcart`);
-    }, 300);
+    if (alreadyInCart) {
+      // Nếu đã có trong giỏ hàng thì chuyển tới giỏ hàng và cuộn lên đầu trang
+      navigate("/shoppingcart");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
+
+    // Nếu chưa có thì thêm vào giỏ hàng
+    try {
+      dispatch(showLoading());
+      // Thêm qua API nếu có
+      if (cartApi && cartApi.addToCart) {
+        await cartApi.addToCart({ courseId }, dispatch);
+      } else {
+        // Fallback localStorage
+        const existingCart = localStorage.getItem("mockCart");
+        let cartItems = existingCart ? JSON.parse(existingCart) : [];
+        cartItems.push({
+          id: courseId,
+          _id: courseId,
+          title: course.title,
+          price: course.price,
+          image: course.thumbnailUrl || course.thumbnail || course.img,
+          mentor:
+            course?.mentor?.userName ||
+            course?.mentor?.email ||
+            course?.mentor?.fullName ||
+            course?.mentor ||
+            "Unknown Mentor",
+          addedAt: new Date().toISOString(),
+        });
+        localStorage.setItem("mockCart", JSON.stringify(cartItems));
+      }
+      toast.success("Course added to cart successfully!");
+    } catch (error) {
+      toast.error("Failed to add course to cart");
+      dispatch(hideLoading());
+      return;
+    }
+
+    // Chuyển tới giỏ hàng và cuộn lên đầu trang
+    navigate("/shoppingcart");
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const handleSeeAllCourses = () => {
     const userStr =
-      localStorage.getItem("user") || localStorage.getItem("user");
+      localStorage.getItem("user");
     let user = null;
     try {
       user = userStr ? JSON.parse(userStr) : null;
@@ -613,7 +670,8 @@ const HomeScreen = () => {
             if (courseId) {
               try {
                 const { response, error } = await courseApi.checkPurchaseStatus(
-                  courseId
+                  { courseId },
+                  dispatch
                 );
                 if (response?.data?.isPurchased) {
                   statusMap.set(courseId, true);
@@ -635,40 +693,6 @@ const HomeScreen = () => {
 
     fetchPurchasedCourses();
   }, [user, topCourses]); // Depend on topCourses to check when courses are loaded
-
-  const renderStars = (rating = 0) => {
-    const stars = [];
-    const fullStars = Math.floor(rating);
-    const hasHalfStar = rating % 1 !== 0;
-    for (let i = 0; i < fullStars; i++) {
-      stars.push(
-        <IoStar key={`full-${i}`} className="text-yellow-500" size={20} />
-      );
-    }
-    if (hasHalfStar) {
-      stars.push(
-        <div key="half" className="relative">
-          <IoStarOutline className="text-yellow-500" size={20} />
-          <IoStar
-            className="text-yellow-500 absolute top-0 left-0"
-            size={20}
-            style={{ clipPath: "inset(0 50% 0 0)" }}
-          />
-        </div>
-      );
-    }
-    const emptyStars = 5 - Math.ceil(rating);
-    for (let i = 0; i < emptyStars; i++) {
-      stars.push(
-        <IoStarOutline
-          key={`empty-${i}`}
-          className="text-yellow-500"
-          size={20}
-        />
-      );
-    }
-    return stars;
-  };
 
   return (
     <div className="bg-gray-50 min-h-screen flex flex-col">

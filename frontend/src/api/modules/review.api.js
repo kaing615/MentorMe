@@ -15,7 +15,7 @@ const reviewApi = {
     try {
       const response = await privateClient.get(endpoints.list, { params });
       return { response };
-    } catch (err) {
+    } catch (err) {x
       return { error: err };
     }
   },

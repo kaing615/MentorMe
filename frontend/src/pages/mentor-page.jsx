@@ -122,6 +122,7 @@ const MentorPage = () => {
     averageRating: 0,
     courseReviews: 0,
     consultationReviews: 0,
+    totalMentees: 0,
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -364,8 +365,11 @@ const MentorPage = () => {
       mentorOnlyReviews: mentorOnlyReviews.length,
     };
 
-    // 6. Set state
-    setMentorStats(stats);
+    // 6. Set state - preserve existing totalMentees value
+    setMentorStats((prevStats) => ({
+      ...stats,
+      totalMentees: prevStats.totalMentees, // Preserve existing totalMentees
+    }));
     setReviews(allReviews);
   };
 
@@ -386,6 +390,13 @@ const MentorPage = () => {
 
         if (mentorProfile && mentorProfile.data) {
           setMentor(mentorProfile.data);
+
+          // Extract totalMentees from the API response and update mentorStats
+          const totalMentees = mentorProfile.data.totalMentees || 0;
+          setMentorStats((prevStats) => ({
+            ...prevStats,
+            totalMentees: totalMentees,
+          }));
         }
 
         // Fetch mentor's courses using ID from params

@@ -1216,67 +1216,6 @@ const MenteeProfile = () => {
     setMentorCurrentPage(page);
   };
 
-  const handleStartChat = (mentor) => {
-    // TODO: Replace with API call to start/fetch chat
-    // const startChat = async (mentorId) => {
-    //   const response = await fetch('/api/chats/start', {
-    //     method: 'POST',
-    //     body: JSON.stringify({ mentorId, userId: currentUserId })
-    //   });
-    //   return response.json();
-    // };
-
-    setSelectedChatMentor(mentor);
-    setActiveTab("messages");
-    // Scroll to main content area, not the very top
-    setTimeout(() => {
-      const mainContent = document.querySelector(".flex-1.min-w-0");
-      if (mainContent) {
-        mainContent.scrollIntoView({ behavior: "smooth", block: "start" });
-      }
-    }, 100);
-    // Initialize chat with some sample messages using mockup for now
-    setChatMessages([
-      {
-        id: 1,
-        senderId: "mentor",
-        senderName: mentor.name,
-        content: `Hello! I'm ${mentor.name}. How can I help you today?`,
-        timestamp: new Date().toLocaleTimeString("en-US", {
-          hour: "2-digit",
-          minute: "2-digit",
-        }),
-        avatar: mentor.avatar,
-      },
-    ]);
-  };
-
-  const handleSendMessage = () => {
-    // TODO: Replace with API call to send message
-    // const sendMessage = async (chatId, message) => {
-    //   const response = await fetch('/api/chats/messages', {
-    //     method: 'POST',
-    //     body: JSON.stringify({ chatId, message, senderId: currentUserId })
-    //   });
-    //   return response.json();
-    // };
-
-    if (newMessage.trim() && selectedChatMentor) {
-      const message = {
-        id: chatMessages.length + 1,
-        senderId: "mentee",
-        senderName: "Minato Namikaze",
-        content: newMessage,
-        timestamp: new Date().toLocaleTimeString("en-US", {
-          hour: "2-digit",
-          minute: "2-digit",
-        }),
-        avatar: minatoImg,
-      };
-      setChatMessages([...chatMessages, message]);
-      setNewMessage("");
-    }
-  };
 
   const handleBackToMessages = () => {
     setSelectedChatMentor(null);
@@ -3349,53 +3288,6 @@ const MenteeProfile = () => {
                                   <p className="text-gray-700 mb-4 leading-relaxed">
                                     {review.comment}
                                   </p>
-                                )}
-
-                                {/* Review actions */}
-                                <div className="flex items-center gap-4 text-sm text-gray-500">
-                                  <span className="flex items-center gap-1">
-                                    <svg
-                                      className="w-4 h-4"
-                                      fill="none"
-                                      stroke="currentColor"
-                                      viewBox="0 0 24 24"
-                                    >
-                                      <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        strokeWidth={2}
-                                        d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5"
-                                      />
-                                    </svg>
-                                    {review.helpfulCount || 0} helpful
-                                  </span>
-                                  {review.mentorReply && (
-                                    <span className="text-blue-600">
-                                      ↳ Mentor replied
-                                    </span>
-                                  )}
-                                  <button className="text-blue-600 hover:text-blue-700 transition">
-                                    Edit
-                                  </button>
-                                </div>
-
-                                {/* Mentor reply if exists */}
-                                {review.mentorReply && (
-                                  <div className="mt-4 pl-4 border-l-2 border-blue-200 bg-blue-50 p-3 rounded-r-lg">
-                                    <div className="flex items-center gap-2 mb-2">
-                                      <img
-                                        src={review.mentorAvatar || minatoImg}
-                                        alt="Mentor"
-                                        className="w-6 h-6 rounded-full"
-                                      />
-                                      <span className="font-medium text-sm text-gray-900">
-                                        {review.mentorName || "Mentor"} replied:
-                                      </span>
-                                    </div>
-                                    <p className="text-sm text-gray-700">
-                                      {review.mentorReply}
-                                    </p>
-                                  </div>
                                 )}
                               </div>
                             </div>

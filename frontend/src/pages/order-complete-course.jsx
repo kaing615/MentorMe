@@ -9,6 +9,7 @@ import {
 import courseApi from "../api/modules/course.api";
 import purchasedCourseApi from "../api/modules/purchasedCourse.api";
 import cartApi from "../api/modules/cart.api";
+import profileApi from "../api/modules/profile.api";
 import { showLoading, hideLoading } from "../redux/features/loading.slice";
 import { toast } from "react-toastify";
 
@@ -282,11 +283,6 @@ const OrderCompleteCourse = () => {
 
         if (purchasedCourseId) {
           try {
-            console.log(
-              "🎯 Attempting to fetch using purchasedCourseId:",
-              purchasedCourseId
-            );
-
             const { response, error } =
               await purchasedCourseApi.getPurchasedCourseById(
                 { purchasedCourseId },
@@ -294,11 +290,9 @@ const OrderCompleteCourse = () => {
               );
 
             if (!error && response?.data?.data) {
-              console.log("✅ Successfully fetched using purchasedCourseId");
               usedPurchasedCourseId = true;
 
               const purchasedData = response.data.data;
-              console.log("✅ Purchased course data:", purchasedData);
 
               // Set course data from purchased course
               const courseInfo = {
@@ -315,6 +309,7 @@ const OrderCompleteCourse = () => {
                 imageUrl: purchasedData.courseInfo.thumbnail,
                 thumbnail: purchasedData.courseInfo.thumbnail,
                 mentor: purchasedData.courseInfo.mentor,
+                mentees: purchasedData.courseInfo.mentees || [], // Add mentees array from backend
                 // Additional purchased course data
                 keyLearningObjectives:
                   purchasedData.courseInfo.keyLearningObjectives || [],
@@ -326,13 +321,24 @@ const OrderCompleteCourse = () => {
 
               // Fetch course reviews immediately after setting course data
               if (courseInfo._id) {
-                console.log("🔄 Fetching reviews for course:", courseInfo._id);
                 await fetchCourseReviews(courseInfo._id);
               }
 
               // Set mentor data
               if (purchasedData.courseInfo.mentor) {
                 const mentor = purchasedData.courseInfo.mentor;
+
+                // Fetch mentor profile to get real totalMentees
+                let mentorProfileData = null;
+                try {
+                  const mentorProfile = await profileApi.getMentorById(
+                    mentor._id
+                  );
+                  if (mentorProfile && mentorProfile.data) {
+                    mentorProfileData = mentorProfile.data;
+                  }
+                } catch (err) {}
+
                 setMentorData({
                   id: mentor._id,
                   name: mentor.userName || "Mentor",
@@ -347,7 +353,10 @@ const OrderCompleteCourse = () => {
                   experience: mentor.experience,
                   skills: mentor.skills || [],
                   totalCourses: 0, // Will be fetched separately
-                  totalStudents: "100+",
+                  totalStudents:
+                    mentorProfileData?.totalMentees !== undefined
+                      ? mentorProfileData.totalMentees
+                      : "N/A",
                 });
 
                 // Fetch mentor courses separately
@@ -362,9 +371,7 @@ const OrderCompleteCourse = () => {
                       totalCourses: courses.length,
                     }));
                   }
-                } catch (err) {
-                  console.warn("Failed to fetch mentor courses:", err);
-                }
+                } catch (err) {}
               }
 
               // Set purchased course data
@@ -383,33 +390,21 @@ const OrderCompleteCourse = () => {
               setLoading(false);
               return; // Success with purchasedCourseId
             } else {
-              console.log(
-                "❌ PurchasedCourseId API failed, trying courseId fallback"
-              );
             }
-          } catch (err) {
-            console.log(
-              "❌ PurchasedCourseId API error, trying courseId fallback:",
-              err
-            );
-          }
+          } catch (err) {}
         }
 
         // Fallback to courseId logic (legacy or when purchasedCourseId fails)
         const finalCourseId = courseId || purchasedCourseId; // Use either courseId or treat purchasedCourseId as courseId
 
         if (finalCourseId && !usedPurchasedCourseId) {
-          console.log("🔄 Using legacy courseId logic for:", finalCourseId);
-
           // Check localStorage for purchased courses first
           const userStr = localStorage.getItem("user");
           let currentUserId = null;
           try {
             const user = userStr ? JSON.parse(userStr) : null;
             currentUserId = user?.id || user?._id;
-          } catch (e) {
-            console.warn("Error parsing user:", e);
-          }
+          } catch (e) {}
 
           const mockKey = currentUserId
             ? `mockPurchasedCourses_${currentUserId}`
@@ -422,19 +417,12 @@ const OrderCompleteCourse = () => {
           if (mockPurchasedCourses) {
             try {
               const purchasedCourses = JSON.parse(mockPurchasedCourses);
-              console.log(
-                "🔍 Checking localStorage - Current courseId:",
-                courseId
-              );
-              console.log("🔍 Available purchased courses:", purchasedCourses);
 
               const purchasedCourse = purchasedCourses.find(
                 (item) =>
                   item.courseId === courseId ||
                   item.courseInfo?._id === courseId
               );
-
-              console.log("🔍 Found purchased course:", purchasedCourse);
 
               if (purchasedCourse) {
                 isPurchasedFromLocalStorage = true;
@@ -443,16 +431,9 @@ const OrderCompleteCourse = () => {
                   purchaseDate: purchasedCourse.purchaseDate,
                   lastAccessDate: new Date().toISOString(),
                 };
-                console.log(
-                  "✅ Course is purchased from localStorage:",
-                  localPurchasedData
-                );
               } else {
-                console.log("❌ Course not found in localStorage");
               }
-            } catch (e) {
-              console.warn("Error parsing localStorage purchased courses:", e);
-            }
+            } catch (e) {}
           }
 
           // Fetch both course details and purchased course details from API
@@ -466,7 +447,6 @@ const OrderCompleteCourse = () => {
             const { response, error } = courseResult.value;
 
             if (error || !response?.data?.course) {
-              console.error("Error fetching course:", error);
               setError("Failed to load course details");
               toast.error("Không thể tải dữ liệu khóa học");
               return;
@@ -474,7 +454,6 @@ const OrderCompleteCourse = () => {
 
             // Continue with existing course data processing...
             const course = response.data.course;
-            console.log("🎯 Course data from database:", course);
 
             // Parse keyLearningObjectives
             let parsedObjectives = [];
@@ -524,6 +503,7 @@ const OrderCompleteCourse = () => {
               imageUrl: imageUrl,
               thumbnail: course.thumbnail,
               mentor: course.mentor,
+              mentees: course.mentees || [], // Add mentees array from backend
               createdAt: course.createdAt,
               updatedAt: course.updatedAt,
               level: course.level,
@@ -567,10 +547,38 @@ const OrderCompleteCourse = () => {
                     : 0;
                   console.log("🎯 Final totalCourses count:", totalCourses);
 
-                  // Use data from course.mentor (no separate mentor API needed)
+                  // Fetch mentor profile to get real totalMentees
+                  let totalStudents = "N/A";
+                  try {
+                    const mentorProfile = await profileApi.getMentorById(
+                      mentorId
+                    );
+                    if (
+                      mentorProfile &&
+                      mentorProfile.data &&
+                      mentorProfile.data.totalMentees !== undefined
+                    ) {
+                      totalStudents = mentorProfile.data.totalMentees;
+                      console.log(
+                        "✅ Got real totalMentees from profile API:",
+                        totalStudents
+                      );
+                    } else {
+                      console.warn(
+                        "❌ No totalMentees in mentor profile response"
+                      );
+                    }
+                  } catch (profileError) {
+                    console.warn(
+                      "Failed to fetch mentor profile for totalMentees:",
+                      profileError
+                    );
+                  }
+
+                  // Use data from course.mentor
                   return {
                     totalCourses: totalCourses, // Return exact number
-                    totalStudents: "100+", // Default fallback since no mentor API
+                    totalStudents: totalStudents, // Use real data from profile API
                     experience: course.mentor.experience || "Professional",
                     category: course.mentor.category || "IT",
                   };
@@ -581,7 +589,7 @@ const OrderCompleteCourse = () => {
                   );
                   return {
                     totalCourses: 0, // Return 0 if failed to fetch
-                    totalStudents: "100+",
+                    totalStudents: "N/A",
                     experience: course.mentor.experience || "Professional",
                     category: course.mentor.category || "IT",
                   };
@@ -677,94 +685,12 @@ const OrderCompleteCourse = () => {
   };
 
   const handleSeeAllCourses = () => {
-    navigate("/mentor/courses", {
+    navigate("/all-courses", {
       state: {
         mentorId: courseData.mentor?.id || 1,
         mentorName: courseData.mentor?.name || "John Doe",
       },
     });
-  };
-
-  // API-ready data fetching functions (currently using mockup data)
-  // TODO: Replace mockup data with actual API calls when BE is ready
-
-  const fetchCourseData = async (courseId) => {
-    // TODO: Replace with actual API call
-    // const response = await fetch(`/api/courses/${courseId}`);
-    // return response.json();
-
-    // Using mockup data for now
-    return {
-      id: courseId || "course_123",
-      title: "Programming Fundamental",
-      image:
-        "https://images.unsplash.com/photo-1461749280684-dccba630e2f6?w=800&h=400&fit=crop&crop=center",
-      driveLink:
-        "https://drive.google.com/drive/folders/1ABC123_programming_fundamental_course",
-      description: `Welcome! A big part of programming is about thinking. Technology is so fast that programmers are always going deeper, challenge themselves with harder concepts. We recommend everyone starts with programming fundamental so that you can be ready for a bright future ahead. After this course you should be familiar with variables, operators, loops, conditionals, and functions to start a coding and create professional things that you want.`,
-      keyLearningObjectives: [
-        "Be familiar with the basic programming concepts like variables, loops and conditions.",
-        "Learn how coding and computational logic and general instructions.",
-        "Apply methods, data types, and loops to build programmatic logical patterns.",
-        "Explain and demonstrate how algorithms are developed and how computational thinking works.",
-        "Build a strong foundation for advancing programming language in the future.",
-      ],
-      courseDetails: {
-        duration: "8 hours",
-        level: "Beginner",
-        language: "English",
-        students: "430 students enrolled",
-        lastUpdated: "March 2024",
-        price: "$168.9",
-        category: "Programming",
-      },
-    };
-  };
-
-  const fetchMentorData = async (mentorId) => {
-    // TODO: Replace with actual API call
-    // const response = await fetch(`/api/mentors/${mentorId}`);
-    // return response.json();
-
-    // Using mockup data for now
-    try {
-      const mentorData = generateMentors(1)[0];
-      return {
-        id: mentorId || "mentor_456",
-        name: mentorData.name,
-        avatar: mentorData.avatar,
-        title: mentorData.jobTitle,
-        company: mentorData.company,
-        experience: `${mentorData.yearsExperience}+ years in software development`,
-        students: `${mentorData.sessionsCompleted} Students`,
-        courses: "239 Courses",
-        rating: mentorData.rating.toString(),
-        reviews: `${mentorData.reviewsCount} reviews`,
-        bio: mentorData.bio,
-        specialties: mentorData.skills,
-        profileLink: "/mentor/profile",
-        hourlyRate: mentorData.hourlyRate,
-        isOnline: mentorData.isOnline,
-      };
-    } catch (error) {
-      console.error("Error generating mentor data:", error);
-      return null;
-    }
-  };
-
-  const fetchRelatedCourses = async (mentorId, limit = 12) => {
-    // TODO: Replace with actual API call
-    // const response = await fetch(`/api/mentors/${mentorId}/courses?limit=${limit}`);
-    // return response.json();
-
-    // Using mockup data for now
-    try {
-      const courses = generateCourses(20);
-      return courses.slice(0, limit);
-    } catch (error) {
-      console.error("Error generating courses:", error);
-      return [];
-    }
   };
 
   const fetchCourseReviews = async (courseId) => {
@@ -834,197 +760,6 @@ const OrderCompleteCourse = () => {
       setReviewsLoading(false);
     }
   };
-
-  // Generate mockup data for demo using useState to prevent re-render
-  const [mockData] = useState(() => {
-    try {
-      const allCourses = generateCourses(20); // Generate 20 courses for scrolling
-      const allReviews = generateReviews(20, [], []); // Generate 20 reviews for scrolling with empty arrays
-      const fallbackMentorData = generateMentors(1)[0]; // Generate 1 mentor
-
-      console.log("Generated mockup data:", {
-        coursesCount: allCourses.length,
-        reviewsCount: allReviews.length,
-        mentorName: fallbackMentorData.name,
-      });
-
-      return {
-        allCourses,
-        allReviews,
-        fallbackMentorData,
-      };
-    } catch (error) {
-      console.error("Error generating mockup data:", error);
-      // Create fallback data with at least 6 courses and 6 reviews
-      return {
-        allCourses: [
-          {
-            id: 1,
-            title: "JavaScript Fundamentals",
-            instructor: "John Doe",
-            image:
-              "https://images.unsplash.com/photo-1627398242454-45a1465c2479?w=400&h=250&fit=crop",
-            price: 89.99,
-            rating: 4.5,
-            ratingsCount: 245,
-            students: 1200,
-            lectures: 25,
-            totalHours: 8,
-            level: "Beginner",
-          },
-          {
-            id: 2,
-            title: "React Advanced Patterns",
-            instructor: "Jane Smith",
-            image:
-              "https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=400&h=250&fit=crop",
-            price: 129.99,
-            rating: 4.8,
-            ratingsCount: 189,
-            students: 850,
-            lectures: 35,
-            totalHours: 12,
-            level: "Advanced",
-          },
-          {
-            id: 3,
-            title: "Node.js Backend Development",
-            instructor: "Mike Johnson",
-            image:
-              "https://images.unsplash.com/photo-1558494949-ef010cbdcc31?w=400&h=250&fit=crop",
-            price: 99.99,
-            rating: 4.6,
-            ratingsCount: 320,
-            students: 950,
-            lectures: 30,
-            totalHours: 10,
-            level: "Intermediate",
-          },
-          {
-            id: 4,
-            title: "Python Data Science",
-            instructor: "Sarah Wilson",
-            image:
-              "https://images.unsplash.com/photo-1526379879527-8559ecfcaec0?w=400&h=250&fit=crop",
-            price: 149.99,
-            rating: 4.7,
-            ratingsCount: 410,
-            students: 1500,
-            lectures: 40,
-            totalHours: 15,
-            level: "Intermediate",
-          },
-          {
-            id: 5,
-            title: "Database Design & SQL",
-            instructor: "David Brown",
-            image:
-              "https://images.unsplash.com/photo-1544383835-bda2bc66a55d?w=400&h=250&fit=crop",
-            price: 79.99,
-            rating: 4.4,
-            ratingsCount: 156,
-            students: 680,
-            lectures: 22,
-            totalHours: 7,
-            level: "Beginner",
-          },
-          {
-            id: 6,
-            title: "Machine Learning Basics",
-            instructor: "Emily Davis",
-            image:
-              "https://images.unsplash.com/photo-1555949963-aa79dcee981c?w=400&h=250&fit=crop",
-            price: 179.99,
-            rating: 4.9,
-            ratingsCount: 298,
-            students: 1100,
-            lectures: 45,
-            totalHours: 18,
-            level: "Advanced",
-          },
-        ],
-        allReviews: [
-          {
-            id: 1,
-            studentName: "Alex Thompson",
-            rating: 5,
-            reviewDate: "2024-07-15",
-            reviewText:
-              "Excellent course! The instructor explains complex concepts in a very understandable way. I learned so much and feel confident applying these skills in real projects.",
-            courseName: "Programming Fundamental",
-            helpfulCount: 42,
-          },
-          {
-            id: 2,
-            studentName: "Maria Garcia",
-            rating: 4,
-            reviewDate: "2024-07-10",
-            reviewText:
-              "Great content and well-structured lessons. The examples are practical and relevant. Would recommend to anyone starting their programming journey.",
-            courseName: "Programming Fundamental",
-            helpfulCount: 38,
-          },
-          {
-            id: 3,
-            studentName: "James Wilson",
-            rating: 5,
-            reviewDate: "2024-07-08",
-            reviewText:
-              "Outstanding course! The step-by-step approach makes learning programming concepts so much easier. The instructor is knowledgeable and engaging.",
-            courseName: "Programming Fundamental",
-            helpfulCount: 55,
-          },
-          {
-            id: 4,
-            studentName: "Lisa Chen",
-            rating: 4,
-            reviewDate: "2024-07-05",
-            reviewText:
-              "Very comprehensive course covering all the fundamentals. The assignments help reinforce the learning. Highly recommended for beginners.",
-            courseName: "Programming Fundamental",
-            helpfulCount: 29,
-          },
-          {
-            id: 5,
-            studentName: "Robert Johnson",
-            rating: 5,
-            reviewDate: "2024-07-02",
-            reviewText:
-              "Perfect introduction to programming! The course is well-paced and the examples are clear. I went from zero knowledge to building my first programs.",
-            courseName: "Programming Fundamental",
-            helpfulCount: 67,
-          },
-          {
-            id: 6,
-            studentName: "Sophie Anderson",
-            rating: 4,
-            reviewDate: "2024-06-28",
-            reviewText:
-              "Solid foundation course. The instructor covers all important topics thoroughly. Great value for money and excellent support from the community.",
-            courseName: "Programming Fundamental",
-            helpfulCount: 34,
-          },
-        ],
-        mentorData: {
-          name: "John Doe",
-          avatar: "https://via.placeholder.com/150",
-          jobTitle: "Senior Developer",
-          company: "Tech Corp",
-          yearsExperience: 5,
-          sessionsCompleted: 100,
-          rating: 4.5,
-          reviewsCount: 50,
-          bio: "Experienced developer with 5+ years in the industry",
-          skills: ["JavaScript", "React", "Node.js"],
-          hourlyRate: 75,
-          isOnline: true,
-        },
-      };
-    }
-  });
-
-  const { allCourses, allReviews, fallbackMentorData } = mockData;
-
   // Loading state
   if (loading) {
     return (
@@ -1270,7 +1005,10 @@ const OrderCompleteCourse = () => {
 
                   {
                     label: "Students",
-                    value: "430+ enrolled", // Demo value as requested
+                    value:
+                      courseData.mentees && courseData.mentees.length > 0
+                        ? `${courseData.mentees.length} enrolled`
+                        : "No students yet",
                     icon: "👥",
                   },
                 ].map((item, index) => (
