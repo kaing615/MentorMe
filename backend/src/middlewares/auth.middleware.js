@@ -36,13 +36,23 @@ export const authorizeRoles = (...allowedRoles) => {
   const allowed = new Set(allowedRoles);
   return (req, res, next) => {
     const user = req.user;
-    if (!user) return responseHandler.unauthorized(res, "Authentication required.");
+    if (!user)
+      return responseHandler.unauthorized(res, "Authentication required.");
 
-    const roles = Array.isArray(user.roles)
-      ? user.roles
-      : [user.roles].filter(Boolean);
+    console.log("User object:", user);
+    console.log("User role:", user.role);
+    console.log("Allowed roles:", allowedRoles);
 
-    const hasAllowedRole = roles.some((r) => allowed.has(r));
+    // User model has 'role' field (singular), not 'roles'
+    const userRole = user.role;
+    if (!userRole) {
+      console.log("No role found for user");
+      return responseHandler.forbidden(res, "No role assigned to user.");
+    }
+
+    const hasAllowedRole = allowed.has(userRole);
+    console.log("Has allowed role:", hasAllowedRole);
+
     if (hasAllowedRole) return next();
 
     return responseHandler.forbidden(

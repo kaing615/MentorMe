@@ -1,351 +1,285 @@
 import publicClient from "../clients/public.client.js";
 import createPrivateClient from "../clients/private.client.js";
 
-// Tạo private client instance
 const privateClient = createPrivateClient();
 
-const courseEndpoints = {
-  list: "courses",
-  detail: ({ id }) => `courses/${id}`,
-  related: () => `courses/related`,
-  getAllCourses: "courses",
-  getAllReviews: "reviews",
-  getCourseDetails: ({ courseId }) => `courses/${courseId}`,
-  createCourse: "courses",
-  updateCourse: ({ courseId }) => `courses/${courseId}`,
-  deleteCourse: ({ courseId }) => `courses/${courseId}`,
-  getMyCourses: "courses/my-courses",
-  getUserCourses: ({ userId }) => `user/users/${userId}/courses`,
-  getCourseReviews: ({ courseId }) => `courses/${courseId}/reviews`,
-  addCourseReview: ({ courseId }) => `courses/${courseId}/reviews`,
-  updateCourseReview: ({ courseId, reviewId }) =>
-    `courses/${courseId}/reviews/${reviewId}`,
-  deleteCourseReview: ({ courseId, reviewId }) =>
-    `courses/${courseId}/reviews/${reviewId}`,
-  enrollInCourse: ({ courseId }) => `courses/${courseId}/enroll`,
-  unenrollFromCourse: ({ courseId }) => `courses/${courseId}/enroll`,
-  addMentorToCourse: ({ courseId }) => `courses/${courseId}/mentors`,
-  removeMentorFromCourse: ({ courseId, mentorId }) =>
-    `courses/${courseId}/mentors/${mentorId}`,
-  addContentToCourse: ({ courseId }) => `courses/${courseId}/content`,
-  removeContentFromCourse: ({ courseId, contentId }) =>
-    `courses/${courseId}/content/${contentId}`,
+const ep = {
+  list: "/course",
+  detail: (id) => `/course/${id}`,
+  related: "/course/related",
+  byMentor: (mentorId) => `/course/mentor/${mentorId}`,
+  myCourses: "/course/my-courses",
+
+  // Reviews
+  allReviews: "/course/reviews",
+  courseReviews: (courseId) => `/course/${courseId}/reviews`,
+
+  // CRUD
+  create: "/course",
+  update: (id) => `/course/${id}`,
+  remove: (id) => `/course/${id}`,
+
+  // Optional add/remove mentor & content
+  addMentor: (id) => `/course/${id}/mentors`,
+  removeMentor: (id, mentorId) => `/course/${id}/mentors/${mentorId}`,
+  addContent: (id) => `/course/${id}/content`,
+  removeContent: (id, contentId) => `/course/${id}/content/${contentId}`,
 };
 
+// Helper để luôn trả cả error và err (alias) cho code cũ
+const ok = (response) => ({ response });
+const fail = (error) => ({ error, err: error });
+
 const courseApi = {
-  getList: async ({ page = 1, limit = 10, category, mentor, tags } = {}) => {
+  // ===== CHECK PURCHASE STATUS =====
+  checkPurchaseStatus: async (courseId, dispatch) => {
     try {
-      const queryParams = new URLSearchParams({
-        page: page.toString(),
-        limit: limit.toString(),
-        populate: "mentor",
-      });
-
-      if (category) queryParams.append("category", category);
-      if (mentor) queryParams.append("mentor", mentor);
-      if (tags)
-        queryParams.append("tags", Array.isArray(tags) ? tags.join(",") : tags);
-
-      const response = await publicClient.get(
-        `${courseEndpoints.list}?${queryParams}`
+      const privateClient = createPrivateClient(dispatch);
+      const response = await privateClient.get(
+        `/course/${courseId}/purchase-status`
       );
-      return { response };
-    } catch (err) {
-      return { err };
+      return ok(response);
+    } catch (e) {
+      return fail(e);
     }
   },
 
-  getTopCourses: async ({ limit = 6, minRate = 4.0 } = {}) => {
+  // ===== FORM DATA BUILDER =====
+  getList: async (params = {}) => {
     try {
-      const queryParams = new URLSearchParams({
-        limit: limit.toString(),
-        sort: "-rate",        
-        populate: "mentor",
-        rate: minRate.toString() 
-      });
-
-      const response = await publicClient.get(
-        `${courseEndpoints.list}?${queryParams}`
-      );
-      return { response };
-    } catch (err) {
-      return { err };
-    }
-  },
-
-  getDetail: async ({ courseId }) => {
-    try {
-      const response = await publicClient.get(
-        `${courseEndpoints.detail({ id: courseId })}?populate=mentor`
-      );
-      return { response };
-    } catch (err) {
-      return { err };
+      const response = await publicClient.get(ep.list, { params });
+      return ok(response);
+    } catch (e) {
+      return fail(e);
     }
   },
 
   getAllCourses: async (params = {}) => {
     try {
-      const response = await publicClient.get(courseEndpoints.getAllCourses, {
+      const response = await publicClient.get(ep.list, { params });
+      return ok(response);
+    } catch (e) {
+      return fail(e);
+    }
+  },
+
+  getTopCourses: async (params = {}) => {
+    try {
+      const response = await publicClient.get(ep.list, { params });
+      return ok(response);
+    } catch (e) {
+      return fail(e);
+    }
+  },
+
+  getDetail: async ({ courseId }) => {
+    try {
+      const response = await publicClient.get(ep.detail(courseId));
+      return ok(response);
+    } catch (e) {
+      return fail(e);
+    }
+  },
+
+  getRelatedCourses: async ({ courseId, category, limit = 6 }) => {
+    try {
+      const response = await publicClient.get(ep.related, {
+        params: { courseId, category, limit },
+      });
+      return ok(response);
+    } catch (e) {
+      return fail(e);
+    }
+  },
+
+  // Dùng trong mentor-profile.jsx
+  // Trả về MẢNG để bạn setAllCourses(courses) trực tiếp.
+  getCoursesByMentor: async (mentorId, params = {}) => {
+    try {
+      const response = await publicClient.get(ep.byMentor(mentorId), {
         params,
       });
-      return { response };
-    } catch (error) {
-      return { error };
+      const data = response?.data;
+      // Hỗ trợ nhiều dạng payload khác nhau
+      if (Array.isArray(data?.courses)) return data.courses;
+      if (Array.isArray(data?.data?.courses)) return data.data.courses;
+      if (Array.isArray(data)) return data;
+      return [];
+    } catch {
+      return [];
     }
   },
 
-  getRelatedCourses: async ({ courseId, category, limit }) => {
+  // ===== CRUD (create/update/delete) =====
+  createCourse: async (formData) => {
     try {
-      const categoryParam = Array.isArray(category)
-        ? category.join(",")
-        : category;
-
-      const response = await publicClient.get(
-        `${courseEndpoints.related()}?courseId=${courseId}&category=${encodeURIComponent(
-          categoryParam || ""
-        )}&limit=${limit ?? 6}`
-      );
-      return { response };
-    } catch (err) {
-      return { err };
-    }
-  },
-
-  getCourseDetails: async ({ courseId }) => {
-    try {
-      const response = await publicClient.get(
-        courseEndpoints.getCourseDetails({ courseId })
-      );
-      return { response };
-    } catch (error) {
-      return { error };
-    }
-  },
-
-  createCourse: async (courseData) => {
-    try {
-      if (courseData instanceof FormData) {
-        const response = await privateClient.post(
-          courseEndpoints.createCourse,
-          courseData
-        );
-        return { response };
-      } else {
-        const response = await privateClient.post(
-          courseEndpoints.createCourse,
-          courseData,
-          { headers: { "Content-Type": "application/json" } }
-        );
-        return { response };
-      }
-    } catch (error) {
-      return { error };
+      const response = await privateClient.post(ep.create, formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      // CreateCoursePage không dùng destructuring nên trả trực tiếp cũng OK,
+      // nhưng vẫn tương thích khi destructuring vì promise resolve là axios response.
+      return response;
+    } catch (e) {
+      return fail(e);
     }
   },
 
   updateCourse: async ({ courseId, courseData }) => {
     try {
-      const hasFile =
-        courseData instanceof FormData ||
-        (courseData?.thumbnail instanceof File);
-
-      let requestData;
-      const config = { headers: {} };
-
-      if (hasFile && !(courseData instanceof FormData)) {
-        requestData = new FormData();
-        Object.keys(courseData).forEach((key) => {
-          const val = courseData[key];
-          if (val !== undefined && val !== null && val !== "") {
-            if (key === "thumbnail" && val instanceof File) {
-              requestData.append(key, val);
-            } else if (typeof val === "object" && !(val instanceof File)) {
-              requestData.append(key, JSON.stringify(val));
-            } else {
-              requestData.append(key, String(val));
-            }
-          }
-        });
-        config.headers["Content-Type"] = "multipart/form-data";
-      } else if (courseData instanceof FormData) {
-        requestData = courseData;
-        config.headers["Content-Type"] = "multipart/form-data";
-      } else {
-        requestData = courseData;
-        config.headers["Content-Type"] = "application/json";
-      }
-
       const response = await privateClient.put(
-        courseEndpoints.updateCourse({ courseId }),
-        requestData,
-        config
+        ep.update(courseId),
+        courseData,
+        {
+          headers: { "Content-Type": "multipart/form-data" },
+        }
       );
-      return { response };
-    } catch (error) {
-      return { error };
+      return ok(response);
+    } catch (e) {
+      return fail(e);
     }
   },
 
   deleteCourse: async ({ courseId }) => {
     try {
-      const response = await privateClient.delete(
-        courseEndpoints.deleteCourse({ courseId })
-      );
-      return { response };
-    } catch (error) {
-      console.error("Delete course API error:", error);
-      return { error };
+      const response = await privateClient.delete(ep.remove(courseId));
+      return ok(response);
+    } catch (e) {
+      return fail(e);
     }
   },
 
   getMyCourses: async (params = {}) => {
     try {
-      const response = await privateClient.get(courseEndpoints.getMyCourses, {
-        params,
-      });
-      return { response };
-    } catch (error) {
-      return { error };
+      const response = await privateClient.get(ep.myCourses, { params });
+      return ok(response);
+    } catch (e) {
+      return fail(e);
     }
   },
 
-  getUserCourses: async ({ userId, params = {} }) => {
+  // Kiểm tra xem user đã mua khóa học hay chưa
+  checkPurchaseStatus: async (arg, dispatch) => {
     try {
-      const response = await publicClient.get(
-        courseEndpoints.getUserCourses({ userId }),
-        { params }
+      const privateClient = createPrivateClient(dispatch);
+      const courseId = typeof arg === "string" ? arg : arg?.courseId;
+      if (!courseId) throw new Error("Missing courseId");
+      const response = await privateClient.get(
+        `/course/${courseId}/purchase-status`
       );
-      return { response };
-    } catch (error) {
-      return { error };
+      return ok(response);
+    } catch (e) {
+      return fail(e);
     }
   },
 
-  enrollInCourse: async ({ courseId }) => {
+  // ===== REVIEWS =====
+  getAllReviews: async (params = {}) => {
     try {
-      const response = await privateClient.post(
-        courseEndpoints.enrollInCourse({ courseId })
-      );
-      return { response };
-    } catch (error) {
-      return { error };
-    }
-  },
-  unenrollFromCourse: async ({ courseId }) => {
-    try {
-      const response = await privateClient.delete(
-        courseEndpoints.unenrollFromCourse({ courseId })
-      );
-      return { response };
-    } catch (error) {
-      return { error };
+      const response = await publicClient.get(ep.allReviews, { params });
+      return ok(response);
+    } catch (e) {
+      return fail(e);
     }
   },
 
   getCourseReviews: async ({ courseId, params = {} }) => {
     try {
-      const response = await publicClient.get(
-        courseEndpoints.getCourseReviews({ courseId }),
-        { params }
-      );
-      return { response };
-    } catch (error) {
-      return { error };
-    }
-  },
-  addCourseReview: async ({ courseId, reviewData }) => {
-    try {
-      const response = await privateClient.post(
-        courseEndpoints.addCourseReview({ courseId }),
-        reviewData
-      );
-      return { response };
-    } catch (error) {
-      return { error };
-    }
-  },
-  updateCourseReview: async ({ courseId, reviewId, reviewData }) => {
-    try {
-      const response = await privateClient.put(
-        courseEndpoints.updateCourseReview({ courseId, reviewId }),
-        reviewData
-      );
-      return { response };
-    } catch (error) {
-      return { error };
-    }
-  },
-  deleteCourseReview: async ({ courseId, reviewId }) => {
-    try {
-      const response = await privateClient.delete(
-        courseEndpoints.deleteCourseReview({ courseId, reviewId })
-      );
-      return { response };
-    } catch (error) {
-      return { error };
+      const response = await publicClient.get(ep.courseReviews(courseId), {
+        params,
+      });
+      return ok(response);
+    } catch (e) {
+      return fail(e);
     }
   },
 
-  addMentorToCourse: async ({ courseId, mentorId }) => {
+  addCourseReview: async ({ courseId, reviewData }) => {
     try {
       const response = await privateClient.post(
-        courseEndpoints.addMentorToCourse({ courseId }),
-        { mentorId }
+        ep.courseReviews(courseId),
+        reviewData
       );
-      return { response };
-    } catch (error) {
-      return { error };
+      return ok(response);
+    } catch (e) {
+      return fail(e);
     }
   },
+
+  updateCourseReview: async ({ courseId, reviewId, reviewData }) => {
+    try {
+      const response = await privateClient.put(
+        `${ep.courseReviews(courseId)}/${reviewId}`,
+        reviewData
+      );
+      return ok(response);
+    } catch (e) {
+      return fail(e);
+    }
+  },
+
+  deleteCourseReview: async ({ courseId, reviewId }) => {
+    try {
+      const response = await privateClient.delete(
+        `${ep.courseReviews(courseId)}/${reviewId}`
+      );
+      return ok(response);
+    } catch (e) {
+      return fail(e);
+    }
+  },
+
+  // ===== Mentor / Content helpers (nếu có dùng) =====
+  addMentorToCourse: async ({ courseId, mentorId }) => {
+    try {
+      const response = await privateClient.post(ep.addMentor(courseId), {
+        mentorId,
+      });
+      return ok(response);
+    } catch (e) {
+      return fail(e);
+    }
+  },
+
   removeMentorFromCourse: async ({ courseId, mentorId }) => {
     try {
       const response = await privateClient.delete(
-        courseEndpoints.removeMentorFromCourse({ courseId, mentorId })
+        ep.removeMentor(courseId, mentorId)
       );
-      return { response };
-    } catch (error) {
-      return { error };
+      return ok(response);
+    } catch (e) {
+      return fail(e);
     }
   },
 
   addContentToCourse: async ({ courseId, contentData }) => {
     try {
       const response = await privateClient.post(
-        courseEndpoints.addContentToCourse({ courseId }),
+        ep.addContent(courseId),
         contentData
       );
-      return { response };
-    } catch (error) {
-      return { error };
+      return ok(response);
+    } catch (e) {
+      return fail(e);
     }
   },
+
   removeContentFromCourse: async ({ courseId, contentId }) => {
     try {
       const response = await privateClient.delete(
-        courseEndpoints.removeContentFromCourse({ courseId, contentId })
+        ep.removeContent(courseId, contentId)
       );
-      return { response };
-    } catch (error) {
-      return { error };
+      return ok(response);
+    } catch (e) {
+      return fail(e);
     }
   },
 
-  getAllReviews: async (params = {}) => {
-    try {
-      const response = await publicClient.get(courseEndpoints.getAllReviews, {
-        params,
-      });
-      return { response };
-    } catch (error) {
-      return { error };
-    }
-  },
-
-  createCourseFormData: (courseData) => {
+  // ===== Tiện ích tạo FormData cho create/update =====
+  createCourseFormData: (data) => {
     const formData = new FormData();
 
-    const fieldMapping = {
+    // Các field khớp với backend (course.controller.js)
+    const map = {
       title: "title",
       price: "price",
       courseOverview: "courseOverview",
@@ -356,102 +290,41 @@ const courseApi = {
       duration: "duration",
       driveLink: "driveLink",
       thumbnail: "thumbnail",
+      tags: "tags",
+      language: "language",
     };
 
-    Object.keys(courseData).forEach((key) => {
-      const mappedKey = fieldMapping[key] || key;
-      const value = courseData[key];
-
-      if (value !== undefined && value !== null && value !== "") {
-        if (key === "thumbnail" && value instanceof File) {
-          formData.append(mappedKey, value);
-        } else if (typeof value === "object" && !(value instanceof File)) {
-          formData.append(mappedKey, JSON.stringify(value));
-        } else {
-          formData.append(mappedKey, value.toString());
-        }
+    Object.keys(map).forEach((k) => {
+      if (data[k] == null) return;
+      if (k === "thumbnail") {
+        // File ảnh
+        if (data[k]) formData.append(map[k], data[k]);
+      } else if (k === "tags" || k === "language") {
+        // Backend chấp nhận array hoặc string JSON → gửi JSON cho chắc
+        const v = Array.isArray(data[k])
+          ? data[k]
+          : String(data[k])
+              .split(",")
+              .map((s) => s.trim())
+              .filter(Boolean);
+        formData.append(map[k], JSON.stringify(v));
+      } else {
+        formData.append(map[k], data[k]);
       }
     });
 
-    const description = `${courseData.courseOverview || ""}\n${
-      courseData.keyLearningObjectives || ""
-    }`;
-    formData.set("description", description.trim());
-    formData.set("link", courseData.driveLink || "");
+    // Backend validation yêu cầu ít nhất một trong description/courseOverview và link/driveLink
+    // Nếu chưa có description, tạo từ courseOverview
+    if (!data.description && data.courseOverview) {
+      formData.append("description", data.courseOverview);
+    }
+
+    // Nếu chưa có link, dùng driveLink
+    if (!data.link && data.driveLink) {
+      formData.append("link", data.driveLink);
+    }
 
     return formData;
-  },
-
-  validateCourseData: (courseData) => {
-    const required = [
-      "title",
-      "price",
-      "courseOverview",
-      "keyLearningObjectives",
-      "category",
-      "level",
-      "lectures",
-      "driveLink",
-    ];
-    const missing = [];
-
-    required.forEach((field) => {
-      if (!courseData[field] || courseData[field] === "") {
-        missing.push(field);
-      }
-    });
-
-    if (missing.length > 0) {
-      return {
-        isValid: false,
-        missingFields: missing,
-        message: `Missing required fields: ${missing.join(", ")}`,
-      };
-    }
-
-    if (isNaN(parseFloat(courseData.price)) || parseFloat(courseData.price) < 0) {
-      return {
-        isValid: false,
-        message: "Price must be a valid positive number",
-      };
-    }
-
-    if (isNaN(parseInt(courseData.lectures)) || parseInt(courseData.lectures) < 1) {
-      return {
-        isValid: false,
-        message: "Number of lectures must be a positive integer",
-      };
-    }
-
-    const validLevels = ["Beginner", "Intermediate", "Advanced", "Expert"];
-    if (!validLevels.includes(courseData.level)) {
-      return {
-        isValid: false,
-        message: "Level must be one of: " + validLevels.join(", "),
-      };
-    }
-
-    try {
-      new URL(courseData.driveLink);
-    } catch (e) {
-      return {
-        isValid: false,
-        message: "Drive link must be a valid URL",
-      };
-    }
-
-    return { isValid: true, message: "Validation passed" };
-  },
-
-  getCoursesByMentor: async (mentorId, params = {}) => {
-    try {
-      const response = await publicClient.get(`/course/mentor/${mentorId}`, {
-        params,
-      });
-      return response.data?.data?.courses || [];
-    } catch (error) {
-      return [];
-    }
   },
 };
 

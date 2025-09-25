@@ -1,9 +1,35 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { IoArrowForward, IoCloudUpload, IoCheckmark } from "react-icons/io5";
-import { authApi } from "../api/modules/auth.api";
+import authApi from "../api/modules/auth.api";
 import { toast } from "react-toastify";
+import { useNavigate } from "react-router-dom";
+import { MENTEE_PATH, MENTOR_PATH, PATH } from "../routes/path";
 
 const ApplyAsMentor = () => {
+  const navigate = useNavigate();
+
+  // Check if user is already authenticated
+  useEffect(() => {
+    const token = sessionStorage.getItem("token");
+    const role = sessionStorage.getItem("role");
+
+    if (token && role) {
+      // Redirect based on role
+      switch (role) {
+        case "mentee":
+          navigate(`/${MENTEE_PATH.HOME}`);
+          break;
+        case "mentor":
+          navigate(`${PATH.MENTOR}/${MENTOR_PATH.HOME}`);
+          break;
+        case "admin":
+          navigate(PATH.ADMIN);
+          break;
+        default:
+          navigate(PATH.MENTEE);
+      }
+    }
+  }, [navigate]);
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
@@ -35,13 +61,21 @@ const ApplyAsMentor = () => {
     if (!formData.lastName.trim()) newErrors.lastName = "Input last name";
     if (!formData.username.trim()) newErrors.username = "Username is required";
     if (!formData.email.trim()) newErrors.email = "Email is required";
-    else if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(formData.email)) newErrors.email = "Invalid email format";
+    else if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(formData.email))
+      newErrors.email = "Invalid email format";
     if (!formData.password) newErrors.password = "Password is required";
-    if (!formData.confirmPassword) newErrors.confirmPassword = "Confirm password is required";
-    if (formData.password && formData.confirmPassword && formData.password !== formData.confirmPassword) newErrors.confirmPassword = "Passwords do not match";
+    if (!formData.confirmPassword)
+      newErrors.confirmPassword = "Confirm password is required";
+    if (
+      formData.password &&
+      formData.confirmPassword &&
+      formData.password !== formData.confirmPassword
+    )
+      newErrors.confirmPassword = "Passwords do not match";
     if (!formData.jobTitle.trim()) newErrors.jobTitle = "Job title is required";
     if (!formData.location.trim()) newErrors.location = "Location is required";
-    if (validatePhoto && !profileImage) newErrors.photo = "Profile photo is required";
+    if (validatePhoto && !profileImage)
+      newErrors.photo = "Profile photo is required";
     return newErrors;
   };
 
@@ -51,7 +85,8 @@ const ApplyAsMentor = () => {
     if (!formData.category.trim()) newErrors.category = "Category is required";
     if (!formData.skills.trim()) newErrors.skills = "Skills are required";
     if (!formData.bio.trim()) newErrors.bio = "Bio is required";
-    if (!formData.linkedin.trim()) newErrors.linkedin = "LinkedIn Profile URL is required";
+    if (!formData.linkedin.trim())
+      newErrors.linkedin = "LinkedIn Profile URL is required";
     return newErrors;
   };
 
@@ -118,22 +153,24 @@ const ApplyAsMentor = () => {
     } else if (currentStep === 3) {
       stepErrors = validateStep3();
     }
-    
+
     if (Object.keys(stepErrors).length > 0) {
       setErrors(stepErrors);
       // Đánh dấu tất cả field lỗi là touched để hiển thị lỗi
       const touchedFields = {};
-      Object.keys(stepErrors).forEach((key) => { touchedFields[key] = true; });
+      Object.keys(stepErrors).forEach((key) => {
+        touchedFields[key] = true;
+      });
       setTouched((prev) => ({ ...prev, ...touchedFields }));
       return;
     }
     setErrors({});
     if (currentStep < 3) {
       // Mark current step as completed
-      setCompletedSteps(prev => [...prev, currentStep]);
-      
+      setCompletedSteps((prev) => [...prev, currentStep]);
+
       // Move to next step
-      setCurrentStep(prev => prev + 1);
+      setCurrentStep((prev) => prev + 1);
     }
   };
 
@@ -141,10 +178,12 @@ const ApplyAsMentor = () => {
   const handlePreviousStep = () => {
     if (currentStep > 1) {
       // Remove current step from completed steps
-      setCompletedSteps(prev => prev.filter(step => step !== currentStep - 1));
-      
+      setCompletedSteps((prev) =>
+        prev.filter((step) => step !== currentStep - 1)
+      );
+
       // Move to previous step
-      setCurrentStep(prev => prev - 1);
+      setCurrentStep((prev) => prev - 1);
     }
   };
 
@@ -154,13 +193,15 @@ const ApplyAsMentor = () => {
     const step1Errors = validateStep1(true);
     const step2Errors = validateStep2();
     const step3Errors = validateStep3();
-    
+
     const allErrors = { ...step1Errors, ...step2Errors, ...step3Errors };
-    
+
     if (Object.keys(allErrors).length > 0) {
       setErrors(allErrors);
       const touchedFields = {};
-      Object.keys(allErrors).forEach((key) => { touchedFields[key] = true; });
+      Object.keys(allErrors).forEach((key) => {
+        touchedFields[key] = true;
+      });
       setTouched((prev) => ({ ...prev, ...touchedFields }));
       toast.error("Vui lòng điền đầy đủ thông tin bắt buộc!");
       return;
@@ -169,49 +210,57 @@ const ApplyAsMentor = () => {
     try {
       // Prepare form data for submission
       const formDataToSend = new FormData();
-      
+
       // Basic info
-      formDataToSend.append('firstName', formData.firstName);
-      formDataToSend.append('lastName', formData.lastName);
-      formDataToSend.append('userName', formData.username);
-      formDataToSend.append('email', formData.email);
-      formDataToSend.append('password', formData.password);
-      formDataToSend.append('confirmPassword', formData.confirmPassword);
-      formDataToSend.append('jobTitle', formData.jobTitle);
-      formDataToSend.append('location', formData.location);
-      
+      formDataToSend.append("firstName", formData.firstName);
+      formDataToSend.append("lastName", formData.lastName);
+      formDataToSend.append("userName", formData.username);
+      formDataToSend.append("email", formData.email);
+      formDataToSend.append("password", formData.password);
+      formDataToSend.append("confirmPassword", formData.confirmPassword);
+      formDataToSend.append("jobTitle", formData.jobTitle);
+      formDataToSend.append("location", formData.location);
+
       // Profile info
-      formDataToSend.append('category', formData.category);
-      formDataToSend.append('skills', formData.skills); // Backend sẽ parse string thành array
-      formDataToSend.append('bio', formData.bio);
-      formDataToSend.append('linkedinUrl', formData.linkedin);
-      
+      formDataToSend.append("category", formData.category);
+      formDataToSend.append("skills", formData.skills); // Backend sẽ parse string thành array
+      formDataToSend.append("bio", formData.bio);
+      formDataToSend.append("linkedinUrl", formData.linkedin);
+
       // Experience info
       if (formData.introVideo.trim()) {
-        formDataToSend.append('introVideo', formData.introVideo);
+        formDataToSend.append("introVideo", formData.introVideo);
       }
       // Gửi reason và achievement, nếu trống thì gửi dữ liệu mặc định để tránh lỗi validation backend
-      formDataToSend.append('mentorReason', formData.reason.trim() || 'I want to share my knowledge and help others grow in their career');
-      formDataToSend.append('greatestAchievement', formData.achievement.trim() || 'Continuous learning and professional development');
-      
+      formDataToSend.append(
+        "mentorReason",
+        formData.reason.trim() ||
+          "I want to share my knowledge and help others grow in their career"
+      );
+      formDataToSend.append(
+        "greatestAchievement",
+        formData.achievement.trim() ||
+          "Continuous learning and professional development"
+      );
+
       // Profile image
       if (profileImage) {
         // Convert base64 to blob
         const response = await fetch(profileImage);
         const blob = await response.blob();
-        formDataToSend.append('avatar', blob, 'profile-image.jpg');
+        formDataToSend.append("avatar", blob, "profile-image.jpg");
       }
 
       // Debug log
-      console.log('Sending FormData:');
+      console.log("Sending FormData:");
       for (let [key, value] of formDataToSend.entries()) {
         console.log(key, value);
       }
 
       const response = await authApi.signupMentor(formDataToSend);
-      
+
       toast.success("Đăng ký mentor thành công! Vui lòng chờ admin duyệt.");
-      
+
       // Reset form or redirect
       setFormData({
         firstName: "",
@@ -235,7 +284,6 @@ const ApplyAsMentor = () => {
       setCompletedSteps([]);
       setErrors({});
       setTouched({});
-      
     } catch (error) {
       console.error("Submit error:", error);
       console.error("Error details:", error.response);
@@ -256,11 +304,11 @@ const ApplyAsMentor = () => {
     if (completedSteps.includes(stepId)) {
       return "flex items-center justify-center w-20 h-20 rounded-full bg-blue-600 text-white font-bold text-2xl mb-4 transition-all duration-500 ease-in-out";
     }
-    
+
     if (stepId === currentStep) {
       return "relative flex items-center justify-center w-20 h-20 rounded-full border-2 border-gray-200 bg-white text-black font-bold text-2xl mb-4 transition-all duration-500 ease-in-out";
     }
-    
+
     return "flex items-center justify-center w-20 h-20 rounded-full border-2 border-gray-200 bg-white text-gray-400 font-bold text-2xl mb-4 transition-all duration-500 ease-in-out";
   };
 
@@ -269,11 +317,11 @@ const ApplyAsMentor = () => {
     if (completedSteps.includes(stepId)) {
       return "text-blue-600 font-semibold text-lg transition-colors duration-500";
     }
-    
+
     if (stepId === currentStep) {
       return "text-black font-semibold text-lg transition-colors duration-500";
     }
-    
+
     return "text-gray-400 font-medium text-lg transition-colors duration-500";
   };
 
@@ -282,7 +330,7 @@ const ApplyAsMentor = () => {
     if (completedSteps.includes(fromStep)) {
       return "w-55 h-1 bg-blue-500 mx-6 mt-[-32px] transition-all duration-700 ease-in-out";
     }
-    
+
     return "w-55 h-1 bg-gray-300 mx-6 mt-[-32px] transition-all duration-700 ease-in-out";
   };
 
@@ -291,7 +339,7 @@ const ApplyAsMentor = () => {
     if (completedSteps.includes(stepId)) {
       return null; // Không hiển thị gì cho step đã hoàn thành
     }
-    
+
     if (stepId === currentStep) {
       return (
         <div className="absolute inset-0 flex items-center justify-center">
@@ -299,7 +347,7 @@ const ApplyAsMentor = () => {
         </div>
       );
     }
-    
+
     return null; // Không hiển thị gì cho step chưa đến
   };
 
@@ -309,12 +357,13 @@ const ApplyAsMentor = () => {
         <h1 className="text-4xl font-bold mb-4">Apply as a Mentor</h1>
       </div>
 
-      <div title="ActionProcess" className="flex items-center justify-center mb-[9px] mt-8">
+      <div
+        title="ActionProcess"
+        className="flex items-center justify-center mb-[9px] mt-8"
+      >
         {/* Step 1: About you */}
         <div className="flex flex-col items-center">
-          <div className={getStepCircleClass(1)}>
-            {getStepContent(1)}
-          </div>
+          <div className={getStepCircleClass(1)}>{getStepContent(1)}</div>
           <span className={getStepTextClass(1)}>About you</span>
         </div>
 
@@ -323,9 +372,7 @@ const ApplyAsMentor = () => {
 
         {/* Step 2: Profile */}
         <div className="flex flex-col items-center">
-          <div className={getStepCircleClass(2)}>
-            {getStepContent(2)}
-          </div>
+          <div className={getStepCircleClass(2)}>{getStepContent(2)}</div>
           <span className={getStepTextClass(2)}>Profile</span>
         </div>
 
@@ -334,9 +381,7 @@ const ApplyAsMentor = () => {
 
         {/* Step 3: Experience */}
         <div className="flex flex-col items-center">
-          <div className={getStepCircleClass(3)}>
-            {getStepContent(3)}
-          </div>
+          <div className={getStepCircleClass(3)}>{getStepContent(3)}</div>
           <span className={getStepTextClass(3)}>Experience</span>
         </div>
       </div>
@@ -344,21 +389,24 @@ const ApplyAsMentor = () => {
       {/* Conditional Form Rendering */}
       {currentStep === 1 && (
         <div title="About Form" className="flex flex-col">
-          <div title="Upload your profile picture" className="flex flex-col mt-[-5px]">
+          <div
+            title="Upload your profile picture"
+            className="flex flex-col mt-[-5px]"
+          >
             <label className="text-xl font-medium text-md pl-100 pb-2">
               Photo <span className="text-red-500">*</span>
             </label>
             <div className="flex items-center ml-98 gap-6 relative">
               {/* Profile Picture Circle */}
               <div className="relative">
-                <div 
-                  title="Profile Picture" 
+                <div
+                  title="Profile Picture"
                   className="flex items-center justify-center w-40 h-40 rounded-full border-2 border-gray-300 mb-4 overflow-hidden bg-gray-50"
                 >
                   {profileImage ? (
-                    <img 
-                      src={profileImage} 
-                      alt="Profile" 
+                    <img
+                      src={profileImage}
+                      alt="Profile"
                       className="w-full h-full object-cover rounded-full"
                     />
                   ) : (
@@ -384,43 +432,60 @@ const ApplyAsMentor = () => {
                   <span className="font-medium">Upload a photo</span>
                 </label>
                 {errors.photo && (
-                  <span className="text-red-500 text-sm mt-1">{errors.photo}</span>
+                  <span className="text-red-500 text-sm mt-1">
+                    {errors.photo}
+                  </span>
                 )}
               </div>
             </div>
           </div>
 
-          <div title="Hold input fields for mentor details" className="flex flex-col pl-100">
+          <div
+            title="Hold input fields for mentor details"
+            className="flex flex-col pl-100"
+          >
             <label className="block mb-1 text-lg font-medium text-left">
               Full Name <span className="text-red-500">*</span>
             </label>
             <div alt="Full Name" className="flex flex-row mb-4 gap-6">
               <div className="flex flex-col w-[330px]">
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   name="firstName"
                   value={formData.firstName}
-                  placeholder="First Name" 
-                  className={`p-2 border rounded-[9px] h-[52px] focus:outline-none ${errors.firstName && touched.firstName ? 'border-red-500' : 'border-gray-300'}`}
+                  placeholder="First Name"
+                  className={`p-2 border rounded-[9px] h-[52px] focus:outline-none ${
+                    errors.firstName && touched.firstName
+                      ? "border-red-500"
+                      : "border-gray-300"
+                  }`}
                   onChange={handleChange}
                   onBlur={handleBlur}
                 />
                 {errors.firstName && touched.firstName && (
-                  <span className="text-red-500 text-sm mt-1">{errors.firstName}</span>
+                  <span className="text-red-500 text-sm mt-1">
+                    {errors.firstName}
+                  </span>
                 )}
               </div>
               <div className="flex flex-col w-[345px]">
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   name="lastName"
                   value={formData.lastName}
-                  placeholder="Last Name" 
-                  className={`p-2 border rounded-[9px] h-[52px] focus:outline-none ${errors.lastName && touched.lastName ? 'border-red-500' : 'border-gray-300'}`}
+                  placeholder="Last Name"
+                  className={`p-2 border rounded-[9px] h-[52px] focus:outline-none ${
+                    errors.lastName && touched.lastName
+                      ? "border-red-500"
+                      : "border-gray-300"
+                  }`}
                   onChange={handleChange}
                   onBlur={handleBlur}
                 />
                 {errors.lastName && touched.lastName && (
-                  <span className="text-red-500 text-sm mt-1">{errors.lastName}</span>
+                  <span className="text-red-500 text-sm mt-1">
+                    {errors.lastName}
+                  </span>
                 )}
               </div>
             </div>
@@ -429,17 +494,23 @@ const ApplyAsMentor = () => {
               Username <span className="text-red-500">*</span>
             </label>
             <div alt="Username" className="flex flex-col mb-4">
-              <input 
-                type="text" 
+              <input
+                type="text"
                 name="username"
                 value={formData.username}
-                placeholder="Username" 
-                className={`p-2 border rounded-[9px] h-[52px] w-[699px] focus:outline-none ${errors.username && touched.username ? 'border-red-500' : 'border-gray-300'}`}
+                placeholder="Username"
+                className={`p-2 border rounded-[9px] h-[52px] w-[699px] focus:outline-none ${
+                  errors.username && touched.username
+                    ? "border-red-500"
+                    : "border-gray-300"
+                }`}
                 onChange={handleChange}
                 onBlur={handleBlur}
               />
               {errors.username && touched.username && (
-                <span className="text-red-500 text-sm mt-1">{errors.username}</span>
+                <span className="text-red-500 text-sm mt-1">
+                  {errors.username}
+                </span>
               )}
             </div>
 
@@ -447,17 +518,23 @@ const ApplyAsMentor = () => {
               Email <span className="text-red-500">*</span>
             </label>
             <div alt="Email" className="flex flex-col mb-4">
-              <input 
-                type="text" 
+              <input
+                type="text"
                 name="email"
                 value={formData.email}
-                placeholder="Email ID" 
-                className={`p-2 border rounded-[9px] h-[52px] w-[699px] focus:outline-none ${errors.email && touched.email ? 'border-red-500' : 'border-gray-300'}`}
+                placeholder="Email ID"
+                className={`p-2 border rounded-[9px] h-[52px] w-[699px] focus:outline-none ${
+                  errors.email && touched.email
+                    ? "border-red-500"
+                    : "border-gray-300"
+                }`}
                 onChange={handleChange}
                 onBlur={handleBlur}
               />
               {errors.email && touched.email && (
-                <span className="text-red-500 text-sm mt-1">{errors.email}</span>
+                <span className="text-red-500 text-sm mt-1">
+                  {errors.email}
+                </span>
               )}
             </div>
 
@@ -471,31 +548,43 @@ const ApplyAsMentor = () => {
             </div>
             <div alt="Password" className="flex flex-row mb-4 gap-6">
               <div className="flex flex-col">
-                <input 
-                  type="password" 
+                <input
+                  type="password"
                   name="password"
                   value={formData.password}
-                  placeholder="Password" 
-                  className={`p-2 border rounded-[9px] h-[52px] w-[330px] focus:outline-none ${errors.password && touched.password ? 'border-red-500' : 'border-gray-300'}`}
+                  placeholder="Password"
+                  className={`p-2 border rounded-[9px] h-[52px] w-[330px] focus:outline-none ${
+                    errors.password && touched.password
+                      ? "border-red-500"
+                      : "border-gray-300"
+                  }`}
                   onChange={handleChange}
                   onBlur={handleBlur}
                 />
                 {errors.password && touched.password && (
-                  <span className="text-red-500 text-sm mt-1">{errors.password}</span>
+                  <span className="text-red-500 text-sm mt-1">
+                    {errors.password}
+                  </span>
                 )}
               </div>
               <div className="flex flex-col">
-                <input 
-                  type="password" 
+                <input
+                  type="password"
                   name="confirmPassword"
                   value={formData.confirmPassword}
-                  placeholder="Confirm Password" 
-                  className={`p-2 border rounded-[9px] h-[52px] w-[345px] focus:outline-none ${errors.confirmPassword && touched.confirmPassword ? 'border-red-500' : 'border-gray-300'}`}
+                  placeholder="Confirm Password"
+                  className={`p-2 border rounded-[9px] h-[52px] w-[345px] focus:outline-none ${
+                    errors.confirmPassword && touched.confirmPassword
+                      ? "border-red-500"
+                      : "border-gray-300"
+                  }`}
                   onChange={handleChange}
                   onBlur={handleBlur}
                 />
                 {errors.confirmPassword && touched.confirmPassword && (
-                  <span className="text-red-500 text-sm mt-1">{errors.confirmPassword}</span>
+                  <span className="text-red-500 text-sm mt-1">
+                    {errors.confirmPassword}
+                  </span>
                 )}
               </div>
             </div>
@@ -507,50 +596,65 @@ const ApplyAsMentor = () => {
               <label className="text-lg font-medium text-left">
                 Location <span className="text-red-500">*</span>
               </label>
-            </div>          
-            <div alt="Job title and location" className="flex flex-row mb-4 gap-6">
+            </div>
+            <div
+              alt="Job title and location"
+              className="flex flex-row mb-4 gap-6"
+            >
               <div className="flex flex-col">
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   name="jobTitle"
                   value={formData.jobTitle}
-                  placeholder="Job Title" 
-                  className={`p-2 border rounded-[9px] h-[52px] w-[330px] focus:outline-none ${errors.jobTitle && touched.jobTitle ? 'border-red-500' : 'border-gray-300'}`}
+                  placeholder="Job Title"
+                  className={`p-2 border rounded-[9px] h-[52px] w-[330px] focus:outline-none ${
+                    errors.jobTitle && touched.jobTitle
+                      ? "border-red-500"
+                      : "border-gray-300"
+                  }`}
                   onChange={handleChange}
                   onBlur={handleBlur}
                 />
                 {errors.jobTitle && touched.jobTitle && (
-                  <span className="text-red-500 text-sm mt-1">{errors.jobTitle}</span>
+                  <span className="text-red-500 text-sm mt-1">
+                    {errors.jobTitle}
+                  </span>
                 )}
               </div>
               <div className="flex flex-col">
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   name="location"
                   value={formData.location}
-                  placeholder="Location" 
-                  className={`p-2 border rounded-[9px] h-[52px] w-[345px] focus:outline-none ${errors.location && touched.location ? 'border-red-500' : 'border-gray-300'}`}
+                  placeholder="Location"
+                  className={`p-2 border rounded-[9px] h-[52px] w-[345px] focus:outline-none ${
+                    errors.location && touched.location
+                      ? "border-red-500"
+                      : "border-gray-300"
+                  }`}
                   onChange={handleChange}
                   onBlur={handleBlur}
                 />
                 {errors.location && touched.location && (
-                  <span className="text-red-500 text-sm mt-1">{errors.location}</span>
+                  <span className="text-red-500 text-sm mt-1">
+                    {errors.location}
+                  </span>
                 )}
               </div>
             </div>
 
             <div title="Next Step Button" className="flex pl-137.5">
-              <button 
+              <button
                 onClick={handleNextStep}
                 disabled={currentStep >= 3}
                 className={`flex items-center text-left py-3 px-6 mb-3.5 gap-2 rounded-lg border-0 cursor-pointer transition-colors duration-200 ${
                   currentStep >= 3 || Object.keys(validateStep1()).length > 0
-                    ? 'bg-gray-400 text-gray-600 cursor-not-allowed' 
-                    : 'bg-slate-950 text-white hover:bg-slate-800'
+                    ? "bg-gray-400 text-gray-600 cursor-not-allowed"
+                    : "bg-slate-950 text-white hover:bg-slate-800"
                 }`}
               >
                 <span className="font-bold">
-                  {currentStep >= 3 ? 'Complete' : 'Next Step'}
+                  {currentStep >= 3 ? "Complete" : "Next Step"}
                 </span>
                 <IoArrowForward className="text-lg" />
               </button>
@@ -560,19 +664,25 @@ const ApplyAsMentor = () => {
       )}
 
       {currentStep === 2 && (
-        <div title="Profile Form" className="flex flex-col pl-100 transition-all duration-500 ease-in-out">
+        <div
+          title="Profile Form"
+          className="flex flex-col pl-100 transition-all duration-500 ease-in-out"
+        >
           <div>
-            
             <label className="block mb-1 text-lg font-medium text-left">
               Categories <span className="text-red-500">*</span>
             </label>
             <div className="flex flex-col mb-4">
-              <select 
+              <select
                 name="category"
                 value={formData.category}
                 onChange={handleChange}
                 onBlur={handleBlur}
-                className={`w-[699px] p-2 border rounded-[9px] h-[52px] focus:outline-none ${errors.category && touched.category ? 'border-red-500' : 'border-gray-300'} ${formData.category ? 'text-black' : 'text-slate-500'}`}
+                className={`w-[699px] p-2 border rounded-[9px] h-[52px] focus:outline-none ${
+                  errors.category && touched.category
+                    ? "border-red-500"
+                    : "border-gray-300"
+                } ${formData.category ? "text-black" : "text-slate-500"}`}
               >
                 <option value="">Select your expertise</option>
                 <option value="web-development">Web Development</option>
@@ -582,7 +692,9 @@ const ApplyAsMentor = () => {
                 <option value="other">Other</option>
               </select>
               {errors.category && touched.category && (
-                <span className="text-red-500 text-sm mt-1">{errors.category}</span>
+                <span className="text-red-500 text-sm mt-1">
+                  {errors.category}
+                </span>
               )}
             </div>
 
@@ -590,34 +702,46 @@ const ApplyAsMentor = () => {
               Skills <span className="text-red-500">*</span>
             </label>
             <div className="mb-0 flex flex-col">
-              <input 
-                type="text" 
+              <input
+                type="text"
                 name="skills"
                 value={formData.skills}
-                placeholder="e.g. JavaScript, React, Node.js" 
-                className={`p-2 border rounded-[9px] h-[52px] w-[699px] focus:outline-none ${errors.skills && touched.skills ? 'border-red-500' : 'border-gray-300'}`}
+                placeholder="e.g. JavaScript, React, Node.js"
+                className={`p-2 border rounded-[9px] h-[52px] w-[699px] focus:outline-none ${
+                  errors.skills && touched.skills
+                    ? "border-red-500"
+                    : "border-gray-300"
+                }`}
                 onChange={handleChange}
                 onBlur={handleBlur}
               />
               {errors.skills && touched.skills && (
-                <span className="text-red-500 text-sm mt-1">{errors.skills}</span>
+                <span className="text-red-500 text-sm mt-1">
+                  {errors.skills}
+                </span>
               )}
             </div>
             <span className="text-sm text-gray-500">
-              Describe your expertise to connect with mentees who have similar interests.
+              Describe your expertise to connect with mentees who have similar
+              interests.
               <br />
-              Comma-separated list of your skills (keep it below 10). Mentees will use this to find you.
+              Comma-separated list of your skills (keep it below 10). Mentees
+              will use this to find you.
             </span>
 
             <label className="block mt-2 text-lg font-medium text-left">
               Bio <span className="text-red-500">*</span>
             </label>
             <div className="mb-0 flex flex-col">
-              <textarea 
+              <textarea
                 name="bio"
                 value={formData.bio}
-                placeholder="Tell us about yourself..." 
-                className={`p-2 border rounded-[9px] h-[120px] w-[699px] focus:outline-none resize-none ${errors.bio && touched.bio ? 'border-red-500' : 'border-gray-300'}`}
+                placeholder="Tell us about yourself..."
+                className={`p-2 border rounded-[9px] h-[120px] w-[699px] focus:outline-none resize-none ${
+                  errors.bio && touched.bio
+                    ? "border-red-500"
+                    : "border-gray-300"
+                }`}
                 onChange={handleChange}
                 onBlur={handleBlur}
               />
@@ -628,52 +752,59 @@ const ApplyAsMentor = () => {
             <span className="text-sm text-gray-500 mb-5">
               Tell us (and your mentees) a little bit about yourself.
               <br />
-              Talk about yourself in the first person, as if you'd directly talk to a mentee. This will be public.
+              Talk about yourself in the first person, as if you'd directly talk
+              to a mentee. This will be public.
             </span>
 
             <label className="block mt-2 text-lg font-medium text-left">
               LinkedIn Profile URL <span className="text-red-500">*</span>
             </label>
             <div className="mb-4 flex flex-col">
-              <input 
-                type="text" 
+              <input
+                type="text"
                 name="linkedin"
                 value={formData.linkedin}
                 placeholder="https://www.linkedin.com/in/your-profile"
-                className={`p-2 border rounded-[9px] h-[52px] w-[699px] focus:outline-none ${errors.linkedin && touched.linkedin ? 'border-red-500' : 'border-gray-300'}`}
+                className={`p-2 border rounded-[9px] h-[52px] w-[699px] focus:outline-none ${
+                  errors.linkedin && touched.linkedin
+                    ? "border-red-500"
+                    : "border-gray-300"
+                }`}
                 onChange={handleChange}
                 onBlur={handleBlur}
               />
               {errors.linkedin && touched.linkedin && (
-                <span className="text-red-500 text-sm mt-1">{errors.linkedin}</span>
+                <span className="text-red-500 text-sm mt-1">
+                  {errors.linkedin}
+                </span>
               )}
             </div>
 
             <div className="flex gap-4 mt-2">
-              <button 
+              <button
                 onClick={handlePreviousStep}
                 disabled={currentStep <= 1}
                 className={`flex items-center text-left py-3 px-6 mb-3.5 gap-2 rounded-lg border-0 cursor-pointer transition-colors duration-200 ${
-                  currentStep <= 1 
-                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
-                    : 'bg-slate-950 text-white hover:bg-slate-800'
+                  currentStep <= 1
+                    ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                    : "bg-slate-950 text-white hover:bg-slate-800"
                 }`}
               >
                 <span className="font-bold">Previous Step</span>
                 <IoArrowForward className="text-lg rotate-180" />
               </button>
 
-              <button 
+              <button
                 onClick={handleNextStep}
                 disabled={currentStep >= 3}
                 className={`flex items-center text-left py-3 px-6 ml-90 mb-3.5 gap-2 rounded-lg border-0 cursor-pointer transition-colors duration-200 ${
                   currentStep >= 3 || Object.keys(validateStep2()).length > 0
-                    ? 'bg-gray-400 text-gray-600 cursor-not-allowed' 
-                    : 'bg-slate-950 text-white hover:bg-slate-800'
+                    ? "bg-gray-400 text-gray-600 cursor-not-allowed"
+                    : "bg-slate-950 text-white hover:bg-slate-800"
                 }`}
               >
                 <span className="font-bold">
-                  {currentStep >= 3 ? 'Complete' : 'Next Step'}
+                  {currentStep >= 3 ? "Complete" : "Next Step"}
                 </span>
                 <IoArrowForward className="text-lg" />
               </button>
@@ -683,13 +814,18 @@ const ApplyAsMentor = () => {
       )}
 
       {currentStep === 3 && (
-        <div title="Experience Form" className="flex flex-col pl-101 transition-all duration-500 ease-in-out">
+        <div
+          title="Experience Form"
+          className="flex flex-col pl-101 transition-all duration-500 ease-in-out"
+        >
           <div>
-
-            <label className="block mt-2 text-lg font-medium text-left">Intro video <label className="text-slate-400 text-[15px]">(Optional)</label></label>
+            <label className="block mt-2 text-lg font-medium text-left">
+              Intro video{" "}
+              <label className="text-slate-400 text-[15px]">(Optional)</label>
+            </label>
             <div className="flex flex-col mb-0">
-              <input 
-                type="text" 
+              <input
+                type="text"
                 name="introVideo"
                 value={formData.introVideo}
                 placeholder="https://your-intro-video-URL"
@@ -710,50 +846,65 @@ const ApplyAsMentor = () => {
                 name="reason"
                 value={formData.reason}
                 placeholder="Tell us why you want to become a mentor... (minimum 50 characters)"
-                className={`p-2 border rounded-[9px] h-[120px] w-[699px] focus:outline-none resize-none ${errors.reason && touched.reason ? 'border-red-500' : 'border-gray-300'}`}
+                className={`p-2 border rounded-[9px] h-[120px] w-[699px] focus:outline-none resize-none ${
+                  errors.reason && touched.reason
+                    ? "border-red-500"
+                    : "border-gray-300"
+                }`}
                 onChange={handleChange}
                 onBlur={handleBlur}
               />
               {errors.reason && touched.reason && (
-                <span className="text-red-500 text-sm mt-1">{errors.reason}</span>
+                <span className="text-red-500 text-sm mt-1">
+                  {errors.reason}
+                </span>
               )}
             </div>
             <span className="text-sm text-gray-500 mb-4">
-              This field is optional. If provided, please write at least 50 characters.
+              This field is optional. If provided, please write at least 50
+              characters.
             </span>
 
             <label className="block mt-2 text-lg font-medium text-left">
-              What, in your opinion, has been your greatest achievement so far? <br/>(Not publicly visible)
+              What, in your opinion, has been your greatest achievement so far?{" "}
+              <br />
+              (Not publicly visible)
             </label>
             <div className="mb-2 flex flex-col">
               <textarea
                 name="achievement"
                 value={formData.achievement}
                 placeholder="Describe your greatest achievement..."
-                className={`p-2 border rounded-[9px] h-[120px] w-[699px] focus:outline-none resize-none ${errors.achievement && touched.achievement ? 'border-red-500' : 'border-gray-300'}`}
+                className={`p-2 border rounded-[9px] h-[120px] w-[699px] focus:outline-none resize-none ${
+                  errors.achievement && touched.achievement
+                    ? "border-red-500"
+                    : "border-gray-300"
+                }`}
                 onChange={handleChange}
                 onBlur={handleBlur}
               />
               {errors.achievement && touched.achievement && (
-                <span className="text-red-500 text-sm mt-1">{errors.achievement}</span>
+                <span className="text-red-500 text-sm mt-1">
+                  {errors.achievement}
+                </span>
               )}
             </div>
 
             <div className="flex gap-4">
-              <button 
+              <button
                 onClick={handlePreviousStep}
                 disabled={currentStep <= 1}
                 className={`flex items-center text-left py-3 px-6 mb-3.5 gap-2 rounded-lg border-0 cursor-pointer transition-colors duration-200 ${
-                  currentStep <= 1 
-                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
-                    : 'bg-slate-950 text-white hover:bg-slate-800'
+                  currentStep <= 1
+                    ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                    : "bg-slate-950 text-white hover:bg-slate-800"
                 }`}
               >
                 <span className="font-bold">Previous Step</span>
                 <IoArrowForward className="text-lg rotate-180" />
               </button>
 
-              <button 
+              <button
                 onClick={handleSubmit}
                 className="flex items-center ml-72 bg-green-600 text-white text-left py-3 px-6 mb-3.5 gap-2 rounded-lg border-0 cursor-pointer hover:bg-green-700 transition-colors duration-200"
               >

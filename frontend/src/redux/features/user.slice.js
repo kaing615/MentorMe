@@ -9,54 +9,61 @@ const userSlice = createSlice({
   reducers: {
     setUser: (state, action) => {
       const userData = action.payload;
-      // Update sessionStorage when user data changes (only persists during session)
+      // Update localStorage when user data changes (persists across tabs and sessions)
       if (userData) {
-        sessionStorage.setItem('user', JSON.stringify(userData));
-        sessionStorage.setItem('isLoggedIn', 'true');
+        localStorage.setItem("user", JSON.stringify(userData));
+        localStorage.setItem("isLoggedIn", "true");
+
+        // NOTE: Removed cross-user localStorage cleanup for production safety
+        // Each user should have isolated storage or use sessionStorage
       }
       return userData;
     },
     clearUser: () => {
-      // Clear sessionStorage when user is cleared
-      sessionStorage.removeItem('user');
-      sessionStorage.removeItem('isLoggedIn');
-      sessionStorage.removeItem('token');
+      // Clear localStorage when user is cleared
+      localStorage.removeItem("user");
+      localStorage.removeItem("isLoggedIn");
+      localStorage.removeItem("token");
+      localStorage.removeItem("actkn");
       return null;
     },
     updateUser: (state, action) => {
       if (state) {
         const updatedUser = { ...state, ...action.payload };
-        sessionStorage.setItem('user', JSON.stringify(updatedUser));
+        localStorage.setItem("user", JSON.stringify(updatedUser));
         return updatedUser;
       }
       return state;
     },
-    // Action to restore user from sessionStorage (called manually)
+    // Action to restore user from localStorage (called manually)
     restoreUser: () => {
       try {
-        const storedUser = sessionStorage.getItem('user');
-        const isLoggedIn = sessionStorage.getItem('isLoggedIn') === 'true';
-        const token = sessionStorage.getItem('token');
-        
+        const storedUser = localStorage.getItem("user");
+        const isLoggedIn = localStorage.getItem("isLoggedIn") === "true";
+        const token =
+          localStorage.getItem("actkn") || localStorage.getItem("token");
+
         if (storedUser && isLoggedIn && token) {
           return {
             ...JSON.parse(storedUser),
-            isLoggedIn: true
+            isLoggedIn: true,
           };
         }
       } catch (error) {
-        console.error('Error reading user data from sessionStorage:', error);
+        console.error("Error reading user data from localStorage:", error);
         // Clear invalid data
-        sessionStorage.removeItem('user');
-        sessionStorage.removeItem('isLoggedIn');
-        sessionStorage.removeItem('token');
+        localStorage.removeItem("user");
+        localStorage.removeItem("isLoggedIn");
+        localStorage.removeItem("token");
+        localStorage.removeItem("actkn");
       }
-      
+
       return null;
-    }
+    },
   },
 });
 
-export const { setUser, clearUser, updateUser, restoreUser } = userSlice.actions;
+export const { setUser, clearUser, updateUser, restoreUser } =
+  userSlice.actions;
 
 export default userSlice.reducer;

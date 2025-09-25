@@ -30,51 +30,46 @@ const profileBase = {
 export const updateMentorProfileSchema = Joi.object({
   ...profileBase,
 
-  jobTitle: Joi.string().min(2).max(100).required().messages({
+  jobTitle: Joi.string().min(2).required().messages({
     "string.empty": "Job title không được để trống",
     "string.min": "Job title phải từ 2-100 ký tự",
-    "string.max": "Job title phải từ 2-100 ký tự",
     "any.required": "Job title là bắt buộc",
   }),
   category: Joi.string().min(1).required().messages({
     "string.empty": "Category không được để trống",
     "any.required": "Category là bắt buộc",
   }),
-  bio: Joi.string().min(50).max(500).required().messages({
+  bio: Joi.string().min(50).required().messages({
     "string.empty": "Bio không được để trống",
     "string.min": "Bio phải từ 50-500 ký tự",
-    "string.max": "Bio phải từ 50-500 ký tự",
     "any.required": "Bio là bắt buộc",
   }),
-  mentorReason: Joi.string().min(20).max(300).required().messages({
+  mentorReason: Joi.string().min(20).required().messages({
     "string.empty": "Lý do làm mentor không được để trống",
     "string.min": "Lý do làm mentor phải từ 20-300 ký tự",
-    "string.max": "Lý do làm mentor phải từ 20-300 ký tự",
     "any.required": "Lý do làm mentor là bắt buộc",
   }),
 
-  location: Joi.string().min(1).optional().messages({
+  location: Joi.string().min(1).optional().allow("").messages({
     "string.empty": "Location không được để trống",
   }),
 
   skills: Joi.alternatives()
     .try(Joi.array().items(Joi.string()), Joi.string())
-    .optional()
+    .required()
     .messages({
       "array.base": "Skills phải là mảng hoặc chuỗi",
     }),
 
-  greatestAchievement: Joi.string().min(1).optional().messages({
+  greatestAchievement: Joi.string().min(1).optional().allow("").messages({
     "string.empty": "Greatest Achievement không được để trống",
   }),
 
-  headline: Joi.string().min(5).max(100).optional().messages({
+  headline: Joi.string().min(5).optional().allow("").messages({
     "string.min": "Headline phải từ 5-100 ký tự",
-    "string.max": "Headline phải từ 5-100 ký tự",
   }),
-  experience: Joi.string().min(10).max(1000).optional().messages({
+  experience: Joi.string().min(10).required().messages({
     "string.min": "Experience phải từ 10-1000 ký tự",
-    "string.max": "Experience phải từ 10-1000 ký tự",
   }),
   introVideo: Joi.string().uri().optional().allow("").messages({
     "string.uri": "Intro Video phải là URL hợp lệ",
@@ -92,35 +87,50 @@ export const updateMentorProfileSchema = Joi.object({
   }),
 
   links: Joi.object({
-    website: Joi.string().uri().optional().messages({ "string.uri": "Website URL không hợp lệ" }),
-    linkedin: Joi.string().uri().optional().messages({ "string.uri": "LinkedIn URL không hợp lệ" }),
-    github: Joi.string().uri().optional().messages({ "string.uri": "Github URL không hợp lệ" }),
-    X: Joi.string().uri().optional().messages({ "string.uri": "X URL không hợp lệ" }),
-    youtube: Joi.string().uri().optional().messages({ "string.uri": "Youtube URL không hợp lệ" }),
-    facebook: Joi.string().uri().optional().messages({ "string.uri": "Facebook URL không hợp lệ" }),
+    website: Joi.string()
+      .uri()
+      .optional()
+      .messages({ "string.uri": "Website URL không hợp lệ" }),
+    linkedin: Joi.string()
+      .uri()
+      .optional()
+      .messages({ "string.uri": "LinkedIn URL không hợp lệ" }),
+    github: Joi.string()
+      .uri()
+      .optional()
+      .messages({ "string.uri": "Github URL không hợp lệ" }),
+    X: Joi.string()
+      .uri()
+      .optional()
+      .messages({ "string.uri": "X URL không hợp lệ" }),
+    youtube: Joi.string()
+      .uri()
+      .optional()
+      .messages({ "string.uri": "Youtube URL không hợp lệ" }),
+    facebook: Joi.string()
+      .uri()
+      .optional()
+      .messages({ "string.uri": "Facebook URL không hợp lệ" }),
   }).optional(),
 });
 
 export const updateMenteeProfileSchema = Joi.object({
   ...profileBase,
 
-  bio: Joi.string().min(10).max(300).optional().messages({
-    "string.min": "Bio phải từ 10-300 ký tự",
-    "string.max": "Bio phải từ 10-300 ký tự",
+  bio: Joi.string().optional().allow("").messages({
+    "string.min": "Bio phải từ 10",
   }),
-  location: Joi.string().min(1).optional().messages({
+  location: Joi.string().optional().allow("").messages({
     "string.empty": "Location không được để trống",
   }),
 
-  description: Joi.string().min(10).max(500).optional().messages({
-    "string.min": "Description phải từ 10-500 ký tự",
-    "string.max": "Description phải từ 10-500 ký tự",
+  description: Joi.string().optional().allow("").messages({
   }),
-  goal: Joi.string().min(10).max(300).optional().messages({
+  goal: Joi.string().optional().allow("").messages({
     "string.min": "Goal phải từ 10-300 ký tự",
     "string.max": "Goal phải từ 10-300 ký tự",
   }),
-  education: Joi.string().min(5).max(200).optional().messages({
+  education: Joi.string().optional().allow("").messages({
     "string.min": "Education phải từ 5-200 ký tự",
     "string.max": "Education phải từ 5-200 ký tự",
   }),
@@ -137,9 +147,31 @@ export const updateMenteeProfileSchema = Joi.object({
   }),
 
   links: Joi.object({
-    linkedin: Joi.string().uri().optional().messages({ "string.uri": "LinkedIn URL không hợp lệ" }),
-    github: Joi.string().uri().optional().messages({ "string.uri": "Github URL không hợp lệ" }),
-    website: Joi.string().uri().optional().messages({ "string.uri": "Website URL không hợp lệ" }),
+    linkedin: Joi.string()
+      .uri()
+      .optional()
+      .allow("")
+      .messages({ "string.uri": "LinkedIn URL không hợp lệ" }),
+    github: Joi.string()
+      .uri()
+      .optional()
+      .allow("")
+      .messages({ "string.uri": "Github URL không hợp lệ" }),
+    website: Joi.string()
+      .uri()
+      .optional()
+      .allow("")
+      .messages({ "string.uri": "Website URL không hợp lệ" }),
+    twitter: Joi.string()
+      .uri()
+      .optional()
+      .allow("")
+      .messages({ "string.uri": "Twitter URL không hợp lệ" }),
+    facebook: Joi.string()
+      .uri()
+      .optional()
+      .allow("")
+      .messages({ "string.uri": "Facebook URL không hợp lệ" }),
   }).optional(),
 });
 

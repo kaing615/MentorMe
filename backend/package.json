@@ -6,8 +6,7 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node src/index.js",
-    "dev": "node --watch src/index.js",
-    "seed": "node scripts/seedData.js"
+    "dev": "node --watch src/index.js"
   },
   "keywords": [],
   "author": "",
@@ -18,6 +17,7 @@
     "bcryptjs": "^3.0.2",
     "body-parser": "^2.2.0",
     "cloudinary": "^2.7.0",
+    "config": "^4.1.0",
     "config": "^4.1.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
@@ -34,11 +34,12 @@
     "nodemailer": "^7.0.5",
     "path": "^0.12.7",
     "qs": "^6.14.0",
-    "sanitize-html": "^2.17.0",
+    "qs": "^6.14.0",
     "socket.io": "^4.8.1",
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1",
     "url": "^0.11.4",
+    "sanitize-html": "^2.11.0",
     "yamljs": "^0.3.0"
   },
   "devDependencies": {

@@ -6,6 +6,7 @@ import responseHandler from "../handlers/response.handler.js";
 import Course from "../models/course.model.js";
 import Order from "../models/order.model.js";
 import User from "../models/user.model.js";
+import Profile from "../models/profile.model.js";
 import Lesson from "../models/lesson.model.js";
 import Review from "../models/review.model.js";
 
@@ -15,7 +16,7 @@ import {
   addContentSchema,
   addReviewSchema,
 } from "../validations/course.validation.js";
-
+//
 const getParamId = (req) => req.params.courseId || req.params.id;
 const isMentorOfCourse = (course, userId) =>
   course.mentor && course.mentor.toString() === userId.toString();
@@ -53,8 +54,10 @@ export const getCourses = async (req, res) => {
         if (filters.category) query.category = filters.category;
         if (filters.priceMin || filters.priceMax) {
           query.price = {};
-          if (filters.priceMin != null) query.price.$gte = Number(filters.priceMin);
-          if (filters.priceMax != null) query.price.$lte = Number(filters.priceMax);
+          if (filters.priceMin != null)
+            query.price.$gte = Number(filters.priceMin);
+          if (filters.priceMax != null)
+            query.price.$lte = Number(filters.priceMax);
         }
         if (filters.level) query.level = filters.level;
         if (filters.language) query.language = filters.language;
@@ -106,13 +109,34 @@ export const getCourseById = async (req, res) => {
   try {
     const id = getParamId(req);
     const course = await Course.findById(id)
-      .populate("mentor", "userName avatarUrl jobTitle bio location")
-      .populate("mentees", "userName avatarUrl")
-      .populate("lessons");
-    if (!course) return responseHandler.notFound(res, "Khóa học không tồn tại!");
+      .populate("mentor", "userName firstName lastName avatarUrl")
+      .populate("mentees", "userName avatarUrl");
+
+    if (!course)
+      return responseHandler.notFound(res, "Khóa học không tồn tại!");
+
+    // Get mentor profile data
+    let mentorProfile = null;
+    if (course.mentor) {
+      mentorProfile = await Profile.findOne({ user: course.mentor._id });
+    }
 
     const obj = course.toObject();
     obj.courseId = obj._id;
+
+    // Merge mentor data with profile data
+    if (obj.mentor && mentorProfile) {
+      obj.mentor = {
+        ...obj.mentor,
+        jobTitle: mentorProfile.jobTitle,
+        bio: mentorProfile.bio,
+        location: mentorProfile.location,
+        category: mentorProfile.category,
+        experience: mentorProfile.experience,
+        skills: mentorProfile.skills || [],
+      };
+    }
+
     delete obj.__v;
     return responseHandler.ok(res, {
       message: "Lấy thông tin khóa học thành công!",
@@ -132,19 +156,25 @@ export const getRelatedCourses = async (req, res) => {
     if (Array.isArray(category)) {
       categories = category.filter(Boolean);
     } else if (typeof category === "string") {
-      categories = category.split(",").map((c) => c.trim()).filter(Boolean);
+      categories = category
+        .split(",")
+        .map((c) => c.trim())
+        .filter(Boolean);
     }
 
     if ((!categories || categories.length === 0) && courseId) {
       const current = await Course.findById(courseId).select("category");
-      if (current && Array.isArray(current.category)) categories = current.category;
+      if (current && Array.isArray(current.category))
+        categories = current.category;
       else if (current && current.category) categories = [current.category];
     }
 
     const max = Math.min(parseInt(limit) || 6, 50);
     const filter = {
       ...(courseId ? { _id: { $ne: courseId } } : {}),
-      ...(categories && categories.length > 0 ? { category: { $in: categories } } : {}),
+      ...(categories && categories.length > 0
+        ? { category: { $in: categories } }
+        : {}),
     };
 
     const courses = await Course.find(filter)
@@ -186,7 +216,12 @@ export const getCoursesByMentor = async (req, res) => {
 
     return responseHandler.ok(res, {
       message: "Lấy khóa học theo mentor thành công.",
-      data: { courses, totalPages: Math.ceil(total / limit), currentPage: page, total },
+      data: {
+        courses,
+        totalPages: Math.ceil(total / limit),
+        currentPage: page,
+        total,
+      },
     });
   } catch (err) {
     console.error("Lỗi lấy khóa học theo mentor:", err);
@@ -202,7 +237,10 @@ export const getMyCourses = async (req, res) => {
     const user = await User.findById(userId);
     if (!user) return responseHandler.notFound(res, "User not found.");
     if (user.role !== "mentor") {
-      return responseHandler.unauthorized(res, "Only mentors can access their courses.");
+      return responseHandler.unauthorized(
+        res,
+        "Only mentors can access their courses."
+      );
     }
 
     const pageNum = Number(page) || 1;
@@ -224,9 +262,15 @@ export const getMyCourses = async (req, res) => {
         if (filters.category) query.category = filters.category;
         if (filters.status) query.status = filters.status;
         if (filters.priceMin != null)
-          query.price = { ...(query.price || {}), $gte: Number(filters.priceMin) };
+          query.price = {
+            ...(query.price || {}),
+            $gte: Number(filters.priceMin),
+          };
         if (filters.priceMax != null)
-          query.price = { ...(query.price || {}), $lte: Number(filters.priceMax) };
+          query.price = {
+            ...(query.price || {}),
+            $lte: Number(filters.priceMax),
+          };
       } catch (e) {
         console.error("Error parsing filterBy JSON:", e);
         return responseHandler.badRequest(res, "Invalid filterBy format.");
@@ -256,9 +300,11 @@ export const getMyCourses = async (req, res) => {
 
 export const createCourse = async (req, res) => {
   try {
+
     const { id: userId } = req.user;
     let {
       title,
+      description,
       courseOverview,
       keyLearningObjectives,
       price,
@@ -266,10 +312,17 @@ export const createCourse = async (req, res) => {
       tags,
       language,
       duration,
+      link,
       driveLink,
       lectures,
       level,
     } = req.body;
+
+    // Xử lý description - ưu tiên courseOverview
+    const finalDescription = courseOverview || description || "";
+
+    // Xử lý link - ưu tiên driveLink
+    const finalLink = driveLink || link || "";
 
     // Parse tags
     if (typeof tags === "string") {
@@ -278,10 +331,16 @@ export const createCourse = async (req, res) => {
           const parsed = JSON.parse(tags);
           if (Array.isArray(parsed)) tags = parsed;
         } catch {
-          tags = tags.split(",").map((t) => t.trim()).filter(Boolean);
+          tags = tags
+            .split(",")
+            .map((t) => t.trim())
+            .filter(Boolean);
         }
       } else {
-        tags = tags.split(",").map((t) => t.trim()).filter(Boolean);
+        tags = tags
+          .split(",")
+          .map((t) => t.trim())
+          .filter(Boolean);
       }
     }
     if (!Array.isArray(tags)) tags = [];
@@ -293,24 +352,35 @@ export const createCourse = async (req, res) => {
           const parsed = JSON.parse(language);
           if (Array.isArray(parsed)) language = parsed;
         } catch {
-          language = language.split(",").map((l) => l.trim()).filter(Boolean);
+          language = language
+            .split(",")
+            .map((l) => l.trim())
+            .filter(Boolean);
         }
       } else {
-        language = language.split(",").map((l) => l.trim()).filter(Boolean);
+        language = language
+          .split(",")
+          .map((l) => l.trim())
+          .filter(Boolean);
       }
     }
     if (!Array.isArray(language)) language = [];
 
     const user = await User.findById(userId);
     if (!user || user.role !== "mentor") {
-      return responseHandler.forbidden(res, "Chỉ mentor mới có thể tạo khóa học.");
+      return responseHandler.forbidden(
+        res,
+        "Chỉ mentor mới có thể tạo khóa học."
+      );
     }
 
     // Upload thumbnail (nếu có)
     let thumbnailUrl = "";
     let thumbnailPublicId = "";
     if (req.file) {
-      const base64 = `data:${req.file.mimetype};base64,${req.file.buffer.toString("base64")}`;
+      const base64 = `data:${
+        req.file.mimetype
+      };base64,${req.file.buffer.toString("base64")}`;
       const result = await uploadImage(base64, {
         public_id: `course_thumbnail_${userId}_${Date.now()}`,
         folder: "course_thumbnails",
@@ -322,16 +392,16 @@ export const createCourse = async (req, res) => {
 
     const newCourse = new Course({
       title,
-      description: courseOverview,
+      description: finalDescription,
       keyLearningObjectives,
-      price,
+      price: Number(price),
       mentor: userId,
       category,
       tags,
       language,
-      duration,
-      link: driveLink,
-      lectures,
+      duration: Number(duration) || 0,
+      link: finalLink,
+      lectures: Number(lectures),
       level,
       thumbnail: thumbnailUrl,
       thumbnailPublicId,
@@ -357,8 +427,11 @@ export const createCourse = async (req, res) => {
 export const handlePurchaseSuccess = async (req, res) => {
   try {
     const { orderId } = req.body;
-    const order = await Order.findById(orderId).populate("mentee").populate("courses");
-    if (!order) return responseHandler.notFound(res, "Không tìm thấy đơn hàng.");
+    const order = await Order.findById(orderId)
+      .populate("mentee")
+      .populate("courses");
+    if (!order)
+      return responseHandler.notFound(res, "Không tìm thấy đơn hàng.");
     if (order.status !== "paid") {
       return responseHandler.badRequest(res, "Đơn hàng chưa được thanh toán.");
     }
@@ -423,13 +496,17 @@ export const updateCourse = async (req, res) => {
 
     const user = await User.findById(userId);
     if (user.role !== "admin" && !isMentorOfCourse(course, userId)) {
-      return responseHandler.forbidden(res, "You do not have permission to update this course.");
+      return responseHandler.forbidden(
+        res,
+        "You do not have permission to update this course."
+      );
     }
 
     if (title !== undefined) course.title = title;
     if (price !== undefined) course.price = parseFloat(price);
     if (courseOverview !== undefined) course.description = courseOverview;
-    if (keyLearningObjectives !== undefined) course.keyLearningObjectives = keyLearningObjectives;
+    if (keyLearningObjectives !== undefined)
+      course.keyLearningObjectives = keyLearningObjectives;
     if (category !== undefined) course.category = category;
     if (level !== undefined) course.level = level;
     if (lectures !== undefined) course.lectures = parseInt(lectures);
@@ -444,10 +521,16 @@ export const updateCourse = async (req, res) => {
             const parsed = JSON.parse(tags);
             if (Array.isArray(parsed)) tags = parsed;
           } catch {
-            tags = tags.split(",").map((t) => t.trim()).filter(Boolean);
+            tags = tags
+              .split(",")
+              .map((t) => t.trim())
+              .filter(Boolean);
           }
         } else {
-          tags = tags.split(",").map((t) => t.trim()).filter(Boolean);
+          tags = tags
+            .split(",")
+            .map((t) => t.trim())
+            .filter(Boolean);
         }
       }
       if (!Array.isArray(tags)) tags = [];
@@ -462,10 +545,16 @@ export const updateCourse = async (req, res) => {
             const parsed = JSON.parse(language);
             if (Array.isArray(parsed)) language = parsed;
           } catch {
-            language = language.split(",").map((l) => l.trim()).filter(Boolean);
+            language = language
+              .split(",")
+              .map((l) => l.trim())
+              .filter(Boolean);
           }
         } else {
-          language = language.split(",").map((l) => l.trim()).filter(Boolean);
+          language = language
+            .split(",")
+            .map((l) => l.trim())
+            .filter(Boolean);
         }
       }
       if (!Array.isArray(language)) language = [];
@@ -494,7 +583,10 @@ export const deleteCourse = async (req, res) => {
 
     const user = await User.findById(userId);
     if (user.role !== "admin" && !isMentorOfCourse(course, userId)) {
-      return responseHandler.forbidden(res, "You do not have permission to delete this course.");
+      return responseHandler.forbidden(
+        res,
+        "You do not have permission to delete this course."
+      );
     }
 
     const mentorOfCourse = course.mentor;
@@ -519,10 +611,15 @@ export const deleteCourse = async (req, res) => {
     await Review.deleteMany({ target: courseId, targetType: "Course" });
 
     if (mentorOfCourse) {
-      await User.findByIdAndUpdate(mentorOfCourse, { $pull: { courses: courseId } });
+      await User.findByIdAndUpdate(mentorOfCourse, {
+        $pull: { courses: courseId },
+      });
     }
     if (menteesOfCourse && menteesOfCourse.length > 0) {
-      await User.updateMany({ _id: { $in: menteesOfCourse } }, { $pull: { courses: courseId } });
+      await User.updateMany(
+        { _id: { $in: menteesOfCourse } },
+        { $pull: { courses: courseId } }
+      );
     }
 
     return responseHandler.ok(res, { message: "Course deleted successfully." });
@@ -547,7 +644,10 @@ export const addCourseReview = async (req, res) => {
 
     const isMenteeOfCourse = course.mentees.includes(authorId);
     if (!isMenteeOfCourse) {
-      return responseHandler.forbidden(res, "You can only review courses you are enrolled in.");
+      return responseHandler.forbidden(
+        res,
+        "You can only review courses you are enrolled in."
+      );
     }
 
     const existingReview = await Review.findOne({
@@ -556,7 +656,10 @@ export const addCourseReview = async (req, res) => {
       targetType: "Course",
     });
     if (existingReview) {
-      return responseHandler.badRequest(res, "You have already reviewed this course.");
+      return responseHandler.badRequest(
+        res,
+        "You have already reviewed this course."
+      );
     }
 
     const newReview = new Review({
@@ -568,7 +671,10 @@ export const addCourseReview = async (req, res) => {
     });
     await newReview.save();
 
-    const reviews = await Review.find({ target: courseId, targetType: "Course" });
+    const reviews = await Review.find({
+      target: courseId,
+      targetType: "Course",
+    });
     const totalRatings = reviews.reduce((sum, r) => sum + r.rate, 0);
     course.rate = reviews.length ? totalRatings / reviews.length : 0;
     course.numberOfRatings = reviews.length;
@@ -584,8 +690,12 @@ export const addCourseReview = async (req, res) => {
 export const getCourseReviews = async (req, res) => {
   try {
     const courseId = getParamId(req);
-    const reviews = await Review.find({ target: courseId, targetType: "Course" })
-      .populate("author", "userName avatar");
+    const reviews = await Review.find({
+      target: courseId,
+      targetType: "Course",
+    }).populate("author", "userName firstName lastName avatar avatarUrl");
+
+    console.log(`Found ${reviews.length} reviews for course ${courseId}`);
     return responseHandler.ok(res, reviews);
   } catch (err) {
     console.error("Error getting course reviews:", err);
@@ -641,24 +751,38 @@ export const addMentorToCourse = async (req, res) => {
 
     const user = await User.findById(userId);
     if (user.role !== "admin" && !isMentorOfCourse(course, userId)) {
-      return responseHandler.forbidden(res, "You do not have permission to add mentors to this course.");
+      return responseHandler.forbidden(
+        res,
+        "You do not have permission to add mentors to this course."
+      );
     }
 
     const mentorToAdd = await User.findById(mentorId);
     if (!mentorToAdd || mentorToAdd.role !== "mentor") {
-      return responseHandler.badRequest(res, "Invalid mentor ID or user is not a mentor.");
+      return responseHandler.badRequest(
+        res,
+        "Invalid mentor ID or user is not a mentor."
+      );
     }
 
     if (!Array.isArray(course.mentors)) course.mentors = [];
     if (course.mentors.find((m) => m.toString() === mentorId.toString())) {
-      return responseHandler.badRequest(res, "Mentor is already assigned to this course.");
+      return responseHandler.badRequest(
+        res,
+        "Mentor is already assigned to this course."
+      );
     }
 
     course.mentors.push(mentorId);
     await course.save();
-    await User.findByIdAndUpdate(mentorId, { $addToSet: { courses: courseId } });
+    await User.findByIdAndUpdate(mentorId, {
+      $addToSet: { courses: courseId },
+    });
 
-    const updatedCourse = await Course.findById(courseId).populate("mentors", "userName avatar");
+    const updatedCourse = await Course.findById(courseId).populate(
+      "mentors",
+      "userName avatar"
+    );
     return responseHandler.ok(res, updatedCourse);
   } catch (err) {
     console.error("Error adding mentor to course:", err);
@@ -684,15 +808,23 @@ export const removeMentorFromCourse = async (req, res) => {
 
     if (!Array.isArray(course.mentors)) course.mentors = [];
     const before = course.mentors.length;
-    course.mentors = course.mentors.filter((m) => m.toString() !== mentorId.toString());
+    course.mentors = course.mentors.filter(
+      (m) => m.toString() !== mentorId.toString()
+    );
     if (course.mentors.length === before) {
-      return responseHandler.badRequest(res, "Mentor is not assigned to this course.");
+      return responseHandler.badRequest(
+        res,
+        "Mentor is not assigned to this course."
+      );
     }
 
     await course.save();
     await User.findByIdAndUpdate(mentorId, { $pull: { courses: courseId } });
 
-    const updatedCourse = await Course.findById(courseId).populate("mentors", "userName avatar");
+    const updatedCourse = await Course.findById(courseId).populate(
+      "mentors",
+      "userName avatar"
+    );
     return responseHandler.ok(res, updatedCourse);
   } catch (err) {
     console.error("Error removing mentor from course:", err);
@@ -751,7 +883,8 @@ export const removeContentFromCourse = async (req, res) => {
     }
 
     const lesson = await Lesson.findOne({ _id: contentId, course: courseId });
-    if (!lesson) return responseHandler.notFound(res, "Content not found in this course.");
+    if (!lesson)
+      return responseHandler.notFound(res, "Content not found in this course.");
 
     await Lesson.findByIdAndDelete(contentId);
 
@@ -795,9 +928,15 @@ export const getUserCourses = async (req, res) => {
         const filters = JSON.parse(filterBy);
         if (filters.category) query.category = filters.category;
         if (filters.priceMin != null)
-          query.price = { ...(query.price || {}), $gte: Number(filters.priceMin) };
+          query.price = {
+            ...(query.price || {}),
+            $gte: Number(filters.priceMin),
+          };
         if (filters.priceMax != null)
-          query.price = { ...(query.price || {}), $lte: Number(filters.priceMax) };
+          query.price = {
+            ...(query.price || {}),
+            $lte: Number(filters.priceMax),
+          };
       } catch (e) {
         console.error("Error parsing filterBy JSON:", e);
         return responseHandler.badRequest(res, "Invalid filterBy format.");
@@ -829,6 +968,38 @@ export const getUserCourses = async (req, res) => {
   }
 };
 
+export const checkCoursePurchaseStatus = async (req, res) => {
+  try {
+    const { courseId } = req.params;
+    const userId = req.user.id;
+
+    if (!courseId) {
+      return responseHandler.badRequest(res, "Course ID is required.");
+    }
+
+    // Tìm course và kiểm tra xem user có trong mảng mentees không
+    const course = await Course.findById(courseId);
+
+    if (!course) {
+      return responseHandler.notFound(res, "Khóa học không tồn tại!");
+    }
+
+    const isPurchased = course.mentees.includes(userId);
+
+    return responseHandler.ok(res, {
+      message: isPurchased
+        ? "Bạn đã mua khóa học này."
+        : "Bạn chưa mua khóa học này.",
+      isPurchased,
+      courseId,
+      courseTitle: course.title,
+    });
+  } catch (err) {
+    console.error("Error checking course purchase status:", err);
+    responseHandler.error(res, err.message);
+  }
+};
+
 export default {
   getCourses,
   getCourseById,
@@ -847,4 +1018,5 @@ export default {
   removeContentFromCourse,
   handlePurchaseSuccess,
   getUserCourses,
+  checkCoursePurchaseStatus,
 };

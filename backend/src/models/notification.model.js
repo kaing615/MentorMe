@@ -6,7 +6,7 @@ const NotificationSchema = mongoose.Schema(
         type: { type: String, required: true },
         title: String,
         body: String,
-        data: { type: Schema.Types.Mixed, default: {}  },
+        data: { type: mongoose.Schema.Types.Mixed, default: {}  },
         sourceType: { type: String },
         sourceId: { type: String },
         deliverAt: { type: Date, default: () => new Date() },

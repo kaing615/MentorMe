@@ -7,91 +7,146 @@ function formatDate(dateStr) {
     d.getHours()
   )}:${pad(d.getMinutes())}`;
 }
-// Local currency formatter (VND)
+// Local currency formatter (USD)
 function formatCurrency(amount) {
-  if (typeof amount !== "number") return "₫0";
-  return amount.toLocaleString("vi-VN", {
+  if (typeof amount !== "number") return "$0";
+  return amount.toLocaleString("en-US", {
     style: "currency",
-    currency: "VND",
+    currency: "USD",
   });
 }
 
 import React, { useState, useEffect } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
-// import { useCart } from "../contexts/CartContext"; // chưa dùng -> có thể xoá
+import { useNavigate, useLocation, useSearchParams } from "react-router-dom";
+import { useDispatch } from "react-redux";
+import { showLoading, hideLoading } from "../redux/features/loading.slice";
+import { toast } from "react-toastify";
+import orderApi from "../api/modules/order.api";
 import { order } from "../data/seedData";
 
 const OrderComplete = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const orderInfo = location.state?.orderInfo;
+  const dispatch = useDispatch();
+  const [searchParams] = useSearchParams();
 
-  // Check user authentication and role
+  const [orderInfo, setOrderInfo] = useState(location.state?.orderInfo);
+  const [loading, setLoading] = useState(!orderInfo);
+  const [error, setError] = useState(null);
+
+  // Check user authentication and fetch order if needed
   useEffect(() => {
-    const checkUserAccess = () => {
-      const isLoggedIn = localStorage.getItem("isLoggedIn");
-      const userData = localStorage.getItem("userData");
-
-      if (!isLoggedIn || isLoggedIn !== "true") {
-        alert("Please login to access this page");
+    const initializeOrderPage = async () => {
+      // Check authentication
+      const token =
+        localStorage.getItem("token") || localStorage.getItem("actkn");
+      if (!token) {
+        toast.error("Login to view order");
         navigate("/auth/signin");
         return;
       }
 
-      if (userData) {
-        try {
-          const user = JSON.parse(userData);
-          if (user.role === "mentor") {
-            alert(
-              "Mentors cannot access order pages. Only mentees can view order details."
-            );
-            navigate("/");
-            return;
-          } else if (user.role !== "mentee") {
-            alert("Invalid user role. Please contact support.");
-            navigate("/");
-            return;
-          }
-        } catch (e) {
-          console.error("Error parsing user data:", e);
-          alert("Invalid user data. Please login again.");
-          localStorage.removeItem("userData");
-          localStorage.setItem("isLoggedIn", "false");
-          navigate("/auth/signin");
-          return;
-        }
-      } else {
-        alert("User data not found. Please login again.");
-        localStorage.setItem("isLoggedIn", "false");
+      const userStr = localStorage.getItem("user");
+      let user = null;
+      try {
+        user = userStr ? JSON.parse(userStr) : null;
+      } catch (e) {
+        user = null;
+      }
+
+      if (!user || user.role !== "mentee") {
+        toast.error("Chỉ mentee mới có thể xem đơn hàng");
         navigate("/auth/signin");
         return;
+      }
+
+      // If orderInfo is available from navigation state, use it
+      if (orderInfo) {
+        setLoading(false);
+        return;
+      }
+
+      // Otherwise, try to fetch order by ID from URL params
+      const orderId = searchParams.get("orderId");
+      if (!orderId) {
+        setError("Không tìm thấy ID đơn hàng");
+        setLoading(false);
+        return;
+      }
+
+      dispatch(showLoading());
+
+      try {
+        const { response, error: fetchError } = await orderApi.getOrderDetails({
+          orderId,
+        });
+
+        if (fetchError) {
+          throw new Error(
+            fetchError.message || "Không thể tải thông tin đơn hàng"
+          );
+        }
+
+        const fetchedOrder = response.data.order;
+        setOrderInfo(fetchedOrder);
+      } catch (error) {
+        console.error("Error fetching order:", error);
+        setError(error.message);
+        toast.error(error.message || "Có lỗi xảy ra khi tải đơn hàng");
+      } finally {
+        dispatch(hideLoading());
+        setLoading(false);
       }
     };
 
-    checkUserAccess();
-  }, [navigate]);
-
-  // Không cần load từ seedData, dùng trực tiếp orderInfo từ state
+    initializeOrderPage();
+  }, [navigate, dispatch, orderInfo, searchParams]);
 
   const handleContinueShopping = () => {
-    navigate("/courses");
+    navigate("/all-courses");
+  };
+
+  const handleBackToProfile = () => {
+    navigate("/profile");
   };
 
   // Loading state
-  if (!orderInfo) {
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Đang tải thông tin đơn hàng...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error || !orderInfo) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <h1 className="text-2xl font-semibold text-red-600 mb-2">
-            Order Error
+            Lỗi đơn hàng
           </h1>
-          <p className="text-gray-700 mb-6">Order info not found.</p>
-          <button
-            onClick={handleContinueShopping}
-            className="px-6 py-3 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300"
-          >
-            Back to Courses
-          </button>
+          <p className="text-gray-700 mb-6">
+            {error || "Không tìm thấy thông tin đơn hàng"}
+          </p>
+          <div className="space-x-4">
+            <button
+              onClick={handleContinueShopping}
+              className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            >
+              Khám phá khóa học
+            </button>
+            <button
+              onClick={handleBackToHome}
+              className="px-6 py-3 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300"
+            >
+              Về trang chủ
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -199,10 +254,17 @@ const OrderComplete = () => {
 
           <div className="space-y-4">
             <button
+              onClick={handleBackToProfile}
+              className="w-full bg-blue-600 text-white py-3 px-6 rounded-lg font-medium hover:bg-blue-700 transition-colors"
+            >
+              Quay về trang chủ
+            </button>
+
+            <button
               onClick={handleContinueShopping}
               className="w-full bg-gray-200 text-gray-800 py-3 px-6 rounded-lg font-medium hover:bg-gray-300 transition-colors"
             >
-              Continue Shopping
+              Khám phá thêm khóa học
             </button>
           </div>
 

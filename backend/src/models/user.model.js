@@ -45,7 +45,6 @@ const UserSchema = new mongoose.Schema(
     verifyKey: String,
     resetToken: { type: String },
     resetTokenExpires: { type: Date },
-    wishlist: [{ type: mongoose.Schema.ObjectId, ref: "Course" }]
   },
   { timestamps: true }
 );

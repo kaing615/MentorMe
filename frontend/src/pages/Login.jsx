@@ -4,7 +4,7 @@ import fb from "../assets/facebook.png";
 import gg from "../assets/google.png";
 import mcs from "../assets/microsoft.png";
 import { IoArrowForward } from "react-icons/io5";
-import { authApi } from "../api/modules/auth.api";
+import authApi from "../api/modules/auth.api";
 import { toast } from "react-toastify";
 import { useNavigate } from "react-router-dom";
 import { showLoading, hideLoading } from "../redux/features/loading.slice";
@@ -32,6 +32,49 @@ const Login = () => {
     }, 1200);
     return () => clearTimeout(timeout);
   }, [dispatch]);
+
+  // Check if user is already logged in
+  useEffect(() => {
+    const checkAuthStatus = async () => {
+      const token = localStorage.getItem("actkn") || localStorage.getItem("token");
+      const user = localStorage.getItem("user");
+      const isLoggedIn = localStorage.getItem("isLoggedIn");
+      
+      if (token && user && isLoggedIn === "true") {
+        try {
+          const userData = JSON.parse(user);
+          
+          if (token.split('.').length === 3) {
+            // Redirect based on user's actual role (not stored userType)
+            if (userData.role === "mentor") {
+              navigate(`${PATH.MENTOR}/${MENTOR_PATH.HOME}`, { replace: true });
+            } else if (userData.role === "mentee") {
+              navigate(`${PATH.MENTEE}${MENTEE_PATH.HOME}`, { replace: true });
+            } else if (userData.role === "admin") {
+              navigate(`${PATH.ADMIN}`, { replace: true });
+            } else {
+              // Default fallback for unknown roles
+              navigate(`${PATH.MENTEE}${MENTEE_PATH.HOME}`, { replace: true });
+            }
+
+            toast.info("You are already logged in!");
+          } else {
+            // Invalid token format, clear storage
+            throw new Error("Invalid token format");
+          }
+        } catch (error) {
+          console.error("Error validating auth data:", error);
+          // Clear invalid data
+          localStorage.removeItem("user");
+          localStorage.removeItem("token");
+          localStorage.removeItem("actkn");
+          localStorage.removeItem("isLoggedIn");
+        }
+      }
+    };
+    
+    checkAuthStatus();
+  }, [navigate]);
 
   // Validation functions
   const validateEmail = (email) => {
@@ -102,11 +145,11 @@ const Login = () => {
 
       toast.success("Đăng nhập thành công!");
 
-      // Store user data in sessionStorage and Redux store
+      // Store user data in localStorage and Redux store
       if (response.data?.user) {
         const userData = response.data.user;
-        sessionStorage.setItem("user", JSON.stringify(userData));
-        sessionStorage.setItem("isLoggedIn", "true"); // Set login status in sessionStorage for header
+        localStorage.setItem("user", JSON.stringify(userData));
+        localStorage.setItem("isLoggedIn", "true"); // Set login status in localStorage for header
         
         // Dispatch user data to Redux store with isLoggedIn flag
         dispatch(setUser({
@@ -116,16 +159,21 @@ const Login = () => {
         }));
       }
       if (response.data?.token) {
-        sessionStorage.setItem("token", response.data.token);
+        localStorage.setItem("actkn", response.data.token);
       }
 
-      // Navigate based on user role or selected type
-      if (selected === "mentee") {
-        navigate(`${PATH.MENTEE}${MENTEE_PATH.HOME}`); // Navigate to homeScreen for mentee
-      } else if (selected === "mentor") {
-        navigate(`${PATH.MENTOR}/${MENTOR_PATH.HOME}`); // Navigate to mentor page (will be updated later)
+      // Navigate based on user's actual role (not UI selection)
+      const userRole = response.data?.user?.role;
+      
+      if (userRole === "mentor") {
+        navigate(`${PATH.MENTOR}/${MENTOR_PATH.HOME}`);
+      } else if (userRole === "mentee") {
+        navigate(`${PATH.MENTEE}${MENTEE_PATH.HOME}`);
+      } else if (userRole === "admin") {
+        navigate(`${PATH.ADMIN}`);
       } else {
-        navigate("/"); // Default fallback
+        // Default fallback for unknown roles
+        navigate(`${PATH.MENTEE}${MENTEE_PATH.HOME}`);
       }
     } catch (error) {
       console.error("Login error:", error);

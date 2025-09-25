@@ -137,7 +137,9 @@ export const generateMentees = (count = 20, courses = []) => {
       { length: faker.number.int({ min: 1, max: 5 }) },
       () => {
         const course =
-          courses[faker.number.int({ min: 0, max: courses.length - 1 })];
+          courses.length > 0
+            ? courses[faker.number.int({ min: 0, max: courses.length - 1 })]
+            : null;
         return {
           courseName: course?.title || faker.lorem.words(3),
           progress: faker.number.int({ min: 0, max: 100 }),
@@ -181,9 +183,13 @@ export const generateConversations = (count = 10, mentees = []) => {
 export const generateReviews = (count = 25, courses = [], mentees = []) => {
   return Array.from({ length: count }, (_, index) => {
     const course =
-      courses[faker.number.int({ min: 0, max: courses.length - 1 })];
+      courses.length > 0
+        ? courses[faker.number.int({ min: 0, max: courses.length - 1 })]
+        : null;
     const mentee =
-      mentees[faker.number.int({ min: 0, max: mentees.length - 1 })];
+      mentees.length > 0
+        ? mentees[faker.number.int({ min: 0, max: mentees.length - 1 })]
+        : null;
 
     return {
       id: index + 1,
