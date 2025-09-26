@@ -1,5 +1,4 @@
 import { body } from "express-validator";
-import * as profileValidation from "../../validations/profile.validation.js";
 
 const updateMentorProfileValidator = [
   // Các field bắt buộc - không thể để trống
@@ -144,27 +143,9 @@ const updateMenteeProfileValidator = [
     .withMessage("Timezone không được để trống"),
   body("links").optional().isObject().withMessage("Links phải là object"),
 ];
-
-/**
- * Middleware validation cho search mentors
- */
-export const validateSearchMentors = (req, res, next) => {
-  const { error } = profileValidation.searchMentorsSchema.validate(req.query);
-  if (error) {
-    return res.status(400).json({
-      success: false,
-      message: "Validation failed",
-      errors: error.details.map((detail) => ({
-        field: detail.path.join("."),
-        message: detail.message,
-      })),
-    });
-  }
-  next();
-};
-
 export default {
   updateMentorProfileValidator,
   updateMenteeProfileValidator,
-  validateSearchMentors,
+  changeAvatarValidator,
+  
 };

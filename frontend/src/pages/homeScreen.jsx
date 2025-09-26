@@ -515,8 +515,7 @@ const HomeScreen = () => {
   };
 
   const handleSeeAllCourses = () => {
-    const userStr =
-      localStorage.getItem("user");
+    const userStr = localStorage.getItem("user");
     let user = null;
     try {
       user = userStr ? JSON.parse(userStr) : null;
@@ -529,7 +528,11 @@ const HomeScreen = () => {
       navigate("/all-courses");
     }
   };
-  const handleSeeAllMentors = () => navigate(`/${MENTEE_PATH.ALL_MENTORS}`);
+  const handleSeeAllMentors = () => {
+    // Lưu tab "mentors" vào localStorage trước khi navigate
+    localStorage.setItem("searchPageActiveTab", "mentors");
+    navigate(`/platform/search`);
+  };
 
   const handleMentorClick = (mentorId) => {
     window.scrollTo({ top: 0, behavior: "smooth" });

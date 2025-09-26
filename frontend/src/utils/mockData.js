@@ -261,17 +261,12 @@ export const generateReviews = (count = 25, courses = [], mentees = []) => {
 };
 
 // Temporarily comment out to avoid faker errors
-/*
 export const generateMentees = (count = 20, courses = []) => {
   // Implementation here
 };
 
 export const generateConversations = (count = 10, mentees = []) => {
   // Implementation here  
-};
-
-export const generateReviews = (count = 25, courses = [], mentees = []) => {
-  // Implementation here
 };
 
 export const generateMenteeEnrolledCourses = (count = 6) => {

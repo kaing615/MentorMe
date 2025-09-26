@@ -6,7 +6,6 @@ axios.interceptors.request.use((config) => {
     sessionStorage.getItem("token") ||
     sessionStorage.getItem("actkn") ||
     localStorage.getItem("token");
-  console.log("[Help API] Token gửi đi:", token);
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }

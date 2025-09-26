@@ -11,9 +11,6 @@ const AllPagesLayout = () => {
         <div className="w-full">
             <LoadingPage loading={isLoading} />
             <Header />
-            <main className="min-h-screen">
-                <Outlet />
-            </main>
             <Footer />
         </div>
     )

@@ -5,6 +5,7 @@ import User from "../models/user.model.js";
 import Course from "../models/course.model.js";
 import { uploadImage } from "../utils/cloudinary.js";
 import profileUtils from "../utils/profile.utils.js";
+import Profile from "../models/profile.model.js";
 
 const sanitizeUser = (userDoc) => {
   const obj = userDoc?.toObject ? userDoc.toObject() : { ...userDoc };

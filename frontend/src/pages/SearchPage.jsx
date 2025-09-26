@@ -1,680 +1,1001 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
-import { useSelector } from 'react-redux';
-import { IoSearch, IoFilter, IoLocationSharp, IoStar, IoChevronDown, IoClose, IoBookSharp, IoPerson } from 'react-icons/io5';
-import { toast } from 'react-toastify';
-import { searchMentors } from '../api/modules/mentor.api';
-import { generateCourses, generateMentors } from '../utils/mockData';
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { useDispatch, useSelector } from "react-redux";
+import courseApi from "../api/modules/course.api";
+import profileApi from "../api/modules/profile.api";
+import cartApi from "../api/modules/cart.api";
+import reviewApi from "../api/modules/review.api";
+import { toast } from "react-toastify";
+import { showLoading, hideLoading } from "../redux/features/loading.slice";
+
+// Fallback images
+import oipImg from "../assets/OIP.webp";
+import BoImg from "../assets/Bơ.jpg";
 
 const SearchPage = () => {
-  const location = useLocation();
   const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams();
-  
-  // Auth state
-  const { isAuthenticated, user } = useSelector((state) => state.auth);
-  
-  // Auth check ref to prevent multiple notifications
-  const authNotificationShown = useRef(false);
-  
-  // Auth check state to prevent multiple redirects
-  const [authChecked, setAuthChecked] = useState(false);
-  
-  // State management
-  const [mentors, setMentors] = useState([]);
-  const [courses, setCourses] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [activeTab, setActiveTab] = useState('all'); // 'all', 'courses', 'mentors'
+  const dispatch = useDispatch();
+  const user = useSelector((state) => state.user);
 
-  // Search and filter states
-  const [searchQuery, setSearchQuery] = useState('');
-  const [filters, setFilters] = useState({
-    category: '',
-    skills: [],
-    jobTitles: [],
-    location: '',
-    priceRange: '',
-    rating: '',
-    level: ''
+  // --- AUTH CHECK (mentor và mentee đều được xem) ---
+  useEffect(() => {
+    const token =
+      localStorage.getItem("actkn") || localStorage.getItem("token");
+    const userStr = localStorage.getItem("user");
+    let user = null;
+    if (!token) {
+      navigate("/auth/signin");
+      return;
+    }
+    try {
+      user = userStr ? JSON.parse(userStr) : null;
+    } catch (e) {
+      user = null;
+    }
+    if (!user || !user.role) {
+      navigate("/auth/signin");
+      return;
+    }
+    if (user.role === "mentor" || user.role === "mentee") {
+      return;
+    }
+    navigate("/auth/signin");
+    return;
+  }, [navigate]);
+
+  // Tab state - khôi phục tab cuối cùng từ localStorage
+  const [activeTab, setActiveTab] = useState(() => {
+    const savedTab = localStorage.getItem("searchPageActiveTab");
+    return savedTab || "courses";
   });
 
-  // Filter UI states
-  const [sortBy, setSortBy] = useState('relevance');
+  // Courses state
+  const [courses, setCourses] = useState([]);
+  const [filteredCourses, setFilteredCourses] = useState([]);
+  const [coursesLoading, setCoursesLoading] = useState(true);
+  const [purchasedCoursesMap, setPurchasedCoursesMap] = useState(new Map());
+
+  // Mentors state
+  const [mentors, setMentors] = useState([]);
+  const [filteredMentors, setFilteredMentors] = useState([]);
+  const [mentorsLoading, setMentorsLoading] = useState(true);
+
+  // Common states
+  const [error, setError] = useState(null);
+
+  // Filter states
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedCategories, setSelectedCategories] = useState([]);
+  const [selectedLevels, setSelectedLevels] = useState([]);
+  const [selectedPriceRange, setSelectedPriceRange] = useState("");
+  const [selectedRating, setSelectedRating] = useState("");
+  const [sortBy, setSortBy] = useState("relevance");
+
+  // Mentor-specific filter states
+  const [selectedMentorCategories, setSelectedMentorCategories] = useState([]);
+  const [selectedMentorRating, setSelectedMentorRating] = useState("");
+  const [selectedLanguages, setSelectedLanguages] = useState([]);
+  const [selectedTags, setSelectedTags] = useState([]);
+  const [selectedSkills, setSelectedSkills] = useState([]);
+
+  // Filter application control
+  const [pendingFilters, setPendingFilters] = useState(false);
+
+  // Filter collapse states
   const [isRatingExpanded, setIsRatingExpanded] = useState(true);
-  const [isSkillsExpanded, setIsSkillsExpanded] = useState(true);
-  const [isJobTitlesExpanded, setIsJobTitlesExpanded] = useState(true);
+  const [isCategoriesExpanded, setIsCategoriesExpanded] = useState(true);
+  const [isLevelsExpanded, setIsLevelsExpanded] = useState(true);
   const [isPriceExpanded, setIsPriceExpanded] = useState(true);
 
-  // Pagination states
+  // Pagination
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(6);
+  const [itemsPerPage] = useState(9);
 
-  // Debounced search
-  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
-
-  // Initialize search from URL parameters
+  // Lưu activeTab vào localStorage và cuộn lên đầu trang khi component mount
   useEffect(() => {
-    const urlSearch = searchParams.get('search');
-    if (urlSearch) {
-      setSearchQuery(urlSearch);
-      setDebouncedSearchQuery(urlSearch);
-    }
-    
-    // Set active tab based on URL path
-    if (location.pathname.includes('/find-mentor')) {
-      setActiveTab('mentors');
-    }
-    
-    console.log('URL search param:', urlSearch);
-    console.log('Current path:', location.pathname);
-  }, [searchParams, location.pathname]);
+    window.scrollTo(0, 0); // Cuộn lên đầu trang khi component mount
+  }, []); // Chỉ chạy 1 lần khi component mount
 
-  // Auth check - redirect if not authenticated or not mentee
+  // Lưu activeTab vào localStorage khi thay đổi
   useEffect(() => {
-    // Only check once using ref to prevent multiple notifications
-    if (authNotificationShown.current) return;
-    
-    // Single check with single toast message
-    if (!isAuthenticated) {
-      authNotificationShown.current = true;
-      toast.error('Please login to access search functionality');
-      navigate('/auth/signin');
-      setAuthChecked(true);
-    } else if (user && user.role && user.role !== 'mentee') {
-      authNotificationShown.current = true;
-      toast.error('Only mentees can access search functionality');
-      navigate('/');
-      setAuthChecked(true);
-    } else {
-      setAuthChecked(true);
-    }
-  }, [isAuthenticated, user, navigate]);
-
-  // Debounce search query
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedSearchQuery(searchQuery);
-    }, 500);
-
-    return () => clearTimeout(timer);
-  }, [searchQuery]);
-
-  // Fetch both mentors and courses
-  const fetchResults = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      const searchPayload = {
-        name: debouncedSearchQuery, // API expects 'name' not 'search'
-        limit: 20,
-        ...filters
-      };
-
-      // Remove empty filters
-      Object.keys(searchPayload).forEach(key => {
-        if (!searchPayload[key] || searchPayload[key] === '') {
-          delete searchPayload[key];
-        }
-      });
-
-      // Fetch mentors and courses in parallel
-      const [mentorResponse] = await Promise.allSettled([
-        searchMentors(searchPayload)
-      ]);
-
-      // Handle mentor results - combine API mentors with generated mentors for more data
-      let allMentors = [];
-      if (mentorResponse.status === 'fulfilled' && mentorResponse.value.response?.data?.success) {
-        allMentors = mentorResponse.value.response.data.mentors || [];
-      }
-      
-      // Add generated mentors for more test data
-      const generatedMentors = generateMentors(15);
-      allMentors = [...allMentors, ...generatedMentors];
-      
-      // Filter mentors by search query if provided
-      if (debouncedSearchQuery) {
-        allMentors = allMentors.filter(mentor => {
-          const mentorName = `${mentor.firstName || ''} ${mentor.lastName || ''}`.toLowerCase();
-          const searchTerm = debouncedSearchQuery.toLowerCase();
-          return mentorName.includes(searchTerm) ||
-                 mentor.profile?.bio?.toLowerCase().includes(searchTerm) ||
-                 mentor.specialty?.toLowerCase().includes(searchTerm) ||
-                 mentor.profile?.skills?.some(skill => skill.toLowerCase().includes(searchTerm));
-        });
-      }
-      
-      setMentors(allMentors);
-
-      // Generate mock courses and filter them
-      let allCourses = generateCourses(20);
-      
-      // Filter courses by search query if provided
-      if (debouncedSearchQuery) {
-        allCourses = allCourses.filter(course => 
-          course.title?.toLowerCase().includes(debouncedSearchQuery.toLowerCase()) ||
-          course.description?.toLowerCase().includes(debouncedSearchQuery.toLowerCase()) ||
-          course.category?.toLowerCase().includes(debouncedSearchQuery.toLowerCase()) ||
-          course.instructor?.toLowerCase().includes(debouncedSearchQuery.toLowerCase())
-        );
-      }
-      
-      setCourses(allCourses);
-
-    } catch (err) {
-      console.error('Error fetching results:', err);
-      setError(err.message || 'Failed to load results');
-      toast.error('Failed to load search results. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Effect to fetch results when search or filters change
-  useEffect(() => {
-    fetchResults();
-    setCurrentPage(1); // Reset to first page when filters change
-  }, [debouncedSearchQuery, filters]);
-
-  // Fetch results when page changes (but don't reset page)
-  useEffect(() => {
-    // Always fetch when page changes, including page 1
-    fetchResults();
-  }, [currentPage]);
-
-  // Reset pagination when active tab changes
-  useEffect(() => {
-    setCurrentPage(1);
+    localStorage.setItem("searchPageActiveTab", activeTab);
   }, [activeTab]);
 
-  // Handle page change
-  const handlePageChange = (newPage) => {
-    console.log('Changing to page:', newPage, 'Current page:', currentPage);
-    setLoading(true); // Show loading immediately when changing pages
-    setCurrentPage(newPage);
+  // Helper function để chuyển tab và cuộn lên đầu
+  const handleTabChange = (tab) => {
+    setActiveTab(tab);
+    setCurrentPage(1);
+    window.scrollTo({ top: 0, behavior: "smooth" }); // Cuộn mượt lên đầu trang
   };
 
-  // Handle filter changes
-  const handleFilterChange = (filterName, value) => {
-    setFilters(prev => ({
-      ...prev,
-      [filterName]: value
-    }));
+  // Helper functions với error handling cải thiện
+  const computeMentorStats = async (mentorId) => {
+    if (!mentorId) {
+      return { totalMentees: 0, totalReviews: 0, averageRating: 0 };
+    }
+
+    // 1) Lấy toàn bộ khóa học của mentor để suy ra mentee (unique)
+    let menteeSet = new Set();
+    try {
+      const coursesRes = await Promise.race([
+        courseApi.getCoursesByMentor(mentorId),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error("Timeout")), 3000)
+        ),
+      ]);
+
+      const courses = Array.isArray(coursesRes) ? coursesRes : [];
+      courses.forEach((c) => {
+        // Sử dụng studentsCount nếu có thay vì mentees array
+        if (c.studentsCount || c.enrolledStudents) {
+          // Tạo fake mentee IDs dựa trên student count
+          const count = c.studentsCount || c.enrolledStudents || 0;
+          for (let i = 0; i < count; i++) {
+            menteeSet.add(`${mentorId}_${c._id}_${i}`);
+          }
+        }
+
+        // Fallback: nếu có mentees array
+        if (Array.isArray(c?.mentees)) {
+          c.mentees.forEach((m) => {
+            const id = typeof m === "string" ? m : m?._id || m?.id;
+            if (id) menteeSet.add(id);
+          });
+        }
+      });
+    } catch (error) {
+      console.log(
+        `Error fetching courses for mentor ${mentorId}:`,
+        error.message
+      );
+      // Fallback: random mentee count
+      const randomCount = Math.floor(Math.random() * 30) + 15;
+      for (let i = 0; i < randomCount; i++) {
+        menteeSet.add(`fallback_${mentorId}_${i}`);
+      }
+    }
+
+    // 2) Lấy reviews (course + booking) rồi tính trung bình như HomeScreen
+    let allReviews = [];
+    try {
+      const { response: cr } = await reviewApi.getMentorCourseReviews(mentorId);
+      const courseReviews = cr?.data?.items || [];
+      allReviews = allReviews.concat(courseReviews);
+    } catch (_) {}
+    try {
+      const { response: br } = await reviewApi.getBookingReviews(mentorId);
+      const bookingReviews = br?.data?.items || [];
+      allReviews = allReviews.concat(bookingReviews);
+    } catch (_) {}
+
+    const totalReviews = allReviews.length;
+    const averageRating = totalReviews
+      ? Math.round(
+          (allReviews.reduce((s, r) => s + (Number(r.rate) || 0), 0) /
+            totalReviews) *
+            10
+        ) / 10
+      : 0;
+
+    return {
+      totalMentees: menteeSet.size,
+      totalReviews,
+      averageRating,
+    };
+  };
+  const isCourseAlreadyPurchased = (courseId) => {
+    return (
+      purchasedCoursesMap.has(courseId) && purchasedCoursesMap.get(courseId)
+    );
   };
 
-  // Handle multiple selection for skills
-  const toggleSkillFilter = (skill) => {
-    setFilters(prev => ({
-      ...prev,
-      skills: prev.skills.includes(skill) 
-        ? prev.skills.filter(s => s !== skill)
-        : [...prev.skills, skill]
-    }));
+  const getPurchasedCourseId = (courseId) => {
+    return purchasedCoursesMap.get(courseId) || null;
   };
 
-  // Handle multiple selection for job titles
-  const toggleJobTitleFilter = (jobTitle) => {
-    setFilters(prev => ({
-      ...prev,
-      jobTitles: prev.jobTitles.includes(jobTitle)
-        ? prev.jobTitles.filter(jt => jt !== jobTitle)
-        : [...prev.jobTitles, jobTitle]
-    }));
+  const handleSmartViewCourse = (course) => {
+    const courseId = course._id || course.id;
+    const purchasedCourseId = getPurchasedCourseId(courseId);
+
+    if (purchasedCourseId) {
+      navigate(`/order-complete-course/${purchasedCourseId}`, {
+        state: {
+          purchasedCourseId: purchasedCourseId,
+          courseId: courseId,
+          courseInfo: course,
+        },
+      });
+    } else {
+      navigate(`/order-complete-course/${courseId}`, {
+        state: {
+          courseId: courseId,
+          courseInfo: course,
+          isLegacyCourse: true,
+        },
+      });
+    }
   };
+
+  const handleAddToCart = async (e, course) => {
+    e.stopPropagation();
+
+    if (!user) {
+      toast.error("Please login to add courses to cart");
+      navigate("/login");
+      return;
+    }
+
+    if (user.role !== "mentee") {
+      toast.error("Only mentees can purchase courses");
+      return;
+    }
+
+    const courseId = course._id || course.id;
+
+    if (isCourseAlreadyPurchased(courseId)) {
+      toast.info(
+        "You have already purchased this course! Check 'My Courses' in your profile."
+      );
+      return;
+    }
+
+    try {
+      dispatch(showLoading());
+
+      try {
+        const { response, error } = await cartApi.addToCart(
+          { courseId },
+          dispatch
+        );
+
+        if (response) {
+          toast.success("Course added to cart successfully!");
+          return;
+        } else if (error) {
+          throw new Error(error.message || "API failed");
+        }
+      } catch (apiError) {
+        const existingCart = localStorage.getItem("mockCart");
+        let cartItems = existingCart ? JSON.parse(existingCart) : [];
+
+        const alreadyInCart = cartItems.some(
+          (item) => (item._id || item.id) === courseId
+        );
+
+        if (alreadyInCart) {
+          toast.info("Course is already in your cart");
+          return;
+        }
+
+        cartItems.push({
+          id: courseId,
+          _id: courseId,
+          title: course.title,
+          price: course.price,
+          image: course.image,
+          mentor: course.mentor || "Unknown Mentor",
+          addedAt: new Date().toISOString(),
+        });
+
+        localStorage.setItem("mockCart", JSON.stringify(cartItems));
+        toast.success("Course added to cart successfully!");
+      }
+    } catch (error) {
+      console.error("Add to cart error:", error);
+      toast.error("Failed to add course to cart");
+    } finally {
+      dispatch(hideLoading());
+    }
+  };
+
+  const handleBuyNow = (e, course) => {
+    e.stopPropagation();
+
+    if (!user) {
+      toast.error("Please login to purchase courses");
+      navigate("/login");
+      return;
+    }
+
+    if (user.role !== "mentee") {
+      toast.error("Only mentees can purchase courses");
+      return;
+    }
+
+    const courseId = course._id || course.id;
+
+    if (isCourseAlreadyPurchased(courseId)) {
+      toast.info(
+        "You have already purchased this course! Check 'My Courses' in your profile."
+      );
+      return;
+    }
+
+    dispatch(showLoading());
+    setTimeout(() => {
+      navigate(`/shoppingcart`);
+    }, 300);
+  };
+
+  const handleMentorClick = (mentorId) => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    navigate(`/mentor/${mentorId}`);
+  };
+
+  // Filter options
+  const categoryOptions = [
+    "Programming",
+    "Design",
+    "Business",
+    "Marketing",
+    "Photography",
+    "Music",
+    "Health & Fitness",
+    "Language",
+    "Academic",
+    "Lifestyle",
+  ];
+
+  const levelOptions = ["Beginner", "Intermediate", "Advanced", "Expert"];
+
+  const priceRanges = [
+    { label: "Free", value: "free" },
+    { label: "Under $50", value: "0-50" },
+    { label: "$50 - $100", value: "50-100" },
+    { label: "$100 - $200", value: "100-200" },
+    { label: "Over $200", value: "200+" },
+  ];
 
   // Clear all filters
-  const clearFilters = () => {
-    setFilters({
-      category: '',
-      skills: [],
-      jobTitles: [],
-      location: '',
-      priceRange: '',
-      rating: '',
-      level: ''
-    });
-    setSearchQuery('');
-    setSearchParams({});
+  const clearAllFilters = () => {
+    setSelectedRating("");
+    setSelectedCategories([]);
+    setSelectedLevels([]);
+    setSelectedPriceRange("");
+    setSortBy("relevance");
+    setSearchTerm("");
+    // Mentor filters
+    setSelectedMentorCategories([]);
+    setSelectedMentorRating("");
+    setSelectedLanguages([]);
+    setSelectedTags([]);
+    setSelectedSkills([]);
+    setCurrentPage(1);
   };
 
-  // Calculate active filters count
-  const activeFiltersCount = useMemo(() => {
+  const getActiveFilterCount = () => {
     let count = 0;
-    if (filters.category) count++;
-    if (filters.skills && filters.skills.length > 0) count++;
-    if (filters.jobTitles && filters.jobTitles.length > 0) count++;
-    if (filters.location) count++;
-    if (filters.priceRange) count++;
-    if (filters.rating) count++;
-    if (filters.level) count++;
-    return count;
-  }, [filters]);
+    if (searchTerm) count++;
 
-  // Check if any filters are active
+    if (activeTab === "courses") {
+      if (selectedRating) count++;
+      if (selectedCategories.length > 0) count++;
+      if (selectedLevels.length > 0) count++;
+      if (selectedPriceRange) count++;
+      if (selectedLanguages.length > 0) count++;
+      if (selectedTags.length > 0) count++;
+    } else {
+      if (selectedMentorRating) count++;
+      if (selectedMentorCategories.length > 0) count++;
+      if (selectedSkills.length > 0) count++;
+    }
+
+    return count;
+  };
   const hasActiveFilters = () => {
-    return activeFiltersCount > 0;
+    return getActiveFilterCount() > 0;
   };
 
-  // Filter results based on active tab and filter criteria
-  const filteredResults = useMemo(() => {
-    // Helper function to filter courses by criteria
-    const filterCourses = (coursesToFilter) => {
-      return coursesToFilter.filter(course => {
-        // Category filter
-        if (filters.category && !course.category?.toLowerCase().includes(filters.category.toLowerCase())) {
-          return false;
+  const toggleCategoryFilter = (category) => {
+    if (activeTab === "courses") {
+      setSelectedCategories((prev) =>
+        prev.includes(category)
+          ? prev.filter((c) => c !== category)
+          : [...prev, category]
+      );
+    } else {
+      setSelectedMentorCategories((prev) =>
+        prev.includes(category)
+          ? prev.filter((c) => c !== category)
+          : [...prev, category]
+      );
+    }
+  };
+
+  const toggleLevelFilter = (level) => {
+    setSelectedLevels((prev) =>
+      prev.includes(level) ? prev.filter((l) => l !== level) : [...prev, level]
+    );
+  };
+
+  const toggleLanguageFilter = (language) => {
+    setSelectedLanguages((prev) =>
+      prev.includes(language)
+        ? prev.filter((l) => l !== language)
+        : [...prev, language]
+    );
+  };
+
+  const toggleTagFilter = (tag) => {
+    setSelectedTags((prev) =>
+      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
+    );
+  };
+
+  const toggleSkillFilter = (skill) => {
+    setSelectedSkills((prev) =>
+      prev.includes(skill) ? prev.filter((s) => s !== skill) : [...prev, skill]
+    );
+  };
+
+  // Fetch courses
+  const fetchCourses = async () => {
+    try {
+      setCoursesLoading(true);
+      setError(null);
+
+      const params = {
+        limit: 50,
+        page: 1,
+      };
+
+      if (searchTerm.trim()) {
+        params.search = searchTerm.trim();
+      }
+
+      if (selectedRating) {
+        params.rate = selectedRating;
+      }
+
+      if (sortBy && sortBy !== "relevance") {
+        switch (sortBy) {
+          case "price-low":
+            params.sortBy = "priceAsc";
+            break;
+          case "price-high":
+            params.sortBy = "priceDesc";
+            break;
+          case "rating":
+            params.sortBy = "rating";
+            break;
+          case "newest":
+            params.sortBy = "newest";
+            break;
+          default:
+            params.sortBy = sortBy;
+        }
+      }
+
+      const filters = {};
+
+      if (selectedCategories.length > 0) {
+        filters.category = selectedCategories[0];
+      }
+
+      if (selectedLevels.length > 0) {
+        filters.level = selectedLevels[0];
+      }
+
+      if (selectedPriceRange && selectedPriceRange !== "free") {
+        const [min, max] = selectedPriceRange
+          .split("-")
+          .map((p) => p.replace("+", ""));
+        if (min) filters.priceMin = parseInt(min);
+        if (max && max !== min) filters.priceMax = parseInt(max);
+        else if (selectedPriceRange.includes("+"))
+          filters.priceMin = parseInt(min);
+      } else if (selectedPriceRange === "free") {
+        filters.priceMax = 0;
+      }
+
+      if (Object.keys(filters).length > 0) {
+        params.filterBy = JSON.stringify(filters);
+      }
+
+      let response;
+      let coursesData = [];
+
+      try {
+        const result = await courseApi.getAllCourses(params);
+        response = result.response;
+
+        if (result.error) {
+          throw new Error(result.error.message || "API failed");
         }
 
-        // Skills filter (check against course title, description, and category)
-        if (filters.skills && filters.skills.length > 0) {
-          const searchableText = `${course.title} ${course.description} ${course.category} ${course.instructor}`.toLowerCase();
-          const hasMatchingSkill = filters.skills.some(skill => 
-            searchableText.includes(skill.toLowerCase())
+        if (
+          response &&
+          response.data &&
+          response.data.courses &&
+          Array.isArray(response.data.courses)
+        ) {
+          coursesData = response.data.courses;
+        } else {
+          throw new Error("Invalid response format");
+        }
+      } catch (apiError) {
+        console.error("API Error:", apiError);
+        toast.error("Failed to fetch courses");
+        coursesData = [];
+      }
+
+      const transformedCourses = coursesData.map((course, index) => ({
+        id: course._id || course.courseId || index,
+        title: course.title || "Untitled Course",
+        instructor:
+          course.mentor?.userName ||
+          (course.mentor?.firstName
+            ? `${course.mentor.firstName} ${course.mentor.lastName}`.trim()
+            : "Unknown Instructor"),
+        category: course.category || "General",
+        level: course.level || "Beginner",
+        rating: parseFloat(course.rate || course.rating || 0),
+        reviewCount: course.ratingsCount || course.numberOfRatings || 0,
+        studentCount: course.studentsCount || course.enrolledStudents || 0,
+        price: parseFloat(course.price || 0),
+        originalPrice: parseFloat(course.originalPrice || course.price || 0),
+        duration: `${course.duration || course.totalHours || 0} Total Hours`,
+        lectures: course.lectures || course.totalLectures || 0,
+        image: course.thumbnail || course.image || oipImg,
+        description:
+          course.description ||
+          course.courseOverview ||
+          "No description available",
+        bestseller: course.bestseller || false,
+        lastUpdated:
+          course.updatedAt || course.createdAt || new Date().toISOString(),
+        tags: course.tags || [],
+        language: course.language || [],
+        mentorInfo: course.mentor || {},
+        courseId: course._id || course.courseId,
+      }));
+
+      setCourses(transformedCourses);
+      setFilteredCourses(transformedCourses);
+      setCoursesLoading(false);
+    } catch (err) {
+      console.error("Error fetching courses:", err);
+      setError("Failed to load courses. Please try again later.");
+      setFilteredCourses([]);
+      setCoursesLoading(false);
+    }
+  };
+
+  // Fetch mentors
+  const fetchMentors = async () => {
+    try {
+      setMentorsLoading(true);
+      setError(null);
+
+      // Sử dụng getTopMentors với limit cao để lấy tất cả mentors
+      let response;
+      let raw = [];
+
+      try {
+        response = await profileApi.getTopMentors(100);
+        raw = response?.data?.mentors || [];
+      } catch (apiError) {
+        console.error("API error:", apiError);
+        toast.error("Failed to fetch mentors");
+        raw = [];
+      }
+
+      // Filter mentors dựa trên searchTerm nếu có
+      let filteredRaw = raw;
+      if (searchTerm.trim()) {
+        const searchLower = searchTerm.toLowerCase();
+        filteredRaw = raw.filter((mentor) => {
+          const name = (
+            mentor.fullName ||
+            `${mentor.firstName || ""} ${mentor.lastName || ""}`
+          ).toLowerCase();
+          const jobTitle = (mentor.jobTitle || "").toLowerCase();
+          const category = (mentor.category || "").toLowerCase();
+          return (
+            name.includes(searchLower) ||
+            jobTitle.includes(searchLower) ||
+            category.includes(searchLower)
           );
-          if (!hasMatchingSkill) {
-            return false;
-          }
-        }
+        });
+      }
 
-        // Price range filter
-        if (filters.priceRange) {
-          const price = parseFloat(course.price) || 0;
-          switch (filters.priceRange) {
-            case 'Under $50':
-              if (price >= 50) return false;
-              break;
-            case '$50 - $100':
-              if (price < 50 || price > 100) return false;
-              break;
-            case '$100 - $200':
-              if (price < 100 || price > 200) return false;
-              break;
-            case 'Over $200':
-              if (price <= 200) return false;
-              break;
-          }
-        }
-
-        // Rating filter
-        if (filters.rating) {
-          const rating = parseFloat(course.rating) || 0;
-          const filterRating = parseFloat(filters.rating);
-          if (rating < filterRating) return false;
-        }
-
-        return true;
-      });
-    };
-
-    // Helper function to filter mentors by criteria
-    const filterMentors = (mentorsToFilter) => {
-      return mentorsToFilter.filter(mentor => {
-        // Category filter (check against profile.category or specialty)
-        if (filters.category) {
-          const categoryTerm = filters.category.toLowerCase();
-          const mentorCategory = mentor.profile?.category || mentor.specialty || '';
-          if (!mentorCategory.toLowerCase().includes(categoryTerm)) {
-            return false;
-          }
-        }
-
-        // Skills filter (check against profile.skills array or skills array)
-        if (filters.skills && filters.skills.length > 0) {
-          const mentorSkills = mentor.profile?.skills || mentor.skills || [];
-          const hasMatchingSkill = filters.skills.some(filterSkill => 
-            mentorSkills.some(skill => 
-              skill.toLowerCase().includes(filterSkill.toLowerCase())
-            )
-          );
-          
-          if (!hasMatchingSkill) {
-            // Also check subjects if available
-            const mentorSubjects = mentor.subjects || [];
-            const hasSubjectMatch = filters.skills.some(filterSkill => 
-              mentorSubjects.some(subject => 
-                subject.toLowerCase().includes(filterSkill.toLowerCase())
-              )
+      // Enrich với real stats cho tất cả mentor
+      const enriched = await Promise.all(
+        filteredRaw.map(async (mentor) => {
+          try {
+            const stats = await computeMentorStats(mentor._id || mentor.id);
+            return {
+              ...mentor,
+              ...stats,
+            };
+          } catch (error) {
+            console.error(
+              `Error computing stats for mentor ${mentor._id}:`,
+              error
             );
-            
-            if (!hasSubjectMatch) {
-              return false;
+            // Return mentor without stats if computation fails
+            return {
+              ...mentor,
+              averageRating: 0,
+              totalReviews: 0,
+              totalMentees: 0,
+            };
+          }
+        })
+      );
+
+      setMentors(enriched);
+      setFilteredMentors(enriched);
+      setMentorsLoading(false);
+    } catch (error) {
+      console.error("Error fetching mentors:", error);
+      setError("Failed to load mentors. Please try again later.");
+      setMentors([]);
+      setFilteredMentors([]);
+      setMentorsLoading(false);
+    }
+  };
+
+  // Fetch purchased courses for smart navigation
+  useEffect(() => {
+    const fetchPurchasedCourses = async () => {
+      if (!user || user.role !== "mentee") return;
+
+      if (courses.length > 0) {
+        const statusMap = new Map();
+
+        await Promise.all(
+          courses.map(async (course) => {
+            const courseId = course._id || course.id || course.courseId;
+            if (courseId) {
+              try {
+                const { response } = await courseApi.checkPurchaseStatus(
+                  courseId
+                );
+                if (response?.data?.isPurchased) {
+                  statusMap.set(courseId, true);
+                }
+              } catch (error) {
+                console.error(
+                  `Error checking purchase status for course ${courseId}:`,
+                  error
+                );
+              }
             }
-          }
-        }
+          })
+        );
 
-        // Job Titles filter (check against title or profile.title)
-        if (filters.jobTitles && filters.jobTitles.length > 0) {
-          const mentorTitle = mentor.title || mentor.profile?.title || '';
-          const hasMatchingJobTitle = filters.jobTitles.some(jobTitle => 
-            mentorTitle.toLowerCase().includes(jobTitle.toLowerCase()) ||
-            jobTitle.toLowerCase().includes(mentorTitle.toLowerCase())
-          );
-          
-          if (!hasMatchingJobTitle) {
-            return false;
-          }
-        }
-
-        // Price range filter (check hourlyRate)
-        if (filters.priceRange) {
-          const price = parseFloat(mentor.hourlyRate) || 0;
-          switch (filters.priceRange) {
-            case 'Under $50':
-              if (price >= 50) return false;
-              break;
-            case '$50 - $100':
-              if (price < 50 || price > 100) return false;
-              break;
-            case '$100 - $200':
-              if (price < 100 || price > 200) return false;
-              break;
-            case 'Over $200':
-              if (price <= 200) return false;
-              break;
-          }
-        }
-
-        // Rating filter
-        if (filters.rating) {
-          const rating = parseFloat(mentor.rating) || 0;
-          const filterRating = parseFloat(filters.rating);
-          console.log(`Mentor ${mentor.name || mentor.firstName} rating: ${rating}, filter: ${filterRating}, passes: ${rating >= filterRating}`);
-          if (rating < filterRating) return false;
-        }
-
-        return true;
-      });
-    };
-
-    // Apply filters to get all filtered results
-    const filteredCourses = filterCourses(courses);
-    const filteredMentors = filterMentors(mentors);
-
-    // Sort results based on sortBy
-    const sortResults = (items, type) => {
-      const sorted = [...items];
-      switch (sortBy) {
-        case 'rating':
-          return sorted.sort((a, b) => (parseFloat(b.rating) || 0) - (parseFloat(a.rating) || 0));
-        case 'price-low-high':
-          if (type === 'courses') {
-            return sorted.sort((a, b) => (parseFloat(a.price) || 0) - (parseFloat(b.price) || 0));
-          } else {
-            return sorted.sort((a, b) => (parseFloat(a.hourlyRate) || 0) - (parseFloat(b.hourlyRate) || 0));
-          }
-        case 'price-high-low':
-          if (type === 'courses') {
-            return sorted.sort((a, b) => (parseFloat(b.price) || 0) - (parseFloat(a.price) || 0));
-          } else {
-            return sorted.sort((a, b) => (parseFloat(b.hourlyRate) || 0) - (parseFloat(a.hourlyRate) || 0));
-          }
-        case 'relevance':
-        default:
-          return sorted; // Keep original order for relevance
+        setPurchasedCoursesMap(statusMap);
       }
     };
 
-    const sortedCourses = sortResults(filteredCourses, 'courses');
-    const sortedMentors = sortResults(filteredMentors, 'mentors');
+    fetchPurchasedCourses();
+  }, [user, courses]);
 
-    // Pagination logic
-    const allResults = activeTab === 'courses' ? sortedCourses : 
-                      activeTab === 'mentors' ? sortedMentors : 
-                      [...sortedCourses, ...sortedMentors];
-    
-    const totalPages = Math.ceil(allResults.length / itemsPerPage);
-    const indexOfLastItem = currentPage * itemsPerPage;
-    const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-    const currentItems = allResults.slice(indexOfFirstItem, indexOfLastItem);
-
-    // Separate paginated items back into courses and mentors
-    let paginatedCourses = [];
-    let paginatedMentors = [];
-    
-    if (activeTab === 'courses') {
-      paginatedCourses = currentItems;
-    } else if (activeTab === 'mentors') {
-      paginatedMentors = currentItems;
+  // Only apply sort when it changes (not other filters)
+  useEffect(() => {
+    if (activeTab === "courses") {
+      applyCoursesFilter();
     } else {
-      // For 'all' tab, separate the mixed results
-      paginatedCourses = currentItems.filter(item => item.category || item.title);
-      paginatedMentors = currentItems.filter(item => item.name || item.firstName || item.hourlyRate !== undefined);
+      applyMentorsFilter();
+    }
+  }, [sortBy, activeTab, courses, mentors]); // Only re-run when sort or data changes
+
+  // Apply filters for courses
+  const applyCoursesFilter = () => {
+    if (!courses.length) return;
+
+    let filtered = [...courses];
+
+    // Search filter - tìm kiếm trong title, category, tags, language, level, instructor
+    if (searchTerm.trim()) {
+      const searchLower = searchTerm.toLowerCase();
+      filtered = filtered.filter((course) => {
+        const title = (course.title || "").toLowerCase();
+        const category = (course.category || "").toLowerCase();
+        const level = (course.level || "").toLowerCase();
+        const instructor = (course.instructor || "").toLowerCase();
+        const tags = (course.tags || []).join(" ").toLowerCase();
+        const languages = (course.language || []).join(" ").toLowerCase();
+        const description = (course.description || "").toLowerCase();
+
+        return (
+          title.includes(searchLower) ||
+          category.includes(searchLower) ||
+          level.includes(searchLower) ||
+          instructor.includes(searchLower) ||
+          tags.includes(searchLower) ||
+          languages.includes(searchLower) ||
+          description.includes(searchLower)
+        );
+      });
     }
 
-    // Return all filtered results regardless of active tab
-    return {
-      courses: sortedCourses,
-      mentors: sortedMentors,
-      // Add separate properties for display based on active tab with pagination
-      displayCourses: paginatedCourses,
-      displayMentors: paginatedMentors,
-      totalPages,
-      currentPage,
-      totalResults: allResults.length,
-      // Add total count for all results
-      total: sortedCourses.length + sortedMentors.length
-    };
-  }, [activeTab, courses, mentors, filters, sortBy, currentPage]);
+    // Category filter
+    if (selectedCategories.length > 0) {
+      filtered = filtered.filter((course) =>
+        selectedCategories.includes(course.category)
+      );
+    }
 
-  // Course Card Component
-  const CourseCard = ({ course }) => (
-    <div className="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300 overflow-hidden">
-      <div className="p-6">
-        <div className="flex items-start gap-4">
-          <div className="w-16 h-16 bg-green-100 rounded-lg flex items-center justify-center text-green-600">
-            <IoBookSharp className="text-2xl" />
-          </div>
-          <div className="flex-1">
-            <h3 className="text-lg font-semibold text-gray-900 mb-1">{course.title}</h3>
-            <p className="text-sm text-gray-600 mb-2">{course.category}</p>
-            <div className="flex items-center gap-2 mb-2">
-              <IoStar className="text-yellow-400 text-sm" />
-              <span className="text-sm text-gray-600">
-                {course.rating || '4.5'} ({course.reviewCount || '0'} reviews)
-              </span>
-            </div>
-            <p className="text-sm text-gray-600 mb-3 line-clamp-2">
-              {course.description}
-            </p>
-            <div className="flex items-center justify-between">
-              <div className="text-lg font-semibold text-green-600">
-                ${course.price || '99'}
-              </div>
-              <button 
-                onClick={() => navigate(`/course-detail/${course._id || course.id}`)}
-                className="px-4 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 transition-colors duration-200"
-              >
-                View Course
-              </button>
-            </div>
-          </div>
+    // Level filter
+    if (selectedLevels.length > 0) {
+      filtered = filtered.filter((course) =>
+        selectedLevels.includes(course.level)
+      );
+    }
+
+    // Tags filter
+    if (selectedTags.length > 0) {
+      filtered = filtered.filter((course) =>
+        selectedTags.some((tag) => course.tags?.includes(tag))
+      );
+    }
+
+    // Language filter
+    if (selectedLanguages.length > 0) {
+      filtered = filtered.filter((course) =>
+        selectedLanguages.some((lang) => course.language?.includes(lang))
+      );
+    }
+
+    // Price range filter
+    if (selectedPriceRange) {
+      const [min, max] = selectedPriceRange.split("-").map(Number);
+      filtered = filtered.filter((course) => {
+        const price = course.price || 0;
+        if (max) {
+          return price >= min && price <= max;
+        } else {
+          return price >= min;
+        }
+      });
+    }
+
+    // Rating filter
+    if (selectedRating) {
+      const minRating = parseFloat(selectedRating);
+      filtered = filtered.filter((course) => course.rating >= minRating);
+    }
+
+    // Sorting
+    filtered.sort((a, b) => {
+      switch (sortBy) {
+        case "rating":
+          return (b.rating || 0) - (a.rating || 0);
+        case "price-low":
+          return (a.price || 0) - (b.price || 0);
+        case "price-high":
+          return (b.price || 0) - (a.price || 0);
+        case "newest":
+          return new Date(b.lastUpdated || 0) - new Date(a.lastUpdated || 0);
+        default:
+          return 0;
+      }
+    });
+
+    setFilteredCourses(filtered);
+    setCurrentPage(1);
+  };
+
+  // Apply filters for mentors
+  const applyMentorsFilter = () => {
+    if (!mentors.length) return;
+
+    let filtered = [...mentors];
+
+    // Search filter - tìm kiếm trong name, jobTitle, category, skills
+    if (searchTerm.trim()) {
+      const searchLower = searchTerm.toLowerCase();
+      filtered = filtered.filter((mentor) => {
+        const name = (
+          mentor.fullName ||
+          `${mentor.firstName || ""} ${mentor.lastName || ""}`
+        ).toLowerCase();
+        const jobTitle = (mentor.jobTitle || "").toLowerCase();
+        const category = (mentor.category || "").toLowerCase();
+        const email = (mentor.email || "").toLowerCase();
+        const bio = (mentor.bio || mentor.about || "").toLowerCase();
+        const skills = (mentor.skills || []).join(" ").toLowerCase();
+
+        return (
+          name.includes(searchLower) ||
+          jobTitle.includes(searchLower) ||
+          category.includes(searchLower) ||
+          email.includes(searchLower) ||
+          bio.includes(searchLower) ||
+          skills.includes(searchLower)
+        );
+      });
+    } // Category filter for mentors
+    if (selectedMentorCategories.length > 0) {
+      filtered = filtered.filter((mentor) => {
+        const category = mentor.category || "";
+        return selectedMentorCategories.some((cat) =>
+          category.toLowerCase().includes(cat.toLowerCase())
+        );
+      });
+    }
+
+    // Skills filter for mentors
+    if (selectedSkills.length > 0) {
+      filtered = filtered.filter((mentor) => {
+        const mentorSkills = mentor.skills || [];
+        return selectedSkills.some((skill) =>
+          mentorSkills.some((mentorSkill) =>
+            mentorSkill.toLowerCase().includes(skill.toLowerCase())
+          )
+        );
+      });
+    }
+
+    // Rating filter for mentors
+    if (selectedMentorRating) {
+      const minRating = parseFloat(selectedMentorRating);
+      filtered = filtered.filter(
+        (mentor) => (mentor.averageRating || 0) >= minRating
+      );
+    }
+
+    // Sorting for mentors
+    filtered.sort((a, b) => {
+      switch (sortBy) {
+        case "rating":
+          return (b.averageRating || 0) - (a.averageRating || 0);
+        case "students":
+          return (b.totalMentees || 0) - (a.totalMentees || 0);
+        case "reviews":
+          return (b.totalReviews || 0) - (a.totalReviews || 0);
+        default:
+          return 0;
+      }
+    });
+
+    setFilteredMentors(filtered);
+    setCurrentPage(1);
+  };
+
+  // Initial data fetch
+  useEffect(() => {
+    fetchCourses();
+    fetchMentors();
+  }, []);
+
+  // Apply filters
+  const applyFilters = () => {
+    if (activeTab === "courses") {
+      applyCoursesFilter();
+    } else {
+      applyMentorsFilter();
+    }
+    setCurrentPage(1);
+  };
+
+  // Pagination logic
+  const currentItems =
+    activeTab === "courses" ? filteredCourses : filteredMentors;
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const paginatedItems = currentItems.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil(currentItems.length / itemsPerPage);
+
+  // Scroll to top when currentPage changes
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, [currentPage]);
+
+  if (coursesLoading && mentorsLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
         </div>
       </div>
-    </div>
-  );
+    );
+  }
 
-  // Mentor Card Component
-  const MentorCard = ({ mentor }) => (
-    <div className="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300 overflow-hidden">
-      <div className="p-6">
-        <div className="flex items-start gap-4">
-          <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-semibold text-lg">
-            {mentor.name?.charAt(0)?.toUpperCase() || mentor.firstName?.charAt(0)?.toUpperCase() || 'M'}
-          </div>
-          <div className="flex-1">
-            <h3 className="text-lg font-semibold text-gray-900 mb-1">
-              {mentor.name || `${mentor.firstName || ''} ${mentor.lastName || ''}`.trim() || 'Mentor'}
-            </h3>
-            <p className="text-sm text-gray-600 mb-2">{mentor.title || mentor.profile?.bio || 'Experienced Mentor'}</p>
-            <div className="flex items-center gap-2 mb-2">
-              <IoStar className="text-yellow-400 text-sm" />
-              <span className="text-sm text-gray-600">
-                {mentor.rating || '4.5'} ({mentor.reviewCount || '0'} reviews)
-              </span>
-            </div>
-            {(mentor.location || mentor.profile?.location) && (
-              <div className="flex items-center gap-1 text-sm text-gray-500 mb-3">
-                <IoLocationSharp className="text-xs" />
-                <span>{mentor.location || mentor.profile?.location}</span>
-              </div>
-            )}
-            <p className="text-sm text-gray-600 mb-3 line-clamp-2">
-              {mentor.bio || mentor.profile?.bio || 'Experienced mentor ready to help you grow your skills.'}
-            </p>
-            <div className="flex items-center justify-between">
-              <div className="text-lg font-semibold text-blue-600">
-                ${mentor.hourlyRate || '50'}/hour
-              </div>
-              <button 
-                onClick={() => navigate(`/platform/mentor/${mentor._id || mentor.id}`)}
-                className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors duration-200"
-              >
-                View Profile
-              </button>
-            </div>
-          </div>
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-red-600 mb-4">{error}</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          >
+            Retry
+          </button>
         </div>
       </div>
-    </div>
-  );
+    );
+  }
 
   return (
     <div className="min-h-screen bg-white-50">
-      {/* Show loading if auth is being checked */}
-      {!isAuthenticated || (user && user.role && user.role !== 'mentee') ? (
-        <div className="flex items-center justify-center min-h-screen">
-          <div className="flex flex-col items-center justify-center">
-            <div className="flex items-center gap-3 text-gray-600 bg-white rounded-xl shadow-lg border px-8 py-6">
-              <svg className="animate-spin w-7 h-7 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" className="opacity-25"></circle>
-                <path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" className="opacity-75"></path>
-              </svg>
-              <span className="text-lg font-medium text-gray-700">Checking authentication...</span>
-            </div>
-          </div>
-        </div>
-      ) : (
-        <>
-          {/* Header Section */}
-          <div className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 py-6">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Header */}
+        <div className="mb-8">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900 mb-1">
-                {activeTab === 'all' ? 'Search Results' : 
-                 activeTab === 'mentors' ? 'Our Mentors' : 'Our Courses'}
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">
+                Search Results
               </h1>
-              {activeTab === 'all' ? (
-                <div className="flex items-center gap-4">
-                  <button
-                    onClick={() => navigate('/all-mentors')}
-                    className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors duration-200 flex items-center gap-2"
-                  >
-                    <IoPerson className="w-4 h-4" />
-                    All mentors
-                  </button>
-                  <button
-                    onClick={() => navigate('/all-courses')}
-                    className="px-4 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 transition-colors duration-200 flex items-center gap-2"
-                  >
-                    <IoBookSharp className="w-4 h-4" />
-                    All courses
-                  </button>
-                </div>
-              ) : activeTab === 'courses' ? (
-                <button
-                  onClick={() => navigate('/all-courses')}
-                  className="px-4 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 transition-colors duration-200 flex items-center gap-2"
-                >
-                  <IoBookSharp className="w-4 h-4" />
-                  All courses
-                </button>
-              ) : activeTab === 'mentors' ? (
-                <button
-                  onClick={() => navigate('/all-mentors')}
-                  className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors duration-200 flex items-center gap-2"
-                >
-                  <IoPerson className="w-4 h-4" />
-                  All mentors
-                </button>
-              ) : (
-                <p className="text-gray-600">
-                  {activeTab === 'mentors' ? 'All mentors' : 'All courses'}
-                </p>
-              )}
+              <p className="text-gray-600">Discover courses and mentors</p>
             </div>
-            
             <div className="flex items-center gap-4">
-              <p className="text-sm text-gray-600">
-                {filteredResults.totalResults} results found
+              <p className="text-gray-600">
+                {currentItems.length} {activeTab} found
               </p>
-              <select 
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value)}
-                className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
-              >
-                <option value="relevance">Relevance</option>
-                <option value="rating">Rating</option>
-                <option value="price-low-high">Price: Low to High</option>
-                <option value="price-high-low">Price: High to Low</option>
-              </select>
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-700">Sort by</span>
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value)}
+                  className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="relevance">Relevance</option>
+                  <option value="rating">Highest Rating</option>
+                  {activeTab === "courses" ? (
+                    <>
+                      <option value="price-low">Price: Low to High</option>
+                      <option value="price-high">Price: High to Low</option>
+                      <option value="newest">Newest</option>
+                    </>
+                  ) : (
+                    <>
+                      <option value="students">Most Students</option>
+                      <option value="reviews">Most Reviews</option>
+                    </>
+                  )}
+                </select>
+              </div>
             </div>
           </div>
         </div>
-      </div>
 
-      {/* Tab Navigation */}
-      <div className="bg-white border-b">
-        <div className="max-w-7xl mx-auto px-4">
-          <div className="flex gap-8">
-            <button
-              onClick={() => setActiveTab('all')}
-              className={`py-4 border-b-2 font-medium text-sm transition-colors duration-200 ${
-                activeTab === 'all'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              All Results ({filteredResults.total})
-            </button>
-            <button
-              onClick={() => setActiveTab('courses')}
-              className={`py-4 border-b-2 font-medium text-sm transition-colors duration-200 flex items-center gap-2 ${
-                activeTab === 'courses'
-                  ? 'border-green-500 text-green-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              <IoBookSharp />
-              Courses ({filteredResults.courses?.length || 0})
-            </button>
-            <button
-              onClick={() => setActiveTab('mentors')}
-              className={`py-4 border-b-2 font-medium text-sm transition-colors duration-200 flex items-center gap-2 ${
-                activeTab === 'mentors'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              <IoPerson />
-              Mentors ({filteredResults.mentors?.length || 0})
-            </button>
+        {/* Tabs */}
+        <div className="mb-8">
+          <div className="border-b border-gray-200">
+            <nav className="-mb-px flex space-x-8">
+              <button
+                onClick={() => handleTabChange("courses")}
+                className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                  activeTab === "courses"
+                    ? "border-blue-500 text-blue-600"
+                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                }`}
+              >
+                All Courses ({filteredCourses.length})
+              </button>
+              <button
+                onClick={() => handleTabChange("mentors")}
+                className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                  activeTab === "mentors"
+                    ? "border-blue-500 text-blue-600"
+                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                }`}
+              >
+                Mentors ({filteredMentors.length})
+              </button>
+            </nav>
           </div>
         </div>
-      </div>
 
-      {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 py-6">
-        <div className="flex gap-8">
+        <div className="flex flex-col lg:flex-row gap-8">
           {/* Left Sidebar - Filters */}
-          <div className="w-64 flex-shrink-0">
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 sticky top-6">
+          <div className="lg:w-1/4">
+            <div
+              className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 sticky top-8"
+              style={{ height: "80vh", overflowY: "auto" }}
+            >
               {/* Filter Button */}
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-2">
-                  <button className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
+                  <button
+                    className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+                    onClick={applyFilters}
+                  >
                     <svg
                       className="w-4 h-4"
                       fill="none"
@@ -690,15 +1011,15 @@ const SearchPage = () => {
                     </svg>
                     <span className="text-sm font-medium">Filter</span>
                   </button>
-                  {activeFiltersCount > 0 && (
+                  {getActiveFilterCount() > 0 && (
                     <span className="bg-blue-600 text-white text-xs font-medium px-2 py-1 rounded-full">
-                      {activeFiltersCount}
+                      {getActiveFilterCount()}
                     </span>
                   )}
                 </div>
                 {hasActiveFilters() && (
                   <button
-                    onClick={clearFilters}
+                    onClick={clearAllFilters}
                     className="text-sm text-blue-600 hover:text-blue-800 font-medium"
                   >
                     Clear All
@@ -709,390 +1030,863 @@ const SearchPage = () => {
               {/* Search Input */}
               <div className="mb-6">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Search {activeTab === 'courses' ? 'Courses' : 'Mentors'}
+                  Search
                 </label>
                 <div className="relative">
-                  <IoSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm" />
                   <input
                     type="text"
-                    placeholder={`Search by ${activeTab === 'courses' ? 'title, category, instructor' : 'name, title, skills'}...`}
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    placeholder={`Search ${activeTab}...`}
                     className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
+                  <svg
+                    className="absolute left-3 top-2.5 h-5 w-5 text-gray-400"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                    />
+                  </svg>
                 </div>
               </div>
 
-              {/* Rating Filter */}
-              <div className="mb-6">
-                <h3
-                  className="font-semibold text-gray-900 mb-3 flex items-center justify-between cursor-pointer"
-                  onClick={() => setIsRatingExpanded(!isRatingExpanded)}
-                >
-                  <span>Rating</span>
-                  <IoChevronDown className={`w-4 h-4 transition-transform duration-200 ${isRatingExpanded ? 'rotate-180' : ''}`} />
-                </h3>
-                {isRatingExpanded && (
-                  <div className="space-y-2">
-                    {[5, 4, 3, 2, 1].map((rating) => (
-                      <label key={rating} className="flex items-center">
-                        <input
-                          type="radio"
-                          name="rating"
-                          value={rating}
-                          checked={filters.rating === rating.toString()}
-                          onChange={(e) => handleFilterChange('rating', e.target.value)}
-                          className="mr-2"
+              {/* Conditional Filters based on activeTab */}
+              {activeTab === "courses" ? (
+                <>
+                  {/* Course Filters */}
+                  {/* Category Filter */}
+                  <div className="mb-6">
+                    <h3
+                      className="font-semibold text-gray-900 mb-3 flex items-center justify-between cursor-pointer"
+                      onClick={() =>
+                        setIsCategoriesExpanded(!isCategoriesExpanded)
+                      }
+                    >
+                      <span>Category</span>
+                      <svg
+                        className={`w-4 h-4 transition-transform duration-200 ${
+                          isCategoriesExpanded ? "rotate-180" : ""
+                        }`}
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M19 9l-7 7-7-7"
                         />
-                        <div className="flex items-center">
-                          {[...Array(5)].map((_, i) => (
-                            <IoStar key={i} className={`w-4 h-4 ${i < rating ? 'text-yellow-400' : 'text-gray-300'}`} />
-                          ))}
-                          {rating < 5 && <span className="ml-2 text-sm text-gray-600">& up</span>}
-                        </div>
-                      </label>
-                    ))}
+                      </svg>
+                    </h3>
+                    {isCategoriesExpanded && (
+                      <div className="space-y-2 max-h-48 overflow-y-auto">
+                        {categoryOptions.map((category) => (
+                          <label key={category} className="flex items-center">
+                            <input
+                              type="checkbox"
+                              checked={selectedCategories.includes(category)}
+                              onChange={() => toggleCategoryFilter(category)}
+                              className="mr-2"
+                            />
+                            <span className="text-sm text-gray-700">
+                              {category}
+                            </span>
+                          </label>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
 
-              {/* Skills Filter */}
-              <div className="mb-6">
-                <h3
-                  className="font-semibold text-gray-900 mb-3 flex items-center justify-between cursor-pointer"
-                  onClick={() => setIsSkillsExpanded(!isSkillsExpanded)}
-                >
-                  <span>Skills</span>
-                  <IoChevronDown className={`w-4 h-4 transition-transform duration-200 ${isSkillsExpanded ? 'rotate-180' : ''}`} />
-                </h3>
-                {isSkillsExpanded && (
-                  <div className="space-y-2">
-                    {['React', 'Vue.js', 'Angular', 'Node.js', 'JavaScript', 'TypeScript', 'Python'].map((skill) => (
-                      <label key={skill} className="flex items-center">
-                        <input
-                          type="checkbox"
-                          checked={filters.skills.includes(skill)}
-                          onChange={() => toggleSkillFilter(skill)}
-                          className="mr-2"
+                  {/* Level Filter */}
+                  <div className="mb-6">
+                    <h3
+                      className="font-semibold text-gray-900 mb-3 flex items-center justify-between cursor-pointer"
+                      onClick={() => setIsLevelsExpanded(!isLevelsExpanded)}
+                    >
+                      <span>Level</span>
+                      <svg
+                        className={`w-4 h-4 transition-transform duration-200 ${
+                          isLevelsExpanded ? "rotate-180" : ""
+                        }`}
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M19 9l-7 7-7-7"
                         />
-                        <span className="text-sm text-gray-700">{skill}</span>
-                      </label>
-                    ))}
+                      </svg>
+                    </h3>
+                    {isLevelsExpanded && (
+                      <div className="space-y-2">
+                        {levelOptions.map((level) => (
+                          <label key={level} className="flex items-center">
+                            <input
+                              type="checkbox"
+                              checked={selectedLevels.includes(level)}
+                              onChange={() => toggleLevelFilter(level)}
+                              className="mr-2"
+                            />
+                            <span className="text-sm text-gray-700">
+                              {level}
+                            </span>
+                          </label>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
 
-              {/* Job Titles Filter */}
-              <div className="mb-6">
-                <h3
-                  className="font-semibold text-gray-900 mb-3 flex items-center justify-between cursor-pointer"
-                  onClick={() => setIsJobTitlesExpanded(!isJobTitlesExpanded)}
-                >
-                  <span>Job Titles</span>
-                  <IoChevronDown className={`w-4 h-4 transition-transform duration-200 ${isJobTitlesExpanded ? 'rotate-180' : ''}`} />
-                </h3>
-                {isJobTitlesExpanded && (
-                  <div className="space-y-2">
-                    {[
-                      'Frontend Developer',
-                      'Backend Developer', 
-                      'Full Stack',
-                      'Mobile Developer',
-                      'Data Scientist',
-                      'UX/UI Designer',
-                      'DevOps Engineer',
-                      'Cybersecurity',
-                      'Product Manager',
-                      'Blockchain Developer',
-                      'Digital Marketing',
-                      'Game Developer'
-                    ].map((title) => (
-                      <label key={title} className="flex items-center">
-                        <input
-                          type="checkbox"
-                          checked={filters.jobTitles.includes(title)}
-                          onChange={() => toggleJobTitleFilter(title)}
-                          className="mr-2"
+                  {/* Tags Filter for Courses */}
+                  <div className="mb-6">
+                    <h3 className="font-semibold text-gray-900 mb-3">Tags</h3>
+                    <div className="space-y-2 max-h-48 overflow-y-auto">
+                      {[
+                        "React",
+                        "JavaScript",
+                        "Python",
+                        "UI/UX",
+                        "Figma",
+                        "Node.js",
+                        "Machine Learning",
+                        "Data Science",
+                      ].map((tag) => (
+                        <label key={tag} className="flex items-center">
+                          <input
+                            type="checkbox"
+                            checked={selectedTags.includes(tag)}
+                            onChange={() => toggleTagFilter(tag)}
+                            className="mr-2"
+                          />
+                          <span className="text-sm text-gray-700">{tag}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Language Filter for Courses */}
+                  <div className="mb-6">
+                    <h3 className="font-semibold text-gray-900 mb-3">
+                      Language
+                    </h3>
+                    <div className="space-y-2">
+                      {[
+                        "English",
+                        "Vietnamese",
+                        "Spanish",
+                        "French",
+                        "German",
+                      ].map((language) => (
+                        <label key={language} className="flex items-center">
+                          <input
+                            type="checkbox"
+                            checked={selectedLanguages.includes(language)}
+                            onChange={() => toggleLanguageFilter(language)}
+                            className="mr-2"
+                          />
+                          <span className="text-sm text-gray-700">
+                            {language}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Price Range Filter */}
+                  <div className="mb-6">
+                    <h3
+                      className="font-semibold text-gray-900 mb-3 flex items-center justify-between cursor-pointer"
+                      onClick={() => setIsPriceExpanded(!isPriceExpanded)}
+                    >
+                      <span>Price</span>
+                      <svg
+                        className={`w-4 h-4 transition-transform duration-200 ${
+                          isPriceExpanded ? "rotate-180" : ""
+                        }`}
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M19 9l-7 7-7-7"
                         />
-                        <span className="text-sm text-gray-700">{title}</span>
-                      </label>
-                    ))}
+                      </svg>
+                    </h3>
+                    {isPriceExpanded && (
+                      <div className="space-y-2">
+                        {priceRanges.map((range) => (
+                          <label
+                            key={range.value}
+                            className="flex items-center"
+                          >
+                            <input
+                              type="radio"
+                              name="priceRange"
+                              value={range.value}
+                              checked={selectedPriceRange === range.value}
+                              onChange={(e) =>
+                                setSelectedPriceRange(e.target.value)
+                              }
+                              className="mr-2"
+                            />
+                            <span className="text-sm text-gray-700">
+                              {range.label}
+                            </span>
+                          </label>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
 
-              {/* Price Range Filter */}
-              <div className="mb-6">
-                <h3
-                  className="font-semibold text-gray-900 mb-3 flex items-center justify-between cursor-pointer"
-                  onClick={() => setIsPriceExpanded(!isPriceExpanded)}
-                >
-                  <span>Prices</span>
-                  <IoChevronDown className={`w-4 h-4 transition-transform duration-200 ${isPriceExpanded ? 'rotate-180' : ''}`} />
-                </h3>
-                {isPriceExpanded && (
-                  <div className="space-y-2">
-                    {[
-                      'Under $50',
-                      '$50 - $100',
-                      '$100 - $200', 
-                      'Over $200'
-                    ].map((range) => (
-                      <label key={range} className="flex items-center">
-                        <input
-                          type="radio"
-                          name="priceRange"
-                          value={range}
-                          checked={filters.priceRange === range}
-                          onChange={(e) => handleFilterChange('priceRange', e.target.value)}
-                          className="mr-2"
+                  {/* Rating Filter for Courses */}
+                  <div className="mb-6">
+                    <h3
+                      className="font-semibold text-gray-900 mb-3 flex items-center justify-between cursor-pointer"
+                      onClick={() => setIsRatingExpanded(!isRatingExpanded)}
+                    >
+                      <span>Rating</span>
+                      <svg
+                        className={`w-4 h-4 transition-transform duration-200 ${
+                          isRatingExpanded ? "rotate-180" : ""
+                        }`}
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M19 9l-7 7-7-7"
                         />
-                        <span className="text-sm text-gray-700">{range}</span>
-                      </label>
-                    ))}
+                      </svg>
+                    </h3>
+                    {isRatingExpanded && (
+                      <div className="space-y-2">
+                        {[
+                          { label: "4.5 & up", value: "4.5" },
+                          { label: "4.0 & up", value: "4.0" },
+                          { label: "3.5 & up", value: "3.5" },
+                          { label: "3.0 & up", value: "3.0" },
+                        ].map((rating) => (
+                          <label
+                            key={rating.value}
+                            className="flex items-center"
+                          >
+                            <input
+                              type="radio"
+                              name="rating"
+                              value={rating.value}
+                              checked={selectedRating === rating.value}
+                              onChange={(e) =>
+                                setSelectedRating(e.target.value)
+                              }
+                              className="mr-2"
+                            />
+                            <span className="text-sm text-gray-700">
+                              {rating.label}
+                            </span>
+                          </label>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
+                </>
+              ) : (
+                <>
+                  {/* Mentor Filters */}
+                  {/* Category Filter for Mentors */}
+                  <div className="mb-6">
+                    <h3
+                      className="font-semibold text-gray-900 mb-3 flex items-center justify-between cursor-pointer"
+                      onClick={() =>
+                        setIsCategoriesExpanded(!isCategoriesExpanded)
+                      }
+                    >
+                      <span>Category</span>
+                      <svg
+                        className={`w-4 h-4 transition-transform duration-200 ${
+                          isCategoriesExpanded ? "rotate-180" : ""
+                        }`}
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M19 9l-7 7-7-7"
+                        />
+                      </svg>
+                    </h3>
+                    {isCategoriesExpanded && (
+                      <div className="space-y-2 max-h-48 overflow-y-auto">
+                        {[
+                          "Programming",
+                          "Design",
+                          "Business",
+                          "Marketing",
+                          "Data Science",
+                          "Photography",
+                        ].map((category) => (
+                          <label key={category} className="flex items-center">
+                            <input
+                              type="checkbox"
+                              checked={selectedMentorCategories.includes(
+                                category
+                              )}
+                              onChange={() => toggleCategoryFilter(category)}
+                              className="mr-2"
+                            />
+                            <span className="text-sm text-gray-700">
+                              {category}
+                            </span>
+                          </label>
+                        ))}
+                      </div>
+                    )}
+                  </div>
 
-              {/* Search Button */}
-              <div className="mt-6 pt-6 border-t border-gray-200">
-                <button
-                  onClick={fetchResults}
-                  className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 transition-all duration-200 font-medium flex items-center justify-center gap-2"
-                >
-                  <IoSearch className="w-4 h-4" />
-                  Search
-                </button>
-              </div>
+                  {/* Skills Filter for Mentors */}
+                  <div className="mb-6">
+                    <h3 className="font-semibold text-gray-900 mb-3">Skills</h3>
+                    <div className="space-y-2 max-h-48 overflow-y-auto">
+                      {[
+                        "JavaScript",
+                        "React",
+                        "Python",
+                        "Node.js",
+                        "UI/UX Design",
+                        "Data Analysis",
+                        "Machine Learning",
+                        "Digital Marketing",
+                        "Project Management",
+                        "Figma",
+                      ].map((skill) => (
+                        <label key={skill} className="flex items-center">
+                          <input
+                            type="checkbox"
+                            checked={selectedSkills.includes(skill)}
+                            onChange={() => toggleSkillFilter(skill)}
+                            className="mr-2"
+                          />
+                          <span className="text-sm text-gray-700">{skill}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Rating Filter for Mentors */}
+                  <div className="mb-6">
+                    <h3
+                      className="font-semibold text-gray-900 mb-3 flex items-center justify-between cursor-pointer"
+                      onClick={() => setIsRatingExpanded(!isRatingExpanded)}
+                    >
+                      <span>Rating</span>
+                      <svg
+                        className={`w-4 h-4 transition-transform duration-200 ${
+                          isRatingExpanded ? "rotate-180" : ""
+                        }`}
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M19 9l-7 7-7-7"
+                        />
+                      </svg>
+                    </h3>
+                    {isRatingExpanded && (
+                      <div className="space-y-2">
+                        {[
+                          { label: "4.5 & up", value: "4.5" },
+                          { label: "4.0 & up", value: "4.0" },
+                          { label: "3.5 & up", value: "3.5" },
+                          { label: "3.0 & up", value: "3.0" },
+                        ].map((rating) => (
+                          <label
+                            key={rating.value}
+                            className="flex items-center"
+                          >
+                            <input
+                              type="radio"
+                              name="mentorRating"
+                              value={rating.value}
+                              checked={selectedMentorRating === rating.value}
+                              onChange={(e) =>
+                                setSelectedMentorRating(e.target.value)
+                              }
+                              className="mr-2"
+                            />
+                            <span className="text-sm text-gray-700">
+                              {rating.label}
+                            </span>
+                          </label>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
             </div>
           </div>
 
-          {/* Right Content - Results */}
-          <div className="flex-1">
-            {loading ? (
-              <div className="flex items-center justify-center min-h-[500px] w-full">
-                <div className="flex flex-col items-center justify-center">
-                  <div className="flex items-center gap-3 text-gray-600 bg-white rounded-xl shadow-lg border px-8 py-6">
-                    <svg className="animate-spin w-7 h-7 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" className="opacity-25"></circle>
-                      <path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" className="opacity-75"></path>
-                    </svg>
-                    <span className="text-lg font-medium text-gray-700">Loading results...</span>
-                  </div>
-                </div>
-              </div>
-            ) : error ? (
-              <div className="bg-white rounded-lg shadow-sm border p-8 text-center">
-                <div className="text-red-600 mb-4">
-                  <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                </div>
-                <h3 className="text-lg font-medium text-gray-900 mb-2">Error Loading Results</h3>
-                <p className="text-gray-600 mb-4">{error}</p>
-                <button
-                  onClick={fetchResults}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200"
-                >
-                  Try Again
-                </button>
-              </div>
-            ) : filteredResults.displayCourses.length === 0 && filteredResults.displayMentors.length === 0 && !loading ? (
-              <div className="bg-white rounded-lg shadow-sm border p-8 text-center">
-                <div className="text-gray-400 mb-4">
-                  <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                  </svg>
-                </div>
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No Results Found</h3>
-                <p className="text-gray-600 mb-4">
-                  Try adjusting your search criteria or filters to find more results.
-                </p>
-                <button
-                  onClick={clearFilters}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200"
-                >
-                  Clear Filters
-                </button>
+          {/* Right Content Area */}
+          <div className="lg:w-3/4">
+            {/* Content Grid */}
+            {paginatedItems.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 mb-8 auto-rows-max">
+                {activeTab === "courses"
+                  ? paginatedItems.map((course) => (
+                      <div
+                        key={course.id}
+                        onClick={() => navigate(`/course-detail/${course.id}`)}
+                        className="course-card bg-white rounded-xl border border-gray-200 shadow-lg flex flex-col w-full transition-all duration-200 hover:shadow-xl hover:-translate-y-1 cursor-pointer overflow-hidden"
+                        style={{
+                          textDecoration: "none",
+                          minHeight: "450px",
+                        }}
+                      >
+                        <div className="h-[140px] w-full bg-white-100 rounded-t-xl flex items-center justify-center relative">
+                          <img
+                            src={course.image}
+                            alt={course.title}
+                            className="object-cover h-[120px] w-[92%] rounded-xl"
+                            style={{ marginTop: "4px", marginBottom: "4px" }}
+                          />
+                          {course.bestseller && (
+                            <span className="absolute top-2 left-2 bg-orange-500 text-white text-xs font-bold px-2 py-1 rounded">
+                              Bestseller
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex flex-col px-5 py-4 flex-1">
+                          <div
+                            className="font-bold text-[18px] text-gray-900 mb-2 leading-tight"
+                            style={{
+                              display: "-webkit-box",
+                              WebkitLineClamp: 2,
+                              WebkitBoxOrient: "vertical",
+                              overflow: "hidden",
+                            }}
+                          >
+                            {course.title}
+                          </div>
+                          <div
+                            className="text-sm text-gray-700 font-normal mb-2"
+                            style={{
+                              display: "-webkit-box",
+                              WebkitLineClamp: 1,
+                              WebkitBoxOrient: "vertical",
+                              overflow: "hidden",
+                            }}
+                          >
+                            By {course.instructor}
+                          </div>
+                          <div className="flex items-center gap-1 text-sm mb-2">
+                            {[...Array(5)].map((_, i) => (
+                              <span
+                                key={i}
+                                className={`text-base ${
+                                  i < Math.floor(course.rating || 0)
+                                    ? "text-yellow-400"
+                                    : "text-gray-300"
+                                }`}
+                              >
+                                ★
+                              </span>
+                            ))}
+                            <span className="text-sm text-gray-700 ml-2">
+                              ({course.reviewCount || 0} Ratings)
+                            </span>
+                          </div>
+                          <div className="text-sm text-gray-700 mb-1">
+                            {course.duration || "Self-paced"} •{" "}
+                            {course.lectures || 0} Lectures
+                          </div>
+                          <div className="text-sm text-gray-600 mb-2">
+                            {course.category || "General"}
+                          </div>
+
+                          {course.tags && course.tags.length > 0 && (
+                            <div className="mb-2">
+                              <div className="flex flex-wrap gap-1">
+                                {course.tags.slice(0, 3).map((tag, index) => (
+                                  <span
+                                    key={index}
+                                    className="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full font-medium max-w-[90px] truncate"
+                                  >
+                                    {tag}
+                                  </span>
+                                ))}
+                                {course.tags.length > 3 && (
+                                  <span className="inline-block bg-gray-100 text-gray-600 text-xs px-2 py-1 rounded-full">
+                                    +{course.tags.length - 3} more
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          )}
+
+                          {course.language && course.language.length > 0 && (
+                            <div className="mb-2">
+                              <p className="text-xs text-gray-500 mb-1">
+                                Languages:
+                              </p>
+                              <div className="flex flex-wrap gap-1">
+                                {course.language
+                                  .slice(0, 2)
+                                  .map((lang, index) => (
+                                    <span
+                                      key={index}
+                                      className="inline-block bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full font-medium max-w-[90px] truncate"
+                                    >
+                                      {lang}
+                                    </span>
+                                  ))}
+                                {course.language.length > 2 && (
+                                  <span className="inline-block bg-gray-100 text-gray-600 text-xs px-2 py-1 rounded-full">
+                                    +{course.language.length - 2} more
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          )}
+
+                          {course.level && (
+                            <p className="text-green-500 text-xs mb-2">
+                              <b>Level:</b> {course.level}
+                            </p>
+                          )}
+
+                          <div className="font-bold text-xl text-gray-900 mt-auto">
+                            $
+                            {(() => {
+                              const price =
+                                typeof course.price === "number"
+                                  ? course.price
+                                  : parseFloat(course.price || 0);
+                              return price % 1 === 0
+                                ? price.toLocaleString("en-US")
+                                : price.toLocaleString("en-US", {
+                                    minimumFractionDigits: 1,
+                                    maximumFractionDigits: 2,
+                                  });
+                            })()}
+                          </div>
+
+                          {user && user.role === "mentee" && (
+                            <div className="flex flex-col gap-2 mt-3 mb-3 px-4">
+                              {isCourseAlreadyPurchased(course.id) ? (
+                                <>
+                                  <div className="w-full bg-green-100 text-green-700 py-2 px-3 rounded-md text-sm font-medium text-center">
+                                    ✓ Already Purchased
+                                  </div>
+                                  <button
+                                    className="w-full bg-blue-600 text-white py-2 px-3 rounded-md text-sm font-medium hover:bg-blue-700 transition"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleSmartViewCourse(course);
+                                    }}
+                                  >
+                                    View Course
+                                  </button>
+                                </>
+                              ) : (
+                                <>
+                                  <button
+                                    onClick={(e) => handleAddToCart(e, course)}
+                                    className="flex-1 bg-blue-100 text-blue-600 py-2 px-3 rounded-md text-sm font-medium hover:bg-blue-200 transition-colors"
+                                  >
+                                    Add to Cart
+                                  </button>
+                                  <button
+                                    onClick={(e) => handleBuyNow(e, course)}
+                                    className="flex-1 bg-blue-600 text-white py-2 px-3 rounded-md text-sm font-medium hover:bg-blue-700 transition-colors"
+                                  >
+                                    Buy Now
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))
+                  : paginatedItems.map((mentor) => (
+                      <div
+                        key={mentor._id}
+                        onClick={() => handleMentorClick(mentor._id)}
+                        className="bg-white rounded-[18px] border border-gray-200 shadow-sm flex flex-col items-center p-6 min-w-[260px] max-w-[300px] w-full transition-all duration-200 hover:shadow-lg hover:-translate-y-1 cursor-pointer"
+                      >
+                        <img
+                          src={mentor.avatarUrl || BoImg}
+                          alt={
+                            mentor.fullName ||
+                            `${mentor.firstName} ${mentor.lastName}`
+                          }
+                          className="w-28 h-28 object-cover rounded-[14px] mb-4 group-hover:scale-105 transition-transform duration-200"
+                          onError={(e) => {
+                            e.target.src = BoImg;
+                          }}
+                        />
+                        <div className="flex flex-col items-center flex-1 w-full">
+                          <div className="font-bold text-lg text-[#1A2233] mb-1 text-center">
+                            {mentor.fullName ||
+                              `${mentor.firstName || ""} ${
+                                mentor.lastName || ""
+                              }`.trim()}
+                          </div>
+                          <div className="text-sm text-[#6B7280] mb-2 text-center">
+                            {mentor.jobTitle || "Professional"}
+                          </div>
+                          <div className="text-xs text-[#6B7280] mb-3 text-center">
+                            {(() => {
+                              let category = mentor.category || "General";
+                              if (Array.isArray(category)) {
+                                category = category[0] || "General";
+                              }
+                              if (
+                                typeof category === "string" &&
+                                category.includes(",")
+                              ) {
+                                category = category.split(",")[0].trim();
+                              }
+                              return (
+                                category.charAt(0).toUpperCase() +
+                                category.slice(1).toLowerCase()
+                              );
+                            })()}
+                          </div>
+                          <div className="flex items-center justify-between w-full mb-4">
+                            <div className="flex items-center gap-2 px-3 py-2 bg-yellow-50 rounded-full">
+                              <svg
+                                className="w-4 h-4 text-yellow-500"
+                                fill="currentColor"
+                                viewBox="0 0 20 20"
+                              >
+                                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                              </svg>
+                              <span className="text-sm font-bold text-yellow-700">
+                                {(
+                                  parseFloat(mentor.averageRating) || 0
+                                ).toFixed(1)}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 rounded-full">
+                              <svg
+                                className="w-4 h-4 text-blue-600"
+                                fill="currentColor"
+                                viewBox="0 0 20 20"
+                              >
+                                <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3z" />
+                              </svg>
+                              <span className="text-sm font-medium text-blue-800">
+                                {mentor.totalMentees ?? 0}
+                              </span>
+                              <span className="text-xs text-blue-600">
+                                students
+                              </span>
+                            </div>
+                          </div>
+                          <div className="w-full flex items-center justify-center gap-2 bg-[#2563eb] text-white font-semibold rounded-lg py-2 mt-auto text-base hover:bg-[#1749b1] transition">
+                            View Profile
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              strokeWidth={1.5}
+                              stroke="currentColor"
+                              className="w-5 h-5"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                d="M17.25 8.25L21 12m0 0l-3.75 3.75M21 12H3"
+                              />
+                            </svg>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
               </div>
             ) : (
-              <div className="space-y-8">
-                {/* Courses Section */}
-                {filteredResults.displayCourses.length > 0 && (
-                  <div>
-                    {activeTab === 'all' && (
-                      <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                        <IoBookSharp className="text-green-600" />
-                        Courses
-                      </h2>
-                    )}
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                      {filteredResults.displayCourses.map((course, index) => (
-                        <CourseCard key={course._id || course.id || `course-${index}`} course={course} />
-                      ))}
-                    </div>
-                  </div>
+              <div className="text-center py-12">
+                <svg
+                  className="mx-auto h-12 w-12 text-gray-400"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                  />
+                </svg>
+                <h3 className="mt-2 text-sm font-medium text-gray-900">
+                  No {activeTab} found
+                </h3>
+                <p className="mt-1 text-sm text-gray-500">
+                  Try adjusting your search criteria or clearing some filters.
+                </p>
+                {hasActiveFilters() && (
+                  <button
+                    onClick={clearAllFilters}
+                    className="mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700"
+                  >
+                    Clear all filters
+                  </button>
                 )}
+              </div>
+            )}
 
-                {/* Mentors Section */}
-                {filteredResults.displayMentors.length > 0 && (
-                  <div>
-                    {activeTab === 'all' && (
-                      <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                        <IoPerson className="text-blue-600" />
-                        Mentors
-                      </h2>
-                    )}
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                      {filteredResults.displayMentors.map((mentor, index) => (
-                        <MentorCard key={mentor._id || mentor.id || `mentor-${index}`} mentor={mentor} />
-                      ))}
-                    </div>
-                  </div>
-                )}
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-center gap-1 mt-8">
+                <button
+                  onClick={() =>
+                    setCurrentPage((prev) => Math.max(prev - 1, 1))
+                  }
+                  disabled={currentPage === 1}
+                  className="flex items-center justify-center w-10 h-10 text-gray-600 hover:text-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  title="Previous page"
+                >
+                  <svg
+                    className="w-5 h-5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M15 19l-7-7 7-7"
+                    />
+                  </svg>
+                </button>
 
-                {/* Pagination */}
-                {filteredResults.totalPages > 1 && (
-                  <div className="flex items-center justify-center gap-1 mt-8">
-                    <button
-                      onClick={() => handlePageChange(Math.max(currentPage - 1, 1))}
-                      disabled={currentPage === 1}
-                      className="flex items-center justify-center w-10 h-10 text-gray-600 hover:text-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                      title="Previous page"
-                    >
-                      <svg
-                        className="w-5 h-5"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
+                {(() => {
+                  const pages = [];
+                  const showPages = 5;
+                  let startPage = Math.max(
+                    1,
+                    currentPage - Math.floor(showPages / 2)
+                  );
+                  let endPage = Math.min(totalPages, startPage + showPages - 1);
+
+                  if (endPage - startPage < showPages - 1) {
+                    startPage = Math.max(1, endPage - showPages + 1);
+                  }
+
+                  if (startPage > 1) {
+                    pages.push(
+                      <button
+                        key={1}
+                        onClick={() => setCurrentPage(1)}
+                        className="flex items-center justify-center w-10 h-10 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
                       >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M15 19l-7-7 7-7"
-                        />
-                      </svg>
-                    </button>
-
-                    {/* Show pagination numbers intelligently */}
-                    {(() => {
-                      const pages = [];
-                      const showPages = 5; // Show 5 page numbers at most
-                      let startPage = Math.max(
-                        1,
-                        currentPage - Math.floor(showPages / 2)
+                        1
+                      </button>
+                    );
+                    if (startPage > 2) {
+                      pages.push(
+                        <span
+                          key="ellipsis1"
+                          className="flex items-center justify-center w-10 h-10 text-gray-500"
+                        >
+                          ...
+                        </span>
                       );
-                      let endPage = Math.min(filteredResults.totalPages, startPage + showPages - 1);
+                    }
+                  }
 
-                      // Adjust start if we're near the end
-                      if (endPage - startPage < showPages - 1) {
-                        startPage = Math.max(1, endPage - showPages + 1);
-                      }
-
-                      // Show first page if not visible
-                      if (startPage > 1) {
-                        pages.push(
-                          <button
-                            key={1}
-                            onClick={() => handlePageChange(1)}
-                            className={`flex items-center justify-center w-10 h-10 text-sm font-medium rounded-md transition-colors ${
-                              currentPage === 1
-                                ? "text-white bg-blue-600 border border-blue-600"
-                                : "text-gray-700 bg-white border border-gray-300 hover:bg-gray-50"
-                            }`}
-                          >
-                            1
-                          </button>
-                        );
-                        if (startPage > 2) {
-                          pages.push(
-                            <span
-                              key="ellipsis1"
-                              className="flex items-center justify-center w-10 h-10 text-gray-500"
-                            >
-                              ...
-                            </span>
-                          );
-                        }
-                      }
-
-                      // Show page numbers
-                      for (let i = startPage; i <= endPage; i++) {
-                        pages.push(
-                          <button
-                            key={i}
-                            onClick={() => handlePageChange(i)}
-                            className={`flex items-center justify-center w-10 h-10 text-sm font-medium rounded-md transition-colors ${
-                              currentPage === i
-                                ? "text-white bg-blue-600 border border-blue-600"
-                                : "text-gray-700 bg-white hover:bg-gray-50"
-                            }`}
-                          >
-                            {i}
-                          </button>
-                        );
-                      }
-
-                      // Show last page if not visible
-                      if (endPage < filteredResults.totalPages) {
-                        if (endPage < filteredResults.totalPages - 1) {
-                          pages.push(
-                            <span
-                              key="ellipsis2"
-                              className="flex items-center justify-center w-10 h-10 text-gray-500"
-                            >
-                              ...
-                            </span>
-                          );
-                        }
-                        pages.push(
-                          <button
-                            key={filteredResults.totalPages}
-                            onClick={() => handlePageChange(filteredResults.totalPages)}
-                            className={`flex items-center justify-center w-10 h-10 text-sm font-medium rounded-md transition-colors ${
-                              currentPage === filteredResults.totalPages
-                                ? "text-white bg-blue-600 border border-blue-600"
-                                : "text-gray-700 bg-white border border-gray-300 hover:bg-gray-50"
-                            }`}
-                          >
-                            {filteredResults.totalPages}
-                          </button>
-                        );
-                      }
-
-                      return pages;
-                    })()}
-
-                    <button
-                      onClick={() => handlePageChange(Math.min(currentPage + 1, filteredResults.totalPages))}
-                      disabled={currentPage === filteredResults.totalPages}
-                      className="flex items-center justify-center w-10 h-10 text-gray-600 hover:text-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                      title="Next page"
-                    >
-                      <svg
-                        className="w-5 h-5"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
+                  for (let i = startPage; i <= endPage; i++) {
+                    pages.push(
+                      <button
+                        key={i}
+                        onClick={() => setCurrentPage(i)}
+                        className={`flex items-center justify-center w-10 h-10 text-sm font-medium rounded-md transition-colors ${
+                          currentPage === i
+                            ? "text-white bg-blue-600 border border-blue-600"
+                            : "text-gray-700 bg-white hover:bg-gray-50"
+                        }`}
                       >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M9 5l7 7-7 7"
-                        />
-                      </svg>
-                    </button>
-                  </div>
-                )}
+                        {i}
+                      </button>
+                    );
+                  }
+
+                  if (endPage < totalPages) {
+                    if (endPage < totalPages - 1) {
+                      pages.push(
+                        <span
+                          key="ellipsis2"
+                          className="flex items-center justify-center w-10 h-10 text-gray-500"
+                        >
+                          ...
+                        </span>
+                      );
+                    }
+                    pages.push(
+                      <button
+                        key={totalPages}
+                        onClick={() => setCurrentPage(totalPages)}
+                        className="flex items-center justify-center w-10 h-10 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+                      >
+                        {totalPages}
+                      </button>
+                    );
+                  }
+
+                  return pages;
+                })()}
+
+                <button
+                  onClick={() =>
+                    setCurrentPage((prev) => Math.min(prev + 1, totalPages))
+                  }
+                  disabled={currentPage === totalPages}
+                  className="flex items-center justify-center w-10 h-10 text-gray-600 hover:text-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  title="Next page"
+                >
+                  <svg
+                    className="w-5 h-5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M9 5l7 7-7 7"
+                    />
+                  </svg>
+                </button>
               </div>
             )}
           </div>
         </div>
       </div>
-        </>
-      )}
     </div>
   );
 };

@@ -5,10 +5,24 @@ import { clearUser } from "../../redux/features/user.slice";
 import { IoSearch, IoCartOutline } from "react-icons/io5";
 import { FaRegHeart, FaRegBell } from "react-icons/fa";
 import { MdOutlineShoppingCart } from "react-icons/md";
+import SearchDropdown from "./SearchDropdown";
 
 const Header = () => {
+  // Dropdown state for avatar
+  const [showAvatarDropdown, setShowAvatarDropdown] = useState(false);
+
+  // Đóng dropdown khi click ra ngoài
+  useEffect(() => {
+    if (!showAvatarDropdown) return;
+    const handleClick = (e) => {
+      if (!e.target.closest(".header-avatar-dropdown")) {
+        setShowAvatarDropdown(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [showAvatarDropdown]);
   const [showCategories, setShowCategories] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
   const navigate = useNavigate();
   const location = useLocation();
   const dispatch = useDispatch();
@@ -82,171 +96,157 @@ const Header = () => {
     navigate("/");
   };
 
-  // Handle search functionality
-  const handleSearch = () => {
-    if (searchQuery.trim()) {
-      // Navigate to universal search page
-      navigate(`/platform/search?search=${encodeURIComponent(searchQuery.trim())}`);
-    } else {
-      // Navigate to search page without query
-      navigate('/platform/search');
-    }
-  };
-
-  const handleSearchKeyPress = (e) => {
-    if (e.key === 'Enter') {
-      handleSearch();
-    }
-  };
-
-  // Handle search container click to focus input
-  const handleSearchContainerClick = () => {
-    const searchInput = document.querySelector('input[placeholder*="Search courses"]');
-    if (searchInput) {
-      searchInput.focus();
-    }
-  };
-
   // Handle mentor button click
   const handleMentorClick = () => {
-    navigate('/all-mentors');
+    navigate("/all-mentors");
   };
 
   return (
     <>
-      <header className="relative w-full h-16 bg-white">
-        <div className="relative flex items-center w-full h-full px-4 sm:px-6 md:px-8 lg:px-10 xl:px-14 2xl:px-20">
-          {/* Logo */}
-          <div
-            className="text-slate-500 text-xl md:text-2xl font-inter font-bold mr-4 md:mr-9 min-w-[100px] cursor-pointer hover:text-slate-600 transition-colors duration-200"
-            onClick={() => {
-              localStorage.setItem("mentorMode", "false");
-              setShowCategories(false);
-              // redirect theo role
-              // mentor thì về /mentor/home
-              // mentee thì về /home
-              if (isLoggedIn) {
-                const userData = localUser ? JSON.parse(localUser) : user;
-                const userRole = userData?.role;
-                if (userRole === "mentor") {
-                  setShowCategories(true);
-                  localStorage.setItem("mentorMode", "true");
-                  navigate("/mentor/home");
+      {/* height ổn định theo breakpoint, sticky header, container chuẩn */}
+      <header className="sticky top-0 z-40 w-full bg-white">
+        <div className="mx-auto max-w-screen-2xl px-3 sm:px-4 lg:px-8">
+          {/* no-wrap row, spacing grow theo breakpoint */}
+          <div className="flex h-14 md:h-16 items-center gap-2 md:gap-4 lg:gap-6 flex-nowrap">
+            {/* Logo: shrink-0, hit-area đều, căn giữa */}
+            <button
+              type="button"
+              className="shrink-0 h-10 flex items-center px-2 font-inter font-bold text-slate-700 hover:text-slate-900 text-lg md:text-2xl mr-2 md:mr-4 cursor-pointer transition-colors duration-200"
+              onClick={() => {
+                localStorage.setItem("mentorMode", "false");
+                setShowCategories(false);
+                if (isLoggedIn) {
+                  const userData = localUser ? JSON.parse(localUser) : user;
+                  const userRole = userData?.role;
+                  if (userRole === "mentor") {
+                    setShowCategories(true);
+                    localStorage.setItem("mentorMode", "true");
+                    navigate("/mentor/home");
+                  } else {
+                    setShowCategories(false);
+                    localStorage.setItem("mentorMode", "false");
+                    navigate("/home");
+                  }
                 } else {
-                  setShowCategories(false);
-                  localStorage.setItem("mentorMode", "false");
-                  navigate("/home");
+                  navigate("/auth/signin");
                 }
-              } else {
-                // đăng nhập
-                navigate("/auth/signin");
-              }
-            }}
-          >
-            MentorMe
-          </div>
-
-          {/* Categories or Mentors */}
-          <button 
-            onClick={handleMentorClick}
-            className="hidden md:block text-slate-500 text-[14px] md:text-[16px] font-inter font-light leading-5 mr-6 md:mr-10 whitespace-nowrap cursor-pointer hover:text-blue-600 hover:bg-blue-50 px-3 py-1 rounded-md transition-all duration-200"
-          >
-            {showCategories ? "Categories" : "Mentors"}
-          </button>
-
-          {/* Search Bar */}
-          <div 
-            onClick={handleSearchContainerClick}
-            className="flex-1 max-w-full sm:max-w-[400px] md:max-w-[500px] lg:max-w-[580px] xl:max-w-[680px] p-2.5 rounded-lg border border-slate-500 flex items-center gap-2.5 mr-2 sm:mr-4 md:mr-6 cursor-text hover:border-slate-600 transition-colors duration-200"
-          >
-            <IoSearch className="text-xl text-slate-500 pointer-events-none" />
-            <input
-              type="text"
-              placeholder="Search courses and mentors"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              onKeyPress={handleSearchKeyPress}
-              className="flex-1 text-sm md:text-base font-medium bg-transparent border-none outline-none text-slate-500 placeholder:text-slate-500 cursor-text"
-            />
-            <button 
-              onClick={handleSearch}
-              className="hover:bg-slate-100 p-1 rounded-md transition-colors duration-200 cursor-pointer"
+              }}
             >
-              <IoSearch className="text-lg text-slate-600" />
+              MentorMe
             </button>
-          </div>
-
-          {/* Right section */}
-          <div className="flex flex-wrap items-center gap-3 sm:gap-4 md:gap-5 lg:gap-6 ml-2 sm:ml-4">
-            {/* Mentor with MentorMe */}
-            <div className="hidden md:block text-slate-500 text-sm lg:text-base font-inter font-light leading-5 whitespace-nowrap cursor-pointer hover:text-slate-600 transition-colors duration-200">
+            {/* Categories/Mentors: hidden trên mobile, hit-area đều, căn giữa */}
+            <button
+              onClick={handleMentorClick}
+              className="hidden md:inline-flex h-10 items-center rounded-md px-2 text-slate-600 hover:text-blue-600 hover:bg-blue-50 text-sm md:text-base font-inter font-light leading-5 mr-2 md:mr-4 whitespace-nowrap transition-all duration-200"
+            >
+              {showCategories ? "Categories" : "Mentors"}
+            </button>
+            {/* search co giãn: flex-1 min-w-0, max-w-xl */}
+            {/* search grow, trần theo breakpoint, không vỡ layout */}
+            <div className="flex-1 min-w-0 mr-2 md:mr-4">
+              <div className="flex items-center gap-2 w-full max-w-sm md:max-w-xl lg:max-w-2xl">
+                <SearchDropdown />
+              </div>
+            </div>
+            {/* Tagline: shrink-0, hit-area đều, căn giữa */}
+            {/* Tagline: shrink-0, căn giữa dọc, cùng chiều cao với các nút */}
+            <div className="hidden lg:flex items-center shrink-0 h-10 px-2 text-slate-500 text-sm lg:text-base font-inter font-light leading-5 whitespace-nowrap">
               Mentor with MentorMe
             </div>
-
-            {/* Action area */}
-            {!isLoggedIn ? (
-              <>
-                <button
-                  onClick={() => {
-                    // Không set mentorMode ở đây, sẽ set sau khi login thành công
-                    navigate("/auth/signin");
-                  }}
-                  className="px-2 sm:px-3 py-2 text-xs sm:text-sm border border-slate-500 bg-transparent text-slate-500 font-light rounded hover:bg-slate-500 hover:text-white transition-all duration-200"
-                >
-                  Log In
-                </button>
-                <button
-                  onClick={() => {
-                    localStorage.setItem("mentorMode", "false");
-                    setShowCategories(false);
-                    navigate("/auth/signup");
-                  }}
-                  className="px-2 sm:px-3 py-2 text-xs sm:text-sm bg-slate-700 border border-slate-500 text-white font-light rounded hover:bg-slate-600 hover:border-slate-600 transition-all duration-200"
-                >
-                  Sign Up
-                </button>
-              </>
-            ) : (
-              <div className="flex items-center gap-2 sm:gap-3 md:gap-4">
-                <div
-                  className="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center cursor-pointer"
-                  onClick={() => handleAPICall("demo-mentor-id", "Favorite")}
-                >
-                  <FaRegHeart
-                    size={20}
-                    className="text-slate-500 hover:text-red-500 transition-colors duration-200"
-                  />
+            {/* Action area: flex, icon đều, hit-area chuẩn */}
+            {/* Action area: shrink-0, spacing grow theo breakpoint */}
+            <div className="flex items-center gap-2 md:gap-4 lg:gap-5 shrink-0 ml-2">
+              {!isLoggedIn ? (
+                <>
+                  <button
+                    onClick={() => {
+                      navigate("/auth/signin");
+                    }}
+                    className="h-10 px-3 text-sm border border-slate-500 bg-transparent text-slate-500 font-light rounded hover:bg-slate-500 hover:text-white transition-all duration-200 flex items-center"
+                  >
+                    Log In
+                  </button>
+                  <button
+                    onClick={() => {
+                      localStorage.setItem("mentorMode", "false");
+                      setShowCategories(false);
+                      navigate("/auth/signup");
+                    }}
+                    className="h-10 px-3 text-sm bg-slate-700 border border-slate-500 text-white font-light rounded hover:bg-slate-600 hover:border-slate-600 transition-all duration-200 flex items-center"
+                  >
+                    Sign Up
+                  </button>
+                </>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    className="inline-flex h-10 w-10 items-center justify-center rounded-full hover:bg-slate-100"
+                    onClick={() => handleAPICall("demo-mentor-id", "Favorite")}
+                  >
+                    <FaRegHeart className="text-xl md:text-2xl text-slate-500 hover:text-red-500 transition-colors duration-200" />
+                  </button>
+                  <button
+                    type="button"
+                    className="inline-flex h-10 w-10 items-center justify-center rounded-full hover:bg-slate-100"
+                    onClick={() => handleAPICall("cart-mentor-id", "Cart")}
+                  >
+                    <MdOutlineShoppingCart className="text-xl md:text-2xl text-slate-500 hover:text-slate-600 transition-colors duration-200" />
+                  </button>
+                  <button
+                    type="button"
+                    className="inline-flex h-10 w-10 items-center justify-center rounded-full hover:bg-slate-100"
+                    onClick={() => handleAPICall("bell-mentor-id", "Bell")}
+                  >
+                    <FaRegBell className="text-xl md:text-2xl text-slate-500 hover:text-blue-500 transition-colors duration-200" />
+                  </button>
+                  {/* Avatar: mở dropdown khi click */}
+                  <div className="relative header-avatar-dropdown">
+                    <button
+                      type="button"
+                      className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-slate-700 text-white text-base md:text-lg font-bold cursor-pointer select-none hover:bg-slate-600 transition-colors duration-200"
+                      onClick={() => setShowAvatarDropdown((v) => !v)}
+                      title="Account menu"
+                    >
+                      {user?.firstName?.charAt(0).toUpperCase() || "U"}
+                    </button>
+                    {showAvatarDropdown && (
+                      <div className="absolute right-0 mt-2 w-40 bg-white border border-slate-200 rounded shadow-lg z-50">
+                        <button
+                          className="w-full text-left px-4 py-2 hover:bg-slate-100 text-slate-700 text-sm"
+                          onClick={() => {
+                            setShowAvatarDropdown(false);
+                            const userData = localUser
+                              ? JSON.parse(localUser)
+                              : user;
+                            const userRole = userData?.role;
+                            if (userRole === "mentor") {
+                              navigate("/mentor/profile");
+                            } else {
+                              navigate("/profile");
+                            }
+                          }}
+                        >
+                          Profile
+                        </button>
+                        <button
+                          className="w-full text-left px-4 py-2 hover:bg-slate-100 text-slate-700 text-sm border-t border-slate-100"
+                          onClick={() => {
+                            setShowAvatarDropdown(false);
+                            handleLogout();
+                          }}
+                        >
+                          Sign out
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
-                <div
-                  className="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center cursor-pointer"
-                  onClick={() => handleAPICall("cart-mentor-id", "Cart")}
-                >
-                  <MdOutlineShoppingCart
-                    size={20}
-                    className="text-slate-500 hover:text-slate-600 transition-colors duration-200"
-                  />
-                </div>
-                <div
-                  className="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center cursor-pointer"
-                  onClick={() => handleAPICall("bell-mentor-id", "Bell")}
-                >
-                  <FaRegBell
-                    size={20}
-                    className="text-slate-500 hover:text-blue-500 transition-colors duration-200"
-                  />
-                </div>
-                <div
-                  className="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center rounded-full bg-slate-700 text-white text-sm font-bold cursor-pointer select-none hover:bg-slate-600 transition-colors duration-200"
-                  onClick={handleLogout}
-                  title="Click to Logout"
-                >
-                  {user?.firstName?.charAt(0).toUpperCase() || "U"}
-                </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </div>
-        <div className="absolute bottom-0 left-0 w-full h-px bg-slate-300" />
+        <div className="h-px w-full bg-slate-300" />
       </header>
       <Outlet />
     </>
