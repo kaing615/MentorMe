@@ -110,12 +110,13 @@ const updateMenteeProfileValidator = [
   body("bio")
     .optional()
     .notEmpty()
+    .allow("")
     .withMessage("Bio không được để trống")
-    .isLength({ min: 10, max: 300 })
     .withMessage("Bio phải từ 10-300 ký tự"),
   body("location")
     .optional()
     .notEmpty()
+    .allow("")
     .withMessage("Location không được để trống"),
   body("linkedinUrl")
     .optional()
@@ -125,20 +126,21 @@ const updateMenteeProfileValidator = [
   // Profile Model fields cho mentee
   body("description")
     .optional()
-    .isLength({ min: 10, max: 500 })
+    .allow("")
     .withMessage("Description phải từ 10-500 ký tự"),
   body("goal")
     .optional()
-    .isLength({ min: 10, max: 300 })
+    .allow("")
     .withMessage("Goal phải từ 10-300 ký tự"),
   body("education")
     .optional()
-    .isLength({ min: 5, max: 200 })
+    .allow("")
     .withMessage("Education phải từ 5-200 ký tự"),
   body("languages").optional().isArray().withMessage("Languages phải là mảng"),
   body("timezone")
     .optional()
     .notEmpty()
+    .allow("")
     .withMessage("Timezone không được để trống"),
   body("links").optional().isObject().withMessage("Links phải là object"),
 ];

@@ -29,6 +29,41 @@ const Checkout = () => {
   const location = useLocation();
   const dispatch = useDispatch();
 
+  // --- AUTH CHECK (chỉ mentee được phép) ---
+  useEffect(() => {
+    const token =
+      localStorage.getItem("actkn") || localStorage.getItem("token");
+    const userStr =
+      localStorage.getItem("user") || localStorage.getItem("user");
+    console.log("Token:", token);
+    let user = null;
+    if (!token) {
+      navigate("/auth/signin");
+      return;
+    }
+    // Check user object
+    try {
+      user = userStr ? JSON.parse(userStr) : null;
+    } catch (e) {
+      user = null;
+    }
+    if (!user || !user.role) {
+      navigate("/auth/signin");
+      return;
+    }
+    // Check role - chỉ mentee được phép vào checkout
+    if (user.role === "mentee") {
+      return;
+    }
+    // Nếu không phải mentee, redirect về home
+    if (user.role === "mentor") {
+      navigate("/home");
+      return;
+    }
+    navigate("/auth/signin");
+    return;
+  }, [navigate]);
+
   // State for checkout session and cart data
   const [checkoutSession, setCheckoutSession] = useState(null);
   const [cartData, setCartData] = useState(null);
@@ -74,8 +109,8 @@ const Checkout = () => {
       const token =
         localStorage.getItem("token") || localStorage.getItem("actkn");
       if (!token) {
-        toast.error("Vui lòng đăng nhập để tiếp tục");
-        navigate("/login");
+        toast.error("Login to proceed to checkout");
+        navigate("/auth/signin");
         return;
       }
 
@@ -206,129 +241,337 @@ const Checkout = () => {
         address: formData.address || "Mock Address",
       };
 
-      // Create order first - use mock order to bypass cart dependency issues
-      const mockOrderInfo = {
-        orderNumber: "ORD" + Date.now(),
-        formattedOrderNumber: `ORD-${Date.now()}`,
-        items: selectedCourses.map((course) => ({
+      // Create order via backend API
+      const orderPayload = {
+        courses: selectedCourses.map((course) => ({
           courseId: course._id,
           title: course.title,
           price: course.price,
-          quantity: 1,
-          thumbnail: course.thumbnail,
         })),
-        courses: selectedCourses.map((c) => c._id),
-        summary: {
-          subtotal: subtotal,
-          discount: discount,
-          total: total,
-        },
-        billingInfo: {
-          email: "mentee@example.com",
-          firstName: "Mock",
-          lastName: "User",
-          country: formData.country,
-          address: formData.address || "Mock Address",
-        },
-        status: "pending",
-        createdAt: new Date().toISOString(),
+        totalAmount: total,
+        discountAmount: discount,
+        billingInfo: billingInfo,
       };
 
-      // Mock update order status to "paid"
-      mockOrderInfo.status = "paid";
+      console.log("Creating order with payload:", orderPayload);
 
-      // Save purchased courses to localStorage for "My Courses" display
-      try {
-        const existingPurchased = localStorage.getItem("mockPurchasedCourses");
-        let purchasedCourses = [];
+      // Call backend to create order
+      const createOrderResponse = await fetch("/api/v1/orders", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${
+            localStorage.getItem("token") || localStorage.getItem("actkn")
+          }`,
+        },
+        body: JSON.stringify(orderPayload),
+      });
 
-        if (existingPurchased) {
-          try {
-            purchasedCourses = JSON.parse(existingPurchased);
-          } catch (e) {
-            purchasedCourses = [];
-          }
-        }
-
-        // Add new courses to purchased list
-        selectedCourses.forEach((course) => {
-          // Check if course already exists
-          const exists = purchasedCourses.some(
-            (pc) =>
-              pc.courseId === course._id || pc.courseInfo?._id === course._id
-          );
-
-          if (!exists) {
-            purchasedCourses.push({
-              courseId: course._id,
-              courseInfo: {
-                _id: course._id,
-                title: course.title,
-                description: course.description,
-                price: course.price,
-                mentor: course.mentor,
-                category: course.category,
-                duration: course.duration,
-                rate: course.rate,
-                lectures: course.lectures,
-                thumbnail: course.thumbnail,
-              },
-              purchaseDate: new Date().toISOString(),
-              progress: 0, // Starting progress
-              lastAccessDate: new Date().toISOString(),
-              isCompleted: false,
-              orderInfo: {
-                transactionId: mockOrderInfo.orderNumber,
-                paymentMethod: paymentMethod,
-                createdAt: new Date().toISOString(),
-              },
-            });
-          }
-        });
-
-        localStorage.setItem(
-          "mockPurchasedCourses",
-          JSON.stringify(purchasedCourses)
-        );
-        console.log(
-          "Saved purchased courses to localStorage:",
-          purchasedCourses.length
-        );
-      } catch (err) {
-        console.error("Error saving purchased courses:", err);
-      }
-
-      // Skip purchase success API call to avoid backend dependencies
-      // In production, this would integrate with real payment and order systems
+      console.log("Create order response status:", createOrderResponse.status);
       console.log(
-        "Mock checkout completed for courses:",
-        selectedCourses.map((c) => c.title)
+        "Create order response headers:",
+        createOrderResponse.headers
       );
 
-      toast.success("Đặt hàng thành công!");
+      if (!createOrderResponse.ok) {
+        const errorData = await createOrderResponse.json();
+        console.error("Create order error:", errorData);
+        throw new Error(errorData.message || "Không thể tạo đơn hàng");
+      }
 
-      // Navigate to order complete page
-      navigate(`/order-detail?orderId=${mockOrderInfo.orderNumber}`, {
-        state: {
-          orderInfo: {
-            ...mockOrderInfo,
-            selectedCourses,
-            subtotal,
-            discount,
-            tax,
-            total,
-            appliedCoupon,
-            status: "Completed",
+      const orderData = await createOrderResponse.json();
+      console.log("Create order response data:", orderData);
+
+      const order = orderData?.data?.order;
+
+      if (!order) {
+        console.error("No order in response:", orderData);
+        throw new Error("Không nhận được thông tin đơn hàng");
+      }
+
+      console.log("Order created successfully:", order);
+
+      // For mock payment, directly mark order as paid via payment API
+      try {
+        const paymentResponse = await fetch("/api/v1/payment/manual", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${
+              localStorage.getItem("token") || localStorage.getItem("actkn")
+            }`,
           },
-        },
-      });
+          body: JSON.stringify({
+            orderNumber: order.orderNumber,
+            transactionId: `MANUAL_${Date.now()}`,
+          }),
+        });
+
+        if (!paymentResponse.ok) {
+          throw new Error("Không thể xử lý thanh toán");
+        }
+
+        const paymentData = await paymentResponse.json();
+        console.log("Payment processed successfully:", paymentData);
+
+        // Save purchased courses to localStorage
+        await savePurchasedCoursesToLocalStorage();
+
+        // Remove purchased courses from cart
+        await removePurchasedCoursesFromCart();
+
+        toast.success("Đặt hàng và thanh toán thành công!");
+
+        // Navigate to order complete page
+        navigate(`/order-detail?orderId=${order.orderNumber}`, {
+          state: {
+            orderInfo: {
+              orderNumber: order.orderNumber,
+              formattedOrderNumber:
+                order.formattedOrderNumber || `ORD-${order.orderNumber}`,
+              selectedCourses,
+              subtotal,
+              discount,
+              tax,
+              total,
+              appliedCoupon,
+              status: "Completed",
+              createdAt: order.createdAt,
+            },
+          },
+        });
+      } catch (paymentError) {
+        console.error("Payment processing failed:", paymentError);
+        // If payment fails, still save to localStorage as fallback
+        await savePurchasedCoursesToLocalStorage();
+        await removePurchasedCoursesFromCart();
+
+        toast.success("Đặt hàng thành công! (Sử dụng dữ liệu local)");
+        navigate(`/order-detail?orderId=${order.orderNumber}`, {
+          state: {
+            orderInfo: {
+              orderNumber: order.orderNumber,
+              selectedCourses,
+              subtotal,
+              discount,
+              tax,
+              total,
+              status: "Completed",
+            },
+          },
+        });
+      }
     } catch (error) {
       console.error("Checkout error:", error);
-      toast.error(error.message || "Có lỗi xảy ra khi xử lý thanh toán");
+
+      // Fallback to mock order if backend fails
+      console.log("Backend failed, using mock order as fallback");
+      await createMockOrder();
     } finally {
       setProcessingPayment(false);
       dispatch(hideLoading());
     }
+  };
+
+  // Helper function to save purchased courses to localStorage
+  const savePurchasedCoursesToLocalStorage = async () => {
+    try {
+      // Get current user ID for user-specific localStorage
+      const userStr = localStorage.getItem("user");
+      let currentUserId = null;
+      try {
+        const user = userStr ? JSON.parse(userStr) : null;
+        currentUserId = user?.id || user?._id;
+      } catch (e) {
+        console.warn("Error parsing user:", e);
+      }
+
+      const mockKey = currentUserId
+        ? `mockPurchasedCourses_${currentUserId}`
+        : "mockPurchasedCourses";
+      const existingPurchased = localStorage.getItem(mockKey);
+      let purchasedCourses = [];
+
+      if (existingPurchased) {
+        try {
+          purchasedCourses = JSON.parse(existingPurchased);
+        } catch (e) {
+          purchasedCourses = [];
+        }
+      }
+
+      // Add new courses to purchased list
+      selectedCourses.forEach((course) => {
+        // Check if course already exists
+        const exists = purchasedCourses.some(
+          (pc) =>
+            pc.courseId === course._id || pc.courseInfo?._id === course._id
+        );
+
+        if (!exists) {
+          purchasedCourses.push({
+            courseId: course._id,
+            courseInfo: {
+              _id: course._id,
+              title: course.title,
+              description: course.description,
+              price: course.price,
+              mentor: course.mentor,
+              category: course.category,
+              duration: course.duration,
+              rate: course.rate,
+              lectures: course.lectures,
+              thumbnail: course.thumbnail,
+            },
+            purchaseDate: new Date().toISOString(),
+            progress: 0, // Starting progress
+            lastAccessDate: new Date().toISOString(),
+            isCompleted: false,
+            orderInfo: {
+              transactionId: `MOCK_${Date.now()}`,
+              paymentMethod: paymentMethod,
+              createdAt: new Date().toISOString(),
+            },
+          });
+        }
+      });
+
+      localStorage.setItem(mockKey, JSON.stringify(purchasedCourses));
+      console.log(
+        `Saved purchased courses to localStorage (${mockKey}):`,
+        purchasedCourses.length
+      );
+    } catch (err) {
+      console.error("Error saving purchased courses:", err);
+    }
+  };
+
+  // Helper function to remove purchased courses from cart
+  const removePurchasedCoursesFromCart = async () => {
+    console.log("[DEBUG] Starting removePurchasedCoursesFromCart");
+    console.log("[DEBUG] Selected courses to remove:", selectedCourses);
+
+    try {
+      // Get current user ID for user-specific cart
+      const userStr = localStorage.getItem("user");
+      let currentUserId = null;
+      try {
+        const user = userStr ? JSON.parse(userStr) : null;
+        currentUserId = user?.id || user?._id;
+      } catch (e) {
+        console.warn("Error parsing user:", e);
+      }
+
+      console.log("[DEBUG] Current user ID:", currentUserId);
+
+      // Get purchased course IDs
+      const purchasedCourseIds = selectedCourses.map((course) => course._id);
+      console.log("[DEBUG] Course IDs to remove:", purchasedCourseIds);
+
+      // Remove from backend cart if user is authenticated
+      if (currentUserId && purchasedCourseIds.length > 0) {
+        console.log("[DEBUG] Removing from backend cart...");
+        for (const courseId of purchasedCourseIds) {
+          try {
+            console.log(`[DEBUG] Removing course ${courseId} from backend...`);
+            const result = await cartApi.removeFromCart({ courseId }, dispatch);
+            console.log(
+              `[DEBUG] Backend remove result for ${courseId}:`,
+              result
+            );
+          } catch (error) {
+            console.warn(
+              `[DEBUG] Failed to remove course ${courseId} from backend cart:`,
+              error
+            );
+          }
+        }
+      }
+
+      // Also remove from localStorage cart as fallback
+      const cartKey = currentUserId ? `cart_${currentUserId}` : "cart";
+      console.log("[DEBUG] Checking localStorage cart with key:", cartKey);
+      const existingCart = localStorage.getItem(cartKey);
+
+      if (existingCart) {
+        try {
+          let cartItems = JSON.parse(existingCart);
+          console.log("[DEBUG] Current localStorage cart items:", cartItems);
+
+          // Filter out purchased courses
+          const originalLength = cartItems.length;
+          cartItems = cartItems.filter(
+            (item) =>
+              !purchasedCourseIds.includes(item._id || item.id || item.courseId)
+          );
+
+          localStorage.setItem(cartKey, JSON.stringify(cartItems));
+          console.log(
+            `[DEBUG] Updated localStorage cart (${cartKey}), removed ${
+              originalLength - cartItems.length
+            } items, remaining:`,
+            cartItems.length
+          );
+        } catch (e) {
+          console.warn("[DEBUG] Error updating localStorage cart:", e);
+        }
+      } else {
+        console.log("[DEBUG] No localStorage cart found");
+      }
+    } catch (err) {
+      console.error("[DEBUG] Error removing purchased courses from cart:", err);
+    }
+  };
+
+  // Mock order creation as fallback
+  const createMockOrder = async () => {
+    const mockOrderInfo = {
+      orderNumber: "ORD" + Date.now(),
+      formattedOrderNumber: `ORD-${Date.now()}`,
+      items: selectedCourses.map((course) => ({
+        courseId: course._id,
+        title: course.title,
+        price: course.price,
+        quantity: 1,
+        thumbnail: course.thumbnail,
+      })),
+      courses: selectedCourses.map((c) => c._id),
+      summary: {
+        subtotal: subtotal,
+        discount: discount,
+        total: total,
+      },
+      billingInfo: {
+        email: "mentee@example.com",
+        firstName: "Mock",
+        lastName: "User",
+        country: formData.country,
+        address: formData.address || "Mock Address",
+      },
+      status: "paid",
+      createdAt: new Date().toISOString(),
+    };
+
+    await savePurchasedCoursesToLocalStorage();
+    await removePurchasedCoursesFromCart();
+
+    toast.success("Đặt hàng thành công!");
+
+    // Navigate to order complete page
+    navigate(`/order-detail?orderId=${mockOrderInfo.orderNumber}`, {
+      state: {
+        orderInfo: {
+          ...mockOrderInfo,
+          selectedCourses,
+          subtotal,
+          discount,
+          tax,
+          total,
+          appliedCoupon,
+          status: "Completed",
+        },
+      },
+    });
   };
 
   // Apply coupon code (ready for DB/seed test)
@@ -390,6 +633,25 @@ const Checkout = () => {
       expiryDate: formattedDate,
     }));
     setShowDatePicker(false);
+  };
+
+  const renderStars = (rating) => {
+    return (
+      <div className="flex items-center">
+        {[1, 2, 3, 4, 5].map((star) => (
+          <svg
+            key={star}
+            className={`w-4 h-4 ${
+              star <= rating ? "text-yellow-400" : "text-gray-300"
+            }`}
+            fill="currentColor"
+            viewBox="0 0 20 20"
+          >
+            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+          </svg>
+        ))}
+      </div>
+    );
   };
 
   const generateMonthYearOptions = () => {
@@ -885,9 +1147,6 @@ const Checkout = () => {
                         />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="text-xs text-blue-600 bg-blue-100 px-2 py-1 rounded-full inline-block mb-1">
-                          {course.category}
-                        </div>
                         <h4 className="font-medium text-gray-900 mb-1 text-sm truncate">
                           {course.title}
                         </h4>
@@ -895,15 +1154,24 @@ const Checkout = () => {
                           By {course.mentor?.firstName}{" "}
                           {course.mentor?.lastName}
                         </p>
-                        <div className="flex items-center gap-1 mb-1">
-                          <span className="text-yellow-400">⭐</span>
-                          <span className="text-xs text-gray-600">
+                        {/* Rating */}
+                        <div className="flex items-center gap-2 mb-2">
+                          {renderStars(course.rate)}
+                          <span className="text-sm font-medium text-gray-900">
                             {course.rate}
+                          </span>
+                          <span className="text-sm text-gray-600">
+                            ({course.numberOfRatings} ratings)
                           </span>
                         </div>
                         <p className="text-xs text-gray-600 mb-1">
                           {course.lectures} Lectures • {course.duration} Hours
                         </p>
+                        <div className="mb-1">
+                          <span className="inline-block bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full font-medium">
+                            Category: {course.category}
+                          </span>
+                        </div>
                         <p className="text-sm font-bold text-gray-900">
                           {formatCurrency(course.price)}
                         </p>

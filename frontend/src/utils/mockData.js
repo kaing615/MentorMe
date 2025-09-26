@@ -283,6 +283,24 @@ export const generateMenteeMessages = (count = 8) => {
 };
 
 export const generateMenteeReviews = (count = 10) => {
-  // Implementation here  
+  const courseImages = [minatoImg, oipImg, boImg];
+  const instructors = [
+    "Ronald Richards",
+    "Devon Lane",
+    "Sarah Johnson",
+    "Mike Chen",
+    "Emily Davis",
+  ];
+
+  return Array.from({ length: count }, (_, index) => ({
+    id: index + 1,
+    courseName: faker.lorem.words(3),
+    instructorName: instructors[index % instructors.length],
+    courseImage: courseImages[index % courseImages.length],
+    rating: faker.number.int({ min: 3, max: 5 }),
+    reviewText: faker.lorem.paragraph(),
+    reviewDate: faker.date.past(),
+    isPublic: faker.datatype.boolean(),
+    helpfulCount: faker.number.int({ min: 0, max: 25 }),
+  }));
 };
-*/

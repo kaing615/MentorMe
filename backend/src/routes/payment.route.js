@@ -293,7 +293,6 @@ const router = Router();
  *         description: Order not found
  */
 
-
 /**
  * @swagger
  * /api/payment/vnpay/ipn:
@@ -325,9 +324,9 @@ const router = Router();
  */
 
 // Public routes (webhooks, returns)
-router.get("/vnpay/return", paymentController.handleVNPayReturn);   // GET /api/payment/vnpay/return
-router.get("/vnpay/ipn",    paymentController.handleVNPayIPN);      // GET /api/payment/vnpay/ipn (webhook)
-router.post("/momo/ipn", paymentController.handleMoMoIPN);          // POST /api/payment/momo/ipn
+router.get("/vnpay/return", paymentController.handleVNPayReturn); // GET /api/payment/vnpay/return
+router.get("/vnpay/ipn", paymentController.handleVNPayIPN); // GET /api/payment/vnpay/ipn (webhook)
+router.post("/momo/ipn", paymentController.handleMoMoIPN); // POST /api/payment/momo/ipn
 
 // User routes (require authentication)
 // Protected routes (require authentication)
@@ -335,7 +334,7 @@ router.use(tokenMiddleware.auth);
 
 // Payment creation routes
 router.post("/vnpay/create", paymentController.createVNPayPayment); // POST /api/payment/vnpay/create
-router.post("/momo/create", paymentController.createMoMoPayment);   // POST /api/payment/momo/create
+router.post("/momo/create", paymentController.createMoMoPayment); // POST /api/payment/momo/create
 router.post("/stripe/create", paymentController.createStripePayment); // POST /api/payment/stripe/create
 
 // Payment status
@@ -344,5 +343,6 @@ router.get("/status/:orderNumber", paymentController.getPaymentStatus); // GET /
 // Admin routes
 // TODO: Add admin middleware
 router.post("/admin/manual-confirm", paymentController.confirmManualPayment); // POST /api/payment/admin/manual-confirm
+router.post("/manual", paymentController.confirmManualPayment); // POST /api/payment/manual (shorter alias)
 
 export default router;

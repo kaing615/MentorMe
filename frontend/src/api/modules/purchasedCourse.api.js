@@ -16,12 +16,13 @@ const purchasedCourseApi = {
     }
   },
 
-  // Lấy chi tiết một khóa học đã mua
+  // Lấy chi tiết một khóa học đã mua theo courseId
   getPurchasedCourseDetails: async ({ courseId }, dispatch) => {
     try {
       const privateClient = createPrivateClient(dispatch);
+      // Correct backend endpoint is /purchased-courses/check/:courseId
       const response = await privateClient.get(
-        `/purchased-courses/${courseId}`
+        `/purchased-courses/check/${courseId}`
       );
       return ok(response);
     } catch (e) {
@@ -29,28 +30,12 @@ const purchasedCourseApi = {
     }
   },
 
-  // Cập nhật tiến độ học tập
-  updateProgress: async ({ courseId, progress }, dispatch) => {
+  // Lấy chi tiết purchased course theo purchasedCourseId (⭐ API MỚI)
+  getPurchasedCourseById: async ({ purchasedCourseId }, dispatch) => {
     try {
       const privateClient = createPrivateClient(dispatch);
-      const response = await privateClient.put(
-        `/purchased-courses/${courseId}/progress`,
-        {
-          progress,
-        }
-      );
-      return ok(response);
-    } catch (e) {
-      return fail(e);
-    }
-  },
-
-  // Đánh dấu hoàn thành khóa học
-  completeCourse: async ({ courseId }, dispatch) => {
-    try {
-      const privateClient = createPrivateClient(dispatch);
-      const response = await privateClient.put(
-        `/purchased-courses/${courseId}/complete`
+      const response = await privateClient.get(
+        `/purchased-courses/details/${purchasedCourseId}`
       );
       return ok(response);
     } catch (e) {
@@ -86,6 +71,17 @@ const purchasedCourseApi = {
           orderId,
         }
       );
+      return ok(response);
+    } catch (e) {
+      return fail(e);
+    }
+  },
+
+  // Lấy danh sách mentees của mentor (đã mua khóa học hoặc book tư vấn)
+  getMenteesOfMentor: async (dispatch) => {
+    try {
+      const privateClient = createPrivateClient(dispatch);
+      const response = await privateClient.get("/purchased-courses/mentees");
       return ok(response);
     } catch (e) {
       return fail(e);

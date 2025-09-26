@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import courseApi from "../api/modules/course.api";
 import cartApi from "../api/modules/cart.api";
+import purchasedCourseApi from "../api/modules/purchasedCourse.api";
 import { toast } from "react-toastify";
 import { showLoading, hideLoading } from "../redux/features/loading.slice";
 
@@ -48,6 +49,9 @@ const AllCoursePage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // ⭐ NEW: State để lưu purchased courses mapping
+  const [purchasedCoursesMap, setPurchasedCoursesMap] = useState(new Map());
+
   // Filter states
   const [selectedRating, setSelectedRating] = useState("");
   const [selectedCategories, setSelectedCategories] = useState([]);
@@ -68,22 +72,42 @@ const AllCoursePage = () => {
 
   // Helper function to check if course is already purchased
   const isCourseAlreadyPurchased = (courseId) => {
-    const mockPurchasedCourses = localStorage.getItem("mockPurchasedCourses");
-    if (mockPurchasedCourses) {
-      try {
-        const purchasedCourses = JSON.parse(mockPurchasedCourses);
-        return purchasedCourses.some(
-          (purchased) =>
-            (purchased.course?._id ||
-              purchased.course?.id ||
-              purchased.courseId) === courseId
-        );
-      } catch (error) {
-        console.error("Error parsing purchased courses:", error);
-        return false;
-      }
+    // Check from API-based purchasedCoursesMap (Course.mentees array check)
+    return (
+      purchasedCoursesMap.has(courseId) && purchasedCoursesMap.get(courseId)
+    );
+  };
+
+  // ⭐ NEW: Helper function để lấy purchasedCourseId nếu course đã được mua
+  const getPurchasedCourseId = (courseId) => {
+    return purchasedCoursesMap.get(courseId) || null;
+  };
+
+  // ⭐ NEW: Smart navigation function cho purchased courses
+  const handleSmartViewCourse = (course) => {
+    const courseId = course._id || course.id;
+    const purchasedCourseId = getPurchasedCourseId(courseId);
+
+    if (purchasedCourseId) {
+      // NEW: Navigate với purchasedCourseId (course đã mua)
+      navigate(`/order-complete-course/${purchasedCourseId}`, {
+        state: {
+          purchasedCourseId: purchasedCourseId,
+          courseId: courseId,
+          courseInfo: course,
+        },
+      });
+    } else {
+      // LEGACY: Navigate với courseId (course chưa mua hoặc legacy)
+      console.log(`🔄 Navigating to legacy course: ${courseId}`);
+      navigate(`/order-complete-course/${courseId}`, {
+        state: {
+          courseId: courseId,
+          courseInfo: course,
+          isLegacyCourse: true,
+        },
+      });
     }
-    return false;
   };
 
   // Add to Cart function
@@ -167,7 +191,6 @@ const AllCoursePage = () => {
   };
 
   // Buy Now function
-  // Buy Now function
   const handleBuyNow = (e, course) => {
     e.stopPropagation();
 
@@ -192,7 +215,13 @@ const AllCoursePage = () => {
       return;
     }
 
-    navigate(`/course-detail/${courseId}`);
+    // Show loading page
+    dispatch(showLoading());
+
+    // Navigate with a slight delay to show loading
+    setTimeout(() => {
+      navigate(`/shoppingcart`);
+    }, 300);
   };
 
   // Fetch all courses from API
@@ -282,7 +311,48 @@ const AllCoursePage = () => {
     };
 
     fetchCourses();
-  }, []);
+  }, [user, dispatch]);
+
+  // Separate useEffect for checking purchase status when courses load
+  useEffect(() => {
+    const fetchPurchasedCourses = async () => {
+      // ⭐ Chỉ fetch purchased courses nếu user là mentee
+      if (!user || user.role !== "mentee") {
+        return;
+      }
+
+      // Check purchase status for displayed courses
+      if (courses.length > 0) {
+        const statusMap = new Map();
+
+        await Promise.all(
+          courses.map(async (course) => {
+            const courseId = course._id || course.id || course.courseId;
+            if (courseId) {
+              try {
+                const { response, error } = await courseApi.checkPurchaseStatus(
+                  courseId
+                );
+                if (response?.data?.isPurchased) {
+                  statusMap.set(courseId, true);
+                }
+              } catch (error) {
+                console.error(
+                  `Error checking purchase status for course ${courseId}:`,
+                  error
+                );
+              }
+            }
+          })
+        );
+
+        setPurchasedCoursesMap(statusMap);
+        console.log("Purchase status checked for", statusMap.size, "courses");
+      }
+    };
+
+    fetchPurchasedCourses();
+  }, [user, courses]); // Depend on courses to check when they are loaded
 
   // Dynamic filter options based on actual course data
   const categoryOptions = React.useMemo(() => {
@@ -834,7 +904,7 @@ const AllCoursePage = () => {
                       minHeight: "450px",
                     }}
                   >
-                    <div className="h-[140px] w-full bg-white-100 rounded-t-xl flex items-center justify-center">
+                    <div className="h-[140px] w-full bg-white-100 rounded-t-xl flex items-center justify-center relative">
                       <img
                         src={course.image}
                         alt={course.title}
@@ -887,17 +957,12 @@ const AllCoursePage = () => {
                           ({course.reviewCount || 0} Ratings)
                         </span>
                       </div>
-                      <div
-                        className="text-sm text-gray-700 mb-2"
-                        style={{
-                          display: "-webkit-box",
-                          WebkitLineClamp: 1,
-                          WebkitBoxOrient: "vertical",
-                          overflow: "hidden",
-                        }}
-                      >
-                        {course.duration} • {course.lectures} Lectures •{" "}
-                        {course.category}
+                      <div className="text-sm text-gray-700 mb-1">
+                        {course.duration || "Self-paced"} •{" "}
+                        {course.lectures || 0} Lectures
+                      </div>
+                      <div className="text-sm text-gray-600 mb-2">
+                        {course.category || "General"}
                       </div>
 
                       {/* Hiển thị tags nếu có */}
@@ -970,11 +1035,22 @@ const AllCoursePage = () => {
 
                       {/* Add to Cart and Buy Now buttons for mentees */}
                       {user && user.role === "mentee" && (
-                        <div className="flex gap-2 mt-3 mb-3 px-4">
+                        <div className="flex flex-col gap-2 mt-3 mb-3 px-4">
                           {isCourseAlreadyPurchased(course.id) ? (
-                            <div className="w-full bg-green-100 text-green-700 py-2 px-3 rounded-md text-sm font-medium text-center">
-                              ✓ Already Purchased
-                            </div>
+                            <>
+                              <div className="w-full bg-green-100 text-green-700 py-2 px-3 rounded-md text-sm font-medium text-center">
+                                ✓ Already Purchased
+                              </div>
+                              <button
+                                className="w-full bg-blue-600 text-white py-2 px-3 rounded-md text-sm font-medium hover:bg-blue-700 transition"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleSmartViewCourse(course); // ⭐ Sử dụng smart navigation
+                                }}
+                              >
+                                View Course
+                              </button>
+                            </>
                           ) : (
                             <>
                               <button

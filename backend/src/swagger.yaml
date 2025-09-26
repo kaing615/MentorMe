@@ -78,6 +78,570 @@ components:
               message:
                 type: string
 
+    # ===========================================
+    # PURCHASED COURSES SCHEMAS
+    # ===========================================
+    PurchasedCourse:
+      type: object
+      properties:
+        courseId:
+          type: string
+          description: ID của khóa học
+          example: "60d5f484f0b4a720e8f8d4a1"
+        courseInfo:
+          $ref: "#/components/schemas/CourseDetail"
+        purchaseDate:
+          type: string
+          format: date-time
+          description: Ngày mua khóa học
+          example: "2024-01-15T10:30:00Z"
+        progress:
+          type: number
+          minimum: 0
+          maximum: 100
+          description: Tiến độ học (0-100%)
+          example: 75
+        lastAccessDate:
+          type: string
+          format: date-time
+          description: Lần truy cập cuối
+          example: "2024-01-20T14:30:00Z"
+        isCompleted:
+          type: boolean
+          description: Đã hoàn thành khóa học
+          example: false
+        orderInfo:
+          $ref: "#/components/schemas/OrderInfo"
+
+    CourseDetail:
+      type: object
+      properties:
+        _id:
+          type: string
+          example: "60d5f484f0b4a720e8f8d4a1"
+        title:
+          type: string
+          example: "React Advanced Course"
+        description:
+          type: string
+          example: "Learn advanced React concepts and patterns"
+        price:
+          type: number
+          example: 299000
+        category:
+          type: string
+          example: "Programming"
+        duration:
+          type: number
+          description: Thời lượng (phút)
+          example: 1200
+        rate:
+          type: number
+          example: 4.5
+        link:
+          type: string
+          example: "https://mentorme.com/courses/react-advanced"
+        lectures:
+          type: number
+          example: 20
+        mentor:
+          $ref: "#/components/schemas/MentorInfo"
+
+    MentorInfo:
+      type: object
+      properties:
+        _id:
+          type: string
+          example: "60d5f484f0b4a720e8f8d4a2"
+        firstName:
+          type: string
+          example: "John"
+        lastName:
+          type: string
+          example: "Doe"
+        avatarUrl:
+          type: string
+          example: "https://cloudinary.com/mentor-avatar.jpg"
+        jobTitle:
+          type: string
+          example: "Senior React Developer"
+
+    OrderInfo:
+      type: object
+      properties:
+        _id:
+          type: string
+          example: "60d5f484f0b4a720e8f8d4a3"
+        transactionId:
+          type: string
+          example: "TXN123456789"
+        paymentMethod:
+          type: string
+          enum: [bank, momo, paypal, stripe, cash]
+          example: "paypal"
+        createdAt:
+          type: string
+          format: date-time
+          example: "2024-01-15T10:00:00Z"
+
+    PurchasedCoursesResponse:
+      type: object
+      properties:
+        status:
+          type: number
+          example: 200
+        message:
+          type: string
+          example: "Lấy danh sách khóa học đã mua thành công."
+        data:
+          type: object
+          properties:
+            totalCourses:
+              type: number
+              example: 5
+            courses:
+              type: array
+              items:
+                $ref: "#/components/schemas/PurchasedCourse"
+
+    LearningStats:
+      type: object
+      properties:
+        status:
+          type: number
+          example: 200
+        message:
+          type: string
+          example: "Lấy thống kê học tập thành công."
+        data:
+          type: object
+          properties:
+            totalCourses:
+              type: number
+              example: 10
+            completedCourses:
+              type: number
+              example: 3
+            inProgressCourses:
+              type: number
+              example: 5
+            notStartedCourses:
+              type: number
+              example: 2
+            averageProgress:
+              type: number
+              example: 65.5
+            completionRate:
+              type: number
+              example: 30
+
+    ProgressUpdateRequest:
+      type: object
+      required:
+        - progress
+      properties:
+        progress:
+          type: number
+          minimum: 0
+          maximum: 100
+          description: Tiến độ học từ 0-100%
+          example: 85
+
+    AddPurchasedCourseRequest:
+      type: object
+      required:
+        - courseId
+        - orderId
+      properties:
+        courseId:
+          type: string
+          pattern: "^[0-9a-fA-F]{24}$"
+          description: ID của khóa học (MongoDB ObjectId)
+          example: "60d5f484f0b4a720e8f8d4a1"
+        orderId:
+          type: string
+          pattern: "^[0-9a-fA-F]{24}$"
+          description: ID của đơn hàng (MongoDB ObjectId)
+          example: "60d5f484f0b4a720e8f8d4a3"
+
+    PurchaseSuccessRequest:
+      type: object
+      required:
+        - orderId
+      properties:
+        orderId:
+          type: string
+          pattern: "^[0-9a-fA-F]{24}$"
+          description: ID của đơn hàng đã thanh toán
+          example: "60d5f484f0b4a720e8f8d4a3"
+
+    CheckPurchaseResponse:
+      type: object
+      properties:
+        status:
+          type: number
+          example: 200
+        isPurchased:
+          type: boolean
+          example: true
+        courseData:
+          allOf:
+            - $ref: "#/components/schemas/PurchasedCourse"
+            - type: object
+              nullable: true
+
+    # ===========================================
+    # CART SCHEMAS
+    # ===========================================
+    CartItem:
+      type: object
+      properties:
+        course:
+          $ref: "#/components/schemas/CourseDetail"
+        addedAt:
+          type: string
+          format: date-time
+          description: Ngày thêm vào giỏ hàng
+          example: "2024-01-15T10:30:00Z"
+
+    CartResponse:
+      type: object
+      properties:
+        status:
+          type: number
+          example: 200
+        message:
+          type: string
+          example: "Lấy giỏ hàng thành công."
+        data:
+          type: object
+          properties:
+            totalCourses:
+              type: number
+              example: 3
+            totalPrice:
+              type: number
+              example: 1197000
+            courses:
+              type: array
+              items:
+                $ref: "#/components/schemas/CartItem"
+            cart:
+              type: object
+              properties:
+                _id:
+                  type: string
+                  example: "60d5f484f0b4a720e8f8d4a5"
+                user:
+                  type: string
+                  example: "60d5f484f0b4a720e8f8d4a2"
+                courses:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/CartItem"
+                totalPrice:
+                  type: number
+                  example: 1197000
+
+    AddToCartRequest:
+      type: object
+      required:
+        - courseId
+      properties:
+        courseId:
+          type: string
+          pattern: "^[0-9a-fA-F]{24}$"
+          description: ID của khóa học (MongoDB ObjectId)
+          example: "60d5f484f0b4a720e8f8d4a1"
+
+    CheckCartResponse:
+      type: object
+      properties:
+        status:
+          type: number
+          example: 200
+        message:
+          type: string
+          example: "Kiểm tra giỏ hàng thành công."
+        data:
+          type: object
+          properties:
+            courseId:
+              type: string
+              example: "60d5f484f0b4a720e8f8d4a1"
+            inCart:
+              type: boolean
+              example: true
+
+    # =========================
+    # BOOKING SCHEMAS
+    # =========================
+    Booking:
+      type: object
+      properties:
+        _id:
+          type: string
+          example: "66c9a8a2b1f0b2f4b9a1c3d5"
+        relationship:
+          type: string
+          nullable: true
+          example: "66c9a8a2b1f0b2f4b9a1c3d4"
+        mentor:
+          type: string
+          description: MongoDB ObjectId của mentor
+          example: "66c9a8a2b1f0b2f4b9a1c300"
+        mentee:
+          type: string
+          description: MongoDB ObjectId của mentee
+          example: "66c9a8a2b1f0b2f4b9a1c301"
+        status:
+          type: string
+          enum: [pending, active, rejected, finished, cancelled]
+          example: pending
+        date:
+          type: string
+          format: date-time
+          description: Ngày (được chuẩn hoá về 00:00:00.000 theo server)
+          example: "2025-09-01T00:00:00.000Z"
+        start:
+          type: string
+          pattern: "^\\d{2}:\\d{2}$"
+          description: HH:mm
+          example: "09:00"
+        end:
+          type: string
+          pattern: "^\\d{2}:\\d{2}$"
+          description: HH:mm
+          example: "10:00"
+        notes:
+          type: string
+          example: "Muốn trao đổi về lộ trình React"
+        createdAt:
+          type: string
+          format: date-time
+          example: "2025-08-28T03:12:00.000Z"
+
+    BookingCreateRequest:
+      type: object
+      required: [date, start, end]
+      properties:
+        date:
+          type: string
+          format: date
+          description: YYYY-MM-DD
+          example: "2025-09-01"
+        start:
+          type: string
+          pattern: "^\\d{2}:\\d{2}$"
+          example: "09:00"
+        end:
+          type: string
+          pattern: "^\\d{2}:\\d{2}$"
+          example: "10:00"
+        notes:
+          type: string
+          example: "Muốn trao đổi về phỏng vấn FE"
+        relationship:
+          type: string
+          description: RelationshipId nếu có
+          example: "66c9a8a2b1f0b2f4b9a1c3d4"
+        mentor:
+          type: string
+          description: Có thể được truyền qua body tuỳ implement, nhưng route hiện tại dùng path param
+
+    BookingUpdateRequest:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [pending, active, rejected, finished, cancelled]
+        notes:
+          type: string
+        date:
+          type: string
+          format: date
+        start:
+          type: string
+          pattern: "^\\d{2}:\\d{2}$"
+        end:
+          type: string
+          pattern: "^\\d{2}:\\d{2}$"
+
+    CancelBookingRequest:
+      type: object
+      properties:
+        reason:
+          type: string
+          example: "Bận đột xuất"
+
+    BookingListAdminResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Booking"
+        nextCursor:
+          type: string
+          nullable: true
+          example: "66c9a8a2b1f0b2f4b9a1c3d5"
+
+    BookingActionResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "Booking confirmed"
+        booking:
+          $ref: "#/components/schemas/Booking"
+
+    MessageAttachment:
+      type: object
+      properties:
+        url:
+          type: string
+          format: uri
+          example: "https://cdn.example.com/files/abc.png"
+        name:
+          type: string
+          example: "screenshot.png"
+        type:
+          type: string
+          example: "image/png"
+
+    Message:
+      type: object
+      properties:
+        _id:
+          type: string
+          example: "66d21a3e9d3b5d9fef123456"
+        sender:
+          type: string
+          description: ObjectId của người gửi
+          example: "66c9a8a2b1f0b2f4b9a1c300"
+        receiver:
+          type: string
+          description: ObjectId của người nhận
+          example: "66c9a8a2b1f0b2f4b9a1c301"
+        messageType:
+          type: string
+          enum: [text, image, file]
+          example: "text"
+        attachments:
+          type: array
+          items:
+            $ref: "#/components/schemas/MessageAttachment"
+        status:
+          type: string
+          enum: [sent, delivered]
+          example: "sent"
+        content:
+          type: string
+          example: "Xin chào mentor!"
+        sentAt:
+          type: string
+          format: date-time
+          example: "2025-08-31T07:15:00.000Z"
+        read:
+          type: boolean
+          example: false
+        readAt:
+          type: string
+          format: date-time
+          nullable: true
+          example: null
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    MessageSendRequest:
+      type: object
+      required: [receiver]
+      properties:
+        receiver:
+          type: string
+          description: ObjectId người nhận
+          example: "66c9a8a2b1f0b2f4b9a1c301"
+        messageType:
+          type: string
+          enum: [text, image, file]
+          default: text
+        content:
+          type: string
+          description: Bắt buộc nếu messageType = text
+          example: "Hello!"
+        attachments:
+          type: array
+          description: Bắt buộc nếu messageType ≠ text
+          items:
+            $ref: "#/components/schemas/MessageAttachment"
+
+    MessageListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Message"
+        nextCursor:
+          type: string
+          nullable: true
+          description: Con trỏ phân trang dạng "<ISO>_<ObjectId>"
+          example: "2025-08-31T07:15:00.000Z_66d21a3e9d3b5d9fef123456"
+
+    MessageMarkDeliveredRequest:
+      type: object
+      required: [ids]
+      properties:
+        ids:
+          type: array
+          items:
+            type: string
+          example: ["66d21a3e9d3b5d9fef123451", "66d21a3e9d3b5d9fef123452"]
+
+    MessageUpdateCountResponse:
+      type: object
+      properties:
+        matched:
+          type: integer
+          example: 5
+        modified:
+          type: integer
+          example: 5
+
+    MessageMarkReadRequest:
+      type: object
+      required: [peerId]
+      properties:
+        peerId:
+          type: string
+          description: ObjectId của đối tác hội thoại (người gửi các tin chưa đọc)
+          example: "66c9a8a2b1f0b2f4b9a1c301"
+
+    ConversationItem:
+      type: object
+      properties:
+        peerId:
+          type: string
+          description: ObjectId của đối tác hội thoại
+          example: "66c9a8a2b1f0b2f4b9a1c301"
+        unreadCount:
+          type: integer
+          example: 3
+        lastMessage:
+          $ref: "#/components/schemas/Message"
+
+    ConversationListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ConversationItem"
+
 paths:
   /user/signup:
     post:
@@ -840,243 +1404,6 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
-  /profile/search/mentors:
-    get:
-      tags:
-        - Profile Management
-      summary: Tìm kiếm mentor theo nhiều tiêu chí
-      description: |
-        Tìm kiếm mentor theo các tiêu chí khác nhau:
-        - Theo tên (firstName + lastName)
-        - Theo ID cụ thể
-        - Theo danh mục/môn học 
-        - Theo kỹ năng
-        - Theo địa điểm
-
-        Kết quả được sắp xếp theo rating và có hỗ trợ phân trang.
-      security:
-        - bearerAuth: []
-      parameters:
-        - in: query
-          name: name
-          schema:
-            type: string
-            minLength: 2
-            maxLength: 100
-          description: Tìm kiếm theo tên mentor (tìm kiếm trong firstName và lastName)
-          example: "Nguyen Van"
-        - in: query
-          name: id
-          schema:
-            type: string
-            pattern: "^[0-9a-fA-F]{24}$"
-          description: Tìm kiếm mentor theo ID cụ thể (ObjectId format)
-          example: "64a7b8c9d1e2f3g4h5i6j7k8"
-        - in: query
-          name: category
-          schema:
-            type: string
-            minLength: 2
-            maxLength: 100
-          description: Tìm kiếm theo danh mục/môn học
-          example: "JavaScript"
-        - in: query
-          name: skills
-          schema:
-            type: string
-          description: Tìm kiếm theo kỹ năng (phân cách bởi dấu phay)
-          example: "React,Node.js,MongoDB"
-        - in: query
-          name: location
-          schema:
-            type: string
-            minLength: 2
-            maxLength: 100
-          description: Tìm kiếm theo địa điểm
-          example: "Ho Chi Minh"
-        - in: query
-          name: page
-          schema:
-            type: integer
-            minimum: 1
-            default: 1
-          description: Số trang (pagination)
-          example: 1
-        - in: query
-          name: limit
-          schema:
-            type: integer
-            minimum: 1
-            maximum: 50
-            default: 10
-          description: Số lượng kết quả mỗi trang
-          example: 10
-      responses:
-        "200":
-          description: Tìm kiếm mentor thành công
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  status:
-                    type: string
-                    example: "success"
-                  data:
-                    type: object
-                    properties:
-                      mentors:
-                        type: array
-                        items:
-                          type: object
-                          properties:
-                            _id:
-                              type: string
-                              example: "64a7b8c9d1e2f3g4h5i6j7k8"
-                            userName:
-                              type: string
-                              example: "nguyenvana"
-                            firstName:
-                              type: string
-                              example: "Nguyen"
-                            lastName:
-                              type: string
-                              example: "Van A"
-                            email:
-                              type: string
-                              example: "nguyenvana@email.com"
-                            avatarUrl:
-                              type: string
-                              example: "https://cloudinary.com/avatar.jpg"
-                            role:
-                              type: array
-                              items:
-                                type: string
-                              example: ["mentor"]
-                            profile:
-                              type: object
-                              properties:
-                                _id:
-                                  type: string
-                                jobTitle:
-                                  type: string
-                                  example: "Senior Developer"
-                                location:
-                                  type: string
-                                  example: "Ho Chi Minh City"
-                                category:
-                                  type: string
-                                  example: "Web Development"
-                                skills:
-                                  type: array
-                                  items:
-                                    type: string
-                                  example: ["React", "Node.js", "MongoDB"]
-                                bio:
-                                  type: string
-                                  example: "Experienced developer with 5+ years"
-                                headline:
-                                  type: string
-                                  example: "Full Stack JavaScript Developer"
-                                experience:
-                                  type: string
-                                  example: "5 years"
-                                rate:
-                                  type: number
-                                  example: 4.8
-                                reviews:
-                                  type: array
-                                  items:
-                                    type: object
-                            coursesCount:
-                              type: integer
-                              example: 3
-                            subjects:
-                              type: array
-                              items:
-                                type: string
-                              example: ["JavaScript", "React", "Node.js"]
-                            courses:
-                              type: array
-                              items:
-                                type: object
-                                description: "Chi tiết khóa học mà mentor đang dạy"
-                      pagination:
-                        type: object
-                        properties:
-                          currentPage:
-                            type: integer
-                            example: 1
-                          totalPages:
-                            type: integer
-                            example: 5
-                          totalCount:
-                            type: integer
-                            example: 47
-                          limit:
-                            type: integer
-                            example: 10
-                          hasNext:
-                            type: boolean
-                            example: true
-                          hasPrev:
-                            type: boolean
-                            example: false
-                      searchCriteria:
-                        type: object
-                        properties:
-                          name:
-                            type: string
-                            example: "Nguyen"
-                          id:
-                            type: string
-                            example: null
-                          category:
-                            type: string
-                            example: "JavaScript"
-                          skills:
-                            type: string
-                            example: "React,Node.js"
-                          location:
-                            type: string
-                            example: "Ho Chi Minh"
-        "400":
-          description: Lỗi validation tham số tìm kiếm
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  status:
-                    type: string
-                    example: "error"
-                  message:
-                    type: string
-                    example: "Tham số tìm kiếm không hợp lệ"
-                  errors:
-                    type: array
-                    items:
-                      type: object
-                      properties:
-                        field:
-                          type: string
-                          example: "page"
-                        message:
-                          type: string
-                          example: "page must be greater than or equal to 1"
-        "401":
-          description: Unauthorized - Token không hợp lệ
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-        "500":
-          description: Lỗi server khi thực hiện tìm kiếm
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-
   # ===========================================
   # PURCHASED COURSES ENDPOINTS
   # ===========================================
@@ -1094,24 +1421,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  status:
-                    type: number
-                    example: 200
-                  message:
-                    type: string
-                    example: "Lấy danh sách khóa học đã mua thành công."
-                  data:
-                    type: object
-                    properties:
-                      totalCourses:
-                        type: number
-                        example: 5
-                      courses:
-                        type: array
-                        items:
-                          type: object
+                $ref: "#/components/schemas/PurchasedCoursesResponse"
         "401":
           description: Unauthorized - Token không hợp lệ
           content:
@@ -1145,16 +1455,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  status:
-                    type: number
-                    example: 200
-                  message:
-                    type: string
-                    example: "Lấy thống kê học tập thành công."
-                  data:
-                    type: object
+                $ref: "#/components/schemas/LearningStats"
         "401":
           description: Unauthorized
           content:
@@ -1191,17 +1492,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  status:
-                    type: number
-                    example: 200
-                  isPurchased:
-                    type: boolean
-                    example: true
-                  courseData:
-                    type: object
-                    nullable: true
+                $ref: "#/components/schemas/CheckPurchaseResponse"
         "401":
           description: Unauthorized
           content:
@@ -1237,16 +1528,7 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              required:
-                - progress
-              properties:
-                progress:
-                  type: number
-                  minimum: 0
-                  maximum: 100
-                  description: Tiến độ học từ 0-100%
-                  example: 85
+              $ref: "#/components/schemas/ProgressUpdateRequest"
       responses:
         "200":
           description: Cập nhật tiến độ thành công
@@ -1305,15 +1587,7 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              required:
-                - orderId
-              properties:
-                orderId:
-                  type: string
-                  pattern: "^[0-9a-fA-F]{24}$"
-                  description: ID của đơn hàng đã thanh toán
-                  example: "60d5f484f0b4a720e8f8d4a3"
+              $ref: "#/components/schemas/PurchaseSuccessRequest"
       responses:
         "200":
           description: Xử lý thành công
@@ -1384,16 +1658,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  status:
-                    type: number
-                    example: 200
-                  message:
-                    type: string
-                    example: "Lấy giỏ hàng thành công."
-                  data:
-                    type: object
+                $ref: "#/components/schemas/CartResponse"
         "401":
           description: Unauthorized - Token không hợp lệ
           content:
@@ -1419,15 +1684,7 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              required:
-                - courseId
-              properties:
-                courseId:
-                  type: string
-                  pattern: "^[0-9a-fA-F]{24}$"
-                  description: ID của khóa học (MongoDB ObjectId)
-                  example: "60d5f484f0b4a720e8f8d4a1"
+              $ref: "#/components/schemas/AddToCartRequest"
       responses:
         "200":
           description: Thêm vào giỏ hàng thành công
@@ -1458,7 +1715,7 @@ paths:
                         type: number
                         example: 898000
                       cart:
-                        type: object
+                        $ref: "#/components/schemas/CartResponse"
         "400":
           description: Course ID không hợp lệ (validation middleware), đã mua khóa học, hoặc đã có trong giỏ hàng
           content:
@@ -1628,23 +1885,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  status:
-                    type: number
-                    example: 200
-                  message:
-                    type: string
-                    example: "Kiểm tra giỏ hàng thành công."
-                  data:
-                    type: object
-                    properties:
-                      courseId:
-                        type: string
-                        example: "60d5f484f0b4a720e8f8d4a1"
-                      inCart:
-                        type: boolean
-                        example: true
+                $ref: "#/components/schemas/CheckCartResponse"
         "400":
           description: Course ID không hợp lệ (validation middleware)
           content:
@@ -1675,3 +1916,254 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+                # =========================
+  # BOOKING ENDPOINTS
+  # =========================
+
+  /booking/mentor/{mentorId}:
+    post:
+      tags: [Booking]
+      summary: Tạo booking cho một mentor (mentee khởi tạo)
+      description: |
+        Tạo lịch hẹn mới dựa trên Availability của mentor.
+        Không cho phép đặt trùng khung giờ đã booked/active.
+        Yêu cầu đăng nhập (JWT). Trạng thái tạo ra sẽ là `pending`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: mentorId
+          required: true
+          schema:
+            type: string
+            pattern: "^[0-9a-fA-F]{24}$"
+          description: MongoDB ObjectId của mentor
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BookingCreateRequest"
+            examples:
+              default:
+                value:
+                  date: "2025-09-01"
+                  start: "09:00"
+                  end: "10:00"
+                  notes: "Muốn trao đổi về phỏng vấn FE"
+      responses:
+        "200":
+          description: Tạo booking thành công (status = pending)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Booking created successfully"
+                  booking:
+                    $ref: "#/components/schemas/Booking"
+        "400":
+          description: Lỗi validation / Slot không khả dụng / Trùng lịch
+        "401":
+          description: Unauthorized
+        "404":
+          description: Mentor/Mentee không tồn tại
+
+  /booking:
+    get:
+      tags: [Booking]
+      summary: (Admin) Lấy danh sách bookings
+      description: |
+        Chỉ **admin** được phép.
+        Hỗ trợ lọc theo mentor, mentee, ngày, khoảng ngày, trạng thái; phân trang theo cursor `_id`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: mentor
+          schema: { type: string, pattern: "^[0-9a-fA-F]{24}$" }
+          description: Lọc theo mentorId
+        - in: query
+          name: mentee
+          schema: { type: string, pattern: "^[0-9a-fA-F]{24}$" }
+          description: Lọc theo menteeId
+        - in: query
+          name: date
+          schema: { type: string, format: date }
+          description: Lọc theo 1 ngày
+        - in: query
+          name: from
+          schema: { type: string, format: date }
+          description: Từ ngày
+        - in: query
+          name: to
+          schema: { type: string, format: date }
+          description: Đến ngày
+        - in: query
+          name: status
+          schema: { type: string }
+          description: "Danh sách status, phân tách bằng dấu phẩy. Ví dụ: pending,active"
+          example: "pending,active"
+        - in: query
+          name: before
+          schema: { type: string, pattern: "^[0-9a-fA-F]{24}$" }
+          description: Cursor `_id` nhỏ hơn để phân trang lùi
+        - in: query
+          name: limit
+          schema: { type: integer, minimum: 1, maximum: 100, default: 50 }
+          description: Số lượng tối đa mỗi trang
+      responses:
+        "200":
+          description: Danh sách bookings cho admin
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BookingListAdminResponse"
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden (không phải admin)
+
+  /booking/confirm/{id}:
+    post:
+      tags: [Booking]
+      summary: Mentor/Admin xác nhận booking (từ pending → active)
+      description: |
+        Chỉ **mentor của booking** hoặc **admin** mới được xác nhận.
+        Hệ thống sẽ gửi thông báo cho mentee (lịch đã được xác nhận) và cho mentor (bạn đã xác nhận),
+        đồng thời tạo reminder trước giờ hẹn nếu còn thời gian.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            pattern: "^[0-9a-fA-F]{24}$"
+          description: BookingId
+      responses:
+        "200":
+          description: Xác nhận thành công
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BookingActionResponse"
+        "400":
+          description: Không thể xác nhận (không ở trạng thái pending / lỗi khác)
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden (không phải mentor/admin của booking)
+        "404":
+          description: Không tìm thấy booking
+
+  /booking/cancel/{id}:
+    post:
+      tags: [Booking]
+      summary: Huỷ booking (mentor/mentee/admin)
+      description: |
+        Cho phép **mentor**, **mentee** của booking hoặc **admin** huỷ booking ở trạng thái `pending`/`active`.
+        Khi huỷ sẽ **mở lại slot** tương ứng trong Availability.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            pattern: "^[0-9a-fA-F]{24}$"
+          description: BookingId
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CancelBookingRequest"
+            examples:
+              with_reason:
+                value:
+                  reason: "Bận đột xuất"
+      responses:
+        "200":
+          description: Huỷ thành công
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BookingActionResponse"
+        "400":
+          description: Không thể huỷ (đã bắt đầu phiên / trạng thái không hợp lệ / lỗi khác)
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden (không phải mentor/mentee/admin của booking)
+        "404":
+          description: Không tìm thấy booking
+
+  /booking/{id}:
+    patch:
+      tags: [Booking]
+      summary: Cập nhật booking theo id
+      description: |
+        Cập nhật thông tin booking (khuyến nghị chỉ cho admin hoặc chủ sở hữu).
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            pattern: "^[0-9a-fA-F]{24}$"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BookingUpdateRequest"
+      responses:
+        "200":
+          description: Cập nhật thành công
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Booking"
+        "400":
+          description: Lỗi validation
+        "401":
+          description: Unauthorized
+        "404":
+          description: Không tìm thấy booking
+
+    delete:
+      tags: [Booking]
+      summary: Xoá booking theo id
+      description: |
+        Xoá booking (khuyến nghị chỉ admin).
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            pattern: "^[0-9a-fA-F]{24}$"
+      responses:
+        "200":
+          description: Xoá thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Booking deleted"
+        "401":
+          description: Unauthorized
+        "404":
+          description: Không tìm thấy booking

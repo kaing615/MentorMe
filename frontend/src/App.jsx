@@ -1,8 +1,8 @@
+import { useEffect } from "react";
 import useRouterElements from "./routes/elements";
 import { CartProvider } from "./contexts/CartContext";
 import LoadingPage from "./components/common/loadingPage";
 import { useSelector, useDispatch } from "react-redux";
-import { useEffect } from "react";
 import { restoreUser } from "./redux/features/user.slice";
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';

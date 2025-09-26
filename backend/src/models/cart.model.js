@@ -31,7 +31,8 @@ const CartSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-CartSchema.index({ user: 1 }, { unique: true });
+// Remove duplicate index since 'user' field already has unique: true
+// CartSchema.index({ user: 1 }, { unique: true }); // Removed duplicate
 CartSchema.index({ "courses.course": 1 });
 
 export default mongoose.model("Cart", CartSchema);

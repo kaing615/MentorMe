@@ -15,7 +15,7 @@ import cartUtils from "../utils/cart.utils.js";
 // GET /cart - Lấy giỏ hàng hiện tại
 export const getCart = async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user.id || req.user._id;
 
     let cart = await Cart.findOne({ user: userId }).populate({
       path: "courses.course",
@@ -51,7 +51,7 @@ export const getCart = async (req, res) => {
 // POST /cart - Thêm khóa học vào giỏ hàng
 export const addToCart = async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user.id || req.user._id;
     const { courseId } = req.body;
 
     // 1) Khóa học tồn tại?
@@ -66,9 +66,9 @@ export const addToCart = async (req, res) => {
       return responseHandler.notFound(res, "Không tìm thấy người dùng.");
     }
 
-    // 3) Đã mua trước đó?
-    const alreadyPurchased = user.purchasedCourses?.some(
-      (pc) => pc.course?.toString() === courseId
+    // 3) Đã mua trước đó? Check if user is in course.mentees array
+    const alreadyPurchased = course.mentees?.some(
+      (menteeId) => menteeId.toString() === userId.toString()
     );
     if (alreadyPurchased) {
       // console.log(`[addToCart] Course already purchased`);
@@ -100,7 +100,10 @@ export const addToCart = async (req, res) => {
       path: "courses.course",
       select:
         "title description price category duration rate lectures mentor thumbnail",
-      populate: { path: "mentor", select: "firstName lastName avatarUrl jobTitle" },
+      populate: {
+        path: "mentor",
+        select: "firstName lastName avatarUrl jobTitle",
+      },
     });
 
     return responseHandler.ok(res, {
@@ -120,7 +123,7 @@ export const addToCart = async (req, res) => {
 // DELETE /cart/:courseId - Xóa khóa học khỏi giỏ
 export const removeFromCart = async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user.id || req.user._id;
     const { courseId } = req.params;
 
     // Tồn tại khóa học?
@@ -161,7 +164,7 @@ export const removeFromCart = async (req, res) => {
 // DELETE /cart - Xóa toàn bộ giỏ hàng
 export const clearCart = async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user.id || req.user._id;
 
     const cart = await cartUtils.findOrCreateCart(userId);
     cart.courses = [];
@@ -183,7 +186,7 @@ export const clearCart = async (req, res) => {
 // GET /cart/check/:courseId - Kiểm tra khóa học có trong giỏ không
 export const checkInCart = async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user.id || req.user._id;
     const { courseId } = req.params;
 
     const course = await Course.findById(courseId);

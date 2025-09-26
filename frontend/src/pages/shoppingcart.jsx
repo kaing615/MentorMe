@@ -26,7 +26,14 @@ const ShoppingCart = () => {
       toast.warning("Vui lòng chọn ít nhất một khóa học để thanh toán");
       return;
     }
-    navigate("/checkout", { state: { selectedCourses, cartData } });
+
+    // Show loading page
+    dispatch(showLoading());
+
+    // Navigate to checkout with a slight delay to show loading
+    setTimeout(() => {
+      navigate("/checkout", { state: { selectedCourses, cartData } });
+    }, 500); // Small delay to ensure loading page is visible
   };
 
   const [subtotal, setSubtotal] = useState(0);
@@ -38,12 +45,13 @@ const ShoppingCart = () => {
   // Check user authentication and fetch cart from backend
   useEffect(() => {
     const fetchCartData = async () => {
+      console.log("[DEBUG ShoppingCart] Starting fetchCartData");
       // Check authentication
       const token =
         localStorage.getItem("token") || localStorage.getItem("actkn");
       if (!token) {
-        toast.error("Vui lòng đăng nhập để xem giỏ hàng");
-        navigate("/login");
+        toast.error("Login to view cart");
+        navigate("/auth/signin");
         return;
       }
 
@@ -57,41 +65,56 @@ const ShoppingCart = () => {
 
       if (!user || user.role !== "mentee") {
         toast.error("Chỉ mentee mới có thể xem giỏ hàng");
-        navigate("/login");
+        navigate("/auth/signin");
         return;
       }
 
+      console.log("[DEBUG ShoppingCart] User authenticated:", user.email);
       dispatch(showLoading());
       setLoading(true);
 
       try {
+        console.log("[DEBUG ShoppingCart] Calling cartApi.getCart");
         const { response, error } = await cartApi.getCart(dispatch);
 
         if (error) {
           // If no cart found or error, try localStorage mock cart first
-          console.warn("Cart API error, using localStorage fallback:", error);
+          console.warn(
+            "[DEBUG ShoppingCart] Cart API error, using localStorage fallback:",
+            error
+          );
 
           const mockCartData = localStorage.getItem("mockCart");
           if (mockCartData) {
-            const cartItems = JSON.parse(mockCartData);
-            const mappedCourses = cartItems.map((item, index) => ({
-              ...item,
-              id: item.id || item._id || index,
-              selected: true,
-              quantity: 1,
-              price: parseFloat(item.price) || 0,
-            }));
-            setCourses(mappedCourses);
-            setSelectedCourses(mappedCourses.map((course) => course.id));
-            setSelectAll(true);
+            try {
+              const cartItems = JSON.parse(mockCartData);
+              console.log(
+                "[DEBUG ShoppingCart] Using localStorage cart items:",
+                cartItems
+              );
+              const mappedCourses = cartItems.map((item, index) => ({
+                ...item,
+                id: item.id || item._id || index,
+                selected: true,
+                quantity: 1,
+                price: parseFloat(item.price) || 0,
+              }));
+              setCourses(mappedCourses);
+              setSelectedCourses(mappedCourses.map((course) => course.id));
+              setSelectAll(true);
+            } catch (e) {
+              console.error("Error parsing localStorage cart:", e);
+            }
           } else if (mockCart.user === (user._id || menteeUser._id)) {
             // Fallback to seed data if no localStorage
-            const mappedCourses = mockCart.items.map((item) => ({
-              ...item.courseId,
-              id: item.courseId._id,
-              selected: true,
-              quantity: item.quantity,
-            }));
+            const mappedCourses = mockCart.items
+              .filter((item) => item && item.courseId) // Filter out invalid items
+              .map((item) => ({
+                ...item.courseId,
+                id: item.courseId._id,
+                selected: true,
+                quantity: item.quantity,
+              }));
             setCourses(mappedCourses);
             setSelectedCourses(mappedCourses);
             setSubtotal(mockCart.subtotalAmount || 0);
@@ -105,13 +128,18 @@ const ShoppingCart = () => {
 
         const cart = response?.data?.cart;
         if (cart && cart.courses && cart.courses.length > 0) {
-          const mappedCourses = cart.courses.map((courseRef) => ({
-            ...courseRef.course, // Course details populated from backend
-            id: courseRef.course._id,
-            selected: true,
-            quantity: 1, // Cart model doesn't have quantity per course
-            addedAt: courseRef.addedAt,
-          }));
+          const mappedCourses = cart.courses
+            .filter(
+              (courseRef) =>
+                courseRef && courseRef.course && courseRef.course._id
+            ) // Filter out invalid course references
+            .map((courseRef) => ({
+              ...courseRef.course, // Course details populated from backend
+              id: courseRef.course._id,
+              selected: true,
+              quantity: 1, // Cart model doesn't have quantity per course
+              addedAt: courseRef.addedAt,
+            }));
 
           setCourses(mappedCourses);
           setSelectedCourses(mappedCourses);
@@ -271,16 +299,16 @@ const ShoppingCart = () => {
               </svg>
             </div>
             <h3 className="text-lg font-medium text-gray-900 mb-2">
-              Giỏ hàng trống
+              Empty cart
             </h3>
             <p className="text-gray-500 mb-6">
-              Bạn chưa có khóa học nào trong giỏ hàng
+              You don't have any courses in cart
             </p>
             <button
               onClick={() => navigate("/all-courses")}
               className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition duration-200"
             >
-              Khám phá khóa học
+              Explore courses
             </button>
           </div>
         </div>
@@ -372,20 +400,23 @@ const ShoppingCart = () => {
                               </span>
                             </div>
 
-                            {/* Course Info */}
-                            <p className="text-sm text-gray-600 mb-3">
-                              {course.duration} Total Hours • {course.lectures}{" "}
-                              Lectures • {course.level}
-                            </p>
+                            {/* Course Details */}
+                            <div className="text-sm text-gray-700 mb-2 line-clamp-1">
+                              {course.duration || course.totalHours || 0} Total
+                              Hours •{" "}
+                              {course.lectures || course.totalLectures || 0}{" "}
+                              Lectures
+                            </div>
+
+                            {/* Category */}
+                            <div className="mb-3">
+                              <span className="inline-block bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full font-medium">
+                                Category: {course.category || "General"}
+                              </span>
+                            </div>
 
                             {/* Action Buttons */}
                             <div className="flex items-center gap-4">
-                              <button
-                                onClick={() => handleSaveForLater(course.id)}
-                                className="text-sm text-blue-600 hover:text-blue-700"
-                              >
-                                Save for later
-                              </button>
                               <button
                                 onClick={() => handleRemoveCourse(course.id)}
                                 className="text-sm text-red-600 hover:text-red-700"

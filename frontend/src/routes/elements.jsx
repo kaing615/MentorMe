@@ -3,6 +3,8 @@ import { useRoutes } from "react-router-dom";
 
 import WelcomePage from "../pages/WelcomePage";
 import HomeScreen from "../pages/homeScreen";
+import SendHelpRequest from "../components/common/SendHelpRequest";
+import ProtectedRoute from "../components/common/ProtectedRoute";
 import AllPagesLayout from "../components/layout/AllPagesLayout";
 import SignUp_SignIn_layout from "../components/layout/SignUp_SignIn_layout";
 
@@ -53,6 +55,10 @@ const useRouterElements = () => {
         },
         {
           path: MENTEE_PATH.ORDERCOMPLETECOURSE,
+          element: <OrderCompleteCourse />,
+        },
+        {
+          path: `${MENTEE_PATH.ORDERCOMPLETECOURSE}/:id`,
           element: <OrderCompleteCourse />,
         },
         {
@@ -136,6 +142,21 @@ const useRouterElements = () => {
         {
           path: MENTOR_PATH.ALLMENTORS,
           element: <AllMentors />,
+        },
+      ],
+    },
+
+    {
+      path: PATH.PLATFORM,
+      element: <AllPagesLayout />,
+      children: [
+        {
+          path: PLATFORM_PATH.HELP_REQUEST,
+          element: (
+            <ProtectedRoute>
+              <SendHelpRequest />
+            </ProtectedRoute>
+          )
         },
       ],
     },

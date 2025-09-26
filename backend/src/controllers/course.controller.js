@@ -6,6 +6,7 @@ import responseHandler from "../handlers/response.handler.js";
 import Course from "../models/course.model.js";
 import Order from "../models/order.model.js";
 import User from "../models/user.model.js";
+import Profile from "../models/profile.model.js";
 import Lesson from "../models/lesson.model.js";
 import Review from "../models/review.model.js";
 
@@ -15,7 +16,7 @@ import {
   addContentSchema,
   addReviewSchema,
 } from "../validations/course.validation.js";
-
+//
 const getParamId = (req) => req.params.courseId || req.params.id;
 const isMentorOfCourse = (course, userId) =>
   course.mentor && course.mentor.toString() === userId.toString();
@@ -108,15 +109,35 @@ export const getCourseById = async (req, res) => {
   try {
     const id = getParamId(req);
     const course = await Course.findById(id)
-      .populate("mentor", "userName avatarUrl jobTitle bio location")
+      .populate("mentor", "userName firstName lastName avatarUrl")
       .populate("mentees", "userName avatarUrl");
 
     if (!course) {
       return responseHandler.notFound(res, "Khóa học không tồn tại!");
     }
 
+    // Get mentor profile data
+    let mentorProfile = null;
+    if (course.mentor) {
+      mentorProfile = await Profile.findOne({ user: course.mentor._id });
+    }
+
     const obj = course.toObject();
     obj.courseId = obj._id;
+
+    // Merge mentor data with profile data
+    if (obj.mentor && mentorProfile) {
+      obj.mentor = {
+        ...obj.mentor,
+        jobTitle: mentorProfile.jobTitle,
+        bio: mentorProfile.bio,
+        location: mentorProfile.location,
+        category: mentorProfile.category,
+        experience: mentorProfile.experience,
+        skills: mentorProfile.skills || [],
+      };
+    }
+
     delete obj.__v;
     return responseHandler.ok(res, {
       message: "Lấy thông tin khóa học thành công!",
@@ -351,9 +372,6 @@ export const getMyCourses = async (req, res) => {
 
 export const createCourse = async (req, res) => {
   try {
-    console.log("=== CREATE COURSE REQUEST ===");
-    console.log("Request body:", req.body);
-    console.log("Request file:", req.file ? "File uploaded" : "No file");
 
     const { id: userId } = req.user;
     let {
@@ -374,11 +392,9 @@ export const createCourse = async (req, res) => {
 
     // Xử lý description - ưu tiên courseOverview
     const finalDescription = courseOverview || description || "";
-    console.log("Final description:", finalDescription);
 
     // Xử lý link - ưu tiên driveLink
     const finalLink = driveLink || link || "";
-    console.log("Final link:", finalLink);
 
     // Parse tags
     if (typeof tags === "string") {
@@ -446,23 +462,6 @@ export const createCourse = async (req, res) => {
       thumbnailPublicId = result.public_id;
     }
 
-    console.log("Creating course with data:", {
-      title,
-      description: finalDescription,
-      keyLearningObjectives,
-      price: Number(price),
-      mentor: userId,
-      category,
-      tags,
-      language,
-      duration: Number(duration) || 0,
-      link: finalLink,
-      lectures: Number(lectures),
-      level,
-      thumbnail: thumbnailUrl,
-      thumbnailPublicId,
-    });
-
     const newCourse = new Course({
       title,
       description: finalDescription,
@@ -481,7 +480,6 @@ export const createCourse = async (req, res) => {
     });
 
     await newCourse.save();
-    console.log("Course created successfully:", newCourse._id);
 
     const populatedCourse = await Course.findById(newCourse._id).populate(
       "mentor",
@@ -721,7 +719,9 @@ export const getCourseReviews = async (req, res) => {
     const reviews = await Review.find({
       target: courseId,
       targetType: "Course",
-    }).populate("author", "userName avatar");
+    }).populate("author", "userName firstName lastName avatar avatarUrl");
+
+    console.log(`Found ${reviews.length} reviews for course ${courseId}`);
     return responseHandler.ok(res, reviews);
   } catch (err) {
     console.error("Error getting course reviews:", err);
@@ -994,6 +994,38 @@ export const getUserCourses = async (req, res) => {
   }
 };
 
+export const checkCoursePurchaseStatus = async (req, res) => {
+  try {
+    const { courseId } = req.params;
+    const userId = req.user.id;
+
+    if (!courseId) {
+      return responseHandler.badRequest(res, "Course ID is required.");
+    }
+
+    // Tìm course và kiểm tra xem user có trong mảng mentees không
+    const course = await Course.findById(courseId);
+
+    if (!course) {
+      return responseHandler.notFound(res, "Khóa học không tồn tại!");
+    }
+
+    const isPurchased = course.mentees.includes(userId);
+
+    return responseHandler.ok(res, {
+      message: isPurchased
+        ? "Bạn đã mua khóa học này."
+        : "Bạn chưa mua khóa học này.",
+      isPurchased,
+      courseId,
+      courseTitle: course.title,
+    });
+  } catch (err) {
+    console.error("Error checking course purchase status:", err);
+    responseHandler.error(res, err.message);
+  }
+};
+
 export default {
   getCourses,
   getCourseById,
@@ -1012,4 +1044,5 @@ export default {
   removeContentFromCourse,
   handlePurchaseSuccess,
   getUserCourses,
+  checkCoursePurchaseStatus,
 };

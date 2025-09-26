@@ -1,4 +1,7 @@
 import { configureStore } from "@reduxjs/toolkit";
+import userSlice from "./features/user.slice"
+import loadingSlice from "./features/loading.slice"
+import authSlice from "./features/auth.slice"
 import userSlice from "./features/user.slice";
 import loadingSlice from "./features/loading.slice";
 import authSlice from "./features/auth.slice";

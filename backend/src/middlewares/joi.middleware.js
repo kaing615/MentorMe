@@ -25,7 +25,20 @@ const validate = (schema, property = "body") => {
     }
 
     // Replace req[property] with validated and sanitized data
-    req[property] = value;
+    // Handle readonly properties like req.query
+    try {
+      if (property === "query") {
+        // For query, we can't directly assign, so we update individual properties
+        Object.keys(value).forEach(key => {
+          req.query[key] = value[key];
+        });
+      } else {
+        req[property] = value;
+      }
+    } catch (err) {
+      console.warn(`Could not set req.${property}, skipping assignment:`, err.message);
+    }
+    
     next();
   };
 };

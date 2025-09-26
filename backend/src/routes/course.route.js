@@ -31,6 +31,7 @@ const C = { ...CourseCtl, ...(CourseCtl.default || {}) };
   "removeMentorFromCourse",
   "addContentToCourse",
   "removeContentFromCourse",
+  "checkCoursePurchaseStatus",
 ].forEach((name) => {
   if (typeof C[name] !== "function") {
     throw new Error(
@@ -70,6 +71,13 @@ router.get(
   verifyToken,
   authorizeRoles("mentor"),
   C.getMyCourses
+);
+
+// Kiểm tra xem user đã mua khóa học hay chưa
+router.get(
+  "/:courseId/purchase-status",
+  verifyToken,
+  C.checkCoursePurchaseStatus
 );
 
 // Route with params must be last

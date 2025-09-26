@@ -4,19 +4,22 @@ import { useDispatch, useSelector } from "react-redux";
 import { IoStarOutline, IoStar } from "react-icons/io5";
 import { useNavigate } from "react-router-dom";
 
-import minatoImg from "../assets/minato.webp";
 import oipImg from "../assets/OIP.webp";
 import GradImg from "../assets/grad.png";
 import NiggaImg from "../assets/nigga.png";
 import WhiteImg from "../assets/white.png";
 import AvatarsImg from "../assets/avatars.png";
 import BoImg from "../assets/Bơ.jpg";
+import BecomeMentor from "../assets/become-an-mentor.jpg";
 
 import { MENTEE_PATH } from "../routes/path";
 import { showLoading, hideLoading } from "../redux/features/loading.slice";
+import { clearUser } from "../redux/features/user.slice";
 import courseApi from "../api/modules/course.api.js";
 import profileApi from "../api/modules/profile.api.js";
 import cartApi from "../api/modules/cart.api.js";
+import purchasedCourseApi from "../api/modules/purchasedCourse.api.js";
+import reviewApi from "../api/modules/review.api.js";
 import { toast } from "react-toastify";
 
 const categories = [
@@ -158,19 +161,40 @@ const fallbackMentors = [
 
 const testimonials = [
   {
-    name: "Jane Doe",
+    name: "Sarah Johnson",
     text: "MentorMe is a game-changer! I love how easy it is to connect with real mentors who actually get what I'm going through. Every session feels super chill, helpful, and way more personal than any course I've tried. Big fan!",
-    avatar: minatoImg,
+    avatar:
+      "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=100&h=100&fit=crop&crop=face&auto=format",
   },
   {
-    name: "Jane Doe",
-    text: "MentorMe is a game-changer! I love how easy it is to connect with real mentors who actually get what I'm going through. Every session feels super chill, helpful, and way more personal than any course I've tried. Big fan!",
-    avatar: minatoImg,
+    name: "Michael Chen",
+    text: "The mentors on this platform are incredibly knowledgeable and patient. I've learned more in 3 months than I did in years of self-study. The personalized guidance made all the difference in my career transition.",
+    avatar:
+      "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop&crop=face&auto=format",
   },
   {
-    name: "Jane Doe",
-    text: "MentorMe is a game-changer! I love how easy it is to connect with real mentors who actually get what I'm going through. Every session feels super chill, helpful, and way more personal than any course I've tried. Big fan!",
-    avatar: minatoImg,
+    name: "Emily Rodriguez",
+    text: "As a working mom, I needed flexible learning options. MentorMe's one-on-one sessions fit perfectly into my schedule. My mentor understood my challenges and helped me build confidence in my skills.",
+    avatar:
+      "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&h=100&fit=crop&crop=face&auto=format",
+  },
+  {
+    name: "David Kim",
+    text: "I was skeptical about online mentoring, but MentorMe proved me wrong. The quality of mentorship is outstanding, and the platform makes it so easy to book sessions and track progress. Highly recommend!",
+    avatar:
+      "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop&crop=face&auto=format",
+  },
+  {
+    name: "Lisa Thompson",
+    text: "The variety of mentors available is amazing! I found experts in exactly the niche I needed help with. The booking system is seamless and the session quality is consistently excellent.",
+    avatar:
+      "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&h=100&fit=crop&crop=face&auto=format",
+  },
+  {
+    name: "James Wilson",
+    text: "MentorMe has accelerated my professional growth tremendously. My mentor provided insights I couldn't get anywhere else. The platform is intuitive and the community is supportive.",
+    avatar:
+      "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&h=100&fit=crop&crop=face&auto=format",
   },
 ];
 
@@ -194,10 +218,42 @@ const HomeScreen = () => {
   const navigate = useNavigate();
   const user = useSelector((state) => state.user);
 
+  // --- AUTH CHECK (mentor và mentee đều được xem) ---
+  useEffect(() => {
+    const token =
+      localStorage.getItem("actkn") || localStorage.getItem("token");
+    const userStr =
+      localStorage.getItem("user") || localStorage.getItem("user");
+    let user = null;
+    if (!token) {
+      navigate("/auth/signin");
+      return;
+    }
+    // Check user object
+    try {
+      user = userStr ? JSON.parse(userStr) : null;
+    } catch (e) {
+      user = null;
+    }
+    if (!user || !user.role) {
+      navigate("/auth/signin");
+      return;
+    }
+    // Check role - chỉ mentor và mentee được phép vào
+    if (user.role === "mentor" || user.role === "mentee") {
+      return;
+    }
+    // Nếu không phải mentor hoặc mentee, redirect về signin
+    navigate("/auth/signin");
+    return;
+  }, [navigate]);
+
   const [topCourses, setTopCourses] = useState([]);
   const [coursesLoading, setCoursesLoading] = useState(false);
   const [topMentors, setTopMentors] = useState([]);
   const [mentorsLoading, setMentorsLoading] = useState(false);
+  // State để lưu purchased courses status
+  const [purchasedCoursesMap, setPurchasedCoursesMap] = useState(new Map());
 
   const coursesRef = useRef(null);
   const mentorsRef = useRef(null);
@@ -207,24 +263,81 @@ const HomeScreen = () => {
   const dragCourses = useHorizontalScrollBlockSwipe();
   const dragMentors = useHorizontalScrollBlockSwipe();
 
+  const computeMentorStats = async (mentorId) => {
+    // 1) Lấy toàn bộ khóa học của mentor để suy ra mentee (unique)
+    let menteeSet = new Set();
+    try {
+      const coursesRes = await courseApi.getCoursesByMentor(mentorId);
+      const courses = Array.isArray(coursesRes) ? coursesRes : [];
+      courses.forEach((c) => {
+        if (Array.isArray(c?.mentees)) {
+          c.mentees.forEach((m) => {
+            const id = typeof m === "string" ? m : m?._id || m?.id;
+            if (id) menteeSet.add(id);
+          });
+        }
+      });
+    } catch (_) {}
+
+    // 2) Lấy reviews (course + booking) rồi tính trung bình
+    let allReviews = [];
+    try {
+      const { response: cr } = await reviewApi.getMentorCourseReviews(mentorId);
+      const courseReviews = cr?.data?.items || [];
+      allReviews = allReviews.concat(courseReviews);
+    } catch (_) {}
+    try {
+      const { response: br } = await reviewApi.getBookingReviews(mentorId);
+      const bookingReviews = br?.data?.items || [];
+      allReviews = allReviews.concat(bookingReviews);
+    } catch (_) {}
+
+    const totalReviews = allReviews.length;
+    const averageRating = totalReviews
+      ? Math.round(
+          (allReviews.reduce((s, r) => s + (Number(r.rate) || 0), 0) /
+            totalReviews) *
+            10
+        ) / 10
+      : 0;
+
+    return {
+      totalMentees: menteeSet.size,
+      totalReviews,
+      averageRating,
+    };
+  };
+
   // Helper function to check if course is already purchased
   const isCourseAlreadyPurchased = (courseId) => {
-    const mockPurchasedCourses = localStorage.getItem("mockPurchasedCourses");
-    if (mockPurchasedCourses) {
-      try {
-        const purchasedCourses = JSON.parse(mockPurchasedCourses);
-        return purchasedCourses.some(
-          (purchased) =>
-            (purchased.course?._id ||
-              purchased.course?.id ||
-              purchased.courseId) === courseId
-        );
-      } catch (error) {
-        console.error("Error parsing purchased courses:", error);
-        return false;
-      }
+    // Check from API-based purchasedCoursesMap (Course.mentees array check)
+    return (
+      purchasedCoursesMap.has(courseId) && purchasedCoursesMap.get(courseId)
+    );
+  };
+
+  // Helper function to get purchased course ID if it exists
+  const getPurchasedCourseId = (courseId) => {
+    return purchasedCoursesMap.get(courseId);
+  };
+
+  // Smart navigation function for View Course button
+  const handleSmartViewCourse = (e, course) => {
+    e.stopPropagation();
+    const courseId = course._id || course.id;
+    const purchasedCourseId = getPurchasedCourseId(courseId);
+
+    if (purchasedCourseId) {
+      // Navigate with purchasedCourseId for new purchased courses
+      navigate(`/order-complete-course/${purchasedCourseId}`, {
+        state: { purchasedCourseId, courseInfo: course },
+      });
+    } else {
+      // Fallback to courseId for legacy courses
+      navigate(`/order-complete-course/${courseId}`, {
+        state: { courseId, courseInfo: course },
+      });
     }
-    return false;
   };
 
   // Add to Cart function
@@ -269,8 +382,6 @@ const HomeScreen = () => {
           throw new Error(error.message || "API failed");
         }
       } catch (apiError) {
-        console.log("API failed, using localStorage fallback:", apiError);
-
         // Fallback to localStorage
         const existingCart = localStorage.getItem("mockCart");
         let cartItems = existingCart ? JSON.parse(existingCart) : [];
@@ -313,7 +424,7 @@ const HomeScreen = () => {
   };
 
   // Buy Now function
-  const handleBuyNow = (e, course) => {
+  const handleBuyNow = async (e, course) => {
     e.stopPropagation();
 
     if (!user) {
@@ -337,12 +448,75 @@ const HomeScreen = () => {
       return;
     }
 
-    navigate(`/course-detail/${courseId}`);
+    // Kiểm tra nếu đã có trong giỏ hàng
+    let alreadyInCart = false;
+    try {
+      // Ưu tiên kiểm tra qua API nếu có
+      if (cartApi && cartApi.getCart) {
+        const { response } = await cartApi.getCart();
+        if (response && Array.isArray(response.items)) {
+          alreadyInCart = response.items.some(
+            (item) => (item._id || item.id) === courseId
+          );
+        }
+      }
+    } catch {
+      // Fallback localStorage
+      const existingCart = localStorage.getItem("mockCart");
+      let cartItems = existingCart ? JSON.parse(existingCart) : [];
+      alreadyInCart = cartItems.some(
+        (item) => (item._id || item.id) === courseId
+      );
+    }
+
+    if (alreadyInCart) {
+      // Nếu đã có trong giỏ hàng thì chuyển tới giỏ hàng và cuộn lên đầu trang
+      navigate("/shoppingcart");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
+
+    // Nếu chưa có thì thêm vào giỏ hàng
+    try {
+      dispatch(showLoading());
+      // Thêm qua API nếu có
+      if (cartApi && cartApi.addToCart) {
+        await cartApi.addToCart({ courseId }, dispatch);
+      } else {
+        // Fallback localStorage
+        const existingCart = localStorage.getItem("mockCart");
+        let cartItems = existingCart ? JSON.parse(existingCart) : [];
+        cartItems.push({
+          id: courseId,
+          _id: courseId,
+          title: course.title,
+          price: course.price,
+          image: course.thumbnailUrl || course.thumbnail || course.img,
+          mentor:
+            course?.mentor?.userName ||
+            course?.mentor?.email ||
+            course?.mentor?.fullName ||
+            course?.mentor ||
+            "Unknown Mentor",
+          addedAt: new Date().toISOString(),
+        });
+        localStorage.setItem("mockCart", JSON.stringify(cartItems));
+      }
+      toast.success("Course added to cart successfully!");
+    } catch (error) {
+      toast.error("Failed to add course to cart");
+      dispatch(hideLoading());
+      return;
+    }
+
+    // Chuyển tới giỏ hàng và cuộn lên đầu trang
+    navigate("/shoppingcart");
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const handleSeeAllCourses = () => {
     const userStr =
-      localStorage.getItem("user") || localStorage.getItem("user");
+      localStorage.getItem("user");
     let user = null;
     try {
       user = userStr ? JSON.parse(userStr) : null;
@@ -359,7 +533,7 @@ const HomeScreen = () => {
 
   const handleMentorClick = (mentorId) => {
     window.scrollTo({ top: 0, behavior: "smooth" });
-    navigate(`/${mentorId}`);
+    navigate(`/mentor/${mentorId}`);
   };
 
   useEffect(() => {
@@ -454,14 +628,23 @@ const HomeScreen = () => {
       setMentorsLoading(true);
       try {
         const response = await profileApi.getTopMentors(6);
-        console.log("Top mentors response:", response);
-
-        if (response && response.data?.mentors) {
-          setTopMentors(response.data.mentors);
-        } else {
-          console.log("No mentors data, using fallback");
-          setTopMentors(fallbackMentors);
-        }
+        const raw = response?.data?.mentors || fallbackMentors;
+        // Enrich mỗi mentor với stats
+        const enriched = await Promise.all(
+          raw.map(async (m) => {
+            const mentorId = m?._id || m?.id || m?.user?._id || m?.user?.id;
+            if (!mentorId)
+              return {
+                ...m,
+                averageRating: 0,
+                totalReviews: 0,
+                totalMentees: 0,
+              };
+            const stats = await computeMentorStats(mentorId);
+            return { ...m, ...stats };
+          })
+        );
+        setTopMentors(enriched);
       } catch (error) {
         console.error("Error fetching top mentors:", error);
         setTopMentors(fallbackMentors);
@@ -472,39 +655,44 @@ const HomeScreen = () => {
     fetchTopMentors();
   }, []);
 
-  const renderStars = (rating = 0) => {
-    const stars = [];
-    const fullStars = Math.floor(rating);
-    const hasHalfStar = rating % 1 !== 0;
-    for (let i = 0; i < fullStars; i++) {
-      stars.push(
-        <IoStar key={`full-${i}`} className="text-yellow-500" size={20} />
-      );
-    }
-    if (hasHalfStar) {
-      stars.push(
-        <div key="half" className="relative">
-          <IoStarOutline className="text-yellow-500" size={20} />
-          <IoStar
-            className="text-yellow-500 absolute top-0 left-0"
-            size={20}
-            style={{ clipPath: "inset(0 50% 0 0)" }}
-          />
-        </div>
-      );
-    }
-    const emptyStars = 5 - Math.ceil(rating);
-    for (let i = 0; i < emptyStars; i++) {
-      stars.push(
-        <IoStarOutline
-          key={`empty-${i}`}
-          className="text-yellow-500"
-          size={20}
-        />
-      );
-    }
-    return stars;
-  };
+  // Fetch purchased courses for smart navigation
+  useEffect(() => {
+    const fetchPurchasedCourses = async () => {
+      if (!user || user.role !== "mentee") return;
+
+      // Check purchase status for displayed courses
+      if (topCourses.length > 0) {
+        const statusMap = new Map();
+
+        await Promise.all(
+          topCourses.map(async (course) => {
+            const courseId = course._id || course.id || course.courseId;
+            if (courseId) {
+              try {
+                const { response, error } = await courseApi.checkPurchaseStatus(
+                  { courseId },
+                  dispatch
+                );
+                if (response?.data?.isPurchased) {
+                  statusMap.set(courseId, true);
+                }
+              } catch (error) {
+                console.error(
+                  `Error checking purchase status for course ${courseId}:`,
+                  error
+                );
+              }
+            }
+          })
+        );
+
+        setPurchasedCoursesMap(statusMap);
+        console.log("Purchase status checked for", statusMap.size, "courses");
+      }
+    };
+
+    fetchPurchasedCourses();
+  }, [user, topCourses]); // Depend on topCourses to check when courses are loaded
 
   return (
     <div className="bg-gray-50 min-h-screen flex flex-col">
@@ -816,10 +1004,12 @@ const HomeScreen = () => {
                                     ({course.numberOfRatings || 0} Ratings)
                                   </span>
                                 </div>
-                                <p className="text-sm text-gray-600 mb-2">
-                                  {hours} Hours. {lectures} Lectures.{" "}
-                                  {course.category}
-                                </p>
+                                <div className="text-sm text-gray-700 mb-1">
+                                  {hours} Total Hours • {lectures} Lectures
+                                </div>
+                                <div className="text-sm text-gray-600 mb-2">
+                                  {course.category || "General"}
+                                </div>
 
                                 {/* Hiển thị tags (Programming Languages) */}
                                 {course.tags && course.tags.length > 0 && (
@@ -896,11 +1086,21 @@ const HomeScreen = () => {
 
                               {/* Add to Cart and Buy Now buttons for mentees */}
                               {user && user.role === "mentee" && (
-                                <div className="flex gap-2 mt-2 mb-4">
+                                <div className="flex flex-col gap-2 mt-2 mb-4">
                                   {isCourseAlreadyPurchased(courseId) ? (
-                                    <div className="w-full bg-green-100 text-green-700 py-2 px-3 rounded-md text-sm font-medium text-center">
-                                      ✓ Already Purchased
-                                    </div>
+                                    <>
+                                      <div className="w-full bg-green-100 text-green-700 py-2 px-3 rounded-md text-sm font-medium text-center">
+                                        ✓ Already Purchased
+                                      </div>
+                                      <button
+                                        onClick={(e) =>
+                                          handleSmartViewCourse(e, course)
+                                        }
+                                        className="w-full bg-blue-600 text-white py-2 px-3 rounded-md text-sm font-medium hover:bg-blue-700 transition-colors"
+                                      >
+                                        View Course
+                                      </button>
+                                    </>
                                   ) : (
                                     <>
                                       <button
@@ -1062,28 +1262,54 @@ const HomeScreen = () => {
                             {mentor.jobTitle || "Professional"}
                           </div>
                           <div className="text-xs text-[#6B7280] mb-3 text-center">
-                            {(mentor.category || "General")
-                              .charAt(0)
-                              .toUpperCase() +
-                              (mentor.category || "General")
-                                .slice(1)
-                                .toLowerCase()}
+                            {(() => {
+                              let category = mentor.category || "General";
+
+                              // If it's an array, take the first element
+                              if (Array.isArray(category)) {
+                                category = category[0] || "General";
+                              }
+
+                              // If it's a string with commas, take the first part
+                              if (
+                                typeof category === "string" &&
+                                category.includes(",")
+                              ) {
+                                category = category.split(",")[0].trim();
+                              }
+
+                              return (
+                                category.charAt(0).toUpperCase() +
+                                category.slice(1).toLowerCase()
+                              );
+                            })()}
                           </div>
-                          <div className="flex items-center justify-center gap-4 w-full mb-4">
-                            <div className="flex items-center gap-1">
-                              <span className="text-[#F59E1B] text-lg">★</span>
-                              <span className="text-[#1A2233] font-semibold text-base">
-                                {mentor.averageRating
-                                  ? mentor.averageRating.toFixed(1)
-                                  : "4.5"}
+                          <div className="flex items-center justify-between w-full mb-4">
+                            <div className="flex items-center gap-2 px-3 py-2 bg-yellow-50 rounded-full">
+                              <svg
+                                className="w-4 h-4 text-yellow-500"
+                                fill="currentColor"
+                                viewBox="0 0 20 20"
+                              >
+                                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                              </svg>
+                              <span className="text-sm font-bold text-yellow-700">
+                                {(mentor.averageRating ?? 0).toFixed(1)}
                               </span>
                             </div>
-                            <div className="flex items-center gap-1">
-                              <span className="text-[#6B7280] text-base">
-                                {mentor.totalStudents
-                                  ? mentor.totalStudents.toLocaleString()
-                                  : "1000"}{" "}
-                                Students
+                            <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 rounded-full">
+                              <svg
+                                className="w-4 h-4 text-blue-600"
+                                fill="currentColor"
+                                viewBox="0 0 20 20"
+                              >
+                                <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3z" />
+                              </svg>
+                              <span className="text-sm font-medium text-blue-800">
+                                {mentor.totalMentees ?? 0}
+                              </span>
+                              <span className="text-xs text-blue-600">
+                                students
                               </span>
                             </div>
                           </div>
@@ -1124,9 +1350,6 @@ const HomeScreen = () => {
               <h2 className="text-2xl font-bold text-slate-800">
                 What Our Customer Say
               </h2>
-              <span className="text-base text-slate-500 font-medium">
-                About Us
-              </span>
             </div>
             <div className="flex gap-2 mt-4 md:mt-0">
               <button
@@ -1232,7 +1455,7 @@ const HomeScreen = () => {
               <div className="relative w-[320px] h-[320px] md:w-[340px] md:h-[340px] flex items-center justify-center">
                 <div className="absolute inset-0 rounded-[48px] bg-[#E6E6FA]" />
                 <img
-                  src={minatoImg}
+                  src={BecomeMentor}
                   alt="mentor"
                   className="w-full h-full object-cover rounded-[48px] relative z-10"
                 />
@@ -1249,8 +1472,23 @@ const HomeScreen = () => {
               <div className="flex justify-end md:justify-start">
                 <button
                   onClick={() => {
+                    // Clear user data using Redux action (will also clear localStorage)
+                    dispatch(clearUser());
+                    // Clear all authentication related data from both localStorage and sessionStorage
+                    localStorage.removeItem("user");
+                    localStorage.removeItem("token");
+                    localStorage.removeItem("actkn");
+                    localStorage.removeItem("isLoggedIn");
+                    sessionStorage.removeItem("user");
+                    sessionStorage.removeItem("token");
+                    sessionStorage.removeItem("actkn");
+                    sessionStorage.removeItem("isLoggedIn");
+                    // Reset header về trạng thái mặc định khi đăng xuất
+                    localStorage.setItem("mentorMode", "false");
+                    // Navigate to apply as mentor page
                     navigate("/auth/apply-as-men");
                     window.scrollTo(0, 0);
+                    toast.success("Redirecting to mentor application!");
                   }}
                   className="group flex items-center gap-2 px-6 py-3 bg-[#1A2233] text-white rounded-xl font-semibold shadow-lg hover:bg-gradient-to-r hover:from-blue-600 hover:to-purple-600 hover:shadow-2xl hover:shadow-blue-500/40 hover:scale-110 hover:-translate-y-3 active:scale-95 active:translate-y-0 transition-all duration-400 ease-out text-base md:text-lg relative overflow-hidden transform"
                 >
@@ -1289,9 +1527,10 @@ const HomeScreen = () => {
               <div className="flex justify-start">
                 <button
                   onClick={handleSeeAllCourses}
-                  className="flex items-center gap-2 px-6 py-3 bg-[#1A2233] text-white rounded-xl font-semibold shadow hover:bg-blue-700 transition text-base md:text-lg"
+                  className="group flex items-center gap-2 px-6 py-3 bg-[#1A2233] text-white rounded-xl font-semibold shadow-lg hover:bg-gradient-to-r hover:from-blue-600 hover:to-purple-600 hover:shadow-2xl hover:shadow-blue-500/40 hover:scale-110 hover:-translate-y-3 active:scale-95 active:translate-y-0 transition-all duration-400 ease-out text-base md:text-lg relative overflow-hidden transform"
                 >
-                  Checkout Courses
+                  <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700 ease-out"></span>
+                  <span className="relative z-10">Checkout Courses</span>
                   <svg
                     width="20"
                     height="20"
@@ -1299,6 +1538,7 @@ const HomeScreen = () => {
                     stroke="currentColor"
                     strokeWidth="2"
                     viewBox="0 0 24 24"
+                    className="relative z-10 transition-transform duration-400 group-hover:translate-x-2 group-hover:scale-125"
                   >
                     <path
                       strokeLinecap="round"

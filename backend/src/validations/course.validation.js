@@ -36,16 +36,22 @@ const numberFromString = (opts = {}) => {
 // ========== CREATE COURSE ==========
 export const createCourseSchema = Joi.object({
   // Tiêu đề
-  title: Joi.string().min(1).max(200).required().messages({
-    "string.empty": "Tiêu đề khóa học không được để trống",
-    "string.min": "Tiêu đề khóa học phải từ 1-200 ký tự",
-    "string.max": "Tiêu đề khóa học phải từ 1-200 ký tự",
-    "any.required": "Tiêu đề khóa học là bắt buộc",
+  title: Joi.string().min(3).max(100).required().messages({
+    "string.empty": "Course title cannot be empty",
+    "string.min": "Course title must be between 3-100 characters",
+    "string.max": "Course title must be between 3-100 characters",
+    "any.required": "Course title is required",
   }),
 
   // Mô tả - frontend gửi courseOverview
-  description: Joi.string().min(10).max(2000).optional(),
-  courseOverview: Joi.string().min(10).max(2000).optional(),
+  description: Joi.string().min(20).max(1000).optional().messages({
+    "string.min": "Course description must be between 20-1000 characters",
+    "string.max": "Course description must be between 20-1000 characters",
+  }),
+  courseOverview: Joi.string().min(20).max(1000).optional().messages({
+    "string.min": "Course overview must be between 20-1000 characters",
+    "string.max": "Course overview must be between 20-1000 characters",
+  }),
 
   // Giá
   price: Joi.alternatives()
@@ -61,75 +67,119 @@ export const createCourseSchema = Joi.object({
     )
     .required()
     .messages({
-      "any.required": "Giá khóa học là bắt buộc",
-      "number.min": "Giá phải >= 0",
+      "any.required": "Course price is required",
+      "number.min": "Price must be greater than or equal to 0",
     }),
 
   // Danh mục
-  category: Joi.string().required().messages({
-    "string.empty": "Danh mục không được để trống",
-    "any.required": "Danh mục là bắt buộc",
+  category: Joi.string().min(2).max(50).required().messages({
+    "string.empty": "Category cannot be empty",
+    "string.min": "Category must be between 2-50 characters",
+    "string.max": "Category must be between 2-50 characters",
+    "any.required": "Category is required",
   }),
 
   // Level (nếu có)
   level: Joi.string()
     .valid("Beginner", "Intermediate", "Advanced", "Expert")
-    .optional(),
+    .required()
+    .messages({
+      "any.required": "Level is required",
+      "any.only":
+        "Level must be one of: Beginner, Intermediate, Advanced, Expert",
+    }),
 
   // Mục tiêu học (optional)
-  keyLearningObjectives: Joi.string().allow("").optional(),
+  keyLearningObjectives: Joi.string()
+    .min(10)
+    .max(200)
+    .allow("")
+    .optional()
+    .messages({
+      "string.min": "Learning objectives must be between 10-200 characters",
+      "string.max": "Learning objectives must be between 10-200 characters",
+    }),
 
   // Số bài giảng
   lectures: Joi.alternatives()
     .try(
-      Joi.number().integer().positive(),
+      Joi.number().integer().min(1).max(500),
       Joi.string()
         .pattern(/^\d+$/)
         .custom((value, helpers) => {
           const num = parseInt(value, 10);
-          if (Number.isNaN(num)) return helpers.error("any.invalid");
+          if (Number.isNaN(num) || num < 1 || num > 500)
+            return helpers.error("any.invalid");
           return num;
         })
     )
     .required()
     .messages({
-      "any.required": "Số bài giảng là bắt buộc",
+      "any.required": "Number of lectures is required",
+      "number.min": "Number of lectures must be between 1-500",
+      "number.max": "Number of lectures must be between 1-500",
     }),
 
-  // Thời lượng (phút) — cho phép chuỗi rỗng
+  // Thời lượng (giờ) — cho phép chuỗi rỗng và số thập phân
   duration: numberFromString({
     min: 0,
-    integer: true,
+    max: 1000,
+    integer: false,
     allowEmptyString: true,
-  }).optional(),
+  })
+    .optional()
+    .messages({
+      "number.min": "Duration must be between 0-1000 hours",
+      "number.max": "Duration must be between 0-1000 hours",
+    }),
 
   // Link khoá học - frontend gửi driveLink
-  link: Joi.string().uri().optional(),
-  driveLink: Joi.string().uri().optional(),
+  link: Joi.string().uri().min(10).max(500).optional().messages({
+    "string.min": "Link must be between 10-500 characters",
+    "string.max": "Link must be between 10-500 characters",
+    "string.uri": "Link must be a valid URL",
+  }),
+  driveLink: Joi.string().uri().min(10).max(500).optional().messages({
+    "string.min": "Drive link must be between 10-500 characters",
+    "string.max": "Drive link must be between 10-500 characters",
+    "string.uri": "Drive link must be a valid URL",
+  }),
 
   // Tag (optional) - có thể là string hoặc array
   tags: Joi.alternatives()
-    .try(Joi.array().items(Joi.string().allow("")), Joi.string().allow(""))
-    .optional(),
+    .try(
+      Joi.array().items(Joi.string().min(1).max(30).allow("")),
+      Joi.string().min(1).max(200).allow("")
+    )
+    .optional()
+    .messages({
+      "string.min": "Each tag must be between 1-30 characters",
+      "string.max": "Tags field must be less than 200 characters total",
+    }),
 
   // Language (optional) - có thể là string hoặc array
   language: Joi.alternatives()
-    .try(Joi.array().items(Joi.string().allow("")), Joi.string().allow(""))
-    .optional(),
-
-  // Thumbnail do multer xử lý — không validate ở đây
+    .try(
+      Joi.array().items(Joi.string().min(2).max(30).allow("")),
+      Joi.string().min(2).max(100).allow("")
+    )
+    .optional()
+    .messages({
+      "string.min": "Each language must be between 2-30 characters",
+      "string.max": "Language field must be less than 100 characters total",
+    }),
 }).custom((value, helpers) => {
   // Đảm bảo có ít nhất description hoặc courseOverview
   if (!value.description && !value.courseOverview) {
     return helpers.error("object.missing", {
-      message: "Cần cung cấp mô tả (description hoặc courseOverview)",
+      message: "Course description or overview is required",
     });
   }
 
   // Đảm bảo có ít nhất link hoặc driveLink
   if (!value.link && !value.driveLink) {
     return helpers.error("object.missing", {
-      message: "Cần cung cấp link (link hoặc driveLink)",
+      message: "Course link or drive link is required",
     });
   }
 
@@ -139,18 +189,104 @@ export const createCourseSchema = Joi.object({
 // ========== UPDATE COURSE ==========
 export const updateCourseSchema = Joi.object({
   // Nếu field thực tế là 'title', đổi lại cho đúng controller
-  name: Joi.string().optional(),
-  title: Joi.string().optional(),
-  description: Joi.string().optional().allow(""),
-  shortDescription: Joi.string().optional().allow(""),
+  name: Joi.string().min(5).max(100).optional().messages({
+    "string.min": "Course name must be between 5-100 characters",
+    "string.max": "Course name must be between 5-100 characters",
+  }),
+  title: Joi.string().min(5).max(100).optional().messages({
+    "string.min": "Course title must be between 5-100 characters",
+    "string.max": "Course title must be between 5-100 characters",
+  }),
+  description: Joi.string().min(20).max(1000).optional().allow("").messages({
+    "string.min": "Course description must be between 20-1000 characters",
+    "string.max": "Course description must be between 20-1000 characters",
+  }),
+  courseOverview: Joi.string().min(20).max(1000).optional().allow("").messages({
+    "string.min": "Course overview must be between 20-1000 characters",
+    "string.max": "Course overview must be between 20-1000 characters",
+  }),
+  shortDescription: Joi.string()
+    .min(10)
+    .max(200)
+    .optional()
+    .allow("")
+    .messages({
+      "string.min": "Short description must be between 10-200 characters",
+      "string.max": "Short description must be between 10-200 characters",
+    }),
   thumbnail: Joi.string().optional().allow(""),
-  price: numberFromString({ min: 0 }).optional(),
-  category: Joi.string().optional(),
-  tags: Joi.array().items(Joi.string().allow("")).optional(),
-  duration: numberFromString({ min: 0, integer: true }).optional(),
-  link: Joi.string().uri().optional().allow(""),
-  driveLink: Joi.string().uri().optional().allow(""),
-  lectures: numberFromString({ min: 0, integer: true }).optional(),
+  price: numberFromString({ min: 0 }).optional().messages({
+    "number.min": "Price must be greater than or equal to 0",
+  }),
+  category: Joi.string().min(2).max(50).optional().messages({
+    "string.min": "Category must be between 2-50 characters",
+    "string.max": "Category must be between 2-50 characters",
+  }),
+  level: Joi.string()
+    .valid("Beginner", "Intermediate", "Advanced", "Expert")
+    .optional()
+    .messages({
+      "any.only":
+        "Level must be one of: Beginner, Intermediate, Advanced, Expert",
+    }),
+  lectures: numberFromString({ min: 1, max: 500, integer: true })
+    .optional()
+    .messages({
+      "number.min": "Number of lectures must be between 1-500",
+      "number.max": "Number of lectures must be between 1-500",
+    }),
+  duration: numberFromString({ min: 0, max: 1000, integer: false })
+    .optional()
+    .messages({
+      "number.min": "Duration must be between 0-1000 hours",
+      "number.max": "Duration must be between 0-1000 hours",
+    }),
+  keyLearningObjectives: Joi.alternatives()
+    .try(
+      Joi.array().items(Joi.string().min(10).max(200)),
+      Joi.string().min(10).max(500).allow("")
+    )
+    .optional()
+    .messages({
+      "string.min": "Each learning objective must be between 10-200 characters",
+      "string.max":
+        "Learning objectives must be between 10-500 characters total",
+    }),
+
+  // Tag (optional) - có thể là string hoặc array (giống createCourseSchema)
+  tags: Joi.alternatives()
+    .try(
+      Joi.array().items(Joi.string().min(1).max(30).allow("")),
+      Joi.string().min(1).max(200).allow("")
+    )
+    .optional()
+    .messages({
+      "string.min": "Each tag must be between 1-30 characters",
+      "string.max": "Tags field must be less than 200 characters total",
+    }),
+
+  // Language (optional) - có thể là string hoặc array (giống createCourseSchema)
+  language: Joi.alternatives()
+    .try(
+      Joi.array().items(Joi.string().min(2).max(30).allow("")),
+      Joi.string().min(2).max(100).allow("")
+    )
+    .optional()
+    .messages({
+      "string.min": "Each language must be between 2-30 characters",
+      "string.max": "Language field must be less than 100 characters total",
+    }),
+
+  link: Joi.string().uri().min(10).max(500).optional().allow("").messages({
+    "string.min": "Link must be between 10-500 characters",
+    "string.max": "Link must be between 10-500 characters",
+    "string.uri": "Link must be a valid URL",
+  }),
+  driveLink: Joi.string().uri().min(10).max(500).optional().allow("").messages({
+    "string.min": "Drive link must be between 10-500 characters",
+    "string.max": "Drive link must be between 10-500 characters",
+    "string.uri": "Drive link must be a valid URL",
+  }),
   mentors: Joi.array().items(objectId).optional(),
 });
 
