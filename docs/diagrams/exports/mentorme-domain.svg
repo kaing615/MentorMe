@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="760" viewBox="0 0 1400 760" role="img" aria-labelledby="title desc">
+  <title id="title">MentorMe domain consistency model</title><desc id="desc">Booking and payment state machines commit business data and outbox events atomically.</desc>
+  <defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10Z" fill="#506070"/></marker></defs>
+  <rect width="1400" height="760" fill="#f8fafc"/><text x="60" y="70" font-family="Arial" font-size="32" font-weight="700" fill="#17324d">Domain state and durable consistency</text>
+  <g font-family="Arial" font-size="18" text-anchor="middle">
+    <text x="70" y="145" text-anchor="start" font-size="24" font-weight="700">Booking</text>
+    <rect x="70" y="180" width="170" height="80" rx="14" fill="#fff2cc" stroke="#d6b656"/><text x="155" y="228">pending</text>
+    <rect x="350" y="180" width="170" height="80" rx="14" fill="#dae8fc" stroke="#6c8ebf"/><text x="435" y="228">active</text>
+    <rect x="630" y="180" width="170" height="80" rx="14" fill="#d5e8d4" stroke="#82b366"/><text x="715" y="228">finished</text>
+    <rect x="350" y="310" width="210" height="80" rx="14" fill="#f8cecc" stroke="#b85450"/><text x="455" y="358">rejected / cancelled</text>
+    <text x="70" y="500" text-anchor="start" font-size="24" font-weight="700">Order / Payment</text>
+    <rect x="70" y="540" width="150" height="80" rx="14" fill="#fff2cc" stroke="#d6b656"/><text x="145" y="588">pending</text>
+    <rect x="310" y="540" width="160" height="80" rx="14" fill="#ffe6cc" stroke="#d79b00"/><text x="390" y="588">processing</text>
+    <rect x="560" y="540" width="150" height="80" rx="14" fill="#dae8fc" stroke="#6c8ebf"/><text x="635" y="588">paid</text>
+    <rect x="800" y="540" width="170" height="80" rx="14" fill="#d5e8d4" stroke="#82b366"/><text x="885" y="588">completed</text>
+    <rect x="1080" y="260" width="240" height="120" rx="14" fill="#e1d5e7" stroke="#9673a6"/><text x="1200" y="310">MongoDB transaction</text><text x="1200" y="340">+ Outbox event</text>
+  </g>
+  <g fill="none" stroke="#506070" stroke-width="3" marker-end="url(#arrow)"><path d="M240 220H350"/><path d="M520 220H630"/><path d="M155 260L350 340"/><path d="M220 580H310"/><path d="M470 580H560"/><path d="M710 580H800"/><path d="M970 580L1130 380"/></g>
+</svg>

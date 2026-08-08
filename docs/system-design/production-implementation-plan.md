@@ -58,25 +58,25 @@
 - Consumes: approved requirements in `docs/system-design/production-system-design.md`.
 - Produces: stable architecture vocabulary and one traceability row per acceptance criterion.
 
-- [ ] **Step 1: Write a documentation verifier**
+- [x] **Step 1: Write a documentation verifier**
 
 Create `scripts/verify-docs.mjs` to fail when required files are missing, Markdown links target missing local files, a target document claims unmeasured production results, or unfinished-marker tokens appear.
 
-- [ ] **Step 2: Run the verifier to confirm the baseline fails**
+- [x] **Step 2: Run the verifier to confirm the baseline fails**
 
 Run: `node scripts/verify-docs.mjs`
 Expected: non-zero exit with the missing architecture artifacts listed.
 
-- [ ] **Step 3: Write architecture docs, ADRs, editable Draw.io sources, and SVG exports**
+- [x] **Step 3: Write architecture docs, ADRs, editable Draw.io sources, and SVG exports**
 
 Every architecture page starts with `Implementation status: Current`, `Target`, or `Mixed`. The traceability table uses columns `Criterion`, `Implementation`, `Verification`, and `Status`; initial runtime rows are `Planned`.
 
-- [ ] **Step 4: Validate docs and diagrams**
+- [x] **Step 4: Validate docs and diagrams**
 
 Run: `node scripts/verify-docs.mjs`
 Expected: exit 0 with every required artifact present and linked.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add docs scripts/verify-docs.mjs
