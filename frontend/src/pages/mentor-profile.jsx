@@ -1,3 +1,4 @@
+import { getAccessToken } from "../auth/session.js";
 import React, { useState, useEffect, useMemo } from "react";
 import { toast } from "react-toastify";
 import { FaUserCircle } from "react-icons/fa";
@@ -18,6 +19,7 @@ import { AiFillYoutube } from "react-icons/ai";
 import { IoStar, IoStarOutline } from "react-icons/io5";
 import courseApi from "../api/modules/course.api";
 import MentorMenteeChat from "../components/MentorMenteeChat.jsx";
+import { resolveAssetUrl } from "../config/runtime.js";
 
 // Stars render function
 const renderStars = (rating) => {
@@ -61,7 +63,7 @@ const MentorProfile = () => {
   useEffect(() => {
     // Check token
     const token =
-      localStorage.getItem("actkn") || localStorage.getItem("token");
+      getAccessToken();
     const userStr =
       localStorage.getItem("user") || localStorage.getItem("user");
     let user = null;
@@ -2295,7 +2297,7 @@ const MentorProfile = () => {
                                   ? course.thumbnail
                                   : course.thumbnail.startsWith("http")
                                   ? course.thumbnail
-                                  : `http://localhost:4000/${course.thumbnail}`
+                                  : resolveAssetUrl(course.thumbnail)
                                 : "/placeholder-course.jpg"
                             }
                             alt={course.title}

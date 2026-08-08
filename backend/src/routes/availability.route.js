@@ -1,7 +1,7 @@
 import express from "express";
 import availabilityController from "../controllers/availability.controller.js";
 import { validateBody, validateQuery } from "../middlewares/joi.middleware.js";
-import tokenMiddleware from "../middlewares/token.middleware.js";
+import tokenMiddleware from "../middlewares/auth.middleware.js";
 import * as availabilityValidation from "../validations/availability.validation.js";
 
 const router = express.Router();

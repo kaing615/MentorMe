@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { sendMessage, listConversations, listMessages, markMessageAsDelivered, markMessagesAsRead } from "../controllers/message.controller.js";
-import tokenMiddleware from "../middlewares/token.middleware.js";
+import tokenMiddleware from "../middlewares/auth.middleware.js";
 
 const router = Router();
 

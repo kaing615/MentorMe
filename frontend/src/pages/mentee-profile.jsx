@@ -1,3 +1,4 @@
+import { getAccessToken } from "../auth/session.js";
 import React, { useState, useEffect, useMemo } from "react";
 import { toast } from "react-toastify";
 import { FaUserCircle } from "react-icons/fa";
@@ -56,7 +57,7 @@ const MenteeProfile = () => {
   // --- AUTH & ROLE CHECK ---
   useEffect(() => {
     const token =
-      localStorage.getItem("actkn") || localStorage.getItem("token");
+      getAccessToken();
     const userStr =
       localStorage.getItem("user") || localStorage.getItem("user");
     let user = null;
@@ -853,7 +854,7 @@ const MenteeProfile = () => {
 
       // Check user token
       const token =
-        localStorage.getItem("actkn") || localStorage.getItem("token");
+        getAccessToken();
       const userStr = localStorage.getItem("user");
 
       const { response, error } = await reviewApi.createReview(reviewData);

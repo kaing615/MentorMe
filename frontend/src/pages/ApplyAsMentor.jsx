@@ -1,3 +1,4 @@
+import { getAccessToken } from "../auth/session.js";
 import React, { useState, useEffect } from "react";
 import { IoArrowForward, IoCloudUpload, IoCheckmark } from "react-icons/io5";
 import authApi from "../api/modules/auth.api";
@@ -10,7 +11,7 @@ const ApplyAsMentor = () => {
 
   // Check if user is already authenticated
   useEffect(() => {
-    const token = sessionStorage.getItem("token");
+    const token = getAccessToken();
     const role = sessionStorage.getItem("role");
 
     if (token && role) {

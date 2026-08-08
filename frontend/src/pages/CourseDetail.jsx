@@ -1,3 +1,4 @@
+import { getAccessToken } from "../auth/session.js";
 import React, { useRef, useState, useEffect } from "react";
 import { useDispatch } from "react-redux";
 import { useParams, useNavigate } from "react-router-dom";
@@ -28,7 +29,7 @@ const CourseDetail = () => {
   // Check authentication and role
   useEffect(() => {
     const token =
-      localStorage.getItem("token") || localStorage.getItem("actkn");
+      getAccessToken();
     if (!token) {
       toast.error("Please log in to view course details");
       navigate(PATH.LOGIN);
@@ -270,7 +271,7 @@ const CourseDetail = () => {
     try {
       // Debug: Check token
       const token =
-        localStorage.getItem("token") || localStorage.getItem("actkn");
+        getAccessToken();
 
       const { response, error } = await cartApi.addToCart(
         {

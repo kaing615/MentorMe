@@ -1,5 +1,5 @@
 import express from "express";
-import tokenMiddleware from "../middlewares/token.middleware.js";
+import tokenMiddleware from "../middlewares/auth.middleware.js";
 import { validateBody, validateQuery } from "../middlewares/joi.middleware.js";
 import * as reviewController from "../controllers/review.controller.js";
 import * as reviewValidation from "../validations/review.validation.js";

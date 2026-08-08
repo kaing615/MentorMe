@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mxfile host="drawio" version="26.0.0">
+  <diagram id="booking-sequence" name="Booking Sequence">
+    <mxGraphModel dx="1400" dy="900" grid="1" gridSize="10" page="1" pageWidth="1600" pageHeight="1000"><root>
+      <mxCell id="0"/><mxCell id="1" parent="0"/>
+      <mxCell id="2" value="Mentee" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;size=40;" vertex="1" parent="1"><mxGeometry x="80" y="40" width="120" height="760" as="geometry"/></mxCell>
+      <mxCell id="3" value="Booking API" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;size=40;" vertex="1" parent="1"><mxGeometry x="390" y="40" width="140" height="760" as="geometry"/></mxCell>
+      <mxCell id="4" value="MongoDB" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;size=40;" vertex="1" parent="1"><mxGeometry x="740" y="40" width="140" height="760" as="geometry"/></mxCell>
+      <mxCell id="5" value="Outbox Worker" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;size=40;" vertex="1" parent="1"><mxGeometry x="1090" y="40" width="150" height="760" as="geometry"/></mxCell>
+      <mxCell id="6" value="POST /booking + idempotency key" style="html=1;verticalAlign=bottom;endArrow=block;" edge="1" parent="1" source="2" target="3"><mxGeometry relative="1" y="-0.35" as="geometry"/></mxCell>
+      <mxCell id="7" value="transaction: reserve open slot + create pending booking + append event" style="html=1;verticalAlign=bottom;endArrow=block;" edge="1" parent="1" source="3" target="4"><mxGeometry relative="1" y="-0.15" as="geometry"/></mxCell>
+      <mxCell id="8" value="commit" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;strokeColor=#999999;" edge="1" parent="1" source="4" target="3"><mxGeometry relative="1" y="0.05" as="geometry"/></mxCell>
+      <mxCell id="9" value="201 pending" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;strokeColor=#999999;" edge="1" parent="1" source="3" target="2"><mxGeometry relative="1" y="0.25" as="geometry"/></mxCell>
+      <mxCell id="10" value="lease unpublished event" style="html=1;verticalAlign=bottom;endArrow=block;" edge="1" parent="1" source="5" target="4"><mxGeometry relative="1" y="0.45" as="geometry"/></mxCell>
+    </root></mxGraphModel>
+  </diagram>
+  <diagram id="payment-sequence" name="Payment and Outbox Sequence">
+    <mxGraphModel dx="1500" dy="900" grid="1" gridSize="10" page="1" pageWidth="1700" pageHeight="1000"><root>
+      <mxCell id="0"/><mxCell id="1" parent="0"/>
+      <mxCell id="2" value="Browser" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;size=40;" vertex="1" parent="1"><mxGeometry x="50" y="40" width="120" height="780" as="geometry"/></mxCell>
+      <mxCell id="3" value="Payment API" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;size=40;" vertex="1" parent="1"><mxGeometry x="340" y="40" width="140" height="780" as="geometry"/></mxCell>
+      <mxCell id="4" value="Provider" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;size=40;" vertex="1" parent="1"><mxGeometry x="660" y="40" width="140" height="780" as="geometry"/></mxCell>
+      <mxCell id="5" value="MongoDB" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;size=40;" vertex="1" parent="1"><mxGeometry x="980" y="40" width="140" height="780" as="geometry"/></mxCell>
+      <mxCell id="6" value="RabbitMQ / Worker" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;size=40;" vertex="1" parent="1"><mxGeometry x="1300" y="40" width="170" height="780" as="geometry"/></mxCell>
+      <mxCell id="7" value="create order" style="html=1;verticalAlign=bottom;endArrow=block;" edge="1" parent="1" source="2" target="3"><mxGeometry relative="1" y="-0.38" as="geometry"/></mxCell>
+      <mxCell id="8" value="commit pending order" style="html=1;verticalAlign=bottom;endArrow=block;" edge="1" parent="1" source="3" target="5"><mxGeometry relative="1" y="-0.22" as="geometry"/></mxCell>
+      <mxCell id="9" value="start payment (outside transaction)" style="html=1;verticalAlign=bottom;endArrow=block;" edge="1" parent="1" source="3" target="4"><mxGeometry relative="1" y="-0.05" as="geometry"/></mxCell>
+      <mxCell id="10" value="signed webhook" style="html=1;verticalAlign=bottom;endArrow=block;dashed=1;" edge="1" parent="1" source="4" target="3"><mxGeometry relative="1" y="0.12" as="geometry"/></mxCell>
+      <mxCell id="11" value="transaction: dedupe + paid + grants + outbox" style="html=1;verticalAlign=bottom;endArrow=block;" edge="1" parent="1" source="3" target="5"><mxGeometry relative="1" y="0.30" as="geometry"/></mxCell>
+      <mxCell id="12" value="confirmed publish + idempotent consume" style="html=1;verticalAlign=bottom;endArrow=block;" edge="1" parent="1" source="5" target="6"><mxGeometry relative="1" y="0.48" as="geometry"/></mxCell>
+    </root></mxGraphModel>
+  </diagram>
+  <diagram id="websocket-sequence" name="Cross-Replica WebSocket Sequence">
+    <mxGraphModel dx="1500" dy="900" grid="1" gridSize="10" page="1" pageWidth="1700" pageHeight="1000"><root>
+      <mxCell id="0"/><mxCell id="1" parent="0"/>
+      <mxCell id="2" value="Sender" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;size=40;" vertex="1" parent="1"><mxGeometry x="50" y="40" width="120" height="760" as="geometry"/></mxCell>
+      <mxCell id="3" value="API A" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;size=40;" vertex="1" parent="1"><mxGeometry x="340" y="40" width="120" height="760" as="geometry"/></mxCell>
+      <mxCell id="4" value="MongoDB" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;size=40;" vertex="1" parent="1"><mxGeometry x="640" y="40" width="130" height="760" as="geometry"/></mxCell>
+      <mxCell id="5" value="Redis Pub/Sub" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;size=40;" vertex="1" parent="1"><mxGeometry x="950" y="40" width="150" height="760" as="geometry"/></mxCell>
+      <mxCell id="6" value="API B" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;size=40;" vertex="1" parent="1"><mxGeometry x="1270" y="40" width="120" height="760" as="geometry"/></mxCell>
+      <mxCell id="7" value="message:send + JWT session" style="html=1;verticalAlign=bottom;endArrow=block;" edge="1" parent="1" source="2" target="3"><mxGeometry relative="1" y="-0.35" as="geometry"/></mxCell>
+      <mxCell id="8" value="persist durable message" style="html=1;verticalAlign=bottom;endArrow=block;" edge="1" parent="1" source="3" target="4"><mxGeometry relative="1" y="-0.12" as="geometry"/></mxCell>
+      <mxCell id="9" value="publish room event" style="html=1;verticalAlign=bottom;endArrow=block;" edge="1" parent="1" source="3" target="5"><mxGeometry relative="1" y="0.12" as="geometry"/></mxCell>
+      <mxCell id="10" value="fan-out to receiver room" style="html=1;verticalAlign=bottom;endArrow=block;" edge="1" parent="1" source="5" target="6"><mxGeometry relative="1" y="0.35" as="geometry"/></mxCell>
+    </root></mxGraphModel>
+  </diagram>
+  <diagram id="cicd" name="CI CD Deployment Flow">
+    <mxGraphModel dx="1600" dy="900" grid="1" gridSize="10" page="1" pageWidth="1800" pageHeight="1000"><root>
+      <mxCell id="0"/><mxCell id="1" parent="0"/>
+      <mxCell id="2" value="Merge to main" style="ellipse;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1"><mxGeometry x="60" y="360" width="170" height="80" as="geometry"/></mxCell>
+      <mxCell id="3" value="Test + Contract + Build" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1"><mxGeometry x="320" y="350" width="220" height="100" as="geometry"/></mxCell>
+      <mxCell id="4" value="SAST + Secret + Dependency + Image Scans" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1"><mxGeometry x="640" y="340" width="260" height="120" as="geometry"/></mxCell>
+      <mxCell id="5" value="Push immutable GHCR SHA" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1"><mxGeometry x="1000" y="350" width="230" height="100" as="geometry"/></mxCell>
+      <mxCell id="6" value="Production approval + flock" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" vertex="1" parent="1"><mxGeometry x="1330" y="350" width="230" height="100" as="geometry"/></mxCell>
+      <mxCell id="7" value="Drain / deploy / ready API A" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1"><mxGeometry x="1060" y="600" width="240" height="100" as="geometry"/></mxCell>
+      <mxCell id="8" value="Drain / deploy / ready API B" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1"><mxGeometry x="700" y="600" width="240" height="100" as="geometry"/></mxCell>
+      <mxCell id="9" value="Post-deploy smoke + release metadata" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1"><mxGeometry x="330" y="590" width="270" height="120" as="geometry"/></mxCell>
+      <mxCell id="10" value="Automatic prior-SHA rollback on failed gate" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1"><mxGeometry x="1050" y="100" width="280" height="110" as="geometry"/></mxCell>
+      <mxCell id="11" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=blockThin;" edge="1" parent="1" source="2" target="3"><mxGeometry relative="1" as="geometry"/></mxCell>
+      <mxCell id="12" value="pass" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=blockThin;" edge="1" parent="1" source="3" target="4"><mxGeometry relative="1" as="geometry"/></mxCell>
+      <mxCell id="13" value="pass" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=blockThin;" edge="1" parent="1" source="4" target="5"><mxGeometry relative="1" as="geometry"/></mxCell>
+      <mxCell id="14" value="approved" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=blockThin;" edge="1" parent="1" source="5" target="6"><mxGeometry relative="1" as="geometry"/></mxCell>
+      <mxCell id="15" value="locked" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=blockThin;" edge="1" parent="1" source="6" target="7"><mxGeometry relative="1" as="geometry"/></mxCell>
+      <mxCell id="16" value="healthy" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=blockThin;" edge="1" parent="1" source="7" target="8"><mxGeometry relative="1" as="geometry"/></mxCell>
+      <mxCell id="17" value="healthy" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=blockThin;" edge="1" parent="1" source="8" target="9"><mxGeometry relative="1" as="geometry"/></mxCell>
+      <mxCell id="18" value="failed readiness / smoke" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=blockThin;dashed=1;strokeColor=#b85450;" edge="1" parent="1" source="7" target="10"><mxGeometry relative="1" as="geometry"/></mxCell>
+    </root></mxGraphModel>
+  </diagram>
+</mxfile>

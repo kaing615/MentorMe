@@ -1,16 +1,33 @@
 import { Server } from "socket.io";
+import { createAdapter } from "@socket.io/redis-adapter";
 import Message from "../models/message.model.js";
 import mongoose from "mongoose";
+import { createSocketAuthenticator } from "./authenticate-socket.js";
 
-export default function attach(server) {
-  const io = new Server(server, { cors: { origin: "*" } });
+export default function attach(
+  server,
+  {
+    corsOrigins = [],
+    logger = console,
+    redisClients,
+    webSocketOnly = false,
+    jwtAccessSecret,
+  } = {}
+) {
+  const io = new Server(server, {
+    cors: { origin: corsOrigins, credentials: true },
+    ...(webSocketOnly ? { transports: ["websocket"] } : {}),
+  });
+  if (redisClients) {
+    io.adapter(
+      createAdapter(redisClients.publisher, redisClients.subscriber)
+    );
+  }
+  io.use(createSocketAuthenticator({ jwtAccessSecret }));
   const userSockets = new Map();
 
   io.on("connection", (socket) => {
-    const userId = socket.handshake.auth?.userId;
-    if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
-      return socket.disconnect(true);
-    }
+    const userId = socket.data.userId;
 
     const key = String(userId);
     socket.join(key);
@@ -67,6 +84,7 @@ export default function attach(server) {
 
         cb?.({ ok: true, data: doc });
       } catch (e) {
+        logger.error?.({ err: e }, "socket message send failed");
         cb?.({ ok: false, error: e.message });
       }
     });

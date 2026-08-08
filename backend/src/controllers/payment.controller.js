@@ -2,6 +2,13 @@ import responseHandler from "../handlers/response.handler.js";
 import Order from "../models/order.model.js";
 import crypto from "crypto";
 import axios from "axios";
+import loadEnv from "../config/env.js";
+import {
+  applyVerifiedPayment,
+  markOrderProcessing,
+} from "../modules/payment/payment.service.js";
+
+const runtime = loadEnv(process.env);
 
 // Payment configuration
 const PAYMENT_CONFIG = {
@@ -9,16 +16,16 @@ const PAYMENT_CONFIG = {
         tmnCode: process.env.VNPAY_TMN_CODE || "DEMO_TMN_CODE",
         hashSecret: process.env.VNPAY_HASH_SECRET || "DEMO_HASH_SECRET",
         url: process.env.VNPAY_URL || "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html",
-        returnUrl: process.env.VNPAY_RETURN_URL || "http://localhost:3000/payment/vnpay/return",
-        ipnUrl: process.env.VNPAY_IPN_URL || "http://localhost:5000/api/payment/vnpay/ipn"
+        returnUrl: process.env.VNPAY_RETURN_URL || `${runtime.frontendUrl}/payment/vnpay/return`,
+        ipnUrl: process.env.VNPAY_IPN_URL || `${runtime.publicApiUrl}/api/v1/payment/vnpay/ipn`
     },
     momo: {
         partnerCode: process.env.MOMO_PARTNER_CODE || "DEMO_PARTNER_CODE",
         accessKey: process.env.MOMO_ACCESS_KEY || "DEMO_ACCESS_KEY",
         secretKey: process.env.MOMO_SECRET_KEY || "DEMO_SECRET_KEY",
         endpoint: process.env.MOMO_ENDPOINT || "https://test-payment.momo.vn/v2/gateway/api/create",
-        redirectUrl: process.env.MOMO_REDIRECT_URL || "http://localhost:3000/payment/momo/return",
-        ipnUrl: process.env.MOMO_IPN_URL || "http://localhost:5000/api/payment/momo/ipn"
+        redirectUrl: process.env.MOMO_REDIRECT_URL || `${runtime.frontendUrl}/payment/momo/return`,
+        ipnUrl: process.env.MOMO_IPN_URL || `${runtime.publicApiUrl}/api/v1/payment/momo/ipn`
     },
     stripe: {
         publishableKey: process.env.STRIPE_PUBLISHABLE_KEY || "pk_test_demo",
@@ -86,9 +93,7 @@ export const createVNPayPayment = async (req, res) => {
 
         const paymentUrl = `${PAYMENT_CONFIG.vnpay.url}?${querystring}&vnp_SecureHash=${signature}`;
 
-        // Update order status
-        order.status = "processing";
-        await order.save();
+        await markOrderProcessing(orderNumber);
 
         return responseHandler.ok(res, {
             message: "Tạo link thanh toán VNPay thành công!",
@@ -137,27 +142,31 @@ export const handleVNPayReturn = async (req, res) => {
             return responseHandler.notFound(res, "Không tìm thấy đơn hàng!");
         }
 
+        const updatedOrder = await applyVerifiedPayment({
+            orderNumber,
+            provider: "vnpay",
+            providerEventId: `vnpay:${transactionId || orderNumber}`,
+            transactionId: transactionId || orderNumber,
+            amount: Number(vnpParams.vnp_Amount) / 100,
+            success: transactionStatus === '00',
+            paymentData: vnpParams,
+        });
+
         if (transactionStatus === '00') {
-            // Payment successful
-            await order.markAsPaid(transactionId, "vnpay");
-            
             return responseHandler.ok(res, {
                 message: "Thanh toán thành công!",
                 order: {
-                    orderNumber: order.orderNumber,
-                    status: order.status,
+                    orderNumber: updatedOrder.orderNumber,
+                    status: updatedOrder.status,
                     transactionId
                 }
             });
         } else {
-            // Payment failed
-            await order.markAsFailed("Thanh toán VNPay thất bại");
-            
             return responseHandler.badRequest(res, {
                 message: "Thanh toán thất bại!",
                 order: {
-                    orderNumber: order.orderNumber,
-                    status: order.status
+                    orderNumber: updatedOrder.orderNumber,
+                    status: updatedOrder.status
                 }
             });
         }
@@ -208,14 +217,12 @@ export const createMoMoPayment = async (req, res) => {
 
         requestBody.signature = signature;
 
+        await markOrderProcessing(orderNumber);
+
         // Call MoMo API
         const response = await axios.post(PAYMENT_CONFIG.momo.endpoint, requestBody);
 
         if (response.data.resultCode === 0) {
-            // Update order status
-            order.status = "processing";
-            await order.save();
-
             return responseHandler.ok(res, {
                 message: "Tạo link thanh toán MoMo thành công!",
                 paymentUrl: response.data.payUrl,
@@ -267,13 +274,15 @@ export const handleMoMoIPN = async (req, res) => {
             return res.status(404).json({ message: "Order not found" });
         }
 
-        if (resultCode === 0) {
-            // Payment successful
-            await order.markAsPaid(transId, "momo");
-        } else {
-            // Payment failed
-            await order.markAsFailed(`MoMo payment failed: ${message}`);
-        }
+        await applyVerifiedPayment({
+            orderNumber: orderId,
+            provider: "momo",
+            providerEventId: `momo:${requestId}:${transId}`,
+            transactionId: String(transId),
+            amount: Number(amount),
+            success: resultCode === 0,
+            paymentData: req.body,
+        });
 
         return res.status(200).json({ message: "IPN processed successfully" });
 
@@ -321,19 +330,28 @@ export const confirmManualPayment = async (req, res) => {
             return responseHandler.notFound(res, "Không tìm thấy đơn hàng!");
         }
 
-        await order.markAsPaid(transactionId || `MANUAL_${Date.now()}`, "manual");
+        if (order.status === "pending") await markOrderProcessing(orderNumber);
+        const manualTransactionId = transactionId || `MANUAL_${Date.now()}`;
+        const updatedOrder = await applyVerifiedPayment({
+            orderNumber,
+            provider: "manual",
+            providerEventId: `manual:${manualTransactionId}`,
+            transactionId: manualTransactionId,
+            amount: Number(order.totalAmount || order.amount),
+            success: true,
+            paymentData: { notes: notes || "" },
+        });
         
         if (notes) {
-            order.notes = notes;
-            await order.save();
+            await Order.updateOne({ _id: order._id }, { $set: { note: notes } });
         }
 
         return responseHandler.ok(res, {
             message: "Xác nhận thanh toán thành công!",
             order: {
                 orderNumber: order.orderNumber,
-                status: order.status,
-                transactionId: order.transactionId
+                status: updatedOrder.status,
+                transactionId: updatedOrder.transactionId
             }
         });
 
@@ -417,34 +435,21 @@ export const handleVNPayIPN = async (req, res) => {
       return res.json({ RspCode: "04", Message: "Invalid amount" });
     }
 
-    // Kết quả giao dịch
     const isSuccess =
       vnp_ResponseCode === "00" && vnp_TransactionStatus === "00";
-
-    // Cập nhật đơn
-    if (isSuccess) {
-      order.status = "paid";
-      order.paymentInfo = {
-        ...(order.paymentInfo || {}),
-        method: "vnpay",
-        paymentGateway: "vnpay",
-        transactionId: vnp_TransactionNo || vnp_TxnRef,
-        paidAt: new Date(),
-      };
-      await order.save();
-      return res.json({ RspCode: "00", Message: "Confirm Success" });
-    } else {
-      order.status = "failed";
-      order.paymentInfo = {
-        ...(order.paymentInfo || {}),
-        method: "vnpay",
-        paymentGateway: "vnpay",
-        transactionId: vnp_TransactionNo || vnp_TxnRef,
-      };
-      await order.save();
-      // Theo đặc tả: vẫn trả 00 để VNPAY biết đã nhận IPN và ghi nhận thất bại
-      return res.json({ RspCode: "00", Message: "Confirm Failed" });
-    }
+    await applyVerifiedPayment({
+      orderNumber: vnp_TxnRef,
+      provider: "vnpay",
+      providerEventId: `vnpay:${vnp_TransactionNo || vnp_TxnRef}`,
+      transactionId: vnp_TransactionNo || vnp_TxnRef,
+      amount: amountFromVnp,
+      success: isSuccess,
+      paymentData: vnpParams,
+    });
+    return res.json({
+      RspCode: "00",
+      Message: isSuccess ? "Confirm Success" : "Confirm Failed",
+    });
   } catch (err) {
     console.error("VNPay IPN error:", err);
     // IPN luôn trả JSON theo đặc tả

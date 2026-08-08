@@ -1,14 +1,18 @@
 // src/api/clients/private.client.js
 import axios from "axios";
-import queryString from "query-string";
 import { logout } from "../../redux/features/auth.slice.js";
-
-const API_ROOT = (import.meta.env.VITE_API_URL || "").replace(/\/+$/, "");
-const baseURL = /\/api\/v1$/i.test(API_ROOT) ? API_ROOT : `${API_ROOT}/api/v1`;
+import { apiBaseUrl } from "../../config/runtime.js";
+import {
+  clearAccessToken,
+  createRefreshCoordinator,
+  getAccessToken,
+  setAccessToken,
+} from "../../auth/session.js";
 
 const createPrivateClient = (dispatch) => {
   const client = axios.create({
-    baseURL,
+    baseURL: apiBaseUrl,
+    withCredentials: true,
     paramsSerializer: (params) => {
       // Sử dụng URLSearchParams để serialize một cách an toàn
       const searchParams = new URLSearchParams();
@@ -29,12 +33,7 @@ const createPrivateClient = (dispatch) => {
       ...config.headers,
     };
 
-    // Ưu tiên localStorage.getItem("actkn") trước, fallback sessionStorage và token
-    const raw =
-      localStorage.getItem("actkn") ||
-      localStorage.getItem("token");
-    // Làm sạch nếu lỡ lưu kèm "Bearer " hoặc có dấu "
-    const token = raw?.replace(/^Bearer\s+/i, "")?.replace(/^"|"$/g, "");
+    const token = getAccessToken();
 
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
@@ -45,20 +44,40 @@ const createPrivateClient = (dispatch) => {
     return config;
   });
 
+  const refreshSession = createRefreshCoordinator(async () => {
+    const response = await axios.post(
+      `${apiBaseUrl}/user/refresh`,
+      {},
+      { withCredentials: true }
+    );
+    const token = response.data?.data?.token;
+    if (!token) throw new Error("Refresh response did not contain an access token");
+    setAccessToken(token);
+    return token;
+  });
+
   client.interceptors.response.use(
     (res) => (res && res.data ? res.data : res),
-    (error) => {
+    async (error) => {
       const status = error.response?.status;
-      if (status === 401) {
-        console.warn("401 Unauthorized – logging out");
-        dispatch?.(logout());
-        window.location.href = "/auth/signin";
-        return;
+      const original = error.config;
+      if (status === 401 && original && !original._retry) {
+        original._retry = true;
+        try {
+          const token = await refreshSession();
+          original.headers.Authorization = `Bearer ${token}`;
+          return client(original);
+        } catch {
+          clearAccessToken();
+          dispatch?.(logout());
+          window.location.href = "/auth/signin";
+          return Promise.reject(error);
+        }
       }
       if (status === 403) {
         console.warn("403 Forbidden – insufficient permission");
       }
-      throw error.response?.data || error;
+      return Promise.reject(error.response?.data || error);
     }
   );
 

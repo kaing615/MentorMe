@@ -1,11 +1,12 @@
+import { getAccessToken } from "../../auth/session.js";
 import axios from "axios";
 
 // Tự động thêm token cho mọi request
 axios.interceptors.request.use((config) => {
   const token =
-    localStorage.getItem("actkn") ||
-    localStorage.getItem("token") ||
-    sessionStorage.getItem("actkn");
+    getAccessToken() ||
+    getAccessToken() ||
+    getAccessToken();
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }

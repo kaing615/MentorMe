@@ -20,7 +20,20 @@ const BookingSchema = new mongoose.Schema({
   declineReason: String, // Lý do từ chối từ mentor
   slotId: { type: mongoose.Schema.Types.ObjectId },
   availabilityId: { type: mongoose.Schema.Types.ObjectId, ref: "Availability" },
+  reservationDeadline: { type: Date },
+  cancellationReason: { type: String },
+  aggregateVersion: { type: Number, default: 1, min: 1 },
   createdAt: { type: Date, default: Date.now },
 });
+
+BookingSchema.index(
+  { availabilityId: 1, slotId: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { status: { $in: ["pending", "active"] } },
+  }
+);
+BookingSchema.index({ mentee: 1, date: 1, status: 1, start: 1, end: 1 });
+BookingSchema.index({ status: 1, reservationDeadline: 1 });
 
 export default mongoose.model("Booking", BookingSchema);

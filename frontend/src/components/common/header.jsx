@@ -1,3 +1,5 @@
+import { clearAccessToken, getAccessToken } from "../../auth/session.js";
+import authApi from "../../api/modules/auth.api.js";
 import React, { useState, useEffect, use } from "react";
 import { useNavigate, useLocation, Outlet } from "react-router-dom";
 import { useSelector, useDispatch } from "react-redux";
@@ -32,7 +34,7 @@ const Header = () => {
   const localLoggedIn = localStorage.getItem("isLoggedIn") === "true";
   const localUser = localStorage.getItem("user");
   const localToken =
-    localStorage.getItem("actkn") || localStorage.getItem("token");
+    getAccessToken();
 
   // Improved authentication check - persistent across tabs and sessions
   const isLoggedIn =
@@ -90,10 +92,14 @@ const Header = () => {
     console.log(`API Call - ID: ${id}, Action: ${action}`);
   };
 
-  const handleLogout = () => {
-    // Clear user data using Redux action (will also clear localStorage)
-    dispatch(clearUser());
-    navigate("/");
+  const handleLogout = async () => {
+    try {
+      await authApi.logout();
+    } finally {
+      clearAccessToken();
+      dispatch(clearUser());
+      navigate("/");
+    }
   };
 
   // Handle mentor button click

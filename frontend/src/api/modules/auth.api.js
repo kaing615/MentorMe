@@ -8,6 +8,8 @@ const userEndpoints = {
   resendVerificationEmail: "user/resend-verification-email",
   forgotPassword: "user/forgot-password",
   resetPassword: "user/reset-password",
+  refresh: "user/refresh",
+  logout: "user/logout",
 };
 
 const authApi = {
@@ -20,6 +22,8 @@ const authApi = {
   forgotPassword: (data) =>
     publicClient.post(userEndpoints.forgotPassword, data),
   resetPassword: (data) => publicClient.post(userEndpoints.resetPassword, data),
+  refresh: () => publicClient.post(userEndpoints.refresh),
+  logout: () => publicClient.post(userEndpoints.logout),
 };
 
 export default authApi;

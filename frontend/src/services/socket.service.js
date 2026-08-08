@@ -1,5 +1,7 @@
 // Socket.IO Service cho real-time messaging
 import { io } from 'socket.io-client';
+import { socketUrl } from '../config/runtime.js';
+import { getAccessToken } from '../auth/session.js';
 
 class SocketService {
   constructor() {
@@ -9,24 +11,20 @@ class SocketService {
   }
 
   // Khởi tạo kết nối socket
-  connect(userId) {
+  connect() {
     if (this.socket?.connected) {
       return;
     }
 
     try {
-      const backendURL = 'http://localhost:4000';
-      
-      this.socket = io(backendURL, {
-        auth: {
-          userId: userId
-        },
+      this.socket = io(socketUrl, {
+        auth: (callback) => callback({ token: getAccessToken() }),
         autoConnect: true,
         reconnection: true,
         reconnectionDelay: 1000,
         reconnectionAttempts: 5,
         timeout: 10000,
-        transports: ['websocket', 'polling']
+        transports: ['websocket']
       });
 
       this.setupEventListeners();
@@ -42,7 +40,7 @@ class SocketService {
       this.isConnected = true;
     });
 
-    this.socket.on('disconnect', (reason) => {
+    this.socket.on('disconnect', () => {
       this.isConnected = false;
     });
 
@@ -50,11 +48,11 @@ class SocketService {
       console.error('🔥 Socket connection error:', error.message);
       
       if (error.message.includes('CONNECTION_REFUSED')) {
-        console.error('🔥 Backend server không chạy tại http://localhost:4000');
+        console.error('🔥 Không thể kết nối realtime backend');
       }
     });
 
-    this.socket.on('reconnect', (attemptNumber) => {
+    this.socket.on('reconnect', () => {
     });
 
     this.socket.on('reconnect_error', (error) => {

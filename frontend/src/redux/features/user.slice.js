@@ -1,3 +1,4 @@
+import { getAccessToken } from "../../auth/session.js";
 import { createSlice } from "@reduxjs/toolkit";
 
 // Initial state is always null - user must login to set state
@@ -41,7 +42,7 @@ const userSlice = createSlice({
         const storedUser = localStorage.getItem("user");
         const isLoggedIn = localStorage.getItem("isLoggedIn") === "true";
         const token =
-          localStorage.getItem("actkn") || localStorage.getItem("token");
+          getAccessToken();
 
         if (storedUser && isLoggedIn && token) {
           return {

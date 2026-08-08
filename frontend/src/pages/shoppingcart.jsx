@@ -1,3 +1,4 @@
+import { getAccessToken } from "../auth/session.js";
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useDispatch } from "react-redux";
@@ -48,7 +49,7 @@ const ShoppingCart = () => {
       console.log("[DEBUG ShoppingCart] Starting fetchCartData");
       // Check authentication
       const token =
-        localStorage.getItem("token") || localStorage.getItem("actkn");
+        getAccessToken();
       if (!token) {
         toast.error("Login to view cart");
         navigate("/auth/signin");

@@ -1,7 +1,7 @@
 // routes/cart.route.js
 import { Router } from "express";
 import cartController from "../controllers/cart.controller.js";
-import tokenMiddleware from "../middlewares/token.middleware.js";
+import tokenMiddleware from "../middlewares/auth.middleware.js";
 import cartValidator from "../middlewares/validators/cart.middleware.js";
 
 const router = Router();

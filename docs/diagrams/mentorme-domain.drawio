@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mxfile host="drawio" version="26.0.0">
+  <diagram id="erd" name="Domain ERD">
+    <mxGraphModel dx="1500" dy="900" grid="1" gridSize="10" page="1" pageWidth="1700" pageHeight="1000"><root>
+      <mxCell id="0"/><mxCell id="1" parent="0"/>
+      <mxCell id="2" value="User&#xa;_id PK&#xa;email UK&#xa;role&#xa;isVerified" style="swimlane;fontStyle=1;align=center;startSize=30;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1"><mxGeometry x="80" y="80" width="220" height="150" as="geometry"/></mxCell>
+      <mxCell id="3" value="Course&#xa;_id PK&#xa;mentor FK&#xa;title&#xa;price" style="swimlane;fontStyle=1;align=center;startSize=30;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1"><mxGeometry x="420" y="80" width="220" height="150" as="geometry"/></mxCell>
+      <mxCell id="4" value="Availability&#xa;_id PK&#xa;mentor FK&#xa;slots[]" style="swimlane;fontStyle=1;align=center;startSize=30;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1"><mxGeometry x="760" y="80" width="220" height="150" as="geometry"/></mxCell>
+      <mxCell id="5" value="Booking&#xa;_id PK&#xa;mentor / mentee FK&#xa;availabilityId / slotId&#xa;status / reservationDeadline" style="swimlane;fontStyle=1;align=center;startSize=30;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1"><mxGeometry x="1080" y="80" width="270" height="170" as="geometry"/></mxCell>
+      <mxCell id="6" value="Order&#xa;_id PK&#xa;mentee FK&#xa;provider transaction UK&#xa;status / aggregateVersion" style="swimlane;fontStyle=1;align=center;startSize=30;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1"><mxGeometry x="80" y="440" width="250" height="170" as="geometry"/></mxCell>
+      <mxCell id="7" value="PurchasedCourse&#xa;_id PK&#xa;mentee FK&#xa;course FK&#xa;order FK&#xa;UK (mentee, course)" style="swimlane;fontStyle=1;align=center;startSize=30;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1"><mxGeometry x="430" y="440" width="250" height="170" as="geometry"/></mxCell>
+      <mxCell id="8" value="Message&#xa;_id PK&#xa;sender / receiver FK&#xa;status / readAt" style="swimlane;fontStyle=1;align=center;startSize=30;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1"><mxGeometry x="780" y="440" width="230" height="150" as="geometry"/></mxCell>
+      <mxCell id="9" value="OutboxEvent&#xa;eventId UK&#xa;aggregateId / version&#xa;eventType / payload&#xa;lease / publishedAt" style="swimlane;fontStyle=1;align=center;startSize=30;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1"><mxGeometry x="1110" y="440" width="250" height="170" as="geometry"/></mxCell>
+      <mxCell id="10" value="mentors / owns" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=ERmany;startArrow=ERone;" edge="1" parent="1" source="2" target="3"><mxGeometry relative="1" as="geometry"/></mxCell>
+      <mxCell id="11" value="publishes" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=ERmany;startArrow=ERone;" edge="1" parent="1" source="2" target="4"><mxGeometry relative="1" as="geometry"/></mxCell>
+      <mxCell id="12" value="reserves" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=ERmany;startArrow=ERone;" edge="1" parent="1" source="4" target="5"><mxGeometry relative="1" as="geometry"/></mxCell>
+      <mxCell id="13" value="places" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=ERmany;startArrow=ERone;" edge="1" parent="1" source="2" target="6"><mxGeometry relative="1" as="geometry"/></mxCell>
+      <mxCell id="14" value="grants" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=ERmany;startArrow=ERone;" edge="1" parent="1" source="6" target="7"><mxGeometry relative="1" as="geometry"/></mxCell>
+      <mxCell id="15" value="references" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=ERmany;startArrow=ERone;" edge="1" parent="1" source="3" target="7"><mxGeometry relative="1" as="geometry"/></mxCell>
+      <mxCell id="16" value="sends / receives" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=ERmany;startArrow=ERone;" edge="1" parent="1" source="2" target="8"><mxGeometry relative="1" as="geometry"/></mxCell>
+      <mxCell id="17" value="atomic events" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=ERmany;startArrow=ERone;" edge="1" parent="1" source="6" target="9"><mxGeometry relative="1" as="geometry"/></mxCell>
+      <mxCell id="18" value="atomic events" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=ERmany;startArrow=ERone;" edge="1" parent="1" source="5" target="9"><mxGeometry relative="1" as="geometry"/></mxCell>
+    </root></mxGraphModel>
+  </diagram>
+  <diagram id="classes" name="Booking Order Payment Classes">
+    <mxGraphModel dx="1400" dy="900" grid="1" gridSize="10" page="1" pageWidth="1600" pageHeight="1000"><root>
+      <mxCell id="0"/><mxCell id="1" parent="0"/>
+      <mxCell id="2" value="BookingService&#xa;────────&#xa;+ createBooking(command)&#xa;+ transition(id, target)&#xa;+ expirePending(now)" style="swimlane;fontStyle=1;align=center;startSize=30;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1"><mxGeometry x="100" y="100" width="280" height="180" as="geometry"/></mxCell>
+      <mxCell id="3" value="PaymentService&#xa;────────&#xa;+ createOrder(command)&#xa;+ beginPayment(orderId)&#xa;+ applyVerifiedWebhook(event)&#xa;+ reconcile(orderId)" style="swimlane;fontStyle=1;align=center;startSize=30;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1"><mxGeometry x="540" y="100" width="300" height="200" as="geometry"/></mxCell>
+      <mxCell id="4" value="UnitOfWork&#xa;────────&#xa;+ withTransaction(work)" style="swimlane;fontStyle=1;align=center;startSize=30;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1"><mxGeometry x="1010" y="100" width="260" height="130" as="geometry"/></mxCell>
+      <mxCell id="5" value="BookingRepository&#xa;────────&#xa;+ reserveOpenSlot()&#xa;+ saveTransition()" style="swimlane;fontStyle=1;align=center;startSize=30;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1"><mxGeometry x="100" y="500" width="280" height="150" as="geometry"/></mxCell>
+      <mxCell id="6" value="OrderRepository&#xa;────────&#xa;+ compareAndSetStatus()&#xa;+ grantCourses()" style="swimlane;fontStyle=1;align=center;startSize=30;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1"><mxGeometry x="540" y="500" width="300" height="150" as="geometry"/></mxCell>
+      <mxCell id="7" value="OutboxWriter&#xa;────────&#xa;+ append(event, session)" style="swimlane;fontStyle=1;align=center;startSize=30;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1"><mxGeometry x="1010" y="500" width="260" height="130" as="geometry"/></mxCell>
+      <mxCell id="8" value="uses" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=open;" edge="1" parent="1" source="2" target="4"><mxGeometry relative="1" as="geometry"/></mxCell>
+      <mxCell id="9" value="uses" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=open;" edge="1" parent="1" source="3" target="4"><mxGeometry relative="1" as="geometry"/></mxCell>
+      <mxCell id="10" value="depends on" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=open;" edge="1" parent="1" source="2" target="5"><mxGeometry relative="1" as="geometry"/></mxCell>
+      <mxCell id="11" value="depends on" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=open;" edge="1" parent="1" source="3" target="6"><mxGeometry relative="1" as="geometry"/></mxCell>
+      <mxCell id="12" value="atomic append" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=open;" edge="1" parent="1" source="2" target="7"><mxGeometry relative="1" as="geometry"/></mxCell>
+      <mxCell id="13" value="atomic append" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=open;" edge="1" parent="1" source="3" target="7"><mxGeometry relative="1" as="geometry"/></mxCell>
+    </root></mxGraphModel>
+  </diagram>
+  <diagram id="states" name="Booking Order Payment States">
+    <mxGraphModel dx="1600" dy="950" grid="1" gridSize="10" page="1" pageWidth="1800" pageHeight="1100"><root>
+      <mxCell id="0"/><mxCell id="1" parent="0"/>
+      <mxCell id="2" value="Booking" style="text;html=1;fontStyle=1;fontSize=18;align=left;" vertex="1" parent="1"><mxGeometry x="60" y="40" width="180" height="40" as="geometry"/></mxCell>
+      <mxCell id="3" value="pending" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1"><mxGeometry x="80" y="120" width="150" height="70" as="geometry"/></mxCell>
+      <mxCell id="4" value="active" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1"><mxGeometry x="360" y="120" width="150" height="70" as="geometry"/></mxCell>
+      <mxCell id="5" value="finished" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1"><mxGeometry x="640" y="120" width="150" height="70" as="geometry"/></mxCell>
+      <mxCell id="6" value="rejected / cancelled" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1"><mxGeometry x="360" y="260" width="190" height="70" as="geometry"/></mxCell>
+      <mxCell id="7" value="confirm" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=blockThin;" edge="1" parent="1" source="3" target="4"><mxGeometry relative="1" as="geometry"/></mxCell>
+      <mxCell id="8" value="finish" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=blockThin;" edge="1" parent="1" source="4" target="5"><mxGeometry relative="1" as="geometry"/></mxCell>
+      <mxCell id="9" value="reject / cancel / expire" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=blockThin;" edge="1" parent="1" source="3" target="6"><mxGeometry relative="1" as="geometry"/></mxCell>
+      <mxCell id="10" value="Order / Payment" style="text;html=1;fontStyle=1;fontSize=18;align=left;" vertex="1" parent="1"><mxGeometry x="60" y="450" width="240" height="40" as="geometry"/></mxCell>
+      <mxCell id="11" value="pending" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1"><mxGeometry x="80" y="540" width="140" height="70" as="geometry"/></mxCell>
+      <mxCell id="12" value="processing" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" vertex="1" parent="1"><mxGeometry x="340" y="540" width="150" height="70" as="geometry"/></mxCell>
+      <mxCell id="13" value="paid" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1"><mxGeometry x="620" y="540" width="140" height="70" as="geometry"/></mxCell>
+      <mxCell id="14" value="completed" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1"><mxGeometry x="900" y="540" width="150" height="70" as="geometry"/></mxCell>
+      <mxCell id="15" value="failed / cancelled" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1"><mxGeometry x="340" y="700" width="180" height="70" as="geometry"/></mxCell>
+      <mxCell id="16" value="refunded" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1"><mxGeometry x="900" y="700" width="150" height="70" as="geometry"/></mxCell>
+      <mxCell id="17" value="start provider" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=blockThin;" edge="1" parent="1" source="11" target="12"><mxGeometry relative="1" as="geometry"/></mxCell>
+      <mxCell id="18" value="verified success" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=blockThin;" edge="1" parent="1" source="12" target="13"><mxGeometry relative="1" as="geometry"/></mxCell>
+      <mxCell id="19" value="grant courses" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=blockThin;" edge="1" parent="1" source="13" target="14"><mxGeometry relative="1" as="geometry"/></mxCell>
+      <mxCell id="20" value="failure / cancel" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=blockThin;" edge="1" parent="1" source="12" target="15"><mxGeometry relative="1" as="geometry"/></mxCell>
+      <mxCell id="21" value="approved refund" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=blockThin;" edge="1" parent="1" source="14" target="16"><mxGeometry relative="1" as="geometry"/></mxCell>
+    </root></mxGraphModel>
+  </diagram>
+</mxfile>

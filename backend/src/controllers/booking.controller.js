@@ -5,6 +5,11 @@ import Notification from "../models/notification.model.js";
 import Availability from "../models/availability.model.js";
 import responseHandler from "../handlers/response.handler.js";
 import mongoose from "mongoose";
+import {
+  createBooking as createBookingTransaction,
+  transitionBooking,
+} from "../modules/booking/booking.service.js";
+import { normalizeBookingDay } from "../modules/booking/booking-state.js";
 
 function startOfDay(d) {
   const x = new Date(d);
@@ -508,8 +513,12 @@ export const createBooking = async (req, res) => {
       relationship = rel._id;
     }
 
-    const dateKey = new Date(date).toISOString().slice(0, 10);
-    const dayKey = new Date(`${dateKey}T00:00:00.000Z`);
+    let dayKey;
+    try {
+      dayKey = normalizeBookingDay(date);
+    } catch (error) {
+      return responseHandler.badRequest(res, error.message);
+    }
 
     // Check conflicts - chỉ check với bookings đã được confirm (active)
     const conflict = await Booking.findOne({
@@ -537,102 +546,24 @@ export const createBooking = async (req, res) => {
       return responseHandler.badRequest(res, "Booking conflict detected");
     }
 
-    if (Number.isNaN(dayKey.getTime())) {
-      return responseHandler.badRequest(res, "Invalid date");
-    }
+    const booking = await createBookingTransaction({
+      relationship,
+      mentor,
+      mentee,
+      date: dayKey,
+      start: normStart,
+      end: normEnd,
+      notes,
+    });
 
-    let slotLocked = false;
-    let avail = null;
-    try {
-      // Tìm availability nhưng không lock slot ngay, vì có thể có nhiều pending bookings
-      avail = await Availability.findOne({
-        mentor,
-        date: dayKey,
-        "slots.start": normStart,
-        "slots.end": normEnd,
-        "slots.status": { $in: ["open", "pending"] }, // Cho phép book slot open hoặc đã có pending
-      });
-
-      if (!avail) {
-        return responseHandler.badRequest(
-          res,
-          "Selected time slot is not available"
-        );
-      }
-
-      const slot = avail.slots.find(
-        (s) => s.start === normStart && s.end === normEnd
-      );
-
-      if (!slot) {
-        return responseHandler.badRequest(res, "Selected time slot not found");
-      }
-
-      // Tạo booking với status pending
-      const booking = await Booking.create({
-        relationship,
-        mentor,
-        mentee,
-        date: dayKey,
-        start: normStart,
-        end: normEnd,
-        notes,
-        status: "pending",
-        slotId: slot._id,
-        availabilityId: avail._id,
-      });
-
-      // Cập nhật slot status thành "pending" nếu hiện tại là "open"
-      if (slot.status === "open") {
-        await Availability.updateOne(
-          { _id: avail._id, "slots._id": slot._id },
-          { $set: { "slots.$.status": "pending" } }
-        );
-      }
-
-      const menteeName =
-        [menteeExists.firstName, menteeExists.lastName]
-          .filter(Boolean)
-          .join(" ") || "Mentee";
-      const startAt = new Date(dayKey);
-      startAt.setHours(ps.h, ps.m, 0, 0);
-      const endAt = new Date(dayKey);
-      endAt.setHours(pe.h, pe.m, 0, 0);
-
-      try {
-        await Notification.create({
-          userId: new mongoose.Types.ObjectId(mentor),
-          type: "booking.requested",
-          title: `New booking requested by ${menteeName}`,
-          body: `${menteeName}: ${normStart} - ${normEnd} on ${dayKey.toLocaleDateString(
-            "en-US"
-          )}`,
-          data: {
-            bookingId: booking._id.toString(),
-            mentorId: mentor,
-            menteeId: mentee,
-            menteeName,
-            startAt,
-            endAt,
-          },
-          sourceType: "booking",
-          sourceId: booking._id.toString(),
-          deliverAt: new Date(),
-          deduplicationKey: `${booking._id.toString()}:requested`,
-        });
-      } catch (err) {
-        if (err?.code !== 11000) console.error("[Notification] error:", err);
-      }
-
-      return responseHandler.ok(res, {
-        message: "Booking created successfully",
-        booking,
-      });
-    } catch (e) {
-      // Không cần rollback slot vì chúng ta không lock nó ngay lập tức nữa
-      throw e;
-    }
+    return responseHandler.ok(res, {
+      message: "Booking created successfully",
+      booking,
+    });
   } catch (err) {
+    if (err?.code === "SLOT_NOT_AVAILABLE") {
+      return responseHandler.badRequest(res, err.message);
+    }
     console.error(`Error creating booking: `, err);
     return responseHandler.error(res, err);
   }
@@ -703,45 +634,10 @@ export const confirmBooking = async (req, res) => {
     const endAt = new Date(existing.date);
     endAt.setHours(pe.h, pe.m, 0, 0);
 
-    const booking = await Booking.findOneAndUpdate(
-      { _id: id, status: "pending" },
-      { $set: { status: "active" } },
-      { new: true }
-    );
-
-    if (!booking) {
-      return responseHandler.badRequest(
-        res,
-        "Booking was updated by someone else"
-      );
-    }
-
-    // Cập nhật slot status thành "booked" và đánh dấu bookedBy
-    try {
-      const slotUpdate = await Availability.updateOne(
-        { _id: booking.availabilityId, "slots._id": booking.slotId },
-        {
-          $set: {
-            "slots.$.status": "booked",
-            "slots.$.bookedBy": booking.mentee,
-            "slots.$.bookingId": booking._id,
-          },
-        }
-      );
-
-      if (slotUpdate.modifiedCount === 0) {
-        console.warn(
-          `[confirmBooking] Could not update slot for booking ${booking._id}`
-        );
-      } else {
-        console.log(
-          `[confirmBooking] Slot successfully marked as booked for booking ${booking._id}`
-        );
-      }
-    } catch (slotError) {
-      console.error("[confirmBooking] Error updating slot:", slotError);
-      // Continue with the operation even if slot update fails
-    }
+    const booking = await transitionBooking({
+      bookingId: id,
+      targetStatus: "active",
+    });
 
     // Tìm và decline tất cả các booking khác cho cùng time slot
     const otherBookings = await Booking.find({
@@ -959,57 +855,11 @@ export const declineBooking = async (req, res) => {
       );
     }
 
-    const booking = await Booking.findOneAndUpdate(
-      { _id: id, status: "pending" },
-      {
-        $set: {
-          status: "rejected",
-          declineReason: reason || "", // Lưu lý do từ chối
-        },
-      },
-      { new: true }
-    );
-
-    if (!booking) {
-      return responseHandler.badRequest(
-        res,
-        "Booking was updated by someone else"
-      );
-    }
-
-    // Kiểm tra xem còn booking pending nào khác cho cùng time slot không
-    const otherPendingBookings = await Booking.find({
-      mentor: booking.mentor,
-      date: booking.date,
-      start: booking.start,
-      end: booking.end,
-      status: "pending",
-      _id: { $ne: booking._id },
+    const booking = await transitionBooking({
+      bookingId: id,
+      targetStatus: "rejected",
+      reason,
     });
-
-    // Nếu không còn booking pending nào khác, đổi slot về "open"
-    if (otherPendingBookings.length === 0) {
-      try {
-        const slotUpdate = await Availability.updateOne(
-          { _id: booking.availabilityId, "slots._id": booking.slotId },
-          {
-            $set: { "slots.$.status": "open" },
-            $unset: {
-              "slots.$.bookedBy": "",
-              "slots.$.bookingId": "",
-            },
-          }
-        );
-
-        if (slotUpdate.modifiedCount === 0) {
-          console.warn(
-            `[declineBooking] Could not update slot for booking ${booking._id}`
-          );
-        }
-      } catch (slotError) {
-        console.error("[declineBooking] Error updating slot:", slotError);
-      }
-    }
 
     const dateLabel = booking.date.toLocaleDateString("en-US");
     const ps = parseHHMMStrict(booking.start);
@@ -1103,74 +953,11 @@ export const cancelBooking = async (req, res) => {
       );
     }
 
-    const booking = await Booking.findOneAndUpdate(
-      { _id: id, status: { $in: ["pending", "active"] } },
-      {
-        $set: {
-          status: "cancelled",
-          ...(reason && { declineReason: reason }), // Lưu lý do nếu có
-        },
-      },
-      { new: true }
-    );
-    if (!booking) {
-      return responseHandler.badRequest(res, "Booking is not cancellable");
-    }
-
-    const dateKey = new Date(existing.date).toISOString().slice(0, 10);
-    const dayKey = new Date(`${dateKey}T00:00:00.000Z`);
-
-    // Free up the slot - try by slotId first, then by time
-    try {
-      let freed = null;
-
-      if (existing.slotId) {
-        freed = await Availability.updateOne(
-          {
-            mentor: existing.mentor,
-            date: dayKey,
-            "slots._id": existing.slotId,
-          },
-          {
-            $set: { "slots.$.status": "open" },
-            $unset: {
-              "slots.$.bookedBy": "",
-              "slots.$.bookingId": "",
-              "slots.$.holdUntil": "",
-            },
-          }
-        );
-      }
-
-      // Fallback: find slot by time if slotId didn't work
-      if (!freed || freed.modifiedCount === 0) {
-        freed = await Availability.updateOne(
-          {
-            mentor: existing.mentor,
-            date: dayKey,
-            "slots.start": existing.start,
-            "slots.end": existing.end,
-            "slots.bookingId": existing._id,
-          },
-          {
-            $set: { "slots.$.status": "open" },
-            $unset: {
-              "slots.$.bookedBy": "",
-              "slots.$.bookingId": "",
-              "slots.$.holdUntil": "",
-            },
-          }
-        );
-      }
-
-      if (!freed || freed.modifiedCount === 0) {
-        console.warn(
-          `[cancelBooking] Could not free slot for booking ${existing._id}`
-        );
-      }
-    } catch (slotError) {
-      console.error("[cancelBooking] Error freeing slot:", slotError);
-    }
+    const booking = await transitionBooking({
+      bookingId: id,
+      targetStatus: "cancelled",
+      reason,
+    });
 
     try {
       const canceller = await User.findById(userId)

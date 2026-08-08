@@ -1,7 +1,8 @@
 // backend/src/routes/user.route.js
 import express from "express";
 import * as UserCtl from "../controllers/user.controller.js";
-import tokenMiddleware from "../middlewares/token.middleware.js";
+import { verifyToken } from "../middlewares/auth.middleware.js";
+import sessionController from "../modules/identity/session.controller.js";
 import upload from "../utils/multer.js";
 
 import {
@@ -81,6 +82,8 @@ if (typeof U.signUpMentor !== "function") throw new Error("user.controller.js is
 
 router.post("/signup", validate(signUpSchema), U.signUp);
 router.post("/signin", validate(signInSchema), U.signIn);
+router.post("/refresh", sessionController.refresh);
+router.post("/logout", sessionController.logout);
 router.post("/signupMentor", upload.single("avatar"), validate(signUpMentorSchema), U.signUpMentor);
 
 if (typeof U.verifyEmail === "function")
@@ -99,11 +102,11 @@ if (typeof U.resetPassword === "function")
 const maybeUpload = upload?.single ? upload.single("avatar") : (req, _res, next) => next();
 
 if (typeof U.getMe === "function" || typeof U.getProfile === "function") {
-  router.get("/me", tokenMiddleware.auth, (U.getMe || U.getProfile));
+  router.get("/me", verifyToken, (U.getMe || U.getProfile));
 }
 
 if (typeof U.changeAvatar === "function") {
-  router.post("/avatar", tokenMiddleware.auth, maybeUpload, U.changeAvatar);
+  router.post("/avatar", verifyToken, maybeUpload, U.changeAvatar);
 }
 
 export default router;

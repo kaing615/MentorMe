@@ -1,3 +1,4 @@
+import { getAccessToken } from "../auth/session.js";
 import React, { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useDispatch } from "react-redux";
@@ -7,6 +8,7 @@ import * as yup from "yup";
 import { toast } from "react-toastify";
 import courseApi from "../api/modules/course.api";
 import { showLoading, hideLoading } from "../redux/features/loading.slice";
+import { resolveAssetUrl } from "../config/runtime.js";
 
 const EditCoursePage = () => {
   const { id } = useParams();
@@ -16,7 +18,7 @@ const EditCoursePage = () => {
   // --- AUTH & ROLE CHECK ---
   useEffect(() => {
     const token =
-      localStorage.getItem("actkn") || localStorage.getItem("token");
+      getAccessToken();
     const userStr =
       localStorage.getItem("user") || localStorage.getItem("user");
     console.log("Token:", token);
@@ -318,9 +320,7 @@ const EditCoursePage = () => {
           course.cover ||
           "";
         if (thumb) {
-          setImagePreview(
-            thumb.startsWith("http") ? thumb : `http://localhost:4000/${thumb}`
-          );
+          setImagePreview(resolveAssetUrl(thumb));
         }
       } catch (err) {
         toast.error("Error loading course data", {

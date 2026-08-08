@@ -1,3 +1,4 @@
+import { getAccessToken } from "../auth/session.js";
 // Format ISO date to dd/MM/yyyy HH:mm
 function formatDate(dateStr) {
   if (!dateStr) return "";
@@ -39,7 +40,7 @@ const OrderComplete = () => {
     const initializeOrderPage = async () => {
       // Check authentication
       const token =
-        localStorage.getItem("token") || localStorage.getItem("actkn");
+        getAccessToken();
       if (!token) {
         toast.error("Login to view order");
         navigate("/auth/signin");

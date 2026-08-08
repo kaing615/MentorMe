@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="760" viewBox="0 0 1400 760" role="img" aria-labelledby="title desc">
+  <title id="title">MentorMe continuous delivery flow</title><desc id="desc">Tests and scans build one immutable SHA image before approved rolling deployment and automatic rollback.</desc>
+  <defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10Z" fill="#506070"/></marker></defs>
+  <rect width="1400" height="760" fill="#f8fafc"/><text x="60" y="70" font-family="Arial" font-size="32" font-weight="700" fill="#17324d">Health-gated CI/CD by immutable Git SHA</text>
+  <g font-family="Arial" font-size="18" text-anchor="middle">
+    <ellipse cx="140" cy="260" rx="90" ry="50" fill="#d5e8d4" stroke="#82b366"/><text x="140" y="267">Merge main</text>
+    <rect x="280" y="210" width="190" height="100" rx="14" fill="#dae8fc" stroke="#6c8ebf"/><text x="375" y="250">Test / Contract</text><text x="375" y="278">Build</text>
+    <rect x="540" y="200" width="210" height="120" rx="14" fill="#e1d5e7" stroke="#9673a6"/><text x="645" y="242">Security +</text><text x="645" y="272">container scans</text>
+    <rect x="820" y="210" width="210" height="100" rx="14" fill="#fff2cc" stroke="#d6b656"/><text x="925" y="250">Push GHCR</text><text x="925" y="278">SHA image</text>
+    <rect x="1100" y="210" width="220" height="100" rx="14" fill="#ffe6cc" stroke="#d79b00"/><text x="1210" y="250">Approval</text><text x="1210" y="278">+ deploy lock</text>
+    <rect x="950" y="480" width="220" height="100" rx="14" fill="#dae8fc" stroke="#6c8ebf"/><text x="1060" y="520">Drain / deploy /</text><text x="1060" y="548">ready each slot</text>
+    <rect x="590" y="480" width="240" height="100" rx="14" fill="#d5e8d4" stroke="#82b366"/><text x="710" y="520">Post-deploy smoke</text><text x="710" y="548">+ release evidence</text>
+    <rect x="100" y="480" width="270" height="100" rx="14" fill="#f8cecc" stroke="#b85450"/><text x="235" y="520">Failed readiness:</text><text x="235" y="548">restore prior SHA</text>
+  </g>
+  <g fill="none" stroke="#506070" stroke-width="3" marker-end="url(#arrow)"><path d="M230 260H280"/><path d="M470 260H540"/><path d="M750 260H820"/><path d="M1030 260H1100"/><path d="M1210 310L1080 480"/><path d="M950 530H830"/><path d="M950 560L370 560"/></g>
+</svg>

@@ -2,12 +2,14 @@ import bcrypt from "bcryptjs";
 import { v2 as cloudinary } from "cloudinary";
 import crypto from "crypto";
 import dotenv from "dotenv";
-import jwt from "jsonwebtoken";
 import nodemailer from "nodemailer";
 import responseHandler from "../handlers/response.handler.js";
 import User from "../models/user.model.js";
 import { uploadImage } from "../utils/cloudinary.js";
 import profileUtils from "../utils/profile.utils.js";
+import loadEnv from "../config/env.js";
+import { signAccessToken } from "../modules/identity/access-token.js";
+import sessionController from "../modules/identity/session.controller.js";
 
 dotenv.config();
 
@@ -30,8 +32,8 @@ const transport = nodemailer.createTransport({
 const generateToken = (bytes = 32) => crypto.randomBytes(bytes).toString("hex");
 
 export const sendVerificationEmail = async (email, verifyKey, userName) => {
-  const verifyLink = `
-    http://localhost:5173/auth/verify-email?verified=1&email=${encodeURIComponent(
+  const { frontendUrl } = loadEnv(process.env);
+  const verifyLink = `${frontendUrl}/auth/verify-email?verified=1&email=${encodeURIComponent(
       email
     )}&verifyKey=${verifyKey}`;
   const data = {
@@ -90,10 +92,9 @@ export const verifyEmail = async (req, res) => {
 
     console.log(`User ${user.email} verified successfully. isVerified: ${user.isVerified}`);
 
-    const token = jwt.sign(
+    const token = signAccessToken(
       { id: user._id, role: user.role },
-      process.env.JWT_SECRET,
-      { expiresIn: "7d" }
+      { expiresIn: "15m" }
     );
 
     const userData = user.toObject();
@@ -159,10 +160,9 @@ export const googleAuth = async (req, res) => {
       await user.save();
     }
 
-    const token = jwt.sign(
+    const token = signAccessToken(
       { id: user._id, role: user.role },
-      process.env.JWT_SECRET,
-      { expiresIn: "7d" }
+      { expiresIn: "15m" }
     );
 
     const userData = user.toObject();
@@ -265,10 +265,9 @@ export const signUp = async (req, res) => {
 
     // In test environment, return token immediately for better testing UX
     if (isTestEnv) {
-      const token = jwt.sign(
+      const token = signAccessToken(
         { id: user._id, role: user.role },
-        process.env.JWT_SECRET,
-        { expiresIn: "7d" }
+        { expiresIn: "15m" }
       );
       const userData = user.toObject();
       delete userData.password;
@@ -482,10 +481,9 @@ export const signUpMentor = async (req, res) => {
 
     // In test environment, return token immediately
     if (isTestEnv) {
-      const token = jwt.sign(
+      const token = signAccessToken(
         { id: user._id, role: user.role },
-        process.env.JWT_SECRET,
-        { expiresIn: "7d" }
+        { expiresIn: "15m" }
       );
       const userData = user.toObject();
       delete userData.password;
@@ -563,16 +561,7 @@ export const signIn = async (req, res) => {
       return responseHandler.unauthorized(res, genericErrorMessage);
     }
 
-    const token = jwt.sign(
-      {
-        id: user._id,
-        role: user.role,
-        userName: user.userName,
-        email: user.email,
-      },
-      process.env.JWT_SECRET,
-      { expiresIn: "7d" }
-    );
+    const token = await sessionController.startSession(user, res);
 
     const userData = user.toObject();
     delete userData.password;
