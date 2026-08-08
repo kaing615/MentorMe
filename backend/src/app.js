@@ -36,6 +36,10 @@ export function createApp({
   app.set("trust proxy", 1);
 
   app.use(requestContext);
+  app.use((_request, response, next) => {
+    response.set("x-instance-id", env.instanceId || "unknown");
+    next();
+  });
   app.use(
     pinoHttp({
       logger,

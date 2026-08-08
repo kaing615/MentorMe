@@ -208,16 +208,16 @@ git commit -m "feat(domain): enforce transactional workflows"
 - Consumes: `/health/live`, `/health/ready`, graceful shutdown.
 - Produces: services `gateway`, `api-a`, `api-b`, `worker`, `redis`, `rabbitmq`, and `otel-collector`; loopback ports 4001/4002; public 80/443 only.
 
-- [ ] **Step 1: Write a failing topology contract test**
+- [x] **Step 1: Write a failing topology contract test**
 
 Parse Compose/Nginx and assert two API slots share the same immutable image variable, only gateway publishes public ports, dependencies remain private, health checks exist, memory budgets match Section 11.1, and Nginx carries request/WebSocket headers.
 
-- [ ] **Step 2: Verify the topology test fails**
+- [x] **Step 2: Verify the topology test fails**
 
 Run: `node tests/deploy/compose.test.mjs`
 Expected: missing production Compose and Nginx files.
 
-- [ ] **Step 3: Build hardened images and topology**
+- [x] **Step 3: Build hardened images and topology**
 
 Use a non-root user, `npm ci --omit=dev`, a pinned Node 22 Alpine base, init handling, read-only application filesystem where compatible, `no-new-privileges`, private networks, resource/log limits, named Redis/RabbitMQ volumes, and health checks.
 
@@ -229,7 +229,7 @@ Run: `docker compose -f deploy/compose.prod.yml up -d --build`
 Run: `bash deploy/scripts/smoke.sh http://localhost`
 Expected: gateway reaches both replica IDs and each health check is green.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add backend/Dockerfile backend/.dockerignore deploy tests/deploy

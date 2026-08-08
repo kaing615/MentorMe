@@ -78,6 +78,7 @@ export function loadEnv(source = process.env) {
 
   const result = {
     nodeEnv,
+    instanceId: values.INSTANCE_ID || "local",
     port: parseInteger("PORT", values.PORT, { minimum: 1, maximum: 65535 }),
     mongoUrl: values.MONGO_URL,
     jwtAccessSecret: values.JWT_ACCESS_SECRET,

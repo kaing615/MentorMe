@@ -41,3 +41,21 @@ test("request context preserves a valid incoming request ID", async () => {
     .expect(200);
   assert.equal(response.headers["x-request-id"], "req-portfolio-123");
 });
+
+test("health responses identify the serving replica", async () => {
+  const { createApp } = await import("../../src/app.js");
+  const env = {
+    corsOrigins: ["https://mentorme.example"],
+    instanceId: "api-b",
+  };
+  const health = {
+    acceptingTraffic: true,
+    dependencies: { mongo: true, redis: true, rabbitmq: true },
+  };
+  const response = await request(
+    createApp({ env, health, includeApplicationRoutes: false })
+  )
+    .get("/health/ready")
+    .expect(200);
+  assert.equal(response.headers["x-instance-id"], "api-b");
+});
