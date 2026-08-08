@@ -9,7 +9,14 @@ import swaggerUi from "swagger-ui-express";
 import YAML from "yamljs";
 import loadEnv from "./config/env.js";
 import createLogger from "./infrastructure/logger.js";
+import { createCacheStore } from "./infrastructure/redis/cache-store.js";
 import requestContext from "./middlewares/request-context.middleware.js";
+import { createRateLimit } from "./middlewares/rate-limit.middleware.js";
+import {
+  createResponseCache,
+  invalidateCacheOnSuccess,
+} from "./middlewares/response-cache.middleware.js";
+import { verifyAccessToken } from "./modules/identity/access-token.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -22,6 +29,31 @@ function dependencyBody(health) {
   );
 }
 
+function publicCacheNamespace(request) {
+  if (request.method !== "GET") return null;
+  const pathname = request.originalUrl.split("?", 1)[0];
+  if (/^\/api\/v1\/(?:course|courses)(?:\/|$)/.test(pathname)) {
+    if (/\/my-courses(?:\/|$)/.test(pathname)) return null;
+    if (/\/purchase-status(?:\/|$)/.test(pathname)) return null;
+    return "course";
+  }
+  if (
+    /^\/api\/v1\/profile\/(?:top-mentors|mentor\/[^/]+)\/?$/.test(pathname)
+  ) {
+    return "profile";
+  }
+  return null;
+}
+
+function mutationCacheNamespaces(request) {
+  if (request.method === "GET") return [];
+  const pathname = request.originalUrl.split("?", 1)[0];
+  if (/^\/api\/v1\/(?:course|courses|profile)(?:\/|$)/.test(pathname)) {
+    return ["course", "profile"];
+  }
+  return [];
+}
+
 export function createApp({
   env = loadEnv(process.env),
   health = {
@@ -29,6 +61,9 @@ export function createApp({
     dependencies: { mongo: false, redis: false, rabbitmq: false },
   },
   logger = createLogger({ level: "silent" }),
+  redisClient,
+  cacheStore,
+  applicationRouter,
   includeApplicationRoutes = true,
 } = {}) {
   const app = express();
@@ -67,18 +102,95 @@ export function createApp({
   });
   app.get("/health/ready", (_request, response) => {
     const dependencies = dependencyBody(health);
-    const ready =
-      health.acceptingTraffic && Object.values(health.dependencies).every(Boolean);
-    response.status(ready ? 200 : 503).json({
-      status: ready ? "ready" : "not_ready",
+    const serving = health.acceptingTraffic && health.dependencies.mongo;
+    const allDependenciesReady = Object.values(health.dependencies).every(Boolean);
+    const status = !serving
+      ? "not_ready"
+      : allDependenciesReady
+        ? "ready"
+        : "degraded";
+    response.status(serving ? 200 : 503).json({
+      status,
       dependencies,
     });
   });
 
   if (includeApplicationRoutes) {
-    const routesPromise = import("./routes/index.js").then(
-      (module) => module.default
+    const unavailableRedis = {
+      async eval() {
+        throw new Error("Redis is unavailable");
+      },
+    };
+    const limiterClient = redisClient || unavailableRedis;
+    const loginLimit = createRateLimit({
+      redisClient: limiterClient,
+      key: (request) => `auth:${request.ip}`,
+      limit: 5,
+      windowMs: 60_000,
+      failureMode: "local-half",
+      logger,
+    });
+    const publicReadLimit = createRateLimit({
+      redisClient: limiterClient,
+      key: (request) => `read:${request.ip}`,
+      limit: 60,
+      windowMs: 60_000,
+      failureMode: "open",
+      logger,
+    });
+    const writeLimit = createRateLimit({
+      redisClient: limiterClient,
+      key: (request) => {
+        const token = request.get("authorization")?.replace(/^Bearer\s+/i, "");
+        try {
+          const payload = verifyAccessToken(token, {
+            secret: env.jwtAccessSecret,
+          });
+          return `write:${payload.id || payload.sub}`;
+        } catch {
+          return `write-ip:${request.ip}`;
+        }
+      },
+      limit: 30,
+      windowMs: 60_000,
+      failureMode: "local-half",
+      logger,
+    });
+    app.use("/api/v1/user/signin", loginLimit);
+    app.use("/api/v1/user/signup", loginLimit);
+    app.use("/api/v1/user/signupMentor", loginLimit);
+    app.use("/api/v1", (request, response, next) =>
+      request.method === "GET"
+        ? publicReadLimit(request, response, next)
+        : writeLimit(request, response, next)
     );
+
+    const sharedCache = cacheStore || (redisClient ? createCacheStore(redisClient) : null);
+    if (sharedCache) {
+      const responseCache = createResponseCache({
+        cache: sharedCache,
+        namespace: publicCacheNamespace,
+        ttlSeconds: 300,
+        key: (request) => request.originalUrl,
+      });
+      const invalidateResponseCache = invalidateCacheOnSuccess({
+        cache: sharedCache,
+        namespaces: mutationCacheNamespaces,
+      });
+      app.use("/api/v1", (request, response, next) => {
+        if (publicCacheNamespace(request)) {
+          return responseCache(request, response, next);
+        }
+        if (mutationCacheNamespaces(request).length > 0) {
+          return invalidateResponseCache(request, response, next);
+        }
+        return next();
+      });
+    }
+
+    const routesPromise = applicationRouter
+      ? Promise.resolve(applicationRouter)
+      : import("./routes/index.js").then((module) => module.default);
     app.use("/api/v1", async (request, response, next) => {
       try {
         const routes = await routesPromise;

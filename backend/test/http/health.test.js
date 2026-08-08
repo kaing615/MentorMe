@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import request from "supertest";
 
-test("liveness stays healthy while readiness reports dependency state", async () => {
+test("readiness degrades for optional dependencies but fails for MongoDB", async () => {
   const module = await import("../../src/app.js").catch(() => ({}));
   assert.equal(typeof module.createApp, "function", "createApp must exist");
 
@@ -15,9 +15,9 @@ test("liveness stays healthy while readiness reports dependency state", async ()
   const live = await request(app).get("/health/live").expect(200);
   assert.deepEqual(live.body, { status: "ok" });
 
-  const notReady = await request(app).get("/health/ready").expect(503);
-  assert.deepEqual(notReady.body, {
-    status: "not_ready",
+  const degraded = await request(app).get("/health/ready").expect(200);
+  assert.deepEqual(degraded.body, {
+    status: "degraded",
     dependencies: { mongo: "up", redis: "down", rabbitmq: "down" },
   });
 
@@ -25,6 +25,10 @@ test("liveness stays healthy while readiness reports dependency state", async ()
   health.dependencies.rabbitmq = true;
   const ready = await request(app).get("/health/ready").expect(200);
   assert.equal(ready.body.status, "ready");
+
+  health.dependencies.mongo = false;
+  const notReady = await request(app).get("/health/ready").expect(503);
+  assert.equal(notReady.body.status, "not_ready");
 });
 
 test("request context preserves a valid incoming request ID", async () => {

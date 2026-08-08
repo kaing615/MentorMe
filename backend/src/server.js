@@ -3,6 +3,7 @@ import createApp from "./app.js";
 import loadEnv from "./config/env.js";
 import { connectMongo, disconnectMongo } from "./infrastructure/mongodb.js";
 import createLogger from "./infrastructure/logger.js";
+import { createRedisClients } from "./infrastructure/redis/redis.client.js";
 import attachSocket from "./socket/index.js";
 
 function closeHttpServer(server) {
@@ -59,9 +60,36 @@ export async function startServer({ source = process.env } = {}) {
   await connectMongo(env.mongoUrl);
   health.dependencies.mongo = true;
 
-  const app = createApp({ env, health, logger });
+  let redisClients = null;
+  if (env.redisEnabled) {
+    try {
+      redisClients = await createRedisClients(env.redisUrl, {
+        logger,
+        onStateChange: (ready) => {
+          health.dependencies.redis = ready;
+        },
+      });
+      health.dependencies.redis = true;
+    } catch (error) {
+      health.dependencies.redis = false;
+      logger.warn({ err: error }, "Redis unavailable; starting degraded");
+    }
+  }
+
+  const app = createApp({
+    env,
+    health,
+    logger,
+    redisClient: redisClients?.command,
+  });
   const server = http.createServer(app);
-  const io = attachSocket(server, { corsOrigins: env.corsOrigins, logger });
+  const io = attachSocket(server, {
+    corsOrigins: env.corsOrigins,
+    logger,
+    redisClients,
+    webSocketOnly: env.nodeEnv === "production",
+    jwtAccessSecret: env.jwtAccessSecret,
+  });
   await new Promise((resolve) => server.listen(env.port, resolve));
   logger.info({ port: env.port }, "MentorMe API listening");
 
@@ -75,7 +103,10 @@ export async function startServer({ source = process.env } = {}) {
         health,
         server,
         io,
-        closeDependencies: disconnectMongo,
+        closeDependencies: async () => {
+          await redisClients?.close();
+          await disconnectMongo();
+        },
         timeoutMs: env.shutdownTimeoutMs,
       });
       logger.info("shutdown completed");
