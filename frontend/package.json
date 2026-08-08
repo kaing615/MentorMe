@@ -8,6 +8,7 @@
     "test": "node --test",
     "build": "vite build",
     "lint": "eslint .",
+    "lint:ci": "node scripts/lint-baseline.mjs",
     "preview": "vite preview"
   },
   "dependencies": {
@@ -69,6 +70,7 @@
     "eslint-plugin-react-refresh": "^0.4.19",
     "globals": "^16.0.0",
     "serve": "^14.2.6",
-    "vite": "^6.3.5"
+    "vite": "^6.3.5",
+    "wrangler": "^4.28.1"
   }
 }

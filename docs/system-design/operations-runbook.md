@@ -1,6 +1,15 @@
 # Operations Runbook
 
-**Implementation status:** Target
+**Implementation status:** Mixed
+
+## One-time production setup
+
+1. Provision Ubuntu on a 2 vCPU/4 GB VPS, create the `mentorme` deploy user, install Docker Engine from Docker's official repository, and place the repository deployment bundle under `/opt/mentorme`.
+2. Create `/opt/mentorme/.env` from `deploy/env/production.env.example`; keep it owner-readable only and never commit it.
+3. Add a protected GitHub Environment named `production` with required reviewers and main-branch-only deployment.
+4. Configure environment secrets `PRODUCTION_HOST`, `PRODUCTION_USER`, `PRODUCTION_SSH_KEY`, `PRODUCTION_KNOWN_HOSTS`, `PRODUCTION_GHCR_TOKEN`, `CLOUDFLARE_API_TOKEN`, and `CLOUDFLARE_ACCOUNT_ID`.
+5. Configure environment variables `PRODUCTION_URL`, `PRODUCTION_API_URL`, `PRODUCTION_SOCKET_URL`, and `CLOUDFLARE_PROJECT_NAME`. Leaving the Cloudflare project variable empty intentionally skips frontend deployment.
+6. Point DNS/Cloudflare to the VPS, install the origin certificate files expected by Compose, then run the smoke script before enabling traffic.
 
 ## Release
 
@@ -9,9 +18,18 @@
 3. After smoke success, restore the slot and repeat for the second slot.
 4. Record SHA, previous SHA, operator, timestamps, and smoke result.
 
+The workflow accepts only a full 40-character Git SHA and publishes only `ghcr.io/<owner>/<repo>/api:<sha>`. GitHub concurrency and server-side `flock` prevent overlapping releases.
+
 ## Rollback
 
 Drain one slot, replace it with the recorded previous SHA, verify readiness, return traffic, and repeat. Image rollback never reverses data; expand/contract migrations keep both releases compatible. A failed migration stops before traffic switching.
+
+Manual rollback:
+
+```bash
+cd /opt/mentorme
+DEPLOY_ROOT=/opt/mentorme bash deploy/scripts/rollback.sh <40-character-prior-sha>
+```
 
 ## Dependency incidents
 

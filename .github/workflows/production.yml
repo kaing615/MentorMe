@@ -1,0 +1,215 @@
+name: Production Delivery
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      deploy_sha:
+        description: Full Git SHA to rebuild and deploy
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production
+  cancel-in-progress: false
+
+env:
+  NODE_VERSION: "22.23.1"
+
+jobs:
+  verify:
+    name: Verify release candidate
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    outputs:
+      sha: ${{ steps.release.outputs.sha }}
+      image: ${{ steps.release.outputs.image }}
+    steps:
+      - name: Resolve immutable release identity
+        id: release
+        env:
+          REQUESTED_SHA: ${{ inputs.deploy_sha }}
+          EVENT_SHA: ${{ github.sha }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          sha="${REQUESTED_SHA:-$EVENT_SHA}"
+          if [[ ! "$sha" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::Release SHA must contain 40 lowercase hexadecimal characters"
+            exit 1
+          fi
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "image=ghcr.io/${REPOSITORY,,}/api" >> "$GITHUB_OUTPUT"
+      - name: Checkout release SHA
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ steps.release.outputs.sha }}
+          fetch-depth: 1
+      - name: Set up Node.js
+        uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: |
+            backend/package-lock.json
+            frontend/package-lock.json
+      - name: Verify backend
+        working-directory: backend
+        run: npm ci && npm test && npm audit --omit=dev --audit-level=high
+      - name: Verify frontend
+        working-directory: frontend
+        run: npm ci && npm test && npm run lint:ci && npm run build && npm audit --omit=dev --audit-level=high
+      - name: Verify docs and deployment contracts
+        run: |
+          node scripts/verify-docs.mjs
+          node scripts/validate-drawio.mjs
+          node tests/deploy/compose.test.mjs
+          node tests/deploy/deploy-script.test.mjs
+          bash -n deploy/scripts/*.sh
+
+  publish-api:
+    name: Publish immutable API image
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+    outputs:
+      digest: ${{ steps.build.outputs.digest }}
+    steps:
+      - name: Checkout release SHA
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ needs.verify.outputs.sha }}
+          fetch-depth: 1
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@d70bba72b1f3fd22344832f00baa16ece964efeb # v3.3.0
+      - name: Log in to GHCR
+        uses: docker/login-action@e92390c5fb421da1463c202d546fed0ec5c39f20 # v3.1.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build and push API image
+        id: build
+        uses: docker/build-push-action@2cdde995de11925a030ce8070c3d77a52ffcf1c0 # v5.3.0
+        with:
+          context: backend
+          file: backend/Dockerfile
+          push: true
+          tags: ${{ needs.verify.outputs.image }}:${{ needs.verify.outputs.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          provenance: mode=max
+          sbom: true
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2.4.0
+        with:
+          subject-name: ${{ needs.verify.outputs.image }}
+          subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true
+
+  deploy-api:
+    name: Roll API across two slots
+    needs: [verify, publish-api]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment:
+      name: production
+      url: ${{ vars.PRODUCTION_URL }}
+    steps:
+      - name: Checkout release bundle
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ needs.verify.outputs.sha }}
+          fetch-depth: 1
+      - name: Configure restricted SSH identity
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.PRODUCTION_SSH_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.PRODUCTION_KNOWN_HOSTS }}
+        run: |
+          install -m 0700 -d ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+          chmod 0600 ~/.ssh/id_ed25519
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+      - name: Transfer deployment bundle
+        env:
+          DEPLOY_HOST: ${{ secrets.PRODUCTION_HOST }}
+          DEPLOY_USER: ${{ secrets.PRODUCTION_USER }}
+        run: |
+          tar -czf /tmp/mentorme-deploy.tgz deploy
+          scp /tmp/mentorme-deploy.tgz "$DEPLOY_USER@$DEPLOY_HOST:/tmp/mentorme-deploy.tgz"
+          ssh "$DEPLOY_USER@$DEPLOY_HOST" \
+            "mkdir -p /opt/mentorme && tar -xzf /tmp/mentorme-deploy.tgz -C /opt/mentorme && rm /tmp/mentorme-deploy.tgz"
+      - name: Authenticate VPS to GHCR
+        env:
+          DEPLOY_HOST: ${{ secrets.PRODUCTION_HOST }}
+          DEPLOY_USER: ${{ secrets.PRODUCTION_USER }}
+          GHCR_USER: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.PRODUCTION_GHCR_TOKEN }}
+        run: |
+          printf '%s' "$GHCR_TOKEN" | ssh "$DEPLOY_USER@$DEPLOY_HOST" \
+            "docker login ghcr.io --username '$GHCR_USER' --password-stdin"
+      - name: Run health-gated rolling deployment
+        env:
+          DEPLOY_HOST: ${{ secrets.PRODUCTION_HOST }}
+          DEPLOY_USER: ${{ secrets.PRODUCTION_USER }}
+          RELEASE_SHA: ${{ needs.verify.outputs.sha }}
+        run: |
+          ssh "$DEPLOY_USER@$DEPLOY_HOST" \
+            "cd /opt/mentorme && DEPLOY_ROOT=/opt/mentorme bash deploy/scripts/deploy.sh '$RELEASE_SHA'"
+      - name: Record deployment summary
+        env:
+          RELEASE_SHA: ${{ needs.verify.outputs.sha }}
+          PRODUCTION_URL: ${{ vars.PRODUCTION_URL }}
+        run: |
+          echo "## Production API deployment" >> "$GITHUB_STEP_SUMMARY"
+          echo "- SHA: \`$RELEASE_SHA\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- URL: $PRODUCTION_URL" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Strategy: two-slot health-gated rolling update" >> "$GITHUB_STEP_SUMMARY"
+
+  deploy-frontend:
+    name: Deploy frontend to Cloudflare Pages
+    if: vars.CLOUDFLARE_PROJECT_NAME != ''
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment:
+      name: production
+      url: ${{ vars.PRODUCTION_URL }}
+    steps:
+      - name: Checkout release SHA
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ needs.verify.outputs.sha }}
+          fetch-depth: 1
+      - name: Set up Node.js
+        uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Build frontend
+        working-directory: frontend
+        env:
+          VITE_API_BASE_URL: ${{ vars.PRODUCTION_API_URL }}
+          VITE_SOCKET_URL: ${{ vars.PRODUCTION_SOCKET_URL }}
+        run: npm ci && npm run build
+      - name: Publish Pages deployment
+        working-directory: frontend
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_PROJECT_NAME: ${{ vars.CLOUDFLARE_PROJECT_NAME }}
+          RELEASE_SHA: ${{ needs.verify.outputs.sha }}
+        run: |
+          npx wrangler pages deploy dist \
+            --project-name "$CLOUDFLARE_PROJECT_NAME" \
+            --branch main \
+            --commit-hash "$RELEASE_SHA"

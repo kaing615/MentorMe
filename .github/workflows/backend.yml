@@ -1,20 +1,56 @@
 name: Backend CI
 
 on:
-  push:
+  pull_request:
+    branches: [main]
     paths:
       - "backend/**"
+      - "deploy/**"
+      - "tests/deploy/**"
       - ".github/workflows/backend.yml"
+  push:
     branches: [main]
+    paths:
+      - "backend/**"
+      - "deploy/**"
+      - "tests/deploy/**"
+      - ".github/workflows/backend.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backend-ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  build:
+  test:
+    name: Test backend and deployment contracts
     runs-on: ubuntu-latest
-
+    timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v3
-      - name: Setup Node.js
-        uses: actions/setup-node@v3
+      - name: Checkout source
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          node-version: 18
-      - run: cd backend && npm install
+          fetch-depth: 1
+      - name: Set up Node.js
+        uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
+        with:
+          node-version: "22.23.1"
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm ci
+      - name: Run backend tests with coverage
+        working-directory: backend
+        run: npm run test:coverage
+      - name: Audit production dependencies
+        working-directory: backend
+        run: npm audit --omit=dev --audit-level=high
+      - name: Validate production topology
+        run: node tests/deploy/compose.test.mjs
+      - name: Validate rolling deploy behavior
+        run: node tests/deploy/deploy-script.test.mjs
+      - name: Validate shell syntax
+        run: bash -n deploy/scripts/*.sh
