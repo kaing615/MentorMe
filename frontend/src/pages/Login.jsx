@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import ImageForLogin from "../assets/ImageForLogin.jpg";
+import ImageForLogin from "../assets/ImageForLogIn.jpg";
 import fb from "../assets/facebook.png";
 import gg from "../assets/google.png";
 import mcs from "../assets/microsoft.png";
