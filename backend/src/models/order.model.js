@@ -54,7 +54,14 @@ const billingInfoSchema = new mongoose.Schema({
 const paymentInfoSchema = new mongoose.Schema({
   method: {
     type: String,
-    enum: ["credit_card", "paypal", "vnpay", "momo", "bank_transfer"],
+    enum: [
+      "credit_card",
+      "paypal",
+      "vnpay",
+      "momo",
+      "bank_transfer",
+      "manual",
+    ],
     required: true,
   },
   transactionId: {
@@ -137,6 +144,8 @@ const OrderSchema = new mongoose.Schema(
       default: "bank",
     },
     transactionId: String,
+    providerEventId: String,
+    aggregateVersion: { type: Number, default: 1, min: 1 },
     note: String,
     status: {
       type: String,
@@ -161,6 +170,16 @@ const OrderSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+OrderSchema.index(
+  { transactionId: 1 },
+  { unique: true, partialFilterExpression: { transactionId: { $type: "string" } } }
+);
+OrderSchema.index(
+  { providerEventId: 1 },
+  { unique: true, partialFilterExpression: { providerEventId: { $type: "string" } } }
+);
+OrderSchema.index({ status: 1, updatedAt: 1 });
 
 // Generate order number before save
 OrderSchema.pre("save", function (next) {

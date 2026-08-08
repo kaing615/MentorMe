@@ -161,20 +161,20 @@ git commit -m "refactor(runtime): add production foundations"
 **Interfaces:**
 - Produces: `assertBookingTransition(from, to)`, `assertOrderTransition(from, to)`, `withTransaction(work)`, `runIdempotent({ scope, key, requestHash, work })`, and `appendOutboxEvent(event, { session })`.
 
-- [ ] **Step 1: Write state-machine and duplicate-operation tests**
+- [x] **Step 1: Write state-machine and duplicate-operation tests**
 
 Cover every allowed transition in Sections 5.1/5.2, reject all incompatible transitions, race two requests for one availability slot, submit one verified webhook twice, and force an exception after the slot/order update to prove transaction rollback.
 
-- [ ] **Step 2: Verify red tests**
+- [x] **Step 2: Verify red tests**
 
 Run: `cd backend && npm test -- test/modules test/integration/booking-transaction.test.js test/integration/payment-idempotency.test.js`
 Expected: failure because state and transaction services do not exist.
 
-- [ ] **Step 3: Implement state and transaction primitives**
+- [x] **Step 3: Implement state and transaction primitives**
 
 Use transition maps of frozen `Set` values, Mongoose sessions with bounded transaction retries for transient labels, unique `{ scope: 1, key: 1 }`, unique provider event/transaction indexes, unique purchased-course ownership, and a partial booking slot index covering `pending|active`.
 
-- [ ] **Step 4: Move booking and payment mutations behind services**
+- [x] **Step 4: Move booking and payment mutations behind services**
 
 Controllers validate/authorize HTTP input, then call services. Booking transactions update the matching `open` slot, booking, and outbox together. Payment provider calls occur outside transactions; verified results transition/grant/write events in a new transaction.
 
@@ -183,7 +183,7 @@ Controllers validate/authorize HTTP input, then call services. Booking transacti
 Run: `cd backend && npm test -- test/modules test/integration`
 Expected: concurrent/duplicate/rollback cases pass and indexes build on a clean test database.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add backend/src backend/test
