@@ -1,10 +1,10 @@
 # syntax=docker/dockerfile:1.7
-FROM node:22.23.1-alpine3.24 AS production-deps
+FROM node:26.6.0-alpine3.24 AS production-deps
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN --mount=type=cache,target=/root/.npm npm ci --omit=dev && npm cache clean --force
 
-FROM node:22.23.1-alpine3.24 AS runtime
+FROM node:26.6.0-alpine3.24 AS runtime
 ARG BUILD_DATE
 ARG VCS_REF
 ARG VERSION=dev
