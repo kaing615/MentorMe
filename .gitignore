@@ -137,3 +137,6 @@ dist
 node_modules/
 .env
 
+# Local Superpowers workflow artifacts
+docs/superpowers/
+
