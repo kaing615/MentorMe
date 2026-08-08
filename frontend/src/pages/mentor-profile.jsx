@@ -1,3 +1,4 @@
+import { getAccessToken } from "../auth/session.js";
 import React, { useState, useEffect, useMemo } from "react";
 import { toast } from "react-toastify";
 import { FaUserCircle } from "react-icons/fa";
@@ -62,7 +63,7 @@ const MentorProfile = () => {
   useEffect(() => {
     // Check token
     const token =
-      localStorage.getItem("actkn") || localStorage.getItem("token");
+      getAccessToken();
     const userStr =
       localStorage.getItem("user") || localStorage.getItem("user");
     let user = null;

@@ -1,3 +1,4 @@
+import { getAccessToken } from "../auth/session.js";
 /**
  * Authentication utilities for production environment
  */
@@ -12,7 +13,7 @@ import { toast } from "react-toastify";
 export const validateCurrentUser = async () => {
   try {
     const token =
-      localStorage.getItem("token") || localStorage.getItem("actkn");
+      getAccessToken();
 
     if (!token) {
       return false;
@@ -141,7 +142,7 @@ export const validateProfileAuth = async (navigate, requiredRole) => {
   try {
     // 1. Check localStorage first
     const token =
-      localStorage.getItem("token") || localStorage.getItem("actkn");
+      getAccessToken();
     const userStr = localStorage.getItem("user");
 
     if (!token) {

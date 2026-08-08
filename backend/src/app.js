@@ -11,6 +11,7 @@ import loadEnv from "./config/env.js";
 import createLogger from "./infrastructure/logger.js";
 import { createCacheStore } from "./infrastructure/redis/cache-store.js";
 import requestContext from "./middlewares/request-context.middleware.js";
+import { rejectMongoOperators } from "./middlewares/security.middleware.js";
 import { createRateLimit } from "./middlewares/rate-limit.middleware.js";
 import {
   createResponseCache,
@@ -96,6 +97,7 @@ export function createApp({
   app.use(express.json({ limit: "1mb" }));
   app.use(express.urlencoded({ extended: false, limit: "1mb" }));
   app.use(cookieParser());
+  app.use(rejectMongoOperators);
 
   app.get("/health/live", (_request, response) => {
     response.status(200).json({ status: "ok" });

@@ -1,3 +1,4 @@
+import { getAccessToken } from "../auth/session.js";
 import React, { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useDispatch } from "react-redux";
@@ -17,7 +18,7 @@ const EditCoursePage = () => {
   // --- AUTH & ROLE CHECK ---
   useEffect(() => {
     const token =
-      localStorage.getItem("actkn") || localStorage.getItem("token");
+      getAccessToken();
     const userStr =
       localStorage.getItem("user") || localStorage.getItem("user");
     console.log("Token:", token);

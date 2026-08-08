@@ -1,3 +1,4 @@
+import { getAccessToken } from "../auth/session.js";
 import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useDispatch } from "react-redux";
@@ -32,7 +33,7 @@ const Checkout = () => {
   // --- AUTH CHECK (chỉ mentee được phép) ---
   useEffect(() => {
     const token =
-      localStorage.getItem("actkn") || localStorage.getItem("token");
+      getAccessToken();
     const userStr =
       localStorage.getItem("user") || localStorage.getItem("user");
     console.log("Token:", token);
@@ -107,7 +108,7 @@ const Checkout = () => {
     const initializeCheckout = async () => {
       // Check authentication
       const token =
-        localStorage.getItem("token") || localStorage.getItem("actkn");
+        getAccessToken();
       if (!token) {
         toast.error("Login to proceed to checkout");
         navigate("/auth/signin");
@@ -261,7 +262,7 @@ const Checkout = () => {
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${
-            localStorage.getItem("token") || localStorage.getItem("actkn")
+            getAccessToken()
           }`,
         },
         body: JSON.stringify(orderPayload),
@@ -298,7 +299,7 @@ const Checkout = () => {
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${
-              localStorage.getItem("token") || localStorage.getItem("actkn")
+              getAccessToken()
             }`,
           },
           body: JSON.stringify({

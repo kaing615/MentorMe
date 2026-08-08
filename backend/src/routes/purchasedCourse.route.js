@@ -1,7 +1,7 @@
 import express from "express";
 import purchasedCourseController from "../controllers/purchasedCourse.controller.js";
 import { validateBody } from "../middlewares/joi.middleware.js";
-import tokenMiddleware from "../middlewares/token.middleware.js";
+import tokenMiddleware from "../middlewares/auth.middleware.js";
 import * as userValidation from "../validations/user.validation.js";
 
 const router = express.Router();

@@ -1,6 +1,7 @@
 // Socket.IO Service cho real-time messaging
 import { io } from 'socket.io-client';
 import { socketUrl } from '../config/runtime.js';
+import { getAccessToken } from '../auth/session.js';
 
 class SocketService {
   constructor() {
@@ -10,22 +11,20 @@ class SocketService {
   }
 
   // Khởi tạo kết nối socket
-  connect(userId) {
+  connect() {
     if (this.socket?.connected) {
       return;
     }
 
     try {
       this.socket = io(socketUrl, {
-        auth: {
-          userId: userId
-        },
+        auth: (callback) => callback({ token: getAccessToken() }),
         autoConnect: true,
         reconnection: true,
         reconnectionDelay: 1000,
         reconnectionAttempts: 5,
         timeout: 10000,
-        transports: ['websocket', 'polling']
+        transports: ['websocket']
       });
 
       this.setupEventListeners();

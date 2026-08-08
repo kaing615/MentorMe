@@ -3,6 +3,7 @@ import { apiBaseUrl } from "../../config/runtime.js";
 
 const publicClient = axios.create({
   baseURL: apiBaseUrl,
+  withCredentials: true,
   paramsSerializer: (params) => {
     // Sử dụng URLSearchParams để serialize một cách an toàn
     const searchParams = new URLSearchParams();
@@ -18,12 +19,9 @@ const publicClient = axios.create({
 
 publicClient.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem("actkn");
-
     // Chỉ set Content-Type là application/json khi không phải FormData
     const headers = {
       ...config.headers,
-      ...(token && { Authorization: `Bearer ${token}` }),
     };
 
     // Nếu data không phải FormData thì mới set Content-Type là application/json

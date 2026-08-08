@@ -1,3 +1,4 @@
+import { getAccessToken } from "../auth/session.js";
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -7,7 +8,7 @@ const AllMentors = () => {
   // --- AUTH CHECK (mentor và mentee đều được xem) ---
   useEffect(() => {
     const token =
-      localStorage.getItem("actkn") || localStorage.getItem("token");
+      getAccessToken();
     const userStr =
       localStorage.getItem("user") || localStorage.getItem("user");
     console.log("Token:", token);

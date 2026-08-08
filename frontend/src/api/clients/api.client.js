@@ -6,10 +6,12 @@
 import axios from "axios";
 import queryString from "query-string";
 import { apiBaseUrl } from "../../config/runtime.js";
+import { getAccessToken } from "../../auth/session.js";
 
 // Tạo axios instance
 const apiClient = axios.create({
   baseURL: apiBaseUrl,
+  withCredentials: true,
   paramsSerializer: { encode: (params) => queryString.stringify(params) },
 });
 
@@ -23,9 +25,7 @@ apiClient.interceptors.request.use((config) => {
     ...config.headers,
   };
 
-  // Lấy token từ storage (ưu tiên sessionStorage)
-  const raw = sessionStorage.getItem("actkn") || localStorage.getItem("actkn");
-  const token = raw?.replace(/^Bearer\s+/i, "")?.replace(/^"|"$/g, "");
+  const token = getAccessToken();
 
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
@@ -42,9 +42,6 @@ apiClient.interceptors.response.use(
     
     if (status === 401) {
       console.warn("401 Unauthorized - Token expired or invalid");
-      // Xóa token và redirect về login
-      sessionStorage.removeItem("actkn");
-      localStorage.removeItem("actkn");
       window.location.href = "/auth/signin";
       return Promise.reject(error);
     }

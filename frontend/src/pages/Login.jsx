@@ -5,6 +5,7 @@ import gg from "../assets/google.png";
 import mcs from "../assets/microsoft.png";
 import { IoArrowForward } from "react-icons/io5";
 import authApi from "../api/modules/auth.api";
+import { getAccessToken, setAccessToken } from "../auth/session.js";
 import { toast } from "react-toastify";
 import { useNavigate } from "react-router-dom";
 import { showLoading, hideLoading } from "../redux/features/loading.slice";
@@ -36,7 +37,7 @@ const Login = () => {
   // Check if user is already logged in
   useEffect(() => {
     const checkAuthStatus = async () => {
-      const token = localStorage.getItem("actkn") || localStorage.getItem("token");
+      const token = getAccessToken();
       const user = localStorage.getItem("user");
       const isLoggedIn = localStorage.getItem("isLoggedIn");
       
@@ -159,7 +160,7 @@ const Login = () => {
         }));
       }
       if (response.data?.token) {
-        localStorage.setItem("actkn", response.data.token);
+        setAccessToken(response.data.token);
       }
 
       // Navigate based on user's actual role (not UI selection)

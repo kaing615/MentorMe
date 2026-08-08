@@ -9,6 +9,7 @@ import { uploadImage } from "../utils/cloudinary.js";
 import profileUtils from "../utils/profile.utils.js";
 import loadEnv from "../config/env.js";
 import { signAccessToken } from "../modules/identity/access-token.js";
+import sessionController from "../modules/identity/session.controller.js";
 
 dotenv.config();
 
@@ -93,7 +94,7 @@ export const verifyEmail = async (req, res) => {
 
     const token = signAccessToken(
       { id: user._id, role: user.role },
-      { expiresIn: "7d" }
+      { expiresIn: "15m" }
     );
 
     const userData = user.toObject();
@@ -161,7 +162,7 @@ export const googleAuth = async (req, res) => {
 
     const token = signAccessToken(
       { id: user._id, role: user.role },
-      { expiresIn: "7d" }
+      { expiresIn: "15m" }
     );
 
     const userData = user.toObject();
@@ -266,7 +267,7 @@ export const signUp = async (req, res) => {
     if (isTestEnv) {
       const token = signAccessToken(
         { id: user._id, role: user.role },
-        { expiresIn: "7d" }
+        { expiresIn: "15m" }
       );
       const userData = user.toObject();
       delete userData.password;
@@ -482,7 +483,7 @@ export const signUpMentor = async (req, res) => {
     if (isTestEnv) {
       const token = signAccessToken(
         { id: user._id, role: user.role },
-        { expiresIn: "7d" }
+        { expiresIn: "15m" }
       );
       const userData = user.toObject();
       delete userData.password;
@@ -560,15 +561,7 @@ export const signIn = async (req, res) => {
       return responseHandler.unauthorized(res, genericErrorMessage);
     }
 
-    const token = signAccessToken(
-      {
-        id: user._id,
-        role: user.role,
-        userName: user.userName,
-        email: user.email,
-      },
-      { expiresIn: "7d" }
-    );
+    const token = await sessionController.startSession(user, res);
 
     const userData = user.toObject();
     delete userData.password;

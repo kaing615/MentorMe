@@ -1,3 +1,4 @@
+import { getAccessToken } from "../auth/session.js";
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
@@ -20,7 +21,7 @@ const SearchPage = () => {
   // --- AUTH CHECK (mentor và mentee đều được xem) ---
   useEffect(() => {
     const token =
-      localStorage.getItem("actkn") || localStorage.getItem("token");
+      getAccessToken();
     const userStr = localStorage.getItem("user");
     let user = null;
     if (!token) {

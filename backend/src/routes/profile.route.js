@@ -1,7 +1,7 @@
 // routes/profile.route.js
 import express from "express";
 import { validateBody } from "../middlewares/joi.middleware.js";
-import tokenMiddleware from "../middlewares/token.middleware.js";
+import tokenMiddleware from "../middlewares/auth.middleware.js";
 import upload from "../utils/multer.js";
 import * as profileValidation from "../validations/profile.validation.js";
 

@@ -39,20 +39,12 @@ export const authorizeRoles = (...allowedRoles) => {
     if (!user)
       return responseHandler.unauthorized(res, "Authentication required.");
 
-    console.log("User object:", user);
-    console.log("User role:", user.role);
-    console.log("Allowed roles:", allowedRoles);
-
-    // User model has 'role' field (singular), not 'roles'
     const userRole = user.role;
     if (!userRole) {
-      console.log("No role found for user");
       return responseHandler.forbidden(res, "No role assigned to user.");
     }
 
     const hasAllowedRole = allowed.has(userRole);
-    console.log("Has allowed role:", hasAllowedRole);
-
     if (hasAllowedRole) return next();
 
     return responseHandler.forbidden(
@@ -62,4 +54,6 @@ export const authorizeRoles = (...allowedRoles) => {
   };
 };
 
-export default { verifyToken, authorizeRoles, tokenDecode };
+export const auth = verifyToken;
+
+export default { auth, verifyToken, authorizeRoles, tokenDecode };

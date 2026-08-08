@@ -1,3 +1,4 @@
+import { getAccessToken } from "../auth/session.js";
 import React, { useState, useEffect } from "react";
 import ImageForSignUp from "../assets/ImageForSignUp.jpg";
 import fb from "../assets/facebook.png";
@@ -32,7 +33,7 @@ const SignUp = () => {
   useEffect(() => {
     const checkAuthStatus = async () => {
       const token =
-        localStorage.getItem("actkn") || localStorage.getItem("token");
+        getAccessToken();
       const user = localStorage.getItem("user");
       const isLoggedIn = localStorage.getItem("isLoggedIn");
 

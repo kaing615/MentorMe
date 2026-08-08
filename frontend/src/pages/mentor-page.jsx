@@ -1,3 +1,4 @@
+import { getAccessToken } from "../auth/session.js";
 import React, { useEffect, useState, useRef } from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
@@ -82,7 +83,7 @@ const MentorPage = () => {
   // --- AUTH CHECK (mentor hoặc mentee đều được xem) ---
   useEffect(() => {
     const token =
-      localStorage.getItem("actkn") || localStorage.getItem("token");
+      getAccessToken();
     const userStr =
       localStorage.getItem("user") || localStorage.getItem("user");
     let user = null;

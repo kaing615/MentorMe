@@ -1,3 +1,4 @@
+import { getAccessToken } from "../auth/session.js";
 // screens/HomeScreen.jsx
 import React, { useRef, useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
@@ -221,7 +222,7 @@ const HomeScreen = () => {
   // --- AUTH CHECK (mentor và mentee đều được xem) ---
   useEffect(() => {
     const token =
-      localStorage.getItem("actkn") || localStorage.getItem("token");
+      getAccessToken();
     const userStr =
       localStorage.getItem("user") || localStorage.getItem("user");
     let user = null;
