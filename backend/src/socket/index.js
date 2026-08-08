@@ -2,8 +2,10 @@ import { Server } from "socket.io";
 import Message from "../models/message.model.js";
 import mongoose from "mongoose";
 
-export default function attach(server) {
-  const io = new Server(server, { cors: { origin: "*" } });
+export default function attach(server, { corsOrigins = [], logger = console } = {}) {
+  const io = new Server(server, {
+    cors: { origin: corsOrigins, credentials: true },
+  });
   const userSockets = new Map();
 
   io.on("connection", (socket) => {
@@ -67,6 +69,7 @@ export default function attach(server) {
 
         cb?.({ ok: true, data: doc });
       } catch (e) {
+        logger.error?.({ err: e }, "socket message send failed");
         cb?.({ ok: false, error: e.message });
       }
     });

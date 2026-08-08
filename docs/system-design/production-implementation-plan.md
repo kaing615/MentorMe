@@ -105,31 +105,31 @@ git commit -m "docs: add production architecture baseline"
 **Interfaces:**
 - Produces: `loadEnv(source)`, `createApp({ health, logger })`, `startServer(deps)`, `connectMongo(uri)`, `requestContext`, and `/health/live|ready`.
 
-- [ ] **Step 1: Write failing environment and health tests**
+- [x] **Step 1: Write failing environment and health tests**
 
 Test that production rejects missing `MONGO_URL`, `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, `CORS_ORIGINS`, and weak secrets; test liveness returns 200 while readiness returns 503 until MongoDB/Redis/RabbitMQ dependency flags are ready.
 
-- [ ] **Step 2: Verify the tests fail**
+- [x] **Step 2: Verify the tests fail**
 
 Run: `cd backend && npm test -- test/config/env.test.js test/http/health.test.js`
 Expected: failure because the modules and endpoints do not exist.
 
-- [ ] **Step 3: Implement the minimal runtime seams**
+- [x] **Step 3: Implement the minimal runtime seams**
 
 `loadEnv` returns a frozen object with parsed integer/time/list values. `createApp` installs request IDs, Pino HTTP logging, parsers, routes, stable 404/error handlers, and health routes. `startServer` connects dependencies, listens, and handles `SIGTERM`/`SIGINT` by marking readiness false, closing HTTP/Socket.IO, draining for at most `SHUTDOWN_TIMEOUT_MS`, and closing dependencies.
 
-- [ ] **Step 4: Replace hard-coded application URLs**
+- [x] **Step 4: Replace hard-coded application URLs**
 
 Frontend clients consume `import.meta.env.VITE_API_BASE_URL`; Socket.IO consumes `VITE_SOCKET_URL`; backend links consume `FRONTEND_URL`. No runtime source may contain a production hostname or localhost fallback in production mode.
 
-- [ ] **Step 5: Run foundation verification**
+- [x] **Step 5: Run foundation verification**
 
 Run: `cd backend && npm test`
 Run: `cd frontend && npm run build`
 Run: `rg -n "localhost|127\\.0\\.0\\.1" backend/src frontend/src`
 Expected: tests/build pass; remaining localhost matches are explicit development defaults only.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add backend frontend

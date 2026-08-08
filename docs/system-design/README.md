@@ -8,6 +8,7 @@ This folder separates observed repository behavior from the approved production 
 - [Consistency and events](consistency-and-events.md)
 - [Security](security.md)
 - [Testing strategy](testing-strategy.md)
+- [Frontend lint baseline](lint-baseline.md)
 - [Operations runbook](operations-runbook.md)
 - [Acceptance traceability](acceptance-traceability.md)
 - [Approved production design](production-system-design.md)

@@ -1,14 +1,11 @@
 // src/api/clients/private.client.js
 import axios from "axios";
-import queryString from "query-string";
 import { logout } from "../../redux/features/auth.slice.js";
-
-const API_ROOT = (import.meta.env.VITE_API_URL || "").replace(/\/+$/, "");
-const baseURL = /\/api\/v1$/i.test(API_ROOT) ? API_ROOT : `${API_ROOT}/api/v1`;
+import { apiBaseUrl } from "../../config/runtime.js";
 
 const createPrivateClient = (dispatch) => {
   const client = axios.create({
-    baseURL,
+    baseURL: apiBaseUrl,
     paramsSerializer: (params) => {
       // Sử dụng URLSearchParams để serialize một cách an toàn
       const searchParams = new URLSearchParams();

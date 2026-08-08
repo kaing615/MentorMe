@@ -1,10 +1,8 @@
 import axios from "axios";
-import queryString from "query-string";
-
-const baseURL = import.meta.env.VITE_API_URL || "http://localhost:4000/api/v1";
+import { apiBaseUrl } from "../../config/runtime.js";
 
 const publicClient = axios.create({
-  baseURL,
+  baseURL: apiBaseUrl,
   paramsSerializer: (params) => {
     // Sử dụng URLSearchParams để serialize một cách an toàn
     const searchParams = new URLSearchParams();

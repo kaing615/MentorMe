@@ -1,6 +1,6 @@
-import jwt from "jsonwebtoken";
 import responseHandler from "../handlers/response.handler.js";
 import User from "../models/user.model.js";
+import { verifyAccessToken } from "../modules/identity/access-token.js";
 
 const tokenDecode = (req) => {
   const auth = req.headers?.authorization || "";
@@ -9,7 +9,7 @@ const tokenDecode = (req) => {
       ? auth.split(" ")[1]
       : auth;
     if (!token) return null;
-    return jwt.verify(token, process.env.JWT_SECRET);
+    return verifyAccessToken(token);
   } catch {
     return null;
   }

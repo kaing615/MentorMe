@@ -2,6 +2,9 @@ import responseHandler from "../handlers/response.handler.js";
 import Order from "../models/order.model.js";
 import crypto from "crypto";
 import axios from "axios";
+import loadEnv from "../config/env.js";
+
+const runtime = loadEnv(process.env);
 
 // Payment configuration
 const PAYMENT_CONFIG = {
@@ -9,16 +12,16 @@ const PAYMENT_CONFIG = {
         tmnCode: process.env.VNPAY_TMN_CODE || "DEMO_TMN_CODE",
         hashSecret: process.env.VNPAY_HASH_SECRET || "DEMO_HASH_SECRET",
         url: process.env.VNPAY_URL || "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html",
-        returnUrl: process.env.VNPAY_RETURN_URL || "http://localhost:3000/payment/vnpay/return",
-        ipnUrl: process.env.VNPAY_IPN_URL || "http://localhost:5000/api/payment/vnpay/ipn"
+        returnUrl: process.env.VNPAY_RETURN_URL || `${runtime.frontendUrl}/payment/vnpay/return`,
+        ipnUrl: process.env.VNPAY_IPN_URL || `${runtime.publicApiUrl}/api/v1/payment/vnpay/ipn`
     },
     momo: {
         partnerCode: process.env.MOMO_PARTNER_CODE || "DEMO_PARTNER_CODE",
         accessKey: process.env.MOMO_ACCESS_KEY || "DEMO_ACCESS_KEY",
         secretKey: process.env.MOMO_SECRET_KEY || "DEMO_SECRET_KEY",
         endpoint: process.env.MOMO_ENDPOINT || "https://test-payment.momo.vn/v2/gateway/api/create",
-        redirectUrl: process.env.MOMO_REDIRECT_URL || "http://localhost:3000/payment/momo/return",
-        ipnUrl: process.env.MOMO_IPN_URL || "http://localhost:5000/api/payment/momo/ipn"
+        redirectUrl: process.env.MOMO_REDIRECT_URL || `${runtime.frontendUrl}/payment/momo/return`,
+        ipnUrl: process.env.MOMO_IPN_URL || `${runtime.publicApiUrl}/api/v1/payment/momo/ipn`
     },
     stripe: {
         publishableKey: process.env.STRIPE_PUBLISHABLE_KEY || "pk_test_demo",

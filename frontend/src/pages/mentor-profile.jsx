@@ -18,6 +18,7 @@ import { AiFillYoutube } from "react-icons/ai";
 import { IoStar, IoStarOutline } from "react-icons/io5";
 import courseApi from "../api/modules/course.api";
 import MentorMenteeChat from "../components/MentorMenteeChat.jsx";
+import { resolveAssetUrl } from "../config/runtime.js";
 
 // Stars render function
 const renderStars = (rating) => {
@@ -2295,7 +2296,7 @@ const MentorProfile = () => {
                                   ? course.thumbnail
                                   : course.thumbnail.startsWith("http")
                                   ? course.thumbnail
-                                  : `http://localhost:4000/${course.thumbnail}`
+                                  : resolveAssetUrl(course.thumbnail)
                                 : "/placeholder-course.jpg"
                             }
                             alt={course.title}

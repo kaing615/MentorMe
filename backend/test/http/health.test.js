@@ -1,0 +1,43 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import request from "supertest";
+
+test("liveness stays healthy while readiness reports dependency state", async () => {
+  const module = await import("../../src/app.js").catch(() => ({}));
+  assert.equal(typeof module.createApp, "function", "createApp must exist");
+
+  const health = {
+    acceptingTraffic: true,
+    dependencies: { mongo: true, redis: false, rabbitmq: false },
+  };
+  const app = module.createApp({ health, includeApplicationRoutes: false });
+
+  const live = await request(app).get("/health/live").expect(200);
+  assert.deepEqual(live.body, { status: "ok" });
+
+  const notReady = await request(app).get("/health/ready").expect(503);
+  assert.deepEqual(notReady.body, {
+    status: "not_ready",
+    dependencies: { mongo: "up", redis: "down", rabbitmq: "down" },
+  });
+
+  health.dependencies.redis = true;
+  health.dependencies.rabbitmq = true;
+  const ready = await request(app).get("/health/ready").expect(200);
+  assert.equal(ready.body.status, "ready");
+});
+
+test("request context preserves a valid incoming request ID", async () => {
+  const { createApp } = await import("../../src/app.js");
+  const health = {
+    acceptingTraffic: true,
+    dependencies: { mongo: true, redis: true, rabbitmq: true },
+  };
+  const app = createApp({ health, includeApplicationRoutes: false });
+
+  const response = await request(app)
+    .get("/health/live")
+    .set("x-request-id", "req-portfolio-123")
+    .expect(200);
+  assert.equal(response.headers["x-request-id"], "req-portfolio-123");
+});

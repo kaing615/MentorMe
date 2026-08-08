@@ -1,6 +1,6 @@
 import User from "../models/user.model.js";
 import responseHandler from "../handlers/response.handler.js";
-import jwt from "jsonwebtoken";
+import { verifyAccessToken } from "../modules/identity/access-token.js";
 
 const tokenDecode = (req) => {
 	try {
@@ -11,7 +11,7 @@ const tokenDecode = (req) => {
 			const token = bearerHeader.split(" ")[1];
 			console.log("Token Middleware - Extracted token:", token);
 			
-			const decoded = jwt.verify(token, process.env.JWT_SECRET);
+			const decoded = verifyAccessToken(token);
 			console.log("Token Middleware - Decoded successfully:", decoded);
 			return decoded;
 		} else {
