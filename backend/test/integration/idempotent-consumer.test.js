@@ -97,3 +97,32 @@ test("consumer retries version gaps and dead-letters exhausted failures", async 
     "email provider unavailable"
   );
 });
+
+test("consumer dead-letters malformed JSON instead of leaking an unhandled rejection", async () => {
+  const { handleDelivery } = await import(
+    "../../src/infrastructure/outbox/consumer.js"
+  );
+  const published = [];
+  let acknowledged = 0;
+  const result = await handleDelivery({
+    message: {
+      content: Buffer.from("not-json"),
+      fields: { routingKey: "unknown" },
+      properties: { headers: {} },
+    },
+    channel: {
+      ack() { acknowledged += 1; },
+      publish(exchange, routingKey, _content, options) {
+        published.push({ exchange, routingKey, options });
+      },
+    },
+    store: {},
+    handler: async () => {},
+    deadExchange: "mentorme.dead",
+  });
+
+  assert.equal(result, "dead-letter");
+  assert.equal(acknowledged, 1);
+  assert.equal(published[0].exchange, "mentorme.dead");
+  assert.equal(published[0].options.headers["x-error"], "invalid event envelope");
+});

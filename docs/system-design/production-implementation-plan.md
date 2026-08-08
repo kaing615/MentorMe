@@ -431,19 +431,19 @@ git commit -m "feat(observability): measure production SLOs"
 - Consumes: GHCR image `${GITHUB_REPOSITORY}/api:${GITHUB_SHA}`, protected `production` Environment, restricted SSH secret, health endpoints, and two stable API slots.
 - Produces: concurrency-locked CI/CD, deployment metadata, automatic slot rollback, and manual SHA rollback.
 
-- [ ] **Step 1: Write deployment-script contract tests**
+- [x] **Step 1: Write deployment-script contract tests**
 
 Use command fakes to assert `flock`, exact SHA validation, inactive-slot removal, `nginx -t`, atomic reload, drain, image pull/recreate, readiness polling, smoke checks, prior-SHA rollback, second-slot deployment, and final metadata write. Assert no `latest` tag is deployable.
 
-- [ ] **Step 2: Verify deployment tests fail**
+- [x] **Step 2: Verify deployment tests fail**
 
 Run: `node tests/deploy/deploy-script.test.mjs`
 
-- [ ] **Step 3: Implement CI quality and image pipeline**
+- [x] **Step 3: Implement CI quality and image pipeline**
 
 On pull requests run lockfile installs, backend tests/coverage, frontend build and lint baseline, docs/topology tests, CodeQL, Gitleaks, dependency audit, Trivy, and image build. On `main`, push API/worker images once with SHA tags and attest provenance.
 
-- [ ] **Step 4: Implement protected rolling production deployment**
+- [x] **Step 4: Implement protected rolling production deployment**
 
 The `production` job requires GitHub Environment approval, uses a restricted deploy key, transfers only release metadata/scripts, calls `deploy.sh <sha>`, and runs a remote post-deploy smoke test. GitHub `concurrency` plus server `flock` prevents overlapping releases.
 
@@ -451,7 +451,7 @@ The `production` job requires GitHub Environment approval, uses a restricted dep
 
 Deploy a healthy SHA, inject a readiness failure into the next SHA, prove traffic remains on/restores the previous SHA, then manually rollback by SHA. Record commands and timestamps in the runbook.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add .github deploy tests/deploy docs/system-design/operations-runbook.md
@@ -471,7 +471,7 @@ git commit -m "ci: add health-gated production delivery"
 - Consumes: fresh build/test/scan/deploy/load evidence from Tasks 1–9.
 - Produces: evidence-backed project claims, reproducible startup/deployment commands, and a prioritized debt register.
 
-- [ ] **Step 1: Audit tracked files, dependencies, code, and operations**
+- [x] **Step 1: Audit tracked files, dependencies, code, and operations**
 
 Search for secrets, debug logs, duplicate dependencies/middleware/routes, unsafe CORS/auth, unbounded queries/uploads, hard-coded URLs, missing awaits, swallowed errors, missing indexes, large modules, stale files, dependency vulnerabilities, and docs/runtime drift. Record severity, path/line, impact, and recommended fix.
 
@@ -479,11 +479,11 @@ Search for secrets, debug logs, duplicate dependencies/middleware/routes, unsafe
 
 From a clean worktree run lockfile installs, backend tests/coverage, frontend build/lint baseline, docs/topology/deploy tests, Compose validation/start/smoke, secret/dependency/container scans, and acceptance traceability review.
 
-- [ ] **Step 3: Update evidence and CV-safe claims**
+- [x] **Step 3: Update evidence and CV-safe claims**
 
 Only claim implemented behavior with a Git SHA and command/result. Label unavailable external steps (VPS credentials, DNS, Cloudflare, Atlas restore) as blocked with exact operator action; never call them deployed.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add README.md docs/system-design

@@ -34,9 +34,32 @@ export async function handleDelivery({
   baseDelayMs = 1000,
 }) {
   if (!message) return "empty";
-  const envelope = JSON.parse(message.content.toString("utf8"));
-  const routingKey = message.fields.routingKey || envelope.eventType;
   const currentAttempt = Number(message.properties.headers?.["x-attempt"] || 0);
+  let envelope;
+  try {
+    envelope = JSON.parse(message.content.toString("utf8"));
+    if (
+      !envelope.eventId ||
+      !envelope.eventType ||
+      !envelope.aggregateId ||
+      !Number.isInteger(envelope.aggregateVersion)
+    ) {
+      throw new Error("invalid envelope");
+    }
+  } catch {
+    publishForLater({
+      channel,
+      exchange: deadExchange,
+      routingKey: message.fields.routingKey || "invalid",
+      message,
+      envelope: { eventId: message.properties.messageId || "invalid" },
+      attempt: currentAttempt + 1,
+      error: "invalid event envelope",
+    });
+    channel.ack(message);
+    return "dead-letter";
+  }
+  const routingKey = message.fields.routingKey || envelope.eventType;
   const claim = await store.begin(envelope);
 
   if (claim.outcome === "duplicate" || claim.outcome === "stale") {

@@ -24,7 +24,7 @@ export const verifyToken = async (req, res, next) => {
 
   try {
     const user = await User.findById(userId).select("-password -__v");
-    if (!user) return responseHandler.unauthorized(res);
+    if (!user || !user.isVerified) return responseHandler.unauthorized(res);
     req.user = user;
     next();
   } catch {

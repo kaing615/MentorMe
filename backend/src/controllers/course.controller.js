@@ -190,19 +190,13 @@ export const getRelatedCourses = async (req, res) => {
       return obj;
     });
 
-    await newCourse.save();
-
-    const populatedCourse = await Course.findById(newCourse._id).populate(
-      "mentor",
-      "firstName lastName avatarUrl jobTitle"
-    );
-
-    return responseHandler.created(res, {
-      message: "Tạo khóa học thành công.",
-      data: populatedCourse,
+    return responseHandler.ok(res, {
+      message: "Lấy khoá học liên quan thành công!",
+      total: coursesWithId.length,
+      courses: coursesWithId,
     });
   } catch (err) {
-    console.error("Lỗi tạo khóa học:", err);
+    console.error("Lỗi lấy khoá học liên quan:", err);
     responseHandler.error(res, err.message);
   }
 };
