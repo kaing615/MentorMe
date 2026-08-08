@@ -10,6 +10,7 @@ const DEVELOPMENT_DEFAULTS = {
   RABBITMQ_URL: "amqp://guest:guest@localhost:5672",
   SHUTDOWN_TIMEOUT_MS: "10000",
   LOG_LEVEL: "info",
+  METRICS_TOKEN: "development-metrics-token-change-before-production",
 };
 
 const REQUIRED_PRODUCTION = [
@@ -21,6 +22,7 @@ const REQUIRED_PRODUCTION = [
   "PUBLIC_API_URL",
   "REDIS_URL",
   "RABBITMQ_URL",
+  "METRICS_TOKEN",
 ];
 
 function parseInteger(name, value, { minimum, maximum }) {
@@ -62,7 +64,7 @@ export function loadEnv(source = process.env) {
     }
   }
 
-  for (const name of ["JWT_ACCESS_SECRET", "JWT_REFRESH_SECRET"]) {
+  for (const name of ["JWT_ACCESS_SECRET", "JWT_REFRESH_SECRET", "METRICS_TOKEN"]) {
     if (!values[name] || values[name].length < 32) {
       throw new Error(`${name} must contain at least 32 characters`);
     }
@@ -96,6 +98,7 @@ export function loadEnv(source = process.env) {
       { minimum: 100, maximum: 60000 }
     ),
     logLevel: values.LOG_LEVEL,
+    metricsToken: values.METRICS_TOKEN,
   };
   return Object.freeze(result);
 }

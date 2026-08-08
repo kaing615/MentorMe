@@ -12,6 +12,9 @@ const productionEnv = {
   PUBLIC_API_URL: "https://api.mentorme.example",
   REDIS_URL: "redis://:secret@redis:6379",
   RABBITMQ_URL: "amqp://app:secret@rabbitmq:5672",
+  METRICS_TOKEN: "c".repeat(48),
+  SHUTDOWN_TIMEOUT_MS: "10000",
+  LOG_LEVEL: "info",
 };
 
 test("production configuration rejects missing secrets", async () => {
@@ -28,6 +31,14 @@ test("production configuration rejects weak secrets", async () => {
   assert.throws(
     () => loadEnv({ ...productionEnv, JWT_ACCESS_SECRET: "short" }),
     /JWT_ACCESS_SECRET/
+  );
+});
+
+test("production configuration requires a strong metrics token", async () => {
+  const { loadEnv } = await import("../../src/config/env.js");
+  assert.throws(
+    () => loadEnv({ ...productionEnv, METRICS_TOKEN: "short" }),
+    /METRICS_TOKEN/
   );
 });
 

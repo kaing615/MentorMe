@@ -12,6 +12,7 @@ x-api-environment: &api-environment
   RABBITMQ_ENABLED: "true"
   RABBITMQ_URL: amqp://${RABBITMQ_USER:?RABBITMQ_USER is required}:${RABBITMQ_PASSWORD:?RABBITMQ_PASSWORD is required}@rabbitmq:5672
   LOG_LEVEL: ${LOG_LEVEL:-info}
+  METRICS_TOKEN: ${METRICS_TOKEN:?METRICS_TOKEN is required}
   SHUTDOWN_TIMEOUT_MS: 15000
 
 x-api-service: &api-service
@@ -165,6 +166,28 @@ services:
       interval: 10s
       timeout: 5s
       retries: 8
+    networks:
+      - backend
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.138.0
+    command: ["--config=/etc/otelcol-contrib/config.yml"]
+    restart: unless-stopped
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - ./otel/collector.yml:/etc/otelcol-contrib/config.yml:ro
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    pids_limit: 100
+    mem_limit: 256m
+    cpus: 0.20
+    healthcheck:
+      test: ["CMD", "/otelcol-contrib", "--version"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
     networks:
       - backend
 

@@ -42,8 +42,16 @@ test("request context preserves a valid incoming request ID", async () => {
   const response = await request(app)
     .get("/health/live")
     .set("x-request-id", "req-portfolio-123")
+    .set(
+      "traceparent",
+      "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01"
+    )
     .expect(200);
   assert.equal(response.headers["x-request-id"], "req-portfolio-123");
+  assert.match(
+    response.headers.traceparent,
+    /^00-4bf92f3577b34da6a3ce929d0e0e4736-[0-9a-f]{16}-01$/
+  );
 });
 
 test("health responses identify the serving replica", async () => {

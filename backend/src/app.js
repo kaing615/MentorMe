@@ -65,6 +65,7 @@ export function createApp({
   redisClient,
   cacheStore,
   applicationRouter,
+  metrics,
   includeApplicationRoutes = true,
 } = {}) {
   const app = express();
@@ -98,6 +99,18 @@ export function createApp({
   app.use(express.urlencoded({ extended: false, limit: "1mb" }));
   app.use(cookieParser());
   app.use(rejectMongoOperators);
+  if (metrics) app.use(metrics.middleware);
+
+  if (metrics) {
+    app.get("/metrics", async (request, response) => {
+      const token = request.get("authorization")?.replace(/^Bearer\s+/i, "");
+      if (!env.metricsToken || token !== env.metricsToken) {
+        return response.status(401).json({ code: "UNAUTHORIZED" });
+      }
+      response.type(metrics.contentType);
+      return response.send(await metrics.render());
+    });
+  }
 
   app.get("/health/live", (_request, response) => {
     response.status(200).json({ status: "ok" });

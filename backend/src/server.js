@@ -4,6 +4,7 @@ import loadEnv from "./config/env.js";
 import { connectMongo, disconnectMongo } from "./infrastructure/mongodb.js";
 import createLogger from "./infrastructure/logger.js";
 import { createRedisClients } from "./infrastructure/redis/redis.client.js";
+import { createMetrics } from "./infrastructure/observability/metrics.js";
 import attachSocket from "./socket/index.js";
 
 function closeHttpServer(server) {
@@ -57,6 +58,7 @@ export async function startServer({ source = process.env } = {}) {
       rabbitmq: !env.rabbitmqEnabled,
     },
   };
+  const metrics = createMetrics();
   await connectMongo(env.mongoUrl);
   health.dependencies.mongo = true;
 
@@ -81,6 +83,7 @@ export async function startServer({ source = process.env } = {}) {
     health,
     logger,
     redisClient: redisClients?.command,
+    metrics,
   });
   const server = http.createServer(app);
   const io = attachSocket(server, {
