@@ -1,17 +1,28 @@
+// backend/src/index.js
 import express from "express";
 import dotenv from "dotenv";
 import mongoose from "mongoose";
 import cors from "cors";
+import cookieParser from "cookie-parser";
+import http from "http";
+import routes from "./routes/index.js";
+import YAML from "yamljs";
+import swaggerUi from "swagger-ui-express";
+import attachSocket from "./socket/index.js"; // Import socket functionality
+
+// ⬇️ THÊM CÁC IMPORT THIẾU CHO ESM
 import path from "path";
-import helmet from "helmet";
-import bodyParser from "body-parser";
-import multer from "multer";
-import morgan from "morgan";
 import { fileURLToPath } from "url";
+import helmet from "helmet";
+import morgan from "morgan";
+import bodyParser from "body-parser";
+
+dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-dotenv.config();
+
+const swaggerDocument = YAML.load(path.join(__dirname, "swagger.yaml"));
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -23,32 +34,32 @@ app.use(morgan("common"));
 app.use(bodyParser.json({ limit: "30mb", extended: true }));
 app.use(bodyParser.urlencoded({ limit: "30mb", extended: true }));
 app.use(express.json());
-app.use("/assets", express.static(path.join(__dirname, "public/assets")));
+app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
 
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, "public/assets");
-  },
-  filename: function (req, file, cb) {
-    cb(null, file.originalname);
-  },
-});
+app.use("/api/v1", routes);
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
-const upload = multer({ storage: storage });
-
-app.get("/", (req, res) => {
+app.get("/", (_req, res) => {
   res.send("Welcome to the MentorMe backend!");
 });
 
+const server = http.createServer(app);
+
+// Attach Socket.IO to the server
+const io = attachSocket(server);
+console.log("🔌 Socket.IO server initialized");
+
 mongoose
-  .connect(process.env.MONGO_URL)
+  .connect(process.env.MONGO_URL || "mongodb://localhost:27017/mentorme")
   .then(() => {
     console.log("MongoDB connected");
-    app.listen(PORT, () => {
-      console.log(`Server is running on http://localhost:${PORT}`);
+    server.listen(PORT, () => {
+      console.log(`🚀 Server is running on http://localhost:${PORT}`);
+      console.log(`📖 API Documentation available at http://localhost:${PORT}/api-docs`);
     });
   })
   .catch((err) => {
-    console.log("MongoDB connection error: ", err);
+    console.error("MongoDB connection error:", err);
     process.exit(1);
   });

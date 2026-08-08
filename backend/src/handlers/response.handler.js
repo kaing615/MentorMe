@@ -4,17 +4,17 @@ const responseWithData = (res, statusCode, data) => {
   });
 };
 
-const error = (res) =>
+const error = (res, err) =>
   responseWithData(res, 500, {
     status: 500,
     message: "Oops! Something went wrong",
-    error: error,
+    error: err?.message || err,
   });
 
 const badRequest = (res, message) =>
   responseWithData(res, 400, {
     status: 400,
-    message: message,
+    message: message || "Bad Request",
   });
 
 const ok = (res, data) => responseWithData(res, 200, data);
@@ -24,13 +24,19 @@ const created = (res, data) => responseWithData(res, 201, data);
 const unauthorized = (res, message) =>
   responseWithData(res, 401, {
     status: 401,
-    message: "Unauthorized",
+    message: message || "Unauthorized",
   });
 
 const notFound = (res, message) =>
   responseWithData(res, 404, {
     status: 404,
-    message: "Resource not found",
+    message: message || "Resource not found",
+  });
+
+const forbidden = (res, message) =>
+  responseWithData(res, 403, {
+    status: 403,
+    message: message || "Forbidden",
   });
 
 export default {
@@ -40,4 +46,5 @@ export default {
   created,
   unauthorized,
   notFound,
+  forbidden,
 };

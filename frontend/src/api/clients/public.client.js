@@ -1,33 +1,49 @@
 import axios from "axios";
 import queryString from "query-string";
 
-const baseURL = `http://localhost:4000/api/v1`;
+const baseURL = import.meta.env.VITE_API_URL || "http://localhost:4000/api/v1";
 
 const publicClient = axios.create({
-    baseURL,
-    paramsSerializer: {
-        encode: (params) => queryString.stringify(params),
-    },
+  baseURL,
+  paramsSerializer: (params) => {
+    // Sử dụng URLSearchParams để serialize một cách an toàn
+    const searchParams = new URLSearchParams();
+    Object.keys(params).forEach((key) => {
+      const value = params[key];
+      if (value !== null && value !== undefined) {
+        searchParams.append(key, String(value));
+      }
+    });
+    return searchParams.toString();
+  },
 });
 
 publicClient.interceptors.request.use(
-    (config) => {
-        const token = localStorage.getItem('actkn');
-        config.headers = {
-            ...config.headers,
-            "Content-Type": "application/json",
-            ...(token && { "Authorization": `Bearer ${token}` }),
-        };
-        return config;
-    },
-    (error) => Promise.reject(error)
+  (config) => {
+    const token = localStorage.getItem("actkn");
+
+    // Chỉ set Content-Type là application/json khi không phải FormData
+    const headers = {
+      ...config.headers,
+      ...(token && { Authorization: `Bearer ${token}` }),
+    };
+
+    // Nếu data không phải FormData thì mới set Content-Type là application/json
+    if (!(config.data instanceof FormData)) {
+      headers["Content-Type"] = "application/json";
+    }
+
+    config.headers = headers;
+    return config;
+  },
+  (error) => Promise.reject(error)
 );
 
 publicClient.interceptors.response.use(
-    (response) => response?.data || response,
-    (error) => {
-        throw error?.response?.data || error;
-    }
+  (response) => response?.data || response,
+  (error) => {
+    throw error?.response?.data || error;
+  }
 );
 
 export default publicClient;
