@@ -5,6 +5,7 @@ import { validateEnvironment } from "./config/env.schema";
 import { HealthModule } from "./health/health.module";
 import { IdentityModule } from "./identity/identity.module";
 import { InfrastructureModule } from "./infrastructure/infrastructure.module";
+import { LearningModule } from "./learning/learning.module";
 import { MentoringModule } from "./mentoring/mentoring.module";
 import { ProfileModule } from "./mentoring/profile.module";
 import { SupportModule } from "./support/support.module";
@@ -21,6 +22,7 @@ import { SupportModule } from "./support/support.module";
     HealthModule,
     InfrastructureModule,
     IdentityModule,
+    LearningModule,
     MentoringModule,
     ProfileModule,
     SupportModule,

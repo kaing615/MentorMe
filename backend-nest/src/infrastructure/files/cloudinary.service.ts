@@ -32,6 +32,19 @@ export class CloudinaryService {
     return { url: result.secure_url, publicId: result.public_id };
   }
 
+  async uploadCourseThumbnail(
+    file: Express.Multer.File,
+    userId: string,
+  ): Promise<UploadedAvatar> {
+    const data = `data:${file.mimetype};base64,${file.buffer.toString("base64")}`;
+    const result = await cloudinary.uploader.upload(data, {
+      public_id: `course_thumbnail_${userId}_${Date.now()}`,
+      folder: "course_thumbnails",
+      overwrite: true,
+    });
+    return { url: result.secure_url, publicId: result.public_id };
+  }
+
   async delete(publicId: string): Promise<void> {
     if (publicId) await cloudinary.uploader.destroy(publicId);
   }
