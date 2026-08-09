@@ -3,7 +3,7 @@ import Header from "../common/header"
 
 const SignUpSignInLayout = () => {
     return (
-        <div className = "w-full">
+        <div className="app-shell w-full">
             <Header />
 
         </div>

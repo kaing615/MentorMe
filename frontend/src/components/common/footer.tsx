@@ -1,99 +1,58 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import { PATH, PLATFORM_PATH } from "../../routes/path";
-import facebooklogo from "../../assets/facebook.png";
-import githublogo from "../../assets/github.png";
-import googlelogo from "../../assets/google.png";
-import twitterlogo from "../../assets/twitter.png";
-import microsoftlogo from "../../assets/microsoft.png";
 
 const Footer = () => {
   return (
-    <footer className="w-full bg-blue-900 text-white mt-12 py-8 px-6 md:px-12">
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-8 items-start justify-between">
-        <div>
-          <div className="font-bold text-lg mb-2">MentorMe</div>
-          <p className="text-sm text-gray-300 mb-2">
-            Empowering growth through real connections and personalized
-            mentoring.
-          </p>
-          <p className="text-sm text-gray-300 mb-2">
-            MentorMe is a leading mentorship platform designed to help you
-            unlock your full potential through one-on-one guidance from
-            experienced mentors across a wide range of fields.
-          </p>
-          <p className="text-sm text-gray-300">
-            We make it easy and affordable for learners to find the right
-            mentor, book flexible sessions, chat, and get honest advice that
-            truly fits their goals. With MentorMe, personal growth and career
-            development are just one connection away!
+    <footer className="mt-16 w-full border-t border-[var(--ui-border)] bg-[var(--ui-surface)] px-4 py-12 text-[var(--ui-text)] sm:px-6 lg:px-8">
+      <div className="mx-auto grid max-w-7xl grid-cols-1 gap-10 sm:grid-cols-[1.5fr_1fr_1fr]">
+        <div className="max-w-sm">
+          <div className="mb-3 text-lg font-extrabold tracking-[-0.03em]">MentorMe</div>
+          <p className="max-w-[38ch] text-sm leading-6 text-[var(--ui-text-muted)]">
+            Find the right mentor, book a focused session, and move forward with practical guidance.
           </p>
         </div>
         <div>
-          <div className="font-bold mb-2">Get Help</div>
-          <ul className="text-sm text-gray-300 space-y-1">
+          <div className="mb-3 font-bold">Explore</div>
+          <ul className="space-y-2 text-sm text-[var(--ui-text-muted)]">
             <li>
-              <Link 
-                to={`${PATH.PLATFORM}/${PLATFORM_PATH.HELP_REQUEST}`} 
-                className="hover:underline"
-              >
-                Help Request
+              <Link to="/all-mentors" className="hover:text-[var(--ui-accent)] hover:underline">
+                Find mentors
+              </Link>
+            </li>
+            <li>
+              <Link to="/all-courses" className="hover:text-[var(--ui-accent)] hover:underline">
+                Browse courses
               </Link>
             </li>
           </ul>
         </div>
         <div>
-          <div className="font-bold mb-2">Programs</div>
-          <ul className="text-sm text-gray-300 space-y-1">
-            <li>Art & Design</li>
-            <li>Business</li>
-            <li>IT & Software</li>
-            <li>Languages</li>
-            <li>Programming</li>
+          <div className="mb-3 font-bold">Support</div>
+          <ul className="space-y-2 text-sm text-[var(--ui-text-muted)]">
+            <li>
+              <Link
+                to={`${PATH.PLATFORM}/${PLATFORM_PATH.HELP_REQUEST}`}
+                className="hover:text-[var(--ui-accent)] hover:underline"
+              >
+                Help Request
+              </Link>
+            </li>
+            <li>
+              <a
+                href="https://github.com/kaing615/MentorMe"
+                className="hover:text-[var(--ui-accent)] hover:underline"
+                target="_blank"
+                rel="noreferrer"
+              >
+                Project repository
+              </a>
+            </li>
           </ul>
         </div>
-        <div>
-          <div className="font-bold mb-2">Contact Us</div>
-          <p className="text-sm text-gray-300">
-            <strong>Address:</strong> [Your Address Here]
-          </p>
-          <p className="text-sm text-gray-300">
-            <strong>Tel:</strong> [Your Phone Number Here]
-          </p>
-          <p className="text-sm text-gray-300">
-            <strong>Mail:</strong> [Your Email Here]
-          </p>
-          <div className="flex gap-2 mt-2">
-            <a href="https://facebook.com">
-              <div className="bg-white rounded-full flex items-center justify-center w-10 h-10">
-                <img src={facebooklogo} alt="Facebook" className="w-6 h-6" />
-              </div>
-            </a>
-            <a href="https://github.com">
-              <div className="bg-white rounded-full flex items-center justify-center w-10 h-10">
-                <img src={githublogo} alt="GitHub" className="w-6 h-6" />
-              </div>
-            </a>
-            <a href="https://google.com">
-              <div className="bg-white rounded-full flex items-center justify-center w-10 h-10">
-                <img src={googlelogo} alt="Google" className="w-6 h-6" />
-              </div>
-            </a>
-            <a href="https://yourwebsite.com">
-              <div className="bg-white rounded-full flex items-center justify-center w-10 h-10">
-                <img src={twitterlogo} alt="Your Website" className="w-6 h-6" />
-              </div>
-            </a>
-            <a href="https://microsoft.com">
-              <div className="bg-white rounded-full flex items-center justify-center w-10 h-10">
-                <img src={microsoftlogo} alt="Microsoft" className="w-6 h-6" />
-              </div>
-            </a>
-          </div>
-        </div>
       </div>
-      <div className="text-center text-xs text-gray-400 mt-8">
-        © 2025 MentorMe. All rights reserved.
+      <div className="mx-auto mt-10 max-w-7xl border-t border-[var(--ui-border)] pt-6 text-xs text-[var(--ui-text-muted)]">
+        © {new Date().getFullYear()} MentorMe. All rights reserved.
       </div>
     </footer>
   );

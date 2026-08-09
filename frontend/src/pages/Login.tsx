@@ -1,13 +1,9 @@
 import React, { useState } from "react";
 import ImageForLogin from "../assets/ImageForLogIn.jpg";
-import fb from "../assets/facebook.png";
-import gg from "../assets/google.png";
-import mcs from "../assets/microsoft.png";
-import { IoArrowForward } from "react-icons/io5";
+import { IconArrowRight } from "@tabler/icons-react";
 import authApi from "../api/modules/auth.api";
 import { toast } from "react-toastify";
 import { useNavigate } from "react-router-dom";
-import { showLoading, hideLoading } from "../redux/features/loading.slice";
 import { setUser } from "../redux/features/user.slice";
 import { useDispatch } from "react-redux";
 import { useEffect } from "react";
@@ -24,14 +20,6 @@ const Login = () => {
   const [isLoading, setIsLoading] = useState<any>(false);
   const navigate = useNavigate();
   const dispatch = useDispatch();
-
-  useEffect(() => {
-    dispatch(showLoading());
-    const timeout = setTimeout(() => {
-      dispatch(hideLoading());
-    }, 1200);
-    return () => clearTimeout(timeout);
-  }, [dispatch]);
 
   // Check if user is already logged in
   useEffect(() => {
@@ -206,55 +194,61 @@ const Login = () => {
   };
 
   return (
-    <div className="flex items-center">
-      <div className="w-1/2 flex-col items-center">
-        <h1 className="mb-4 text-5xl font-bold text-center ml-37">Log in</h1>
+    <div className="grid min-h-[calc(100dvh-4rem)] grid-cols-1 items-stretch bg-[var(--ui-surface)] lg:grid-cols-2">
+      <div className="flex w-full flex-col items-center justify-center px-4 py-10 sm:px-8 lg:px-12">
+        <div className="mb-8 w-full max-w-lg">
+          <h1 className="text-4xl font-extrabold tracking-[-0.04em] text-[var(--ui-text)] sm:text-5xl">Welcome back</h1>
+          <p className="mt-3 text-[var(--ui-text-muted)]">Continue learning with the mentors who understand your goals.</p>
+        </div>
 
-        <div title="Login form" className="flex flex-col ml-30">
+        <div title="Login form" className="flex w-full max-w-lg flex-col">
           <div
             title="I'm a Mentor or I'm a Mentee"
-            className="flex flex-row mb-4 gap-50 mx-auto relative"
+            className="grid grid-cols-2 gap-4 mb-4 mx-auto relative w-full"
           >
-            <div
+            <button
+              type="button"
               title="Mentee"
-              className={`text-2xl font-Inter cursor-pointer w-[180px] text-center pb-2 transition-colors duration-300 ${
-                selected === "mentee" ? "text-slate-900" : "text-slate-500"
+              className={`w-full cursor-pointer pb-3 text-center text-base font-bold transition-colors ${
+                selected === "mentee" ? "text-[var(--ui-text)]" : "text-[var(--ui-text-muted)]"
               }`}
               onClick={() => setSelected("mentee")}
             >
               I'm a mentee
-            </div>
-            <div
+            </button>
+            <button
+              type="button"
               title="Mentor"
-              className={`text-2xl font-Inter cursor-pointer w-[180px] text-center pb-2 transition-colors duration-300 ${
-                selected === "mentor" ? "text-slate-900" : "text-slate-500"
+              className={`w-full cursor-pointer pb-3 text-center text-base font-bold transition-colors ${
+                selected === "mentor" ? "text-[var(--ui-text)]" : "text-[var(--ui-text-muted)]"
               }`}
               onClick={() => setSelected("mentor")}
             >
               I'm a mentor
-            </div>
+            </button>
 
             {/* Sliding underline */}
             <div
-              className="absolute bottom-0 h-[2px] bg-slate-800 transition-all duration-300 ease-in-out"
+              className="absolute bottom-0 h-[2px] bg-[var(--ui-accent)] transition-all duration-300 ease-in-out"
               style={{
-                width: "180px",
-                left: selected === "mentee" ? "0px" : "380px",
+                width: "50%",
+                left: selected === "mentee" ? "0" : "50%",
               }}
             />
           </div>
 
-          <div className="flex flex-col items-start w-[700px]">
-            <label className="block mb-1 text-lg font-medium text-left">
+          <div className="flex flex-col items-start w-full">
+            <label htmlFor="login-email" className="mb-2 block text-sm font-bold text-left">
               Email <span className="text-red-500">*</span>
             </label>
-            <div className="mb-4 flex flex-col">
+            <div className="mb-5 flex w-full flex-col">
               <input
+                id="login-email"
                 type="email"
                 name="email"
                 value={formData.email}
                 placeholder="Email ID"
-                className={`p-2 border rounded-[9px] h-[52px] w-[700px] focus:outline-none ${
+                className={`h-[52px] w-full rounded-xl border bg-[var(--ui-surface)] px-4 focus:outline-none ${
                   errors.email && touched.email
                     ? "border-red-500"
                     : "border-gray-300"
@@ -270,17 +264,18 @@ const Login = () => {
             </div>
           </div>
 
-          <div className="flex flex-col items-start w-[700px]">
-            <label className="block mb-1 text-lg font-medium text-left">
+          <div className="flex flex-col items-start w-full">
+            <label htmlFor="login-password" className="mb-2 block text-sm font-bold text-left">
               Password <span className="text-red-500">*</span>
             </label>
-            <div className="mb-4 flex flex-col">
+            <div className="mb-5 flex w-full flex-col">
               <input
+                id="login-password"
                 type="password"
                 name="password"
                 value={formData.password}
                 placeholder="Enter password"
-                className={`p-2 border rounded-[9px] h-[52px] w-[700px] focus:outline-none ${
+                className={`h-[52px] w-full rounded-xl border bg-[var(--ui-surface)] px-4 focus:outline-none ${
                   errors.password && touched.password
                     ? "border-red-500"
                     : "border-gray-300"
@@ -296,83 +291,31 @@ const Login = () => {
             </div>
           </div>
 
-          <div className="mb-1 items">
+          <div className="mb-1">
             <button
+              type="button"
               onClick={handleSubmit}
               disabled={isLoading}
-              className={`flex items-center text-left py-3 px-6 mb-3.5 gap-2 rounded-lg border-0 cursor-pointer transition-colors duration-200 ${
+              className={`mb-3.5 flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border-0 px-6 py-3 text-left font-bold transition-colors ${
                 isLoading
                   ? "bg-gray-400 text-gray-600 cursor-not-allowed"
-                  : "bg-slate-950 text-white hover:bg-slate-800"
+                  : "cursor-pointer bg-[var(--ui-accent)] text-white hover:bg-[var(--ui-accent-strong)]"
               }`}
             >
               <span className="font-bold">
                 {isLoading ? "Đang đăng nhập..." : "Sign In"}
               </span>
-              {!isLoading && <IoArrowForward className="text-lg" />}
+              {!isLoading && <IconArrowRight aria-hidden="true" size={19} stroke={1.8} />}
             </button>
-          </div>
-
-          {/* Container with fixed space for social media */}
-          <div className="relative h-32 w-full">
-            <div
-              className={`absolute top-0 left-0 w-full transition-all duration-500 ease-in-out ${
-                selected === "mentee"
-                  ? "opacity-100 transform translate-y-0"
-                  : "opacity-0 transform -translate-y-4 pointer-events-none"
-              }`}
-            >
-              <div className="flex items-center w-[700px]">
-                <hr className="flex-1 border-t border-slate-400" />
-                <span className="mx-4 text-lg font-medium text-slate-400 whitespace-nowrap">
-                  Sign In with
-                </span>
-                <hr className="flex-1 border-t border-slate-400" />
-              </div>
-
-              <div
-                className="flex flex-row mb-4 gap-12.5 mt-3"
-              >
-                <button
-                  onClick={() => window.open("https://facebook.com")}
-                  className="flex flex-row items-center justify-center w-[200px] px-22 py-3 border border-gray-400 rounded-xl cursor-pointer hover:bg-blue-50 transition-colors duration-200"
-                >
-                  <img src={fb} alt="Facebook" className="h-6 mr-2" />
-                  <span className="text-lg font-medium text-blue-600">
-                    Facebook
-                  </span>
-                </button>
-
-                <button
-                  onClick={() => window.open("https://google.com")}
-                  className="flex flex-row items-center justify-center w-[200px] px-22 py-3 border border-gray-400 rounded-xl cursor-pointer hover:bg-red-50 transition-colors duration-200"
-                >
-                  <img src={gg} alt="Google" className="h-6 mr-2" />
-                  <span className="text-lg font-medium text-red-500">
-                    Google
-                  </span>
-                </button>
-
-                <button
-                  onClick={() => window.open("https://microsoft.com")}
-                  className="flex flex-row items-center justify-center w-[200px] px-22 py-3 border border-gray-400 rounded-xl cursor-pointer hover:bg-slate-100 transition-colors duration-200"
-                >
-                  <img src={mcs} alt="Microsoft" className="h-6 mr-2" />
-                  <span className="text-lg font-medium text-black">
-                    Microsoft
-                  </span>
-                </button>
-              </div>
-            </div>
           </div>
         </div>
       </div>
 
-      <div className="w-1/2 flex justify-end">
+      <div className="hidden lg:flex w-full min-h-[calc(100dvh-4rem)] justify-end">
         <img
           src={ImageForLogin}
-          alt="Login"
-          className="object-cover w-150 h-auto"
+          alt="A learner reviewing notes in a workshop"
+          className="object-cover w-full h-full max-h-[calc(100dvh-4rem)]"
         />
       </div>
     </div>

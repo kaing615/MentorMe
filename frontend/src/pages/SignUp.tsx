@@ -1,18 +1,12 @@
 import React, { useState, useEffect } from "react";
 import ImageForSignUp from "../assets/ImageForSignUp.jpg";
-import fb from "../assets/facebook.png";
-import gg from "../assets/google.png";
-import mcs from "../assets/microsoft.png";
 import authApi from "../api/modules/auth.api";
-import { useDispatch } from "react-redux";
 import { useNavigate } from "react-router-dom";
-import { IoArrowForward } from "react-icons/io5";
+import { IconArrowRight } from "@tabler/icons-react";
 import { toast } from "react-toastify";
-import { showLoading, hideLoading } from "../redux/features/loading.slice";
 import { MENTEE_PATH, MENTOR_PATH, PATH } from "../routes/path";
 
 const SignUp = () => {
-  const dispatch = useDispatch();
   const navigate = useNavigate();
 
   const [formData, setFormData] = useState<any>({
@@ -157,33 +151,24 @@ const SignUp = () => {
     }
   };
 
-  useEffect(() => {
-    dispatch(showLoading());
-    const timeout = setTimeout(() => {
-      dispatch(hideLoading());
-    }, 1200);
-    return () => clearTimeout(timeout);
-  }, [dispatch]);
-
   return (
-    <div className="flex items-center">
-      <div className="w-1/2">
+    <div className="grid min-h-[calc(100dvh-4rem)] grid-cols-1 items-stretch bg-[var(--ui-surface)] lg:grid-cols-2">
+      <div className="hidden lg:block">
         <img
           src={ImageForSignUp}
-          alt="Sign Up"
-          className="object-cover w-auto h-250"
+          alt="A student preparing for a focused learning session"
+          className="sticky top-16 h-[calc(100dvh-4rem)] w-full object-cover"
         />
       </div>
 
-      <div className="w-1/2">
-        <h1 className="mb-4 text-5xl font-medium text-center">
-          Create Your Account
-        </h1>
+      <div className="mx-auto w-full max-w-2xl px-4 py-10 sm:px-8 lg:py-14">
+        <h1 className="text-4xl font-extrabold tracking-[-0.04em] text-[var(--ui-text)] sm:text-5xl">Create your account</h1>
+        <p className="mb-8 mt-3 text-[var(--ui-text-muted)]">Start with a learner account. You can apply to mentor at any time.</p>
         <div className="flex flex-col">
-          <label className="block mb-1 text-lg font-medium text-left">
+          <label className="mb-2 block text-sm font-bold text-left">
             Full Name <span className="text-red-500">*</span>
           </label>
-          <div className="flex flex-row mb-4 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 mb-4 gap-4">
             <div className="flex flex-col">
               <input
                 name="firstName"
@@ -192,7 +177,8 @@ const SignUp = () => {
                 placeholder="First Name"
                 onChange={(e) => handleChange("firstName", e.target.value)}
                 onBlur={(e) => handleBlur("firstName", e.target.value)}
-                className={`p-2 border rounded-[9px] h-[52px] w-[330px] focus:outline-none ${
+                aria-label="First name"
+                className={`p-2 border rounded-[9px] h-[52px] w-full focus:outline-none ${
                   errors.firstName && touched.firstName
                     ? "border-red-500"
                     : "border-gray-300"
@@ -212,7 +198,8 @@ const SignUp = () => {
                 placeholder="Last Name"
                 onChange={(e) => handleChange("lastName", e.target.value)}
                 onBlur={(e) => handleBlur("lastName", e.target.value)}
-                className={`p-2 border rounded-[9px] h-[52px] w-[345px] focus:outline-none ${
+                aria-label="Last name"
+                className={`p-2 border rounded-[9px] h-[52px] w-full focus:outline-none ${
                   errors.lastName && touched.lastName
                     ? "border-red-500"
                     : "border-gray-300"
@@ -226,7 +213,7 @@ const SignUp = () => {
             </div>
           </div>
 
-          <label className="block mb-1 text-lg font-medium text-left">
+          <label className="mb-2 block text-sm font-bold text-left">
             Username <span className="text-red-500">*</span>
           </label>
           <div className="mb-4 flex flex-col">
@@ -237,7 +224,8 @@ const SignUp = () => {
               placeholder="Username"
               onChange={(e) => handleChange("userName", e.target.value)}
               onBlur={(e) => handleBlur("userName", e.target.value)}
-              className={`p-2 border rounded-[9px] h-[52px] w-[699px] focus:outline-none ${
+              aria-label="Username"
+              className={`p-2 border rounded-[9px] h-[52px] w-full focus:outline-none ${
                 errors.userName && touched.userName
                   ? "border-red-500"
                   : "border-gray-300"
@@ -250,7 +238,7 @@ const SignUp = () => {
             )}
           </div>
 
-          <label className="block mb-1 text-lg font-medium text-left">
+          <label className="mb-2 block text-sm font-bold text-left">
             Email <span className="text-red-500">*</span>
           </label>
           <div className="mb-4 flex flex-col">
@@ -261,7 +249,8 @@ const SignUp = () => {
               placeholder="Email ID"
               onChange={(e) => handleChange("email", e.target.value)}
               onBlur={(e) => handleBlur("email", e.target.value)}
-              className={`p-2 border rounded-[9px] h-[52px] w-[699px] focus:outline-none ${
+              aria-label="Email"
+              className={`p-2 border rounded-[9px] h-[52px] w-full focus:outline-none ${
                 errors.email && touched.email
                   ? "border-red-500"
                   : "border-gray-300"
@@ -272,15 +261,15 @@ const SignUp = () => {
             )}
           </div>
 
-          <div className="flex flex-row mb-1 gap-69.5">
-            <label className="text-lg font-medium text-left">
+          <div className="grid grid-cols-1 sm:grid-cols-2 mb-1 gap-2 sm:gap-6">
+            <label className="text-sm font-bold text-left">
               Password <span className="text-red-500">*</span>
             </label>
-            <label className="text-lg font-medium text-left">
+            <label className="text-sm font-bold text-left">
               Confirm Password <span className="text-red-500">*</span>
             </label>
           </div>
-          <div className="flex flex-row mb-4 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 mb-4 gap-4">
             <div className="flex flex-col">
               <input
                 name="password"
@@ -289,7 +278,8 @@ const SignUp = () => {
                 placeholder="Password"
                 onChange={(e) => handleChange("password", e.target.value)}
                 onBlur={(e) => handleBlur("password", e.target.value)}
-                className={`p-2 border rounded-[9px] h-[52px] w-[330px] focus:outline-none ${
+                aria-label="Password"
+                className={`p-2 border rounded-[9px] h-[52px] w-full focus:outline-none ${
                   errors.password && touched.password
                     ? "border-red-500"
                     : "border-gray-300"
@@ -311,7 +301,8 @@ const SignUp = () => {
                   handleChange("confirmPassword", e.target.value)
                 }
                 onBlur={(e) => handleBlur("confirmPassword", e.target.value)}
-                className={`p-2 border rounded-[9px] h-[52px] w-[345px] focus:outline-none ${
+                aria-label="Confirm password"
+                className={`p-2 border rounded-[9px] h-[52px] w-full focus:outline-none ${
                   errors.confirmPassword && touched.confirmPassword
                     ? "border-red-500"
                     : "border-gray-300"
@@ -325,71 +316,33 @@ const SignUp = () => {
             </div>
           </div>
 
-          <div
-            className="flex flex-row mb-4 gap-75"
-          >
+          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:gap-4">
             <button
+              type="button"
               onClick={onFinish}
               disabled={isLoading}
-              className={`flex items-center text-left py-3 px-6 mb-3.5 gap-2 rounded-lg border-0 cursor-pointer transition-colors duration-200 ${
+              className={`flex min-h-12 items-center justify-center gap-2 rounded-xl border-0 px-6 py-3 text-left font-bold transition-colors ${
                 isLoading
                   ? "bg-gray-400 text-gray-600 cursor-not-allowed"
-                  : "bg-slate-950 text-white hover:bg-slate-800"
+                  : "cursor-pointer bg-[var(--ui-accent)] text-white hover:bg-[var(--ui-accent-strong)]"
               }`}
             >
               <span className="font-bold">
                 {isLoading ? "Đang tạo tài khoản..." : "Create Account"}
               </span>
-              {!isLoading && <IoArrowForward className="text-lg" />}
+              {!isLoading && <IconArrowRight aria-hidden="true" size={19} stroke={1.8} />}
             </button>
 
             <button
+              type="button"
               onClick={() => {
                 localStorage.setItem("mentorMode", "true");
                 navigate("/auth/apply-as-men");
               }}
-              className="flex items-center text-left py-3 px-6 mb-3.5 gap-1 rounded-lg border-0 cursor-pointer"
+              className="flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-xl border border-[var(--ui-border)] px-6 py-3 text-left font-bold text-[var(--ui-text)] transition-colors hover:bg-[var(--ui-surface-muted)] sm:ml-auto"
             >
-              <span className="text-black text-sm font-bold">
-                Apply to be a Mentor
-              </span>
-              <IoArrowForward className="text-black text-lg" />
-            </button>
-          </div>
-
-          <div className="flex flex-row">
-            <hr className="border-t border-slate-400 w-70 my-4" />
-            <span className="mx-4 text-lg font-medium text-slate-400">
-              Sign Up with
-            </span>
-            <hr className="border-t border-slate-400 w-70 my-4" />
-          </div>
-
-          <div className="flex flex-row mb-4 gap-4">
-            <button
-              onClick={() => window.open("https://facebook.com")}
-              className="flex flex-row items-center px-15 py-3 border border-gray-400 rounded-xl cursor-pointer hover:bg-blue-50 transition-colors duration-200"
-            >
-              <img src={fb} alt="Facebook" className="h-6 mr-2" />
-              <span className="text-lg font-medium text-blue-600">
-                Facebook
-              </span>
-            </button>
-
-            <button
-              onClick={() => window.open("https://google.com")}
-              className="flex flex-row items-center px-15 py-3 border border-gray-400 rounded-xl cursor-pointer hover:bg-red-50 transition-colors duration-200"
-            >
-              <img src={gg} alt="Google" className="w-6 h-6 mr-2" />
-              <span className="text-lg font-medium text-red-500">Google</span>
-            </button>
-
-            <button
-              onClick={() => window.open("https://microsoft.com")}
-              className="flex flex-row items-center px-15 py-3 border border-gray-400 rounded-xl cursor-pointer hover:bg-slate-100 transition-colors duration-200"
-            >
-              <img src={mcs} alt="Microsoft" className="w-6 h-6 mr-2" />
-              <span className="text-md font-medium text-black">Microsoft</span>
+              <span>Apply as a mentor</span>
+              <IconArrowRight aria-hidden="true" size={19} stroke={1.8} />
             </button>
           </div>
         </div>

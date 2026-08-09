@@ -1,8 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { IoSearch } from "react-icons/io5";
-import { FaStar, FaUser } from "react-icons/fa";
-import { MdBook } from "react-icons/md";
+import { IconBook2, IconSearch } from "@tabler/icons-react";
 import { searchMentors } from "../../api/modules/mentor.api";
 
 import courseApi from "../../api/modules/course.api";
@@ -54,8 +52,8 @@ const SearchDropdown = () => {
       setFeaturedMentors([
         {
           _id: "1",
-          firstName: "John",
-          lastName: "Doe",
+          firstName: "An",
+          lastName: "Nguyen",
           profile: {
             jobTitle: "Senior Software Engineer",
             skills: ["JavaScript", "React", "Node.js"],
@@ -66,8 +64,8 @@ const SearchDropdown = () => {
         },
         {
           _id: "2",
-          firstName: "Jane",
-          lastName: "Smith",
+          firstName: "Thao",
+          lastName: "Tran",
           profile: {
             jobTitle: "UI/UX Designer",
             skills: ["Figma", "Adobe XD", "Design Systems"],
@@ -78,8 +76,8 @@ const SearchDropdown = () => {
         },
         {
           _id: "3",
-          firstName: "Alice",
-          lastName: "Johnson",
+          firstName: "Linh",
+          lastName: "Pham",
           profile: {
             jobTitle: "Data Scientist",
             skills: ["Python", "Machine Learning", "SQL"],
@@ -90,8 +88,8 @@ const SearchDropdown = () => {
         },
         {
           _id: "4",
-          firstName: "Bob",
-          lastName: "Wilson",
+          firstName: "Quang",
+          lastName: "Le",
           profile: {
             jobTitle: "Business Consultant",
             skills: ["Strategy", "Marketing", "Finance"],
@@ -307,25 +305,26 @@ const SearchDropdown = () => {
   const displayCourses = searchQuery.trim() ? courses : featuredCourses;
 
   return (
-    <div ref={searchRef} className="relative w-full max-w-md mx-auto">
+    <div ref={searchRef} className="relative w-full max-w-2xl">
       {/* Search Input */}
       <div
         onClick={() => inputRef.current?.focus()}
-        className="flex items-center gap-2 px-3 py-2 rounded-md bg-white border border-slate-300"
+        className="flex min-h-10 items-center gap-2 rounded-lg border border-[var(--ui-border)] bg-[var(--ui-surface)] px-3 py-2 transition-colors focus-within:border-[var(--ui-accent)]"
       >
-        <IoSearch className="text-xl text-slate-500" />
+        <IconSearch aria-hidden="true" className="text-[var(--ui-text-muted)]" size={20} stroke={1.8} />
         <input
           ref={inputRef}
           type="text"
+          aria-label="Search mentors and courses"
           placeholder="Find mentors, courses..."
           value={searchQuery}
           onChange={handleInputChange}
           onFocus={handleInputFocus}
           onKeyDown={handleKeyPress}
-          className="flex-1 text-base font-normal bg-transparent border-none outline-none text-slate-700 placeholder:text-slate-400"
+          className="min-w-0 flex-1 border-none bg-transparent text-sm font-normal text-[var(--ui-text)] outline-none placeholder:text-[var(--ui-text-muted)]"
         />
-        <button onClick={handleSearchSubmit} className="p-1 rounded-md">
-          <IoSearch className="text-lg text-slate-500" />
+        <button aria-label="Submit search" onClick={handleSearchSubmit} className="rounded-md p-1 text-[var(--ui-text-muted)] hover:text-[var(--ui-accent)]">
+          <IconSearch aria-hidden="true" size={18} stroke={1.8} />
         </button>
       </div>
 
@@ -333,13 +332,14 @@ const SearchDropdown = () => {
       {isOpen && (
         <div
           ref={dropdownRef}
-          className="absolute top-full left-0 right-0 mt-2 bg-white rounded-md z-50 max-h-[420px] overflow-auto border border-slate-200 shadow-lg"
+          className="absolute left-0 right-0 top-full z-50 mt-2 max-h-[420px] overflow-auto rounded-xl border border-[var(--ui-border)] bg-[var(--ui-surface)] shadow-[var(--ui-shadow)]"
           style={{ minWidth: 260 }}
         >
           {loading ? (
-            <div className="p-4 text-center text-slate-400">
-              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-slate-400 mx-auto"></div>
-              <p className="mt-2 text-sm">Đang tìm kiếm...</p>
+            <div className="space-y-2 p-4" aria-live="polite">
+              <div className="h-10 animate-pulse rounded-lg bg-[var(--ui-surface-muted)]" />
+              <div className="h-10 animate-pulse rounded-lg bg-[var(--ui-surface-muted)]" />
+              <p className="sr-only">Searching</p>
             </div>
           ) : (
             <div className="py-2">
@@ -364,7 +364,7 @@ const SearchDropdown = () => {
                         localStorage.setItem("searchPageActiveTab", "mentors");
                         navigate("/platform/search");
                       }}
-                      className="text-sm text-green-600 hover:underline px-0 py-1 bg-transparent"
+                      className="bg-transparent px-0 py-1 text-sm text-[var(--ui-accent)] hover:underline"
                     >
                       See all mentors
                     </button>
@@ -382,13 +382,13 @@ const SearchDropdown = () => {
                     <div className="flex gap-2">
                       <button
                         onClick={handleSeeAllCourses}
-                        className="text-xs px-3 py-1 bg-blue-500 text-white rounded-full hover:bg-blue-600 transition-colors duration-200 btn-hover"
+                        className="rounded-lg bg-[var(--ui-accent)] px-3 py-1 text-xs font-semibold text-white transition-colors hover:bg-[var(--ui-accent-strong)]"
                       >
                         See All Courses
                       </button>
                       <button
                         onClick={handleSeeAllMentors}
-                        className="text-xs px-3 py-1 bg-green-500 text-white rounded-full hover:bg-green-600 transition-colors duration-200 btn-hover"
+                        className="rounded-lg bg-[var(--ui-accent)] px-3 py-1 text-xs font-semibold text-white transition-colors hover:bg-[var(--ui-accent-strong)]"
                       >
                         See All Mentors
                       </button>
@@ -463,7 +463,7 @@ const SearchDropdown = () => {
                               className="w-full h-full object-cover rounded"
                             />
                           ) : (
-                            <MdBook className="text-slate-400 text-lg" />
+                            <IconBook2 aria-hidden="true" size={18} stroke={1.8} />
                           )}
                         </div>
                         <span className="flex-1 truncate block">
@@ -486,7 +486,7 @@ const SearchDropdown = () => {
                 displayCourses.length === 0 &&
                 !loading && (
                   <div className="p-8 text-center text-slate-400">
-                    <IoSearch className="text-4xl mx-auto mb-3 text-slate-300 animate-pulse" />
+                    <IconSearch aria-hidden="true" className="mx-auto mb-3 text-slate-300" size={36} stroke={1.5} />
                     <p className="font-medium">No results found</p>
                     <p className="text-sm mt-1">
                       Try another keyword or see all mentors/courses below
@@ -512,7 +512,7 @@ const SearchDropdown = () => {
                           );
                           navigate("/platform/search");
                         }}
-                        className="text-sm text-green-600 hover:underline px-0 py-1 bg-transparent"
+                        className="bg-transparent px-0 py-1 text-sm text-[var(--ui-accent)] hover:underline"
                       >
                         See all mentors
                       </button>

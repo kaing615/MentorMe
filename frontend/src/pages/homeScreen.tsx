@@ -1,16 +1,22 @@
 // screens/HomeScreen.jsx
 import React, { useRef, useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { IoStarOutline, IoStar } from "react-icons/io5";
+import {
+  IconArrowLeft,
+  IconArrowRight,
+  IconBrain,
+  IconBriefcase,
+  IconChartDots,
+  IconCode,
+  IconStarFilled,
+  IconUsers,
+} from "@tabler/icons-react";
 import { useNavigate } from "react-router-dom";
 
 import oipImg from "../assets/OIP.webp";
-import GradImg from "../assets/grad.png";
-import NiggaImg from "../assets/nigga.png";
-import WhiteImg from "../assets/white.png";
-import AvatarsImg from "../assets/avatars.png";
 import BoImg from "../assets/Bơ.jpg";
 import BecomeMentor from "../assets/become-an-mentor.jpg";
+import MentoringHero from "../assets/mentoring-hero.jpg";
 
 import { MENTEE_PATH } from "../routes/path";
 import { showLoading, hideLoading } from "../redux/features/loading.slice";
@@ -23,10 +29,10 @@ import reviewApi from "../api/modules/review.api.js";
 import { toast } from "react-toastify";
 
 const categories = [
-  { icon: "📚", name: "Astrology", count: 17 },
-  { icon: "💻", name: "Development", count: 19 },
-  { icon: "📈", name: "Marketing", count: 15 },
-  { icon: "🧠", name: "Mindset", count: 9 },
+  { icon: IconCode, name: "Engineering", description: "Build practical technical skills" },
+  { icon: IconChartDots, name: "Product", description: "Turn ideas into useful products" },
+  { icon: IconBriefcase, name: "Career", description: "Plan your next professional move" },
+  { icon: IconBrain, name: "Leadership", description: "Lead people with more clarity" },
 ];
 
 const fallbackCourses = [
@@ -159,45 +165,6 @@ const fallbackMentors = [
   },
 ];
 
-const testimonials = [
-  {
-    name: "Sarah Johnson",
-    text: "MentorMe is a game-changer! I love how easy it is to connect with real mentors who actually get what I'm going through. Every session feels super chill, helpful, and way more personal than any course I've tried. Big fan!",
-    avatar:
-      "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=100&h=100&fit=crop&crop=face&auto=format",
-  },
-  {
-    name: "Michael Chen",
-    text: "The mentors on this platform are incredibly knowledgeable and patient. I've learned more in 3 months than I did in years of self-study. The personalized guidance made all the difference in my career transition.",
-    avatar:
-      "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop&crop=face&auto=format",
-  },
-  {
-    name: "Emily Rodriguez",
-    text: "As a working mom, I needed flexible learning options. MentorMe's one-on-one sessions fit perfectly into my schedule. My mentor understood my challenges and helped me build confidence in my skills.",
-    avatar:
-      "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&h=100&fit=crop&crop=face&auto=format",
-  },
-  {
-    name: "David Kim",
-    text: "I was skeptical about online mentoring, but MentorMe proved me wrong. The quality of mentorship is outstanding, and the platform makes it so easy to book sessions and track progress. Highly recommend!",
-    avatar:
-      "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop&crop=face&auto=format",
-  },
-  {
-    name: "Lisa Thompson",
-    text: "The variety of mentors available is amazing! I found experts in exactly the niche I needed help with. The booking system is seamless and the session quality is consistently excellent.",
-    avatar:
-      "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&h=100&fit=crop&crop=face&auto=format",
-  },
-  {
-    name: "James Wilson",
-    text: "MentorMe has accelerated my professional growth tremendously. My mentor provided insights I couldn't get anywhere else. The platform is intuitive and the community is supportive.",
-    avatar:
-      "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&h=100&fit=crop&crop=face&auto=format",
-  },
-];
-
 // Native horizontal scroll blocker (optional hook)
 const useHorizontalScrollBlockSwipe = () => {
   const ref = useRef<any>(null);
@@ -257,7 +224,6 @@ const HomeScreen = () => {
 
   const coursesRef = useRef<any>(null);
   const mentorsRef = useRef<any>(null);
-  const testimonialRef = useRef<any>(null);
   const [hoveredCarousel, setHoveredCarousel] = useState<any>(null);
 
   const dragCourses = useHorizontalScrollBlockSwipe();
@@ -576,30 +542,6 @@ const HomeScreen = () => {
     container.scrollBy({ left: direction * scrollAmount, behavior: "smooth" });
   };
 
-  const scrollTestimonialBy = (direction) => {
-    const container = testimonialRef.current;
-    if (!container) return;
-    const card = container.querySelector("#testimonial-track > div");
-    let cardWidth = 340;
-    let gap = 24;
-    if (card) {
-      const track = container.querySelector("#testimonial-track");
-      if (track) {
-        const trackStyle = window.getComputedStyle(track);
-        gap = parseInt(trackStyle.columnGap || trackStyle.gap || "24", 10);
-        cardWidth = card.offsetWidth;
-      }
-    }
-    const scrollAmount = (cardWidth + gap) * 3;
-    container.scrollBy({ left: direction * scrollAmount, behavior: "smooth" });
-  };
-
-  useEffect(() => {
-    dispatch(showLoading());
-    const timer = setTimeout(() => dispatch(hideLoading()), 1200);
-    return () => clearTimeout(timer);
-  }, [dispatch]);
-
   useEffect(() => {
     const fetchTopCourses = async () => {
       setCoursesLoading(true);
@@ -698,144 +640,117 @@ const HomeScreen = () => {
   }, [user, topCourses]); // Depend on topCourses to check when courses are loaded
 
   return (
-    <div className="bg-gray-50 min-h-screen flex flex-col">
+    <div className="flex min-h-[100dvh] flex-col bg-[var(--ui-page)]">
       {/* Hero */}
-      <section className="bg-white h-[600px] py-16 px-6 md:px-16 flex flex-col md:flex-row gap-10 items-center justify-center">
-        <div>
-          <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-6">
-            Unlock Your Potential <br /> with{" "}
-            <span className="text-blue-600">MentorMe</span>
+      <section className="bg-[var(--ui-surface)] px-4 py-12 sm:px-6 lg:px-8 lg:py-16">
+        <div className="mx-auto grid max-w-7xl grid-cols-1 items-center gap-10 lg:grid-cols-[0.88fr_1.12fr]">
+          <div className="w-full max-w-xl">
+          <h1 className="max-w-[13ch] text-4xl font-extrabold leading-[1.05] tracking-[-0.045em] text-[var(--ui-text)] sm:text-5xl lg:text-6xl">
+            Build momentum with expert guidance.
           </h1>
-          <p className="text-gray-600 mb-4 leading-relaxed">
-            Ready to level up? With MentorMe, you're just a click away from
-            connecting with awesome mentors who've been there, done that, and
-            are here to help you crush your goals.
+          <p className="mt-6 max-w-[48ch] text-base leading-7 text-[var(--ui-text-muted)] sm:text-lg">
+            Learn with experienced mentors through focused sessions built around your goals.
           </p>
-          <p className="text-gray-600 mb-6 leading-relaxed">
-            Explore different fields, chat directly with real experts, and book
-            one-on-one sessions—online or in person.
-          </p>
-          <p className="text-gray-600 mb-8 leading-relaxed">
-            Don't just dream it—make it happen.
-          </p>
-
-          <button
-            onClick={handleSeeAllCourses}
-            className="bg-blue-600 text-white px-6 py-3 rounded-md hover:bg-blue-700 font-semibold transition"
-          >
-            Get Started
-          </button>
-        </div>
-
-        <div className="relative w-full flex justify-center items-center mt-10 md:mt-0.5">
-          <div className="relative w-[400px] h-[480px]">
-            <div className="absolute left-60 transform -translate-x-1/2 top-0 w-56 h-56 rounded-full overflow-hidden shadow-xl bg-yellow-300">
-              <img
-                src={NiggaImg}
-                alt="Student"
-                className="w-full h-full object-cover"
-              />
-            </div>
-
-            <div className="absolute bottom-20 right-60 w-56 h-56 rounded-full overflow-hidden shadow-xl bg-green-400">
-              <img
-                src={GradImg}
-                alt="Grad"
-                className="w-full h-full object-cover"
-              />
-            </div>
-
-            <div className="absolute bottom-0 right-0 w-56 h-56 rounded-full overflow-hidden shadow-xl bg-blue-300">
-              <img
-                src={WhiteImg}
-                alt="Teen"
-                className="w-full h-full object-cover"
-              />
-            </div>
+          <div className="mt-8 flex flex-wrap gap-3">
+            <button
+              onClick={handleSeeAllCourses}
+              className="min-h-12 whitespace-nowrap rounded-xl bg-[var(--ui-accent)] px-6 py-3 font-bold text-white transition-colors hover:bg-[var(--ui-accent-strong)] active:translate-y-px"
+            >
+              Browse courses
+            </button>
+            <button
+              onClick={() => navigate("/all-mentors")}
+              className="min-h-12 whitespace-nowrap rounded-xl border border-[var(--ui-border)] bg-[var(--ui-surface)] px-6 py-3 font-bold text-[var(--ui-text)] transition-colors hover:bg-[var(--ui-surface-muted)] active:translate-y-px"
+            >
+              Find a mentor
+            </button>
+          </div>
           </div>
 
-          <div className="absolute bottom-0 left-1/2 -translate-x-1/2 bg-white px-4 py-2 rounded-xl shadow-lg flex flex-col items-center space-y-2">
-            <img src={AvatarsImg} alt="Community" className="w-28 h-auto" />
-            <span className="text-lg font-medium text-gray-800">
-              Join our community
-            </span>
+          <div className="overflow-hidden rounded-2xl border border-[var(--ui-border)] bg-[var(--ui-surface-muted)] shadow-[var(--ui-shadow)]">
+            <img
+              src={MentoringHero}
+              alt="A learner and mentor reviewing a practical learning plan"
+              className="aspect-[3/2] h-full w-full object-cover"
+              fetchPriority="high"
+            />
           </div>
         </div>
       </section>
 
       {/* Stats */}
-      <section className="w-full py-10" style={{ background: "#ffffffff" }}>
-        <div className="w-full rounded-2xl flex items-center text-center bg-[#f8f9fb] px-4 py-6">
+      <section className="w-full bg-[var(--ui-surface)] px-4 pb-12 sm:px-6 lg:px-8">
+        <div className="mx-auto grid max-w-7xl grid-cols-2 gap-y-6 rounded-2xl border border-[var(--ui-border)] bg-[var(--ui-surface-muted)] px-4 py-6 text-center sm:grid-cols-4 sm:gap-y-0">
           {[
-            { label: "X+", desc: "Courses by our best mentors" },
-            { label: "X+", desc: "Courses by our best mentors" },
-            { label: "X+", desc: "Courses by our best mentors" },
-            { label: "X+", desc: "Courses by our best mentors" },
+            { label: "1:1", desc: "Focused mentor sessions" },
+            { label: "Flexible", desc: "Online or in person" },
+            { label: "Direct", desc: "Message your mentor" },
+            { label: "Practical", desc: "Guidance for real goals" },
           ].map((item, idx) => (
             <div
               key={idx}
-              className={`flex-1 px-4 ${
-                idx !== 0 ? "border-l-2 border-gray-300" : ""
+              className={`min-w-0 px-2 sm:px-4 ${
+                idx % 2 !== 0 ? "border-l border-[var(--ui-border)]" : ""
+              } ${
+                idx === 2 ? "sm:border-l sm:border-[var(--ui-border)]" : ""
               }`}
             >
-              <h3 className="text-2xl font-bold text-gray-900 mb-1">
+              <h3 className="mb-1 text-lg font-extrabold text-[var(--ui-text)] sm:text-xl">
                 {item.label}
               </h3>
-              <p className="text-base text-gray-600">{item.desc}</p>
+              <p className="text-xs leading-5 text-[var(--ui-text-muted)] sm:text-sm">{item.desc}</p>
             </div>
           ))}
         </div>
       </section>
 
       {/* Top Categories */}
-      <section className="w-full py-12 bg-white">
-        <div className="max-w-7xl mx-auto w-full">
+      <section className="w-full bg-[var(--ui-surface)] px-4 py-14 sm:px-6 lg:px-8">
+        <div className="mx-auto w-full max-w-7xl">
           <div className="flex justify-between items-center mb-6">
-            <h2 className="text-2xl font-extrabold text-[#1a2233]">
+            <h2 className="text-2xl font-extrabold tracking-[-0.03em] text-[var(--ui-text)]">
               Top Categories
             </h2>
-            <button className="text-blue-700 text-base font-semibold hover:underline">
-              See All
-            </button>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-8">
-            {categories.map((cat, idx) => (
+            {categories.map((cat) => {
+              const CategoryIcon = cat.icon;
+              return (
               <div
-                key={idx}
-                className="bg-white rounded-2xl border shadow-lg flex flex-col items-center py-10 px-4 gap-4 hover:shadow-xl transition-all duration-200"
+                key={cat.name}
+                className="flex flex-col gap-4 rounded-2xl border border-[var(--ui-border)] bg-[var(--ui-surface)] px-5 py-7 transition-transform hover:-translate-y-1"
               >
-                <div className="w-24 h-24 flex items-center justify-center rounded-full bg-blue-100 mb-3">
-                  <span className="text-4xl text-blue-500">{cat.icon}</span>
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[var(--ui-accent-soft)] text-[var(--ui-accent)]">
+                  <CategoryIcon aria-hidden="true" size={25} stroke={1.7} />
                 </div>
-                <span className="font-extrabold text-lg text-[#1a2233] text-center">
+                <span className="text-lg font-extrabold text-[var(--ui-text)]">
                   {cat.name}
                 </span>
-                <span className="text-base text-slate-500 text-center">
-                  {cat.count} Courses
+                <span className="text-sm leading-6 text-[var(--ui-text-muted)]">
+                  {cat.description}
                 </span>
               </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </section>
 
       {/* Top Courses */}
-      <section className="w-full py-10 bg-white border-t border-[#D6E3F3]">
+      <section className="w-full border-t border-[var(--ui-border)] bg-[var(--ui-surface)] px-4 py-12 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto w-full">
           <div className="flex justify-between items-center mb-6 px-2">
             <h2 className="text-2xl font-bold text-[#1A2233]">Top Courses</h2>
             <button
               onClick={handleSeeAllCourses}
-              className="text-[#2563eb] font-semibold px-5 py-2 rounded-lg transition-all duration-200
-                bg-gradient-to-r from-blue-100 to-blue-200 shadow-sm
-                hover:from-blue-400 hover:to-blue-600 hover:text-white hover:shadow-lg hover:scale-105"
+              className="rounded-lg px-3 py-2 text-sm font-bold text-[var(--ui-accent)] transition-colors hover:bg-[var(--ui-accent-soft)]"
             >
-              See All
+              All courses
             </button>
           </div>
 
           <div
-            className="relative group"
+            className="group relative overflow-hidden"
             onMouseEnter={() => setHoveredCarousel("courses")}
             onMouseLeave={() => setHoveredCarousel(null)}
           >
@@ -850,20 +765,7 @@ const HomeScreen = () => {
               } bg-white/20 backdrop-blur-md rounded-full shadow-lg border border-white/40 hover:bg-white/40`}
               onClick={() => scrollCarouselBy(coursesRef, -1)}
             >
-              <svg
-                width="32"
-                height="32"
-                fill="none"
-                stroke="#222"
-                strokeWidth="2.5"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M15 19l-7-7 7-7"
-                />
-              </svg>
+              <IconArrowLeft aria-hidden="true" size={28} stroke={1.8} />
             </button>
             {/* Right button */}
             <button
@@ -876,20 +778,7 @@ const HomeScreen = () => {
               } bg-white/20 backdrop-blur-md rounded-full shadow-lg border border-white/40 hover:bg-white/40`}
               onClick={() => scrollCarouselBy(coursesRef, 1)}
             >
-              <svg
-                width="32"
-                height="32"
-                fill="none"
-                stroke="#222"
-                strokeWidth="2.5"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M9 5l7 7-7 7"
-                />
-              </svg>
+              <IconArrowRight aria-hidden="true" size={28} stroke={1.8} />
             </button>
 
             <div
@@ -1136,20 +1025,20 @@ const HomeScreen = () => {
       </section>
 
       {/* Top Mentors */}
-      <section className="w-full py-10 bg-white border-[#D6E3F3]">
-        <div className="max-w-7xl mx-auto w-full">
+      <section className="w-full bg-[var(--ui-surface)] px-4 py-12 sm:px-6 lg:px-8">
+        <div className="mx-auto w-full max-w-7xl">
           <div className="flex justify-between items-center mb-6 px-2">
             <h2 className="text-2xl font-bold text-[#1A2233]">Top Mentors</h2>
             <button
               onClick={handleSeeAllMentors}
-              className="text-[#2563eb] font-semibold hover:underline"
+              className="rounded-lg px-3 py-2 text-sm font-bold text-[var(--ui-accent)] transition-colors hover:bg-[var(--ui-accent-soft)]"
             >
-              See All
+              All mentors
             </button>
           </div>
 
           <div
-            className="relative group"
+            className="group relative overflow-hidden"
             onMouseEnter={() => setHoveredCarousel("mentors")}
             onMouseLeave={() => setHoveredCarousel(null)}
           >
@@ -1164,20 +1053,7 @@ const HomeScreen = () => {
               } bg-white/20 backdrop-blur-md rounded-full shadow-lg border border-white/40 hover:bg-white/40`}
               onClick={() => scrollCarouselBy(mentorsRef, -1, "button")}
             >
-              <svg
-                width="32"
-                height="32"
-                fill="none"
-                stroke="#222"
-                strokeWidth="2.5"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M15 19l-7-7 7-7"
-                />
-              </svg>
+              <IconArrowLeft aria-hidden="true" size={28} stroke={1.8} />
             </button>
             {/* Right */}
             <button
@@ -1190,20 +1066,7 @@ const HomeScreen = () => {
               } bg-white/20 backdrop-blur-md rounded-full shadow-lg border border-white/40 hover:bg-white/40`}
               onClick={() => scrollCarouselBy(mentorsRef, 1, "button")}
             >
-              <svg
-                width="32"
-                height="32"
-                fill="none"
-                stroke="#222"
-                strokeWidth="2.5"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M9 5l7 7-7 7"
-                />
-              </svg>
+              <IconArrowRight aria-hidden="true" size={28} stroke={1.8} />
             </button>
 
             <div
@@ -1289,25 +1152,13 @@ const HomeScreen = () => {
                           </div>
                           <div className="flex items-center justify-between w-full mb-4">
                             <div className="flex items-center gap-2 px-3 py-2 bg-yellow-50 rounded-full">
-                              <svg
-                                className="w-4 h-4 text-yellow-500"
-                                fill="currentColor"
-                                viewBox="0 0 20 20"
-                              >
-                                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                              </svg>
+                              <IconStarFilled aria-hidden="true" className="h-4 w-4 text-yellow-500" />
                               <span className="text-sm font-bold text-yellow-700">
                                 {(mentor.averageRating ?? 0).toFixed(1)}
                               </span>
                             </div>
                             <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 rounded-full">
-                              <svg
-                                className="w-4 h-4 text-blue-600"
-                                fill="currentColor"
-                                viewBox="0 0 20 20"
-                              >
-                                <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3z" />
-                              </svg>
+                              <IconUsers aria-hidden="true" className="h-4 w-4 text-blue-600" stroke={1.8} />
                               <span className="text-sm font-medium text-blue-800">
                                 {mentor.totalMentees ?? 0}
                               </span>
@@ -1318,20 +1169,7 @@ const HomeScreen = () => {
                           </div>
                           <div className="w-full flex items-center justify-center gap-2 bg-[#2563eb] text-white font-semibold rounded-lg py-2 mt-auto text-base hover:bg-[#1749b1] transition">
                             View Profile
-                            <svg
-                              xmlns="http://www.w3.org/2000/svg"
-                              fill="none"
-                              viewBox="0 0 24 24"
-                              strokeWidth={1.5}
-                              stroke="currentColor"
-                              className="w-5 h-5"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                d="M17.25 8.25L21 12m0 0l-3.75 3.75M21 12H3"
-                              />
-                            </svg>
+                            <IconArrowRight aria-hidden="true" size={19} stroke={1.8} />
                           </div>
                         </div>
                       </div>
@@ -1342,116 +1180,9 @@ const HomeScreen = () => {
         </div>
       </section>
 
-      {/* Testimonials */}
-      <section
-        className="w-full py-14 bg-white"
-        style={{ background: "#f8f9fb" }}
-      >
-        <div className="max-w-7xl mx-auto w-full flex flex-col gap-6">
-          <div className="flex flex-col md:flex-row md:items-end md:justify-between mb-4 px-2">
-            <div className="flex flex-col gap-1">
-              <h2 className="text-2xl font-bold text-slate-800">
-                What Our Customer Say
-              </h2>
-            </div>
-            <div className="flex gap-2 mt-4 md:mt-0">
-              <button
-                onClick={() => scrollTestimonialBy(-1)}
-                className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center text-xl shadow hover:bg-gray-200 transition"
-              >
-                <svg
-                  width="20"
-                  height="20"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M15 19l-7-7 7-7"
-                  />
-                </svg>
-              </button>
-              <button
-                onClick={() => scrollTestimonialBy(1)}
-                className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center text-xl shadow hover:bg-gray-200 transition"
-              >
-                <svg
-                  width="20"
-                  height="20"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M9 5l7 7-7 7"
-                  />
-                </svg>
-              </button>
-            </div>
-          </div>
-
-          <div className="relative">
-            <div
-              id="testimonial-carousel"
-              ref={testimonialRef}
-              className="overflow-x-auto no-scrollbar px-1 select-none"
-              style={{
-                scrollSnapType: "x mandatory",
-                WebkitOverflowScrolling: "touch",
-              }}
-              tabIndex={-1}
-            >
-              <div
-                id="testimonial-track"
-                className="flex gap-6 min-w-full"
-                style={{ width: "max-content" }}
-              >
-                {testimonials
-                  .concat(testimonials)
-                  .concat(testimonials)
-                  .map((t, idx) => (
-                    <div
-                      key={idx}
-                      className="bg-white rounded-2xl border border-gray-200 shadow flex flex-col gap-4 min-w-[340px] max-w-[360px] w-[340px] px-7 py-6 snap-start"
-                    >
-                      <div className="text-blue-700 text-4xl font-bold mb-2">
-                        “
-                      </div>
-                      <div className="text-slate-700 text-base flex-1">
-                        {t.text}
-                      </div>
-                      <div className="flex items-center gap-3 mt-2">
-                        <img
-                          src={t.avatar}
-                          alt={t.name}
-                          className="w-11 h-11 rounded-full object-cover border"
-                        />
-                        <div className="flex flex-col">
-                          <span className="font-semibold text-sm text-slate-700">
-                            {t.name}
-                          </span>
-                          <span className="text-xs text-slate-500">
-                            Student
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
       {/* Become a Mentor & Education */}
-      <section className="w-full py-0 bg-white">
-        <div className="max-w-7xl mx-auto w-full flex flex-col gap-20 md:gap-32">
+      <section className="w-full bg-[var(--ui-surface)] px-4 py-12 sm:px-6 lg:px-8">
+        <div className="mx-auto flex w-full max-w-7xl flex-col gap-20 md:gap-28">
           {/* Mentor Card */}
           <div className="flex flex-col md:flex-row items-center md:items-stretch gap-10 md:gap-0">
             <div className="flex-1 flex justify-center items-center">
@@ -1466,7 +1197,7 @@ const HomeScreen = () => {
             </div>
             <div className="flex-1 flex flex-col justify-center md:pl-12">
               <h3 className="text-2xl md:text-3xl font-bold text-[#1A2233] mb-3 text-right md:text-left">
-                Become an Mentor
+                Become a Mentor
               </h3>
               <p className="text-gray-600 text-base md:text-lg mb-6 max-w-lg text-right md:text-left">
                 Instructors from around the world teach millions of students on
@@ -1493,25 +1224,10 @@ const HomeScreen = () => {
                     window.scrollTo(0, 0);
                     toast.success("Redirecting to mentor application!");
                   }}
-                  className="group flex items-center gap-2 px-6 py-3 bg-[#1A2233] text-white rounded-xl font-semibold shadow-lg hover:bg-gradient-to-r hover:from-blue-600 hover:to-purple-600 hover:shadow-2xl hover:shadow-blue-500/40 hover:scale-110 hover:-translate-y-3 active:scale-95 active:translate-y-0 transition-all duration-400 ease-out text-base md:text-lg relative overflow-hidden transform"
+                  className="inline-flex min-h-12 items-center gap-2 rounded-xl bg-[var(--ui-text)] px-6 py-3 text-base font-bold text-[var(--ui-surface)] transition-opacity hover:opacity-85 active:translate-y-px"
                 >
-                  <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700 ease-out"></span>
-                  <span className="relative z-10">Mentor with MentorMe</span>
-                  <svg
-                    width="20"
-                    height="20"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    viewBox="0 0 24 24"
-                    className="relative z-10 transition-transform duration-400 group-hover:translate-x-2 group-hover:scale-125"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M17 8l4 4m0 0l-4 4m4-4H3"
-                    />
-                  </svg>
+                  <span>Become a mentor</span>
+                  <IconArrowRight aria-hidden="true" size={19} stroke={1.8} />
                 </button>
               </div>
             </div>
@@ -1530,25 +1246,10 @@ const HomeScreen = () => {
               <div className="flex justify-start">
                 <button
                   onClick={handleSeeAllCourses}
-                  className="group flex items-center gap-2 px-6 py-3 bg-[#1A2233] text-white rounded-xl font-semibold shadow-lg hover:bg-gradient-to-r hover:from-blue-600 hover:to-purple-600 hover:shadow-2xl hover:shadow-blue-500/40 hover:scale-110 hover:-translate-y-3 active:scale-95 active:translate-y-0 transition-all duration-400 ease-out text-base md:text-lg relative overflow-hidden transform"
+                  className="inline-flex min-h-12 items-center gap-2 rounded-xl bg-[var(--ui-text)] px-6 py-3 text-base font-bold text-[var(--ui-surface)] transition-opacity hover:opacity-85 active:translate-y-px"
                 >
-                  <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700 ease-out"></span>
-                  <span className="relative z-10">Checkout Courses</span>
-                  <svg
-                    width="20"
-                    height="20"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    viewBox="0 0 24 24"
-                    className="relative z-10 transition-transform duration-400 group-hover:translate-x-2 group-hover:scale-125"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M17 8l4 4m0 0l-4 4m4-4H3"
-                    />
-                  </svg>
+                  <span>Browse courses</span>
+                  <IconArrowRight aria-hidden="true" size={19} stroke={1.8} />
                 </button>
               </div>
             </div>

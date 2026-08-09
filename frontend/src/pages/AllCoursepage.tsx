@@ -6,6 +6,16 @@ import cartApi from "../api/modules/cart.api";
 import purchasedCourseApi from "../api/modules/purchasedCourse.api";
 import { toast } from "react-toastify";
 import { showLoading, hideLoading } from "../redux/features/loading.slice";
+import {
+  IconChevronDown,
+  IconChevronLeft,
+  IconChevronRight,
+  IconFilter,
+  IconSearch,
+  IconSearchOff,
+} from "@tabler/icons-react";
+import OipImg from "../assets/OIP.webp";
+import BoImg from "../assets/Bơ.jpg";
 
 const AllCoursePage = () => {
   const navigate = useNavigate();
@@ -65,6 +75,7 @@ const AllCoursePage = () => {
   const [isCategoriesExpanded, setIsCategoriesExpanded] = useState<any>(true);
   const [isLevelsExpanded, setIsLevelsExpanded] = useState<any>(true);
   const [isPriceExpanded, setIsPriceExpanded] = useState<any>(true);
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState<any>(false);
 
   // Pagination
   const [currentPage, setCurrentPage] = useState<any>(1);
@@ -276,7 +287,7 @@ const AllCoursePage = () => {
             } Total Hours`,
             lectures: course.lectures || course.totalLectures || 0,
             image:
-              course.thumbnail || course.image || "/api/placeholder/300/200",
+              course.thumbnail || course.image || (index % 2 ? BoImg : OipImg),
             description:
               course.description ||
               course.courseOverview ||
@@ -522,7 +533,7 @@ const AllCoursePage = () => {
           originalPrice: parseFloat(course.originalPrice || course.price || 0),
           duration: `${course.duration || course.totalHours || 0} Total Hours`,
           lectures: course.lectures || course.totalLectures || 0,
-          image: course.thumbnail || course.image || "/api/placeholder/300/200",
+          image: course.thumbnail || course.image || (index % 2 ? BoImg : OipImg),
           description:
             course.description ||
             course.courseOverview ||
@@ -592,10 +603,19 @@ const AllCoursePage = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading courses...</p>
+      <div className="min-h-[100dvh] bg-[var(--ui-page)] px-4 py-10" aria-live="polite">
+        <div className="mx-auto max-w-7xl">
+          <div className="mb-8 h-10 w-56 animate-pulse rounded-xl bg-[var(--ui-surface-muted)]" />
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
+            {[0, 1, 2].map((item) => (
+              <div key={item} className="overflow-hidden rounded-2xl border border-[var(--ui-border)] bg-[var(--ui-surface)] p-4">
+                <div className="aspect-[16/9] animate-pulse rounded-xl bg-[var(--ui-surface-muted)]" />
+                <div className="mt-4 h-5 w-3/4 animate-pulse rounded bg-[var(--ui-surface-muted)]" />
+                <div className="mt-3 h-4 w-1/2 animate-pulse rounded bg-[var(--ui-surface-muted)]" />
+              </div>
+            ))}
+          </div>
+          <p className="sr-only">Loading courses</p>
         </div>
       </div>
     );
@@ -603,12 +623,13 @@ const AllCoursePage = () => {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-red-600 mb-4">{error}</p>
+      <div className="flex min-h-[70dvh] items-center justify-center bg-[var(--ui-page)] px-4">
+        <div className="max-w-md rounded-2xl border border-[var(--ui-border)] bg-[var(--ui-surface)] p-8 text-center">
+          <h1 className="text-3xl font-bold text-gray-900 mb-3">Courses unavailable</h1>
+          <p className="text-gray-600 mb-6">{error}</p>
           <button
             onClick={() => window.location.reload()}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            className="rounded-xl bg-[var(--ui-accent)] px-5 py-3 font-bold text-white hover:bg-[var(--ui-accent-strong)]"
           >
             Retry
           </button>
@@ -618,24 +639,25 @@ const AllCoursePage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-white-50">
+    <div className="min-h-[100dvh] bg-[var(--ui-page)]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="mb-8">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">
+              <h1 className="mb-2 text-3xl font-extrabold tracking-[-0.035em] text-[var(--ui-text)]">
                 All Courses
               </h1>
               <p className="text-gray-600">Discover and learn new skills</p>
             </div>
-            <div className="flex items-center gap-4">
+            <div className="grid grid-cols-1 gap-3 sm:flex sm:items-center sm:gap-4">
               <p className="text-gray-600">
                 {filteredCourses.length} courses found
               </p>
               <div className="flex items-center gap-2">
                 <span className="text-sm text-gray-700">Sort by</span>
                 <select
+                  aria-label="Sort courses"
                   value={sortBy}
                   onChange={(e) => setSortBy(e.target.value)}
                   className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -652,12 +674,25 @@ const AllCoursePage = () => {
           </div>
         </div>
 
+        <button
+          type="button"
+          aria-controls="course-filters"
+          aria-expanded={mobileFiltersOpen}
+          onClick={() => setMobileFiltersOpen((open) => !open)}
+          className="mb-5 inline-flex min-h-11 w-full items-center justify-between rounded-xl border border-[var(--ui-border)] bg-[var(--ui-surface)] px-4 py-2.5 text-sm font-semibold text-[var(--ui-text)] lg:hidden"
+        >
+          <span>Course filters</span>
+          <span>{getActiveFilterCount() ? `${getActiveFilterCount()} active` : mobileFiltersOpen ? "Close" : "Open"}</span>
+        </button>
+
         <div className="flex flex-col lg:flex-row gap-8">
           {/* Left Sidebar - Filters */}
-          <div className="lg:w-1/4">
+          <div
+            id="course-filters"
+            className={`${mobileFiltersOpen ? "block" : "hidden"} lg:block lg:w-1/4`}
+          >
             <div
-              className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 sticky top-8"
-              style={{ height: "80vh", overflowY: "auto" }}
+              className="max-h-[70dvh] overflow-y-auto rounded-2xl border border-[var(--ui-border)] bg-[var(--ui-surface)] p-6 lg:sticky lg:top-20 lg:max-h-[calc(100dvh-6rem)]"
             >
               {/* Filter Button */}
               <div className="flex items-center justify-between mb-6">
@@ -666,19 +701,7 @@ const AllCoursePage = () => {
                     className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
                     onClick={fetchCoursesWithFilters}
                   >
-                    <svg
-                      className="w-4 h-4"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"
-                      />
-                    </svg>
+                    <IconFilter aria-hidden="true" size={17} stroke={1.8} />
                     <span className="text-sm font-medium">Filter</span>
                   </button>
                   {getActiveFilterCount() > 0 && (
@@ -704,25 +727,14 @@ const AllCoursePage = () => {
                 </label>
                 <div className="relative">
                   <input
+                    aria-label="Search courses"
                     type="text"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     placeholder="Search by title, instructor, category..."
                     className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
-                  <svg
-                    className="absolute left-3 top-2.5 h-5 w-5 text-gray-400"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                    />
-                  </svg>
+                  <IconSearch aria-hidden="true" className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" stroke={1.8} />
                 </div>
               </div>
 
@@ -733,21 +745,7 @@ const AllCoursePage = () => {
                   onClick={() => setIsRatingExpanded(!isRatingExpanded)}
                 >
                   <span>Rating</span>
-                  <svg
-                    className={`w-4 h-4 transition-transform duration-200 ${
-                      isRatingExpanded ? "rotate-180" : ""
-                    }`}
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M19 9l-7 7-7-7"
-                    />
-                  </svg>
+                  <IconChevronDown aria-hidden="true" className={`h-4 w-4 transition-transform ${isRatingExpanded ? "rotate-180" : ""}`} stroke={1.8} />
                 </h3>
                 {isRatingExpanded && (
                   <div className="space-y-2">
@@ -766,21 +764,7 @@ const AllCoursePage = () => {
                   onClick={() => setIsCategoriesExpanded(!isCategoriesExpanded)}
                 >
                   <span>Category</span>
-                  <svg
-                    className={`w-4 h-4 transition-transform duration-200 ${
-                      isCategoriesExpanded ? "rotate-180" : ""
-                    }`}
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M19 9l-7 7-7-7"
-                    />
-                  </svg>
+                  <IconChevronDown aria-hidden="true" className={`h-4 w-4 transition-transform ${isCategoriesExpanded ? "rotate-180" : ""}`} stroke={1.8} />
                 </h3>
                 {isCategoriesExpanded && (
                   <div className="space-y-2">
@@ -808,21 +792,7 @@ const AllCoursePage = () => {
                   onClick={() => setIsLevelsExpanded(!isLevelsExpanded)}
                 >
                   <span>Level</span>
-                  <svg
-                    className={`w-4 h-4 transition-transform duration-200 ${
-                      isLevelsExpanded ? "rotate-180" : ""
-                    }`}
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M19 9l-7 7-7-7"
-                    />
-                  </svg>
+                  <IconChevronDown aria-hidden="true" className={`h-4 w-4 transition-transform ${isLevelsExpanded ? "rotate-180" : ""}`} stroke={1.8} />
                 </h3>
                 {isLevelsExpanded && (
                   <div className="space-y-2">
@@ -848,21 +818,7 @@ const AllCoursePage = () => {
                   onClick={() => setIsPriceExpanded(!isPriceExpanded)}
                 >
                   <span>Price</span>
-                  <svg
-                    className={`w-4 h-4 transition-transform duration-200 ${
-                      isPriceExpanded ? "rotate-180" : ""
-                    }`}
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M19 9l-7 7-7-7"
-                    />
-                  </svg>
+                  <IconChevronDown aria-hidden="true" className={`h-4 w-4 transition-transform ${isPriceExpanded ? "rotate-180" : ""}`} stroke={1.8} />
                 </h3>
                 {isPriceExpanded && (
                   <div className="space-y-2">
@@ -890,7 +846,7 @@ const AllCoursePage = () => {
           </div>
 
           {/* Right Content Area */}
-          <div className="lg:w-3/4">
+          <div className="min-w-0 lg:w-3/4">
             {/* Courses Grid */}
             {currentCourses.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 mb-8 auto-rows-max">
@@ -910,6 +866,9 @@ const AllCoursePage = () => {
                         alt={course.title}
                         className="object-cover h-[120px] w-[92%] rounded-xl"
                         style={{ marginTop: "4px", marginBottom: "4px" }}
+                        onError={(event) => {
+                          event.currentTarget.src = OipImg;
+                        }}
                       />
                       {course.bestseller && (
                         <span className="absolute top-2 left-2 bg-orange-500 text-white text-xs font-bold px-2 py-1 rounded">
@@ -1075,19 +1034,7 @@ const AllCoursePage = () => {
               </div>
             ) : (
               <div className="text-center py-12">
-                <svg
-                  className="mx-auto h-12 w-12 text-gray-400"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                  />
-                </svg>
+                <IconSearchOff aria-hidden="true" className="mx-auto h-12 w-12 text-gray-400" stroke={1.5} />
                 <h3 className="mt-2 text-sm font-medium text-gray-900">
                   No courses found
                 </h3>
@@ -1116,19 +1063,7 @@ const AllCoursePage = () => {
                   className="flex items-center justify-center w-10 h-10 text-gray-600 hover:text-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   title="Previous page"
                 >
-                  <svg
-                    className="w-5 h-5"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M15 19l-7-7 7-7"
-                    />
-                  </svg>
+                  <IconChevronLeft aria-hidden="true" size={20} stroke={1.8} />
                 </button>
 
                 {/* Show pagination numbers intelligently */}
@@ -1220,19 +1155,7 @@ const AllCoursePage = () => {
                   className="flex items-center justify-center w-10 h-10 text-gray-600 hover:text-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   title="Next page"
                 >
-                  <svg
-                    className="w-5 h-5"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M9 5l7 7-7 7"
-                    />
-                  </svg>
+                  <IconChevronRight aria-hidden="true" size={20} stroke={1.8} />
                 </button>
               </div>
             )}

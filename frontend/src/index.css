@@ -1,6 +1,123 @@
 @import "tailwindcss";
 @import "./styles/search-animations.css";
 
+:root {
+  color-scheme: light dark;
+  --ui-page: #f6f8fc;
+  --ui-surface: #ffffff;
+  --ui-surface-muted: #edf2f8;
+  --ui-text: #101828;
+  --ui-text-muted: #526174;
+  --ui-border: #d9e2ec;
+  --ui-accent: #1d5fd1;
+  --ui-accent-strong: #174ca7;
+  --ui-accent-soft: #e8f0ff;
+  --ui-shadow: 0 20px 55px rgb(42 64 94 / 0.12);
+}
+
+html {
+  background: var(--ui-page);
+  scroll-behavior: smooth;
+}
+
+body {
+  min-width: 320px;
+  margin: 0;
+  background: var(--ui-page);
+  color: var(--ui-text);
+  font-family: "Segoe UI Variable", "Aptos", "Segoe UI", system-ui, sans-serif;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+button,
+a,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--ui-accent) 55%, transparent);
+  outline-offset: 3px;
+}
+
+::selection {
+  background: var(--ui-accent-soft);
+  color: var(--ui-text);
+}
+
+.app-shell {
+  min-height: 100dvh;
+  overflow-x: clip;
+  background: var(--ui-page);
+  color: var(--ui-text);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ui-page: #0b1220;
+    --ui-surface: #111b2d;
+    --ui-surface-muted: #19263a;
+    --ui-text: #f2f6fc;
+    --ui-text-muted: #b9c5d5;
+    --ui-border: #314158;
+    --ui-accent: #74a8ff;
+    --ui-accent-strong: #9bc0ff;
+    --ui-accent-soft: #18345f;
+    --ui-shadow: 0 24px 64px rgb(0 0 0 / 0.32);
+  }
+
+  /* ponytail: scoped bridge; remove after legacy pages use semantic tokens. */
+  .app-shell :is(.bg-white, .bg-white-50, .bg-white-100, .bg-gray-50, .bg-slate-50) {
+    background-color: var(--ui-surface) !important;
+  }
+
+  .app-shell :is(.bg-gray-100, .bg-slate-100, .bg-slate-200) {
+    background-color: var(--ui-surface-muted) !important;
+  }
+
+  .app-shell :is(.text-gray-900, .text-gray-800, .text-slate-900, .text-slate-800, .text-black),
+  .app-shell :is(h1, h2, h3, h4) {
+    color: var(--ui-text) !important;
+  }
+
+  .app-shell :is(.text-gray-700, .text-gray-600, .text-gray-500, .text-slate-700, .text-slate-600, .text-slate-500) {
+    color: var(--ui-text-muted) !important;
+  }
+
+  .app-shell :is(.border-gray-200, .border-gray-300, .border-slate-200, .border-slate-300, .border-slate-400) {
+    border-color: var(--ui-border) !important;
+  }
+
+  .app-shell :is(input:not([type="checkbox"]):not([type="radio"]), textarea, select) {
+    background-color: var(--ui-surface);
+    border-color: var(--ui-border);
+    color: var(--ui-text);
+  }
+
+  .app-shell input::placeholder,
+  .app-shell textarea::placeholder {
+    color: #8fa0b6;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
 /* no scrollbar use in homeScreen page */
 .no-scrollbar {
   scrollbar-width: none;
