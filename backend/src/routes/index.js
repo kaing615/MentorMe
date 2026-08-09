@@ -14,20 +14,26 @@ import reviewRoute from "./review.route.js";
 
 import messageRoute from "./message.route.js";
 
+export const routeMounts = [
+  { path: "/user", router: userRoute },
+  { path: "/profile", router: profileRoute },
+  { path: "/messages", router: messageRoute },
+  { path: "/course", router: courseRoute },
+  { path: "/courses", router: courseRoute },
+  { path: "/orders", router: orderRoute },
+  { path: "/payment", router: paymentRoute },
+  { path: "/purchased-courses", router: purchasedCourseRoute },
+  { path: "/cart", router: cartRoute },
+  { path: "/help", router: helpRoute },
+  { path: "/availability", router: availabilityRoute },
+  { path: "/booking", router: bookingRoute },
+  { path: "/reviews", router: reviewRoute },
+];
+
 const router = express.Router();
 
-router.use("/user", userRoute);
-router.use("/profile", profileRoute);
-router.use("/messages", messageRoute);
-router.use("/course", courseRoute);
-router.use("/orders", orderRoute);
-router.use("/payment", paymentRoute);
-router.use("/purchased-courses", purchasedCourseRoute);
-router.use("/cart", cartRoute);
-router.use("/courses", courseRoute);
-router.use("/help", helpRoute);
-router.use("/availability", availabilityRoute);
-router.use("/booking", bookingRoute);
-router.use("/reviews", reviewRoute);
+for (const mount of routeMounts) {
+  router.use(mount.path, mount.router);
+}
 
 export default router;

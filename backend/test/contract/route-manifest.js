@@ -1,0 +1,15 @@
+export const routeManifest = [
+  "/user",
+  "/profile",
+  "/messages",
+  "/course",
+  "/courses",
+  "/orders",
+  "/payment",
+  "/purchased-courses",
+  "/cart",
+  "/help",
+  "/availability",
+  "/booking",
+  "/reviews",
+];
