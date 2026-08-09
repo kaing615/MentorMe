@@ -37,3 +37,14 @@ test("backend image is pinned, multi-stage, and non-root", () => {
   assert.match(dockerfile, /^USER 1000:1000$/m);
   assert.match(dockerfile, /^HEALTHCHECK /m);
 });
+
+test("production verification starts and always stops the backend test database", () => {
+  const workflow = read(".github/workflows/production.yml");
+  const start = workflow.indexOf("docker compose -f docker-compose.test.yml up -d --wait");
+  const verify = workflow.indexOf("- name: Verify backend");
+  const stop = workflow.indexOf("docker compose -f docker-compose.test.yml down");
+
+  assert.ok(start >= 0 && start < verify, "test database must start before backend verification");
+  assert.ok(stop > verify, "test database must stop after backend verification");
+  assert.match(workflow.slice(verify, stop), /if: always\(\)/);
+});

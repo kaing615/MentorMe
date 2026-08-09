@@ -56,9 +56,16 @@ jobs:
           cache-dependency-path: |
             backend/package-lock.json
             frontend/package-lock.json
+      - name: Start backend test database
+        working-directory: backend
+        run: docker compose -f docker-compose.test.yml up -d --wait
       - name: Verify backend
         working-directory: backend
         run: npm ci && npm run typecheck && npm run lint && npm test && npm run build && npm audit --omit=dev --audit-level=high
+      - name: Stop backend test database
+        if: always()
+        working-directory: backend
+        run: docker compose -f docker-compose.test.yml down
       - name: Verify frontend
         working-directory: frontend
         run: npm ci && npm run typecheck && npm run lint -- --quiet && npm run build && npm audit --omit=dev --audit-level=high
