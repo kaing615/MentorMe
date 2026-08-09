@@ -4,3 +4,7 @@ process.env.MONGO_URL ??=
   "mongodb://127.0.0.1:27018/mentorme_nest_test?replicaSet=rs0";
 process.env.JWT_SECRET ??= "nest-test-secret-with-enough-length";
 process.env.CORS_ORIGINS ??= "http://localhost:5173";
+process.env.VNPAY_HASH_SECRET ??= "test-vnpay-hash-secret";
+process.env.MOMO_SECRET_KEY ??= "test-momo-secret";
+process.env.MOMO_ACCESS_KEY ??= "test-momo-access";
+process.env.MOMO_PARTNER_CODE ??= "TEST_MOMO";

@@ -1,6 +1,7 @@
 import { Module } from "@nestjs/common";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { MongooseModule } from "@nestjs/mongoose";
+import { CommerceModule } from "./commerce/commerce.module";
 import { validateEnvironment } from "./config/env.schema";
 import { HealthModule } from "./health/health.module";
 import { IdentityModule } from "./identity/identity.module";
@@ -20,6 +21,7 @@ import { SupportModule } from "./support/support.module";
       }),
     }),
     HealthModule,
+    CommerceModule,
     InfrastructureModule,
     IdentityModule,
     LearningModule,

@@ -14,6 +14,12 @@ export class CompatibilityInterceptor implements NestInterceptor {
     if (request.path?.startsWith("/health/")) {
       return next.handle();
     }
+    if (
+      request.path === "/api/v1/payment/vnpay/ipn" ||
+      request.path === "/api/v1/payment/momo/ipn"
+    ) {
+      return next.handle();
+    }
 
     return next.handle().pipe(map((data: unknown) => ({ data })));
   }
