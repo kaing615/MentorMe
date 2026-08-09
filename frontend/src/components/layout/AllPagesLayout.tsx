@@ -1,14 +1,13 @@
-import React, { useEffect } from "react";
+import React from "react";
 import { useSelector } from "react-redux";
 import Header from "../common/header";
 import Footer from "../common/footer";
 import LoadingPage from "../common/loadingPage";
-import { Outlet } from "react-router-dom";
 
 const AllPagesLayout = () => {
     const isLoading = useSelector((state: any) => state.loading.isLoading);
     return (
-        <div className="w-full">
+        <div className="app-shell w-full">
             <LoadingPage loading={isLoading} />
             <Header />
             <Footer />

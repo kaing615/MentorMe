@@ -1,97 +1,57 @@
-import GradImg from "../assets/grad.png";
-import NiggaImg from "../assets/nigga.png";
-import WhiteImg from "../assets/white.png";
-import AvatarsImg from "../assets/avatars.png";
+import { IconArrowRight } from "@tabler/icons-react";
+import MentoringHero from "../assets/mentoring-hero.jpg";
 import { useNavigate } from "react-router-dom";
-import { MENTEE_PATH } from "../routes/path";
-import { useDispatch } from "react-redux";
-import { showLoading, hideLoading } from "../redux/features/loading.slice";
-import { useEffect } from "react";
 
 const WelcomePage = () => {
   const navigate = useNavigate();
 
-  const handleButton = () => {
-    navigate(MENTEE_PATH.HOME);
-  };
-
-  const dispatch = useDispatch();
-
-  useEffect(() => {
-    dispatch(showLoading());
-    const timeout = setTimeout(() => {
-      dispatch(hideLoading());
-    }, 1200);
-    return () => clearTimeout(timeout);
-  }, [dispatch]);
-
   return (
-    <>
-      <section className="bg-white h-screen py-16 px-6 md:px-16 flex flex-col md:flex-row gap-10 items-center justify-center">
-        <div>
-          <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-6">
-            Unlock Your Potential <br /> with{" "}
-            <span className="text-blue-600">MentorMe</span>
+    <main className="app-shell min-h-[100dvh] bg-[var(--ui-page)]">
+      <header className="mx-auto flex h-18 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
+        <button
+          type="button"
+          onClick={() => navigate("/")}
+          className="text-xl font-extrabold tracking-[-0.03em] text-[var(--ui-text)]"
+        >
+          MentorMe
+        </button>
+        <button
+          type="button"
+          onClick={() => navigate("/auth/signin")}
+          className="rounded-lg px-4 py-2 text-sm font-semibold text-[var(--ui-text-muted)] transition-colors hover:bg-[var(--ui-surface-muted)] hover:text-[var(--ui-text)]"
+        >
+          Log in
+        </button>
+      </header>
+
+      <section className="mx-auto grid min-h-[calc(100dvh-4.5rem)] max-w-7xl grid-cols-1 items-center gap-10 px-4 py-10 sm:px-6 lg:grid-cols-[0.86fr_1.14fr] lg:px-8 lg:py-14">
+        <div className="max-w-xl">
+          <h1 className="max-w-[12ch] text-4xl font-extrabold leading-[1.04] tracking-[-0.045em] text-[var(--ui-text)] sm:text-5xl lg:text-6xl">
+            Learn faster with the right mentor.
           </h1>
-          <p className="text-gray-600 mb-4 leading-relaxed">
-            Ready to level up? With MentorMe, you’re just a click away from
-            connecting with awesome mentors who’ve been there, done that, and
-            are here to help you crush your goals.
-          </p>
-          <p className="text-gray-600 mb-6 leading-relaxed">
-            Explore different fields, chat directly with real experts, and book
-            one-on-one sessions—online or in person. Whether you’re figuring out
-            your next career move, need study tips, or just want some honest
-            advice, MentorMe is your shortcut to real-world wisdom and personal
-            growth.
-          </p>
-          <p className="text-gray-600 mb-8 leading-relaxed">
-            Don’t just dream it—make it happen. Your journey starts here!
+          <p className="mt-6 max-w-[48ch] text-base leading-7 text-[var(--ui-text-muted)] sm:text-lg">
+            Find experienced mentors, book focused sessions, and turn practical advice into measurable progress.
           </p>
           <button
-            onClick={handleButton}
-            className="cursor-pointer bg-blue-600 text-white px-6 py-3 rounded-md hover:bg-blue-700 transition "
+            type="button"
+            onClick={() => navigate("/auth/signup")}
+            className="mt-8 inline-flex min-h-12 items-center gap-2 whitespace-nowrap rounded-xl bg-[var(--ui-accent)] px-6 py-3 font-bold text-white shadow-[var(--ui-shadow)] transition hover:bg-[var(--ui-accent-strong)] active:translate-y-px"
           >
-            Get Started
+            Create account
+            <IconArrowRight aria-hidden="true" size={19} stroke={2} />
           </button>
         </div>
 
-        <div className="relative w-full flex justify-center items-center mt-10 md:mt-0">
-          <div className="relative w-[400px] h-[480px]">
-            <div className="absolute left-60 transform -translate-x-1/2 top-0 w-56 h-56 rounded-full overflow-hidden shadow-xl bg-yellow-300">
-              <img
-                src={NiggaImg}
-                alt="Student"
-                className="w-full h-full object-cover"
-              />
-            </div>
-
-            <div className="absolute bottom-20 right-60 w-56 h-56 rounded-full overflow-hidden shadow-xl bg-green-400">
-              <img
-                src={GradImg}
-                alt="Grad"
-                className="w-full h-full object-cover"
-              />
-            </div>
-
-            <div className="absolute bottom-0 right-0 w-56 h-56 rounded-full overflow-hidden shadow-xl bg-blue-300">
-              <img
-                src={WhiteImg}
-                alt="Teen"
-                className="w-full h-full object-cover"
-              />
-            </div>
-          </div>
-
-          <div className="absolute bottom-0 left-1/2 -translate-x-1/2 bg-white px-4 py-2 rounded-xl shadow-lg flex flex-col items-center space-y-2">
-            <img src={AvatarsImg} alt="Community" className="w-28 h-auto" />
-            <span className="text-lg font-medium text-gray-800">
-              Join our community
-            </span>
-          </div>
+        <div className="relative overflow-hidden rounded-2xl border border-[var(--ui-border)] bg-[var(--ui-surface)] shadow-[var(--ui-shadow)]">
+          <img
+            src={MentoringHero}
+            alt="A learner working through a goal with an experienced mentor"
+            className="aspect-[3/2] h-full w-full object-cover"
+            fetchPriority="high"
+          />
         </div>
       </section>
-    </>
+    </main>
   );
 };
 

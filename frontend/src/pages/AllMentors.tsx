@@ -1,5 +1,21 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import BoImg from "../assets/Bơ.jpg";
+import OipImg from "../assets/OIP.webp";
+import GradImg from "../assets/grad.png";
+import WhiteImg from "../assets/white.png";
+import {
+  IconChevronDown,
+  IconChevronLeft,
+  IconChevronRight,
+  IconFilter,
+  IconSearch,
+  IconSearchOff,
+  IconStar,
+  IconStarFilled,
+} from "@tabler/icons-react";
+
+const mentorPortraits = [BoImg, OipImg, GradImg, WhiteImg];
 
 const AllMentors = () => {
   const navigate = useNavigate();
@@ -54,6 +70,7 @@ const AllMentors = () => {
   const [isSkillsExpanded, setIsSkillsExpanded] = useState<any>(true);
   const [isJobTitlesExpanded, setIsJobTitlesExpanded] = useState<any>(true);
   const [isPriceExpanded, setIsPriceExpanded] = useState<any>(true);
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState<any>(false);
 
   // Pagination
   const [currentPage, setCurrentPage] = useState<any>(1);
@@ -257,8 +274,12 @@ const AllMentors = () => {
           },
         ];
 
-        setMentors(mockMentors);
-        setFilteredMentors(mockMentors);
+        const mentorsWithImages = mockMentors.map((mentor, index) => ({
+          ...mentor,
+          avatar: mentorPortraits[index % mentorPortraits.length],
+        }));
+        setMentors(mentorsWithImages);
+        setFilteredMentors(mentorsWithImages);
         setLoading(false);
       } catch (err) {
         console.error("Error fetching mentors:", err);
@@ -472,23 +493,29 @@ const AllMentors = () => {
   // Render star rating
   const renderStars = (rating) => {
     return [...Array(5)].map((_, index) => (
-      <span
-        key={index}
-        className={`text-sm ${
-          index < Math.floor(rating) ? "text-yellow-400" : "text-gray-300"
-        }`}
-      >
-        ★
-      </span>
+      index < Math.floor(rating) ? (
+        <IconStarFilled key={index} aria-hidden="true" className="h-4 w-4 text-yellow-400" />
+      ) : (
+        <IconStar key={index} aria-hidden="true" className="h-4 w-4 text-gray-300" stroke={1.6} />
+      )
     ));
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading mentors...</p>
+      <div className="min-h-[100dvh] bg-[var(--ui-page)] px-4 py-10" aria-live="polite">
+        <div className="mx-auto max-w-7xl">
+          <div className="mb-8 h-10 w-52 animate-pulse rounded-xl bg-[var(--ui-surface-muted)]" />
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
+            {[0, 1, 2].map((item) => (
+              <div key={item} className="overflow-hidden rounded-2xl border border-[var(--ui-border)] bg-[var(--ui-surface)] p-4">
+                <div className="aspect-[4/3] animate-pulse rounded-xl bg-[var(--ui-surface-muted)]" />
+                <div className="mt-4 h-5 w-2/3 animate-pulse rounded bg-[var(--ui-surface-muted)]" />
+                <div className="mt-3 h-4 w-1/2 animate-pulse rounded bg-[var(--ui-surface-muted)]" />
+              </div>
+            ))}
+          </div>
+          <p className="sr-only">Loading mentors</p>
         </div>
       </div>
     );
@@ -496,12 +523,13 @@ const AllMentors = () => {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-red-600 mb-4">{error}</p>
+      <div className="flex min-h-[70dvh] items-center justify-center bg-[var(--ui-page)] px-4">
+        <div className="max-w-md rounded-2xl border border-[var(--ui-border)] bg-[var(--ui-surface)] p-8 text-center">
+          <h1 className="mb-3 text-3xl font-extrabold text-[var(--ui-text)]">Mentors unavailable</h1>
+          <p className="mb-6 text-[var(--ui-text-muted)]">{error}</p>
           <button
             onClick={() => window.location.reload()}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            className="rounded-xl bg-[var(--ui-accent)] px-5 py-3 font-bold text-white hover:bg-[var(--ui-accent-strong)]"
           >
             Retry
           </button>
@@ -511,24 +539,25 @@ const AllMentors = () => {
   }
 
   return (
-    <div className="min-h-screen bg-white-50">
+    <div className="min-h-[100dvh] bg-[var(--ui-page)]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="mb-8">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">
+              <h1 className="mb-2 text-3xl font-extrabold tracking-[-0.035em] text-[var(--ui-text)]">
                 Our Mentors
               </h1>
               <p className="text-gray-600">All mentors</p>
             </div>
-            <div className="flex items-center gap-4">
+            <div className="grid grid-cols-1 gap-3 sm:flex sm:items-center sm:gap-4">
               <p className="text-gray-600">
                 {filteredMentors.length} mentors found
               </p>
               <div className="flex items-center gap-2">
                 <span className="text-sm text-gray-700">Sort by</span>
                 <select
+                  aria-label="Sort mentors"
                   value={sortBy}
                   onChange={(e) => setSortBy(e.target.value)}
                   className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -544,27 +573,29 @@ const AllMentors = () => {
           </div>
         </div>
 
+        <button
+          type="button"
+          aria-controls="mentor-filters"
+          aria-expanded={mobileFiltersOpen}
+          onClick={() => setMobileFiltersOpen((open) => !open)}
+          className="mb-5 inline-flex min-h-11 w-full items-center justify-between rounded-xl border border-[var(--ui-border)] bg-[var(--ui-surface)] px-4 py-2.5 text-sm font-semibold text-[var(--ui-text)] lg:hidden"
+        >
+          <span>Mentor filters</span>
+          <span>{getActiveFilterCount() ? `${getActiveFilterCount()} active` : mobileFiltersOpen ? "Close" : "Open"}</span>
+        </button>
+
         <div className="flex flex-col lg:flex-row gap-8">
           {/* Left Sidebar - Filters */}
-          <div className="lg:w-1/4">
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 sticky top-8">
+          <div
+            id="mentor-filters"
+            className={`${mobileFiltersOpen ? "block" : "hidden"} lg:block lg:w-1/4`}
+          >
+            <div className="max-h-[70dvh] overflow-y-auto rounded-2xl border border-[var(--ui-border)] bg-[var(--ui-surface)] p-6 lg:sticky lg:top-20 lg:max-h-[calc(100dvh-6rem)]">
               {/* Filter Button */}
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-2">
                   <button className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
-                    <svg
-                      className="w-4 h-4"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"
-                      />
-                    </svg>
+                    <IconFilter aria-hidden="true" size={17} stroke={1.8} />
                     <span className="text-sm font-medium">Filter</span>
                   </button>
                   {getActiveFilterCount() > 0 && (
@@ -590,25 +621,14 @@ const AllMentors = () => {
                 </label>
                 <div className="relative">
                   <input
+                    aria-label="Search mentors"
                     type="text"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     placeholder="Search by name, title, skills..."
                     className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
-                  <svg
-                    className="absolute left-3 top-2.5 h-5 w-5 text-gray-400"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                    />
-                  </svg>
+                  <IconSearch aria-hidden="true" className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" stroke={1.8} />
                 </div>
               </div>
 
@@ -619,21 +639,7 @@ const AllMentors = () => {
                   onClick={() => setIsRatingExpanded(!isRatingExpanded)}
                 >
                   <span>Rating</span>
-                  <svg
-                    className={`w-4 h-4 transition-transform duration-200 ${
-                      isRatingExpanded ? "rotate-180" : ""
-                    }`}
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M19 9l-7 7-7-7"
-                    />
-                  </svg>
+                  <IconChevronDown aria-hidden="true" className={`h-4 w-4 transition-transform ${isRatingExpanded ? "rotate-180" : ""}`} stroke={1.8} />
                 </h3>
                 {isRatingExpanded && (
                   <div className="space-y-2">
@@ -664,21 +670,7 @@ const AllMentors = () => {
                   onClick={() => setIsSkillsExpanded(!isSkillsExpanded)}
                 >
                   <span>Skills</span>
-                  <svg
-                    className={`w-4 h-4 transition-transform duration-200 ${
-                      isSkillsExpanded ? "rotate-180" : ""
-                    }`}
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M19 9l-7 7-7-7"
-                    />
-                  </svg>
+                  <IconChevronDown aria-hidden="true" className={`h-4 w-4 transition-transform ${isSkillsExpanded ? "rotate-180" : ""}`} stroke={1.8} />
                 </h3>
                 {isSkillsExpanded && (
                   <div className="space-y-2 max-h-48 overflow-y-auto">
@@ -704,21 +696,7 @@ const AllMentors = () => {
                   onClick={() => setIsJobTitlesExpanded(!isJobTitlesExpanded)}
                 >
                   <span>Job Titles</span>
-                  <svg
-                    className={`w-4 h-4 transition-transform duration-200 ${
-                      isJobTitlesExpanded ? "rotate-180" : ""
-                    }`}
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M19 9l-7 7-7-7"
-                    />
-                  </svg>
+                  <IconChevronDown aria-hidden="true" className={`h-4 w-4 transition-transform ${isJobTitlesExpanded ? "rotate-180" : ""}`} stroke={1.8} />
                 </h3>
                 {isJobTitlesExpanded && (
                   <div className="space-y-2">
@@ -746,21 +724,7 @@ const AllMentors = () => {
                   onClick={() => setIsPriceExpanded(!isPriceExpanded)}
                 >
                   <span>Prices</span>
-                  <svg
-                    className={`w-4 h-4 transition-transform duration-200 ${
-                      isPriceExpanded ? "rotate-180" : ""
-                    }`}
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M19 9l-7 7-7-7"
-                    />
-                  </svg>
+                  <IconChevronDown aria-hidden="true" className={`h-4 w-4 transition-transform ${isPriceExpanded ? "rotate-180" : ""}`} stroke={1.8} />
                 </h3>
                 {isPriceExpanded && (
                   <div className="space-y-2">
@@ -788,7 +752,7 @@ const AllMentors = () => {
           </div>
 
           {/* Right Content Area */}
-          <div className="lg:w-3/4">
+          <div className="min-w-0 lg:w-3/4">
             {/* Mentors Grid */}
             {currentMentors.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 mb-8">
@@ -803,6 +767,9 @@ const AllMentors = () => {
                         src={mentor.avatar}
                         alt={mentor.name}
                         className="w-full h-48 object-cover"
+                        onError={(event) => {
+                          event.currentTarget.src = BoImg;
+                        }}
                       />
                     </div>
 
@@ -848,19 +815,7 @@ const AllMentors = () => {
               </div>
             ) : (
               <div className="text-center py-12">
-                <svg
-                  className="mx-auto h-12 w-12 text-gray-400"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                  />
-                </svg>
+                <IconSearchOff aria-hidden="true" className="mx-auto h-12 w-12 text-gray-400" stroke={1.5} />
                 <h3 className="mt-2 text-sm font-medium text-gray-900">
                   No mentors found
                 </h3>
@@ -889,19 +844,7 @@ const AllMentors = () => {
                   className="flex items-center justify-center w-10 h-10 text-gray-600 hover:text-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   title="Previous page"
                 >
-                  <svg
-                    className="w-5 h-5"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M15 19l-7-7 7-7"
-                    />
-                  </svg>
+                  <IconChevronLeft aria-hidden="true" size={20} stroke={1.8} />
                 </button>
 
                 {/* Show pagination numbers intelligently */}
@@ -993,19 +936,7 @@ const AllMentors = () => {
                   className="flex items-center justify-center w-10 h-10 text-gray-600 hover:text-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   title="Next page"
                 >
-                  <svg
-                    className="w-5 h-5"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M9 5l7 7-7 7"
-                    />
-                  </svg>
+                  <IconChevronRight aria-hidden="true" size={20} stroke={1.8} />
                 </button>
               </div>
             )}
