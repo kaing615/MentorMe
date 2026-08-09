@@ -22,7 +22,7 @@
 ## 🏗️ Công nghệ sử dụng
 
 - **Frontend:** ReactJS, Vite, MUI
-- **Backend:** NodeJS, ExpressJS, MongoDB, Socket.IO
+- **Backend:** NestJS 11, TypeScript, MongoDB, Socket.IO
 - **Realtime chat:** Socket.IO
 - **Video call:** WebRTC
 - **Auth:** OAuth Google + JWT
@@ -44,6 +44,7 @@ git clone https://github.com/kaing615/MentorMe/
 ### Chạy bằng Docker Compose
 
 ```bash
+cp backend/.env.example backend/.env
 docker compose up --build
 ```
 
@@ -53,8 +54,8 @@ Nên chạy bằng Docker để đồng bộ
 
 ```bash
 cd backend
-cp .env.example .env        # Tạo file .env và điền biến môi trường (MongoDB, JWT, PORT)
-npm install
+cp .env.example .env        # Điền MongoDB, JWT và các provider cần dùng
+npm ci
 npm run dev
 ```
 
@@ -71,10 +72,10 @@ npm run dev
 ```bash
 MentorMe/
 ├── backend/
-│   ├── public/
 │   ├── src/
-│   ├── .env
-│   └── Dockerfile
+│   ├── test/
+│   ├── Dockerfile
+│   └── .env.example
 ├── frontend/
 │   ├── public/
 │   ├── src/
