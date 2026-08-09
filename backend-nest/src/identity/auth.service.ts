@@ -1,0 +1,221 @@
+import {
+  BadRequestException,
+  Injectable,
+  UnauthorizedException,
+} from "@nestjs/common";
+import { JwtService } from "@nestjs/jwt";
+import { InjectModel } from "@nestjs/mongoose";
+import bcrypt from "bcryptjs";
+import crypto from "node:crypto";
+import type { Model } from "mongoose";
+import type { ForgotPasswordDto } from "./dto/forgot-password.dto";
+import type { ResendEmailDto } from "./dto/resend-email.dto";
+import type { ResetPasswordDto } from "./dto/reset-password.dto";
+import type { SignInDto } from "./dto/sign-in.dto";
+import type { SignUpMentorDto } from "./dto/sign-up-mentor.dto";
+import type { SignUpDto } from "./dto/sign-up.dto";
+import type { VerifyEmailDto } from "./dto/verify-email.dto";
+import { EmailService } from "../infrastructure/email/email.service";
+import { CloudinaryService } from "../infrastructure/files/cloudinary.service";
+import { User } from "./user.schema";
+import type { UserDocument } from "./user.schema";
+
+const genericResetMessage =
+  "Nếu email này tồn tại, đã gửi liên kết đặt lại mật khẩu.";
+
+@Injectable()
+export class AuthService {
+  constructor(
+    @InjectModel(User.name) private readonly users: Model<User>,
+    private readonly jwt: JwtService,
+    private readonly email: EmailService,
+    private readonly files: CloudinaryService,
+  ) {}
+
+  async signUp(dto: SignUpDto) {
+    if (dto.password !== dto.confirmPassword) {
+      throw new BadRequestException(
+        "Mật khẩu và xác nhận mật khẩu không khớp.",
+      );
+    }
+    if (await this.users.exists({ email: dto.email })) {
+      throw new BadRequestException("Email đã được sử dụng.");
+    }
+
+    const isTest = process.env.NODE_ENV === "test";
+    const values: Record<string, unknown> = {
+      email: dto.email,
+      userName: dto.userName,
+      firstName: dto.firstName,
+      lastName: dto.lastName,
+      password: await bcrypt.hash(dto.password, 10),
+      role: "mentee",
+      isVerified: isTest,
+      verifyKey: isTest ? "" : crypto.randomBytes(32).toString("hex"),
+    };
+    if (!isTest) {
+      values.verifyKeyExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    }
+    const user = await this.users.create(values);
+
+    if (isTest) {
+      return {
+        message: "Đăng ký thành công! Tài khoản đã được kích hoạt.",
+        token: await this.signToken(user),
+        user: this.sanitize(user.toObject()),
+      };
+    }
+    await this.email.sendVerification(
+      user.email,
+      user.verifyKey ?? "",
+      user.userName,
+    );
+    return {
+      message:
+        "Đăng ký thành công! Vui lòng kiểm tra email để xác thực tài khoản.",
+      id: user._id,
+    };
+  }
+
+  async signIn(dto: SignInDto) {
+    const user = await this.users.findOne({ email: dto.email });
+    const dummyHash =
+      "$2a$10$ull7LxLFMg9MvAgkKYlWBuQ3yA57nLCbSAT6BPhEqMacBVDOa2Jby";
+    const valid = await bcrypt.compare(dto.password, user?.password ?? dummyHash);
+    if (!user?.isVerified || !valid) {
+      throw new UnauthorizedException("Email hoặc mật khẩu không đúng.");
+    }
+    return {
+      token: await this.signToken(user),
+      user: this.sanitize(user.toObject()),
+    };
+  }
+
+  async forgotPassword(dto: ForgotPasswordDto) {
+    const user = await this.users.findOne({ email: dto.email });
+    if (user) {
+      user.resetToken = crypto.randomBytes(32).toString("hex");
+      user.resetTokenExpires = new Date(Date.now() + 15 * 60 * 1000);
+      await user.save();
+      await this.email.sendPasswordReset(user.email, user.resetToken);
+    }
+    return { message: genericResetMessage };
+  }
+
+  async verifyEmail(dto: VerifyEmailDto) {
+    const user = await this.users.findOne({
+      email: dto.email,
+      verifyKey: dto.verifyKey,
+      isVerified: false,
+      verifyKeyExpires: { $gt: new Date() },
+    });
+    if (!user) {
+      throw new BadRequestException(
+        "Liên kết xác thực không hợp lệ hoặc đã được sử dụng.",
+      );
+    }
+    user.isVerified = true;
+    user.verifyKey = "";
+    user.set("verifyKeyExpires", undefined);
+    await user.save();
+    return {
+      message: "Xác thực email thành công!",
+      token: await this.signToken(user),
+      ...this.sanitize(user.toObject()),
+      id: user._id,
+    };
+  }
+
+  async resendVerification(dto: ResendEmailDto) {
+    const user = await this.users.findOne({
+      email: dto.email,
+      isVerified: false,
+    });
+    if (!user) {
+      throw new BadRequestException("Người dùng đã xác thực hoặc không tồn tại.");
+    }
+    user.verifyKey = crypto.randomBytes(32).toString("hex");
+    user.verifyKeyExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    await user.save();
+    await this.email.sendVerification(user.email, user.verifyKey, user.userName);
+    return { message: "Đã gửi lại email xác thực thành công!" };
+  }
+
+  async resetPassword(dto: ResetPasswordDto) {
+    const user = await this.users.findOne({
+      email: dto.email,
+      resetToken: dto.token,
+      resetTokenExpires: { $gt: new Date() },
+    });
+    if (!user) {
+      throw new BadRequestException(
+        "Liên kết đặt lại mật khẩu không hợp lệ hoặc đã hết hạn.",
+      );
+    }
+    user.password = await bcrypt.hash(dto.newPassword, 10);
+    user.set("resetToken", undefined);
+    user.set("resetTokenExpires", undefined);
+    await user.save();
+    return { message: "Đặt lại mật khẩu thành công." };
+  }
+
+  async signUpMentor(dto: SignUpMentorDto, file: Express.Multer.File) {
+    if (dto.password !== dto.confirmPassword) {
+      throw new BadRequestException(
+        "Mật khẩu và xác nhận mật khẩu không khớp.",
+      );
+    }
+    if (await this.users.exists({ email: dto.email })) {
+      throw new BadRequestException("Email đã được sử dụng.");
+    }
+    const user = new this.users({
+      ...dto,
+      password: await bcrypt.hash(dto.password, 10),
+      role: "mentor",
+      isVerified: process.env.NODE_ENV === "test",
+    });
+    const uploaded = await this.files.uploadAvatar(file, String(user._id));
+    user.avatarUrl = uploaded.url;
+    user.avatarPublicId = uploaded.publicId;
+    await user.save();
+    return {
+      message: "Đăng ký mentor thành công!",
+      token: await this.signToken(user),
+      user: this.sanitize(user.toObject()),
+      id: user._id,
+      avatarUrl: user.avatarUrl,
+    };
+  }
+
+  async changeAvatar(user: UserDocument, file: Express.Multer.File) {
+    if (user.avatarPublicId) await this.files.delete(user.avatarPublicId);
+    const uploaded = await this.files.uploadAvatar(file, String(user._id));
+    user.avatarUrl = uploaded.url;
+    user.avatarPublicId = uploaded.publicId;
+    await user.save();
+    return { message: "Đổi avatar thành công!", avatarUrl: user.avatarUrl };
+  }
+
+  private signToken(user: UserDocument): Promise<string> {
+    const id = String(user._id);
+    return this.jwt.signAsync(
+      { id, role: user.role, userName: user.userName, email: user.email },
+      { expiresIn: "7d" },
+    );
+  }
+
+  private sanitize(source: object): Record<string, unknown> {
+    const safe = { ...source } as Record<string, unknown>;
+    for (const key of [
+      "password",
+      "verifyKey",
+      "verifyKeyExpires",
+      "resetToken",
+      "resetTokenExpires",
+      "__v",
+    ]) {
+      Reflect.deleteProperty(safe, key);
+    }
+    return safe;
+  }
+}

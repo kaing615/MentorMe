@@ -20,11 +20,59 @@ export class User {
   @Prop()
   password?: string;
 
+  @Prop()
+  googleId?: string;
+
+  @Prop({ default: "" })
+  avatarUrl!: string;
+
+  @Prop({ default: "" })
+  avatarPublicId!: string;
+
+  @Prop()
+  jobTitle?: string;
+
+  @Prop()
+  location?: string;
+
+  @Prop()
+  category?: string;
+
+  @Prop({ type: [String], default: [] })
+  skills!: string[];
+
+  @Prop()
+  bio?: string;
+
+  @Prop()
+  linkedinUrl?: string;
+
+  @Prop()
+  introVideo?: string;
+
+  @Prop()
+  mentorReason?: string;
+
+  @Prop()
+  greatestAchievement?: string;
+
   @Prop({ type: String, enum: ["mentor", "mentee", "admin"] })
   role?: "mentor" | "mentee" | "admin";
 
   @Prop({ default: false })
   isVerified!: boolean;
+
+  @Prop()
+  verifyKey?: string;
+
+  @Prop()
+  verifyKeyExpires?: Date;
+
+  @Prop()
+  resetToken?: string;
+
+  @Prop()
+  resetTokenExpires?: Date;
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);

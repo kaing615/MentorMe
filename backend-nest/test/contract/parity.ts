@@ -16,7 +16,15 @@ const normalize = (value: unknown): unknown => {
       Object.entries(value)
         .filter(
           ([key]) =>
-            !["_id", "id", "createdAt", "updatedAt", "ticketNumber"].includes(
+            ![
+              "_id",
+              "id",
+              "createdAt",
+              "updatedAt",
+              "ticketNumber",
+              "token",
+              "__v",
+            ].includes(
               key,
             ),
         )

@@ -4,6 +4,8 @@ import { MongooseModule } from "@nestjs/mongoose";
 import { validateEnvironment } from "./config/env.schema";
 import { HealthModule } from "./health/health.module";
 import { IdentityModule } from "./identity/identity.module";
+import { InfrastructureModule } from "./infrastructure/infrastructure.module";
+import { ProfileModule } from "./mentoring/profile.module";
 import { SupportModule } from "./support/support.module";
 
 @Module({
@@ -16,7 +18,9 @@ import { SupportModule } from "./support/support.module";
       }),
     }),
     HealthModule,
+    InfrastructureModule,
     IdentityModule,
+    ProfileModule,
     SupportModule,
   ],
 })

@@ -5,7 +5,7 @@ import {
   HttpStatus,
 } from "@nestjs/common";
 import type { ExceptionFilter } from "@nestjs/common";
-import type { Response } from "express";
+import type { Request, Response } from "express";
 
 type ExceptionBody = {
   message?: string | string[];
@@ -15,6 +15,7 @@ type ExceptionBody = {
 export class HttpExceptionFilter implements ExceptionFilter {
   catch(exception: unknown, host: ArgumentsHost): void {
     const response = host.switchToHttp().getResponse<Response>();
+    const request = host.switchToHttp().getRequest<Request>();
     const status =
       exception instanceof HttpException
         ? exception.getStatus()
@@ -31,6 +32,18 @@ export class HttpExceptionFilter implements ExceptionFilter {
         (status === 500
           ? "Oops! Something went wrong"
           : HttpStatus[status]);
+
+    if (
+      status === 400 &&
+      Array.isArray(rawMessage) &&
+      request.path.startsWith("/api/v1/user/")
+    ) {
+      response.status(status).json({
+        message: "Validation error",
+        details: rawMessage.map((item) => ({ message: item })),
+      });
+      return;
+    }
 
     response.status(status).json({ data: { status, message } });
   }
