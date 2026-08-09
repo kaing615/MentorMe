@@ -58,25 +58,25 @@
 - Consumes: approved requirements in `docs/system-design/production-system-design.md`.
 - Produces: stable architecture vocabulary and one traceability row per acceptance criterion.
 
-- [ ] **Step 1: Write a documentation verifier**
+- [x] **Step 1: Write a documentation verifier**
 
 Create `scripts/verify-docs.mjs` to fail when required files are missing, Markdown links target missing local files, a target document claims unmeasured production results, or unfinished-marker tokens appear.
 
-- [ ] **Step 2: Run the verifier to confirm the baseline fails**
+- [x] **Step 2: Run the verifier to confirm the baseline fails**
 
 Run: `node scripts/verify-docs.mjs`
 Expected: non-zero exit with the missing architecture artifacts listed.
 
-- [ ] **Step 3: Write architecture docs, ADRs, editable Draw.io sources, and SVG exports**
+- [x] **Step 3: Write architecture docs, ADRs, editable Draw.io sources, and SVG exports**
 
 Every architecture page starts with `Implementation status: Current`, `Target`, or `Mixed`. The traceability table uses columns `Criterion`, `Implementation`, `Verification`, and `Status`; initial runtime rows are `Planned`.
 
-- [ ] **Step 4: Validate docs and diagrams**
+- [x] **Step 4: Validate docs and diagrams**
 
 Run: `node scripts/verify-docs.mjs`
 Expected: exit 0 with every required artifact present and linked.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add docs scripts/verify-docs.mjs
@@ -105,31 +105,31 @@ git commit -m "docs: add production architecture baseline"
 **Interfaces:**
 - Produces: `loadEnv(source)`, `createApp({ health, logger })`, `startServer(deps)`, `connectMongo(uri)`, `requestContext`, and `/health/live|ready`.
 
-- [ ] **Step 1: Write failing environment and health tests**
+- [x] **Step 1: Write failing environment and health tests**
 
 Test that production rejects missing `MONGO_URL`, `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, `CORS_ORIGINS`, and weak secrets; test liveness returns 200 while readiness returns 503 until MongoDB/Redis/RabbitMQ dependency flags are ready.
 
-- [ ] **Step 2: Verify the tests fail**
+- [x] **Step 2: Verify the tests fail**
 
 Run: `cd backend && npm test -- test/config/env.test.js test/http/health.test.js`
 Expected: failure because the modules and endpoints do not exist.
 
-- [ ] **Step 3: Implement the minimal runtime seams**
+- [x] **Step 3: Implement the minimal runtime seams**
 
 `loadEnv` returns a frozen object with parsed integer/time/list values. `createApp` installs request IDs, Pino HTTP logging, parsers, routes, stable 404/error handlers, and health routes. `startServer` connects dependencies, listens, and handles `SIGTERM`/`SIGINT` by marking readiness false, closing HTTP/Socket.IO, draining for at most `SHUTDOWN_TIMEOUT_MS`, and closing dependencies.
 
-- [ ] **Step 4: Replace hard-coded application URLs**
+- [x] **Step 4: Replace hard-coded application URLs**
 
 Frontend clients consume `import.meta.env.VITE_API_BASE_URL`; Socket.IO consumes `VITE_SOCKET_URL`; backend links consume `FRONTEND_URL`. No runtime source may contain a production hostname or localhost fallback in production mode.
 
-- [ ] **Step 5: Run foundation verification**
+- [x] **Step 5: Run foundation verification**
 
 Run: `cd backend && npm test`
 Run: `cd frontend && npm run build`
 Run: `rg -n "localhost|127\\.0\\.0\\.1" backend/src frontend/src`
 Expected: tests/build pass; remaining localhost matches are explicit development defaults only.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add backend frontend
@@ -161,20 +161,20 @@ git commit -m "refactor(runtime): add production foundations"
 **Interfaces:**
 - Produces: `assertBookingTransition(from, to)`, `assertOrderTransition(from, to)`, `withTransaction(work)`, `runIdempotent({ scope, key, requestHash, work })`, and `appendOutboxEvent(event, { session })`.
 
-- [ ] **Step 1: Write state-machine and duplicate-operation tests**
+- [x] **Step 1: Write state-machine and duplicate-operation tests**
 
 Cover every allowed transition in Sections 5.1/5.2, reject all incompatible transitions, race two requests for one availability slot, submit one verified webhook twice, and force an exception after the slot/order update to prove transaction rollback.
 
-- [ ] **Step 2: Verify red tests**
+- [x] **Step 2: Verify red tests**
 
 Run: `cd backend && npm test -- test/modules test/integration/booking-transaction.test.js test/integration/payment-idempotency.test.js`
 Expected: failure because state and transaction services do not exist.
 
-- [ ] **Step 3: Implement state and transaction primitives**
+- [x] **Step 3: Implement state and transaction primitives**
 
 Use transition maps of frozen `Set` values, Mongoose sessions with bounded transaction retries for transient labels, unique `{ scope: 1, key: 1 }`, unique provider event/transaction indexes, unique purchased-course ownership, and a partial booking slot index covering `pending|active`.
 
-- [ ] **Step 4: Move booking and payment mutations behind services**
+- [x] **Step 4: Move booking and payment mutations behind services**
 
 Controllers validate/authorize HTTP input, then call services. Booking transactions update the matching `open` slot, booking, and outbox together. Payment provider calls occur outside transactions; verified results transition/grant/write events in a new transaction.
 
@@ -183,7 +183,7 @@ Controllers validate/authorize HTTP input, then call services. Booking transacti
 Run: `cd backend && npm test -- test/modules test/integration`
 Expected: concurrent/duplicate/rollback cases pass and indexes build on a clean test database.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add backend/src backend/test
@@ -208,16 +208,16 @@ git commit -m "feat(domain): enforce transactional workflows"
 - Consumes: `/health/live`, `/health/ready`, graceful shutdown.
 - Produces: services `gateway`, `api-a`, `api-b`, `worker`, `redis`, `rabbitmq`, and `otel-collector`; loopback ports 4001/4002; public 80/443 only.
 
-- [ ] **Step 1: Write a failing topology contract test**
+- [x] **Step 1: Write a failing topology contract test**
 
 Parse Compose/Nginx and assert two API slots share the same immutable image variable, only gateway publishes public ports, dependencies remain private, health checks exist, memory budgets match Section 11.1, and Nginx carries request/WebSocket headers.
 
-- [ ] **Step 2: Verify the topology test fails**
+- [x] **Step 2: Verify the topology test fails**
 
 Run: `node tests/deploy/compose.test.mjs`
 Expected: missing production Compose and Nginx files.
 
-- [ ] **Step 3: Build hardened images and topology**
+- [x] **Step 3: Build hardened images and topology**
 
 Use a non-root user, `npm ci --omit=dev`, a pinned Node 22 Alpine base, init handling, read-only application filesystem where compatible, `no-new-privileges`, private networks, resource/log limits, named Redis/RabbitMQ volumes, and health checks.
 
@@ -229,7 +229,7 @@ Run: `docker compose -f deploy/compose.prod.yml up -d --build`
 Run: `bash deploy/scripts/smoke.sh http://localhost`
 Expected: gateway reaches both replica IDs and each health check is green.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add backend/Dockerfile backend/.dockerignore deploy tests/deploy
@@ -431,19 +431,19 @@ git commit -m "feat(observability): measure production SLOs"
 - Consumes: GHCR image `${GITHUB_REPOSITORY}/api:${GITHUB_SHA}`, protected `production` Environment, restricted SSH secret, health endpoints, and two stable API slots.
 - Produces: concurrency-locked CI/CD, deployment metadata, automatic slot rollback, and manual SHA rollback.
 
-- [ ] **Step 1: Write deployment-script contract tests**
+- [x] **Step 1: Write deployment-script contract tests**
 
 Use command fakes to assert `flock`, exact SHA validation, inactive-slot removal, `nginx -t`, atomic reload, drain, image pull/recreate, readiness polling, smoke checks, prior-SHA rollback, second-slot deployment, and final metadata write. Assert no `latest` tag is deployable.
 
-- [ ] **Step 2: Verify deployment tests fail**
+- [x] **Step 2: Verify deployment tests fail**
 
 Run: `node tests/deploy/deploy-script.test.mjs`
 
-- [ ] **Step 3: Implement CI quality and image pipeline**
+- [x] **Step 3: Implement CI quality and image pipeline**
 
 On pull requests run lockfile installs, backend tests/coverage, frontend build and lint baseline, docs/topology tests, CodeQL, Gitleaks, dependency audit, Trivy, and image build. On `main`, push API/worker images once with SHA tags and attest provenance.
 
-- [ ] **Step 4: Implement protected rolling production deployment**
+- [x] **Step 4: Implement protected rolling production deployment**
 
 The `production` job requires GitHub Environment approval, uses a restricted deploy key, transfers only release metadata/scripts, calls `deploy.sh <sha>`, and runs a remote post-deploy smoke test. GitHub `concurrency` plus server `flock` prevents overlapping releases.
 
@@ -451,7 +451,7 @@ The `production` job requires GitHub Environment approval, uses a restricted dep
 
 Deploy a healthy SHA, inject a readiness failure into the next SHA, prove traffic remains on/restores the previous SHA, then manually rollback by SHA. Record commands and timestamps in the runbook.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add .github deploy tests/deploy docs/system-design/operations-runbook.md
@@ -471,7 +471,7 @@ git commit -m "ci: add health-gated production delivery"
 - Consumes: fresh build/test/scan/deploy/load evidence from Tasks 1–9.
 - Produces: evidence-backed project claims, reproducible startup/deployment commands, and a prioritized debt register.
 
-- [ ] **Step 1: Audit tracked files, dependencies, code, and operations**
+- [x] **Step 1: Audit tracked files, dependencies, code, and operations**
 
 Search for secrets, debug logs, duplicate dependencies/middleware/routes, unsafe CORS/auth, unbounded queries/uploads, hard-coded URLs, missing awaits, swallowed errors, missing indexes, large modules, stale files, dependency vulnerabilities, and docs/runtime drift. Record severity, path/line, impact, and recommended fix.
 
@@ -479,11 +479,11 @@ Search for secrets, debug logs, duplicate dependencies/middleware/routes, unsafe
 
 From a clean worktree run lockfile installs, backend tests/coverage, frontend build/lint baseline, docs/topology/deploy tests, Compose validation/start/smoke, secret/dependency/container scans, and acceptance traceability review.
 
-- [ ] **Step 3: Update evidence and CV-safe claims**
+- [x] **Step 3: Update evidence and CV-safe claims**
 
 Only claim implemented behavior with a Git SHA and command/result. Label unavailable external steps (VPS credentials, DNS, Cloudflare, Atlas restore) as blocked with exact operator action; never call them deployed.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add README.md docs/system-design
