@@ -7,13 +7,13 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
     "preview": "vite preview"
   },
   "dependencies": {
     "@ant-design/icons": "^6.0.0",
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
-    "@faker-js/faker": "^9.9.0",
     "@hookform/resolvers": "^5.1.1",
     "@mui/material": "^7.1.2",
     "@radix-ui/react-avatar": "^1.1.10",
@@ -53,7 +53,6 @@
     "react-spinners": "^0.17.0",
     "react-toastify": "^11.0.5",
     "recharts": "^3.1.0",
-    "serve": "^10.0.2",
     "socket.io-client": "^4.8.1",
     "tailwind-merge": "^3.3.1",
     "tailwindcss": "^4.1.11",
@@ -61,6 +60,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.25.0",
+    "@types/node": "22.18.0",
     "@types/react": "^19.1.2",
     "@types/react-dom": "^19.1.2",
     "@vitejs/plugin-react": "^4.4.1",
@@ -68,6 +68,8 @@
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.19",
     "globals": "^16.0.0",
+    "typescript": "5.9.2",
+    "typescript-eslint": "8.42.0",
     "vite": "^6.3.5"
   }
 }
