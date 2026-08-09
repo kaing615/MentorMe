@@ -6,6 +6,7 @@
     "build": "nest build",
     "dev": "nest start --watch",
     "start": "node dist/main.js",
+    "start:worker": "node dist/worker.js",
     "test": "jest --runInBand",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint src test"
@@ -17,7 +18,9 @@
     "@nestjs/jwt": "11.0.2",
     "@nestjs/mongoose": "11.0.4",
     "@nestjs/platform-express": "11.1.28",
+    "@nestjs/platform-socket.io": "11.1.28",
     "@nestjs/swagger": "11.4.6",
+    "@nestjs/websockets": "11.1.28",
     "bcryptjs": "3.0.2",
     "class-transformer": "0.5.1",
     "class-validator": "0.14.2",
@@ -29,7 +32,8 @@
     "nodemailer": "9.0.5",
     "reflect-metadata": "0.2.2",
     "rxjs": "7.8.2",
-    "sanitize-html": "2.17.5"
+    "sanitize-html": "2.17.5",
+    "socket.io": "4.8.1"
   },
   "devDependencies": {
     "@eslint/js": "9.35.0",
@@ -46,6 +50,7 @@
     "eslint": "9.35.0",
     "globals": "16.4.0",
     "jest": "30.1.3",
+    "socket.io-client": "4.8.1",
     "supertest": "7.1.4",
     "ts-jest": "29.4.1",
     "typescript": "5.9.2",

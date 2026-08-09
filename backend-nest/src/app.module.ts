@@ -8,6 +8,7 @@ import { IdentityModule } from "./identity/identity.module";
 import { InfrastructureModule } from "./infrastructure/infrastructure.module";
 import { LearningModule } from "./learning/learning.module";
 import { MentoringModule } from "./mentoring/mentoring.module";
+import { MessagingModule } from "./messaging/messaging.module";
 import { ProfileModule } from "./mentoring/profile.module";
 import { SupportModule } from "./support/support.module";
 
@@ -26,6 +27,7 @@ import { SupportModule } from "./support/support.module";
     IdentityModule,
     LearningModule,
     MentoringModule,
+    MessagingModule,
     ProfileModule,
     SupportModule,
   ],

@@ -23,6 +23,12 @@ import type { UserDocument } from "./user.schema";
 const genericResetMessage =
   "Nếu email này tồn tại, đã gửi liên kết đặt lại mật khẩu.";
 
+type LegacyJwtPayload = {
+  id?: string;
+  sub?: string;
+  data?: string;
+};
+
 @Injectable()
 export class AuthService {
   constructor(
@@ -89,6 +95,19 @@ export class AuthService {
       token: await this.signToken(user),
       user: this.sanitize(user.toObject()),
     };
+  }
+
+  async authenticateToken(token: string): Promise<UserDocument> {
+    try {
+      const payload = await this.jwt.verifyAsync<LegacyJwtPayload>(token);
+      const userId = payload.id ?? payload.sub ?? payload.data;
+      if (!userId) throw new UnauthorizedException();
+      const user = await this.users.findById(userId).select("-password -__v");
+      if (!user?.isVerified) throw new UnauthorizedException();
+      return user;
+    } catch {
+      throw new UnauthorizedException();
+    }
   }
 
   async forgotPassword(dto: ForgotPasswordDto) {
