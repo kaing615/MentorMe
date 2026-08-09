@@ -1,12 +1,6 @@
-.git
-.github
-.env
-.env.*
-!.env.example
 node_modules
+dist
 coverage
 test
+.env*
 *.log
-npm-debug.log*
-Dockerfile*
-README.md

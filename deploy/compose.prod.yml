@@ -2,8 +2,7 @@ x-api-environment: &api-environment
   NODE_ENV: production
   PORT: 4000
   MONGO_URL: ${MONGO_URL:?MONGO_URL is required}
-  JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?JWT_ACCESS_SECRET is required}
-  JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?JWT_REFRESH_SECRET is required}
+  JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
   CORS_ORIGINS: ${CORS_ORIGINS:?CORS_ORIGINS is required}
   FRONTEND_URL: ${FRONTEND_URL:?FRONTEND_URL is required}
   PUBLIC_API_URL: ${PUBLIC_API_URL:?PUBLIC_API_URL is required}
@@ -88,7 +87,7 @@ services:
 
   worker:
     image: "${API_IMAGE:?API_IMAGE is required}:${IMAGE_TAG:?IMAGE_TAG is required}"
-    command: ["node", "src/worker.js"]
+    command: ["node", "dist/worker.js"]
     init: true
     restart: unless-stopped
     read_only: true

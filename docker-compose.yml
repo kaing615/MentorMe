@@ -1,12 +1,20 @@
-version: '3.8'
-
 services:
   mongo:
-    image: mongo:6
+    image: mongo:8.0
+    command: ["mongod", "--replSet", "rs0", "--bind_ip_all"]
     ports:
       - "27017:27017"
     volumes:
       - mongo_data:/data/db
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "mongosh --quiet --eval \"try { rs.status().ok } catch (error) { rs.initiate({_id:'rs0',members:[{_id:0,host:'mongo:27017'}]}).ok }\" | grep 1",
+        ]
+      interval: 2s
+      timeout: 5s
+      retries: 30
 
   backend:
     build: ./backend
@@ -15,18 +23,31 @@ services:
     env_file:
       - ./backend/.env
     environment:
-      - MONGO_URL=mongodb://mongo:27017/mentorme-local
+      MONGO_URL: mongodb://mongo:27017/mentorme-local?replicaSet=rs0
     depends_on:
-      - mongo
-    volumes:
-      - ./backend:/app
-    restart: always
+      mongo:
+        condition: service_healthy
+    restart: unless-stopped
+
+  worker:
+    build: ./backend
+    command: ["node", "dist/worker.js"]
+    env_file:
+      - ./backend/.env
+    environment:
+      MONGO_URL: mongodb://mongo:27017/mentorme-local?replicaSet=rs0
+    depends_on:
+      mongo:
+        condition: service_healthy
+    healthcheck:
+      disable: true
+    restart: "no"
 
   frontend:
     build: ./frontend
     ports:
       - "3000:3000"
-    restart: always
+    restart: unless-stopped
 
 volumes:
   mongo_data:

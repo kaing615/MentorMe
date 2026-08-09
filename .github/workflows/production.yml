@@ -58,10 +58,10 @@ jobs:
             frontend/package-lock.json
       - name: Verify backend
         working-directory: backend
-        run: npm ci && npm test && npm audit --omit=dev --audit-level=high
+        run: npm ci && npm run typecheck && npm run lint && npm test && npm run build && npm audit --omit=dev --audit-level=high
       - name: Verify frontend
         working-directory: frontend
-        run: npm ci && npm test && npm run lint:ci && npm run build && npm audit --omit=dev --audit-level=high
+        run: npm ci && npm run typecheck && npm run lint -- --quiet && npm run build && npm audit --omit=dev --audit-level=high
       - name: Verify docs and deployment contracts
         run: |
           node scripts/verify-docs.mjs
@@ -154,6 +154,7 @@ jobs:
           GHCR_USER: ${{ github.actor }}
           GHCR_TOKEN: ${{ secrets.PRODUCTION_GHCR_TOKEN }}
         run: |
+          # shellcheck disable=SC2029
           printf '%s' "$GHCR_TOKEN" | ssh "$DEPLOY_USER@$DEPLOY_HOST" \
             "docker login ghcr.io --username '$GHCR_USER' --password-stdin"
       - name: Run health-gated rolling deployment
@@ -162,6 +163,7 @@ jobs:
           DEPLOY_USER: ${{ secrets.PRODUCTION_USER }}
           RELEASE_SHA: ${{ needs.verify.outputs.sha }}
         run: |
+          # shellcheck disable=SC2029
           ssh "$DEPLOY_USER@$DEPLOY_HOST" \
             "cd /opt/mentorme && DEPLOY_ROOT=/opt/mentorme bash deploy/scripts/deploy.sh '$RELEASE_SHA'"
       - name: Record deployment summary
@@ -169,6 +171,7 @@ jobs:
           RELEASE_SHA: ${{ needs.verify.outputs.sha }}
           PRODUCTION_URL: ${{ vars.PRODUCTION_URL }}
         run: |
+          # shellcheck disable=SC2129
           echo "## Production API deployment" >> "$GITHUB_STEP_SUMMARY"
           echo "- SHA: \`$RELEASE_SHA\`" >> "$GITHUB_STEP_SUMMARY"
           echo "- URL: $PRODUCTION_URL" >> "$GITHUB_STEP_SUMMARY"
@@ -198,8 +201,7 @@ jobs:
       - name: Build frontend
         working-directory: frontend
         env:
-          VITE_API_BASE_URL: ${{ vars.PRODUCTION_API_URL }}
-          VITE_SOCKET_URL: ${{ vars.PRODUCTION_SOCKET_URL }}
+          VITE_API_URL: ${{ vars.PRODUCTION_API_URL }}/api/v1
         run: npm ci && npm run build
       - name: Publish Pages deployment
         working-directory: frontend

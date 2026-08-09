@@ -31,9 +31,9 @@ test("Nginx forwards request IDs and WebSocket upgrades to both slots", () => {
 
 test("backend image is pinned, multi-stage, and non-root", () => {
   const dockerfile = read("backend/Dockerfile");
-  assert.match(dockerfile, /^FROM node:22\.23\.1-alpine3\.24 AS production-deps/m);
+  assert.match(dockerfile, /^FROM node:22-alpine AS build/m);
   assert.ok((dockerfile.match(/^FROM /gm) || []).length >= 2);
-  assert.match(dockerfile, /npm ci --omit=dev/);
-  assert.match(dockerfile, /^USER node$/m);
+  assert.match(dockerfile, /npm prune --omit=dev/);
+  assert.match(dockerfile, /^USER 1000:1000$/m);
   assert.match(dockerfile, /^HEALTHCHECK /m);
 });

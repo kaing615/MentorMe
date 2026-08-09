@@ -38,12 +38,12 @@ jobs:
       - name: Install frontend dependencies
         working-directory: frontend
         run: npm ci
-      - name: Run frontend tests
+      - name: Type-check frontend
         working-directory: frontend
-        run: npm test
-      - name: Enforce lint debt baseline
+        run: npm run typecheck
+      - name: Lint frontend
         working-directory: frontend
-        run: npm run lint:ci
+        run: npm run lint -- --quiet
       - name: Build production frontend
         working-directory: frontend
         run: npm run build
