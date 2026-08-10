@@ -21,6 +21,7 @@ describe("learning", () => {
   let mentorId: string;
   let coMentorId: string;
   let menteeId: string;
+  let bookingOnlyMenteeId: string;
   let courseId: string;
   let mentorToken: string;
   let menteeToken: string;
@@ -38,7 +39,7 @@ describe("learning", () => {
       getModelToken(PurchasedCourse.name),
     );
     const jwt = app.get(JwtService);
-    const [mentor, coMentor, mentee, outsider, admin] = await users.create([
+    const [mentor, coMentor, mentee, outsider, admin, bookingOnlyMentee] = await users.create([
       {
         email: "learning-mentor@example.com",
         userName: "learning_mentor",
@@ -79,10 +80,19 @@ describe("learning", () => {
         role: "admin",
         isVerified: true,
       },
+      {
+        email: "learning-booking-mentee@example.com",
+        userName: "learning_booking_mentee",
+        firstName: "Booking",
+        lastName: "Mentee",
+        role: "mentee",
+        isVerified: true,
+      },
     ]);
     mentorId = String(mentor!._id);
     coMentorId = String(coMentor!._id);
     menteeId = String(mentee!._id);
+    bookingOnlyMenteeId = String(bookingOnlyMentee!._id);
     mentorToken = await jwt.signAsync({ id: mentorId });
     menteeToken = await jwt.signAsync({ id: menteeId });
     outsiderToken = await jwt.signAsync({ id: String(outsider!._id) });
@@ -331,5 +341,29 @@ describe("learning", () => {
       .set("Authorization", `Bearer ${mentorToken}`)
       .expect(200);
     expect(await courses.findById(unsold._id)).toBeNull();
+  });
+
+  it("keeps booking-only mentees after their session finishes", async () => {
+    await connection.collection("bookings").insertOne({
+      mentor: new Types.ObjectId(mentorId),
+      mentee: new Types.ObjectId(bookingOnlyMenteeId),
+      status: "finished",
+      createdAt: new Date(),
+    });
+
+    const response = await request(app.getHttpServer())
+      .get("/api/v1/purchased-courses/mentees")
+      .set("Authorization", `Bearer ${mentorToken}`)
+      .expect(200);
+
+    expect(response.body.data.mentees).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          _id: bookingOnlyMenteeId,
+          hasBooking: true,
+          bookingCount: 1,
+        }),
+      ]),
+    );
   });
 });

@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "react-toastify";
 import publicClient from "../api/clients/public.client";
 import {
+  isSuccessfulOrderStatus,
   paymentReturnOrderNumber,
   type PaymentProvider,
 } from "../utils/payment-flow";
@@ -19,8 +20,13 @@ const PaymentReturnPage = ({ provider }: { provider: PaymentProvider }) => {
           const response: any = await publicClient.get("/payment/vnpay/return", {
             params: Object.fromEntries(searchParams.entries()),
           });
-          orderNumber = response?.data?.order?.orderNumber || orderNumber;
-          toast.success(response?.data?.message || "Đã xử lý kết quả thanh toán");
+          const order = response?.data?.order;
+          orderNumber = order?.orderNumber || orderNumber;
+          if (isSuccessfulOrderStatus(order?.status)) {
+            toast.success(response?.data?.message || "Thanh toán thành công");
+          } else {
+            toast.error(response?.data?.message || "Thanh toán thất bại");
+          }
         }
         if (!orderNumber) throw new Error("Không tìm thấy mã đơn hàng");
         navigate(`/order-detail?orderId=${encodeURIComponent(orderNumber)}`, {

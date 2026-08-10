@@ -254,7 +254,6 @@ export class CourseService {
       rate: dto.rating,
       ...(dto.comment !== undefined && { content: dto.comment }),
     });
-    await this.refreshRating(id);
     return review;
   }
 
@@ -379,17 +378,6 @@ export class CourseService {
       throw new ForbiddenException("You do not have permission to modify this course.");
     }
     return course;
-  }
-
-  private async refreshRating(courseId: string): Promise<void> {
-    const reviews = await this.reviewModel.find({ target: courseId, targetType: "Course" });
-    const rate = reviews.length
-      ? reviews.reduce((sum, review) => sum + review.rate, 0) / reviews.length
-      : 0;
-    await this.courses.updateOne(
-      { _id: courseId },
-      { $set: { rate, numberOfRatings: reviews.length } },
-    );
   }
 
   private filter(query: CourseQueryDto): FilterQuery<Course> {

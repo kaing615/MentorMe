@@ -11,3 +11,6 @@ export const paymentReturnOrderNumber = (
   params: URLSearchParams,
 ): string =>
   params.get(provider === "vnpay" ? "vnp_TxnRef" : "orderId") || "";
+
+export const isSuccessfulOrderStatus = (status?: string): boolean =>
+  status === "paid" || status === "completed";

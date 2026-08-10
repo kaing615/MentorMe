@@ -37,6 +37,7 @@ describe("reviews", () => {
         firstName: "Review",
         lastName: "Mentor",
         role: "mentor",
+        roles: ["mentor", "mentee"],
         isVerified: true,
       },
       {
@@ -88,6 +89,21 @@ describe("reviews", () => {
   });
 
   it("creates sanitized reviews only for eligible targets", async () => {
+    await connection.collection("courses").updateOne(
+      { _id: courseId },
+      { $addToSet: { mentees: new Types.ObjectId(mentorId) } },
+    );
+    await request(app.getHttpServer())
+      .post("/api/v1/reviews")
+      .set("Authorization", `Bearer ${mentorToken}`)
+      .send({ targetType: "Course", target: String(courseId), rate: 5 })
+      .expect(403);
+    await request(app.getHttpServer())
+      .post("/api/v1/reviews")
+      .set("Authorization", `Bearer ${mentorToken}`)
+      .send({ targetType: "Mentor", target: mentorId, rate: 5 })
+      .expect(403);
+
     await request(app.getHttpServer())
       .post("/api/v1/reviews")
       .set("Authorization", `Bearer ${outsiderToken}`)

@@ -14,6 +14,7 @@ import { showLoading, hideLoading } from "../redux/features/loading.slice";
 import { toast } from "react-toastify";
 import orderApi from "../api/modules/order.api";
 import { formatVnd as formatCurrency } from "../utils/currency";
+import { isSuccessfulOrderStatus } from "../utils/payment-flow";
 import { hasUserRole } from "../utils/user-role";
 
 const OrderComplete = () => {
@@ -146,13 +147,16 @@ const OrderComplete = () => {
     );
   }
 
-  // Success state
+  const successful = isSuccessfulOrderStatus(orderInfo.status);
+
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 lg:px-10 xl:px-14 2xl:px-20 py-16">
         <div className="max-w-md mx-auto text-center">
           <div className="mb-8">
-            <div className="w-24 h-24 bg-green-500 rounded-full flex items-center justify-center mx-auto">
+            <div
+              className={`w-24 h-24 ${successful ? "bg-green-500" : "bg-red-500"} rounded-full flex items-center justify-center mx-auto`}
+            >
               <svg
                 className="w-12 h-12 text-white"
                 fill="none"
@@ -163,7 +167,7 @@ const OrderComplete = () => {
                   strokeLinecap="round"
                   strokeLinejoin="round"
                   strokeWidth={3}
-                  d="M5 13l4 4L19 7"
+                  d={successful ? "M5 13l4 4L19 7" : "M6 18L18 6M6 6l12 12"}
                 />
               </svg>
             </div>
@@ -171,10 +175,12 @@ const OrderComplete = () => {
 
           <div className="mb-8">
             <h1 className="text-3xl font-bold text-gray-900 mb-4">
-              Order Complete
+              {successful ? "Order Complete" : "Payment Failed"}
             </h1>
             <p className="text-gray-600 text-lg">
-              You will receive a confirmation email soon!
+              {successful
+                ? "You will receive a confirmation email soon!"
+                : "Your payment was not completed. You can safely try again."}
             </p>
           </div>
 
@@ -205,7 +211,9 @@ const OrderComplete = () => {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">Status:</span>
-                  <span className="font-medium text-green-600 capitalize">
+                  <span
+                    className={`font-medium ${successful ? "text-green-600" : "text-red-600"} capitalize`}
+                  >
                     {orderInfo?.status || "Unavailable"}
                   </span>
                 </div>
@@ -240,7 +248,9 @@ const OrderComplete = () => {
               <span className="text-xl font-semibold text-gray-700">
                 Total Amount:
               </span>
-              <span className="text-xl font-bold text-green-600">
+              <span
+                className={`text-xl font-bold ${successful ? "text-green-600" : "text-red-600"}`}
+              >
                 {formatCurrency(orderInfo.total)}
               </span>
             </div>
@@ -248,10 +258,10 @@ const OrderComplete = () => {
 
           <div className="space-y-4">
             <button
-              onClick={handleBackToProfile}
+              onClick={successful ? handleBackToProfile : () => navigate("/shoppingcart")}
               className="w-full bg-blue-600 text-white py-3 px-6 rounded-lg font-medium hover:bg-blue-700 transition-colors"
             >
-              Quay về trang chủ
+              {successful ? "Quay về trang chủ" : "Thử thanh toán lại"}
             </button>
 
             <button
@@ -262,7 +272,7 @@ const OrderComplete = () => {
             </button>
           </div>
 
-          {/* Info & Support */}
+          {successful && (
           <div className="mt-8 p-4 bg-blue-50 rounded-lg text-left">
             <div className="flex items-start gap-3">
               <svg
@@ -290,6 +300,7 @@ const OrderComplete = () => {
               </div>
             </div>
           </div>
+          )}
 
           <div className="mt-6 text-sm text-gray-500">
             <p>

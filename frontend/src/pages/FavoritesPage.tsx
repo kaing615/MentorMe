@@ -9,6 +9,7 @@ import {
 } from "@tabler/icons-react";
 import { useNavigate } from "react-router-dom";
 import favoriteApi, { type FavoriteType } from "../api/modules/favorite.api";
+import { formatVnd } from "../utils/currency";
 
 type Filter = "all" | "mentor" | "course";
 
@@ -199,7 +200,7 @@ const FavoritesPage = () => {
                     </div>
                     <div className="mt-5 flex items-center justify-between">
                       <span className="font-extrabold text-[var(--ui-text)]">
-                        {typeof course.price === "number" ? `$${course.price.toLocaleString()}` : ""}
+                        {typeof course.price === "number" ? formatVnd(course.price) : ""}
                       </span>
                       <button
                         type="button"

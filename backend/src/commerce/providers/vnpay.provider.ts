@@ -28,13 +28,13 @@ export class VnpayProvider implements PaymentProvider {
       vnp_ReturnUrl: input.returnUrl,
       vnp_TxnRef: input.orderNumber,
     };
-    const signature = this.sign(params);
-    const query = new URLSearchParams({ ...params, vnp_SecureHash: signature });
+    const query = this.serialize(params);
+    const signature = this.sign(query);
     const base =
       this.config.get<string>("VNPAY_URL") ??
       "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html";
     return Promise.resolve({
-      redirectUrl: `${base}?${query.toString()}`,
+      redirectUrl: `${base}?${query}&vnp_SecureHash=${signature}`,
       providerReference: input.orderNumber,
     });
   }
@@ -45,7 +45,7 @@ export class VnpayProvider implements PaymentProvider {
     const signature = params.vnp_SecureHash ?? "";
     delete params.vnp_SecureHash;
     delete params.vnp_SecureHashType;
-    const expected = this.sign(params);
+    const expected = this.sign(this.serialize(params));
     if (!this.equal(signature, expected)) {
       throw new BadRequestException("Invalid signature");
     }
@@ -68,12 +68,15 @@ export class VnpayProvider implements PaymentProvider {
     });
   }
 
-  private sign(params: Record<string, string>): string {
-    const data = Object.keys(params)
-      .filter((key) => params[key] !== undefined && params[key] !== "")
-      .sort()
-      .map((key) => `${key}=${params[key]}`)
-      .join("&");
+  private serialize(params: Record<string, string>): string {
+    return new URLSearchParams(
+      Object.entries(params)
+        .filter(([, value]) => value !== undefined && value !== "")
+        .sort(([left], [right]) => left.localeCompare(right)),
+    ).toString();
+  }
+
+  private sign(data: string): string {
     return crypto
       .createHmac(
         "sha512",

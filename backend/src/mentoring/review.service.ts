@@ -259,10 +259,12 @@ export class ReviewService {
           _id: item.target,
           status: "finished",
           mentee: userId,
+          mentor: { $ne: userId },
         }),
       );
     }
     if (item.targetType === "Mentor") {
+      if (String(item.target) === String(userId)) return false;
       if (
         await this.bookings.exists({
           mentor: item.target,
@@ -284,6 +286,7 @@ export class ReviewService {
       .findOne({ _id: new Types.ObjectId(item.target) });
     return Boolean(
       course &&
+        String(course.mentor) !== String(userId) &&
         course.mentees?.some((id) => String(id) === String(userId)),
     );
   }

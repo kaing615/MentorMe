@@ -190,7 +190,10 @@ export class PurchasedCourseService {
     const courseIds = courses.map(({ _id }) => _id);
     const [purchases, bookings] = await Promise.all([
       this.purchases.find({ course: { $in: courseIds } }),
-      this.bookings.find({ mentor: user._id, status: "active" }),
+      this.bookings.find({
+        mentor: user._id,
+        status: { $in: ["active", "finished"] },
+      }),
     ]);
     const values = new Map<
       string,

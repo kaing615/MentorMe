@@ -6,6 +6,7 @@ import profileApi from "../api/modules/profile.api";
 import cartApi from "../api/modules/cart.api";
 import reviewApi from "../api/modules/review.api";
 import { hasUserRole } from "../utils/user-role";
+import { formatVnd, parseVndPriceRange } from "../utils/currency";
 import { toast } from "react-toastify";
 import { showLoading, hideLoading } from "../redux/features/loading.slice";
 import {
@@ -319,10 +320,10 @@ const SearchPage = () => {
 
   const priceRanges = [
     { label: "Free", value: "free" },
-    { label: "Under $50", value: "0-50" },
-    { label: "$50 - $100", value: "50-100" },
-    { label: "$100 - $200", value: "100-200" },
-    { label: "Over $200", value: "200+" },
+    { label: "Under 500,000 ₫", value: "0-500000" },
+    { label: "500,000 ₫ - 1,000,000 ₫", value: "500000-1000000" },
+    { label: "1,000,000 ₫ - 2,000,000 ₫", value: "1000000-2000000" },
+    { label: "Over 2,000,000 ₫", value: "2000000+" },
   ];
 
   // Clear all filters
@@ -455,17 +456,9 @@ const SearchPage = () => {
         filters.level = selectedLevels[0];
       }
 
-      if (selectedPriceRange && selectedPriceRange !== "free") {
-        const [min, max] = selectedPriceRange
-          .split("-")
-          .map((p) => p.replace("+", ""));
-        if (min) filters.priceMin = parseInt(min);
-        if (max && max !== min) filters.priceMax = parseInt(max);
-        else if (selectedPriceRange.includes("+"))
-          filters.priceMin = parseInt(min);
-      } else if (selectedPriceRange === "free") {
-        filters.priceMax = 0;
-      }
+      const priceRange = parseVndPriceRange(selectedPriceRange);
+      if (priceRange.min !== undefined) filters.priceMin = priceRange.min;
+      if (priceRange.max !== undefined) filters.priceMax = priceRange.max;
 
       if (Object.keys(filters).length > 0) {
         params.filterBy = JSON.stringify(filters);
@@ -718,14 +711,10 @@ const SearchPage = () => {
 
     // Price range filter
     if (selectedPriceRange) {
-      const [min, max] = selectedPriceRange.split("-").map(Number);
+      const { min = 0, max } = parseVndPriceRange(selectedPriceRange);
       filtered = filtered.filter((course) => {
         const price = course.price || 0;
-        if (max) {
-          return price >= min && price <= max;
-        } else {
-          return price >= min;
-        }
+        return price >= min && (max === undefined || price <= max);
       });
     }
 
@@ -1458,19 +1447,11 @@ const SearchPage = () => {
                           )}
 
                           <div className="font-bold text-xl text-gray-900 mt-auto">
-                            $
-                            {(() => {
-                              const price =
-                                typeof course.price === "number"
-                                  ? course.price
-                                  : parseFloat(course.price || 0);
-                              return price % 1 === 0
-                                ? price.toLocaleString("en-US")
-                                : price.toLocaleString("en-US", {
-                                    minimumFractionDigits: 1,
-                                    maximumFractionDigits: 2,
-                                  });
-                            })()}
+                            {formatVnd(
+                              typeof course.price === "number"
+                                ? course.price
+                                : parseFloat(course.price || 0),
+                            )}
                           </div>
 
                           {hasUserRole(user, "mentee") && (
