@@ -4,6 +4,7 @@ const userEndpoints = {
   signin: "user/signin",
   signup: "user/signup",
   signupMentor: "user/signupMentor",
+  applyMentor: "user/applyMentor",
   verifyEmail: "user/verify",
   resendVerificationEmail: "user/resend-verification-email",
   forgotPassword: "user/forgot-password",
@@ -14,6 +15,7 @@ const authApi: any = {
   signin: (data) => publicClient.post(userEndpoints.signin, data),
   signup: (data) => publicClient.post(userEndpoints.signup, data),
   signupMentor: (data) => publicClient.post(userEndpoints.signupMentor, data),
+  applyMentor: (data) => publicClient.post(userEndpoints.applyMentor, data),
   verifyEmail: (data) => publicClient.get(userEndpoints.verifyEmail, data),
   resendVerificationEmail: (data) =>
     publicClient.post(userEndpoints.resendVerificationEmail, data),

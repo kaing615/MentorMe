@@ -1,7 +1,6 @@
 import {
   Body,
   Controller,
-  Delete,
   Get,
   HttpCode,
   Param,
@@ -72,11 +71,4 @@ export class PurchasedCourseController {
     return this.purchases.review(user, id, dto);
   }
 
-  @Delete(":purchasedCourseId")
-  remove(
-    @CurrentUser() user: UserDocument,
-    @Param("purchasedCourseId") id: string,
-  ) {
-    return this.purchases.remove(user, id);
-  }
 }

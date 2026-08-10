@@ -194,6 +194,12 @@ describe("learning", () => {
       .expect(201);
     const lessonId = lesson.body.data.lessons[0]._id as string;
 
+    const publicDetail = await request(app.getHttpServer())
+      .get(`/api/v1/course/${courseId}`)
+      .expect(200);
+    expect(publicDetail.body.data.course.link).toBeUndefined();
+    expect(publicDetail.body.data.course.lessons).toBeUndefined();
+
     await request(app.getHttpServer())
       .delete(`/api/v1/course/${courseId}/content/${lessonId}`)
       .set("Authorization", `Bearer ${outsiderToken}`)
@@ -252,10 +258,13 @@ describe("learning", () => {
     const purchasedId = list.body.data.courses[0].purchasedCourseId as string;
     expect(list.body.data.totalCourses).toBe(1);
 
-    await request(app.getHttpServer())
+    const purchaseCheck = await request(app.getHttpServer())
       .get(`/api/v1/purchased-courses/check/${courseId}`)
       .set("Authorization", `Bearer ${menteeToken}`)
       .expect(200);
+    expect(purchaseCheck.body.data.courseData.courseInfo.link).toBe(
+      "https://example.com/course",
+    );
     await request(app.getHttpServer())
       .get(`/api/v1/purchased-courses/details/${purchasedId}`)
       .set("Authorization", `Bearer ${menteeToken}`)
@@ -265,6 +274,17 @@ describe("learning", () => {
       .set("Authorization", `Bearer ${menteeToken}`)
       .send({ progress: 75 })
       .expect(200);
+    await request(app.getHttpServer())
+      .patch(`/api/v1/purchased-courses/${purchasedId}/progress`)
+      .set("Authorization", `Bearer ${menteeToken}`)
+      .send({ progress: 100 })
+      .expect(200);
+    expect(
+      await connection.collection("notifications").countDocuments({
+        recipient: new Types.ObjectId(menteeId),
+        type: "course_completed",
+      }),
+    ).toBe(1);
     await request(app.getHttpServer())
       .post(`/api/v1/purchased-courses/${purchasedId}/review`)
       .set("Authorization", `Bearer ${menteeToken}`)
@@ -280,15 +300,36 @@ describe("learning", () => {
     await request(app.getHttpServer())
       .delete(`/api/v1/purchased-courses/${purchasedId}`)
       .set("Authorization", `Bearer ${menteeToken}`)
-      .expect(200);
-    expect(await purchases.findById(purchasedId)).toBeNull();
+      .expect(404);
+    expect(await purchases.findById(purchasedId)).not.toBeNull();
   });
 
-  it("deletes owned courses and their dependent learning records", async () => {
+  it("preserves sold courses and deletes only unsold owned courses", async () => {
+    await app.get(EnrolmentService).grantCourseAccess({
+      menteeId,
+      courseId,
+      orderId: String(new Types.ObjectId()),
+      price: 99,
+    });
     await request(app.getHttpServer())
       .delete(`/api/v1/course/${courseId}`)
       .set("Authorization", `Bearer ${mentorToken}`)
+      .expect(409);
+    expect(await courses.findById(courseId)).not.toBeNull();
+
+    const unsold = await courses.create({
+      title: "Unsold course",
+      description: "This course has no paid enrolments.",
+      price: 20,
+      mentor: mentorId,
+      category: "Development",
+      link: "https://example.com/unsold",
+      lectures: 1,
+    });
+    await request(app.getHttpServer())
+      .delete(`/api/v1/course/${String(unsold._id)}`)
+      .set("Authorization", `Bearer ${mentorToken}`)
       .expect(200);
-    expect(await courses.findById(courseId)).toBeNull();
+    expect(await courses.findById(unsold._id)).toBeNull();
   });
 });

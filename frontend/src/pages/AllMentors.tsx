@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import BoImg from "../assets/Bơ.jpg";
-import OipImg from "../assets/OIP.webp";
-import GradImg from "../assets/grad.png";
-import WhiteImg from "../assets/white.png";
+import profileApi from "../api/modules/profile.api";
+import { hasUserRole } from "../utils/user-role";
+import { mapMentorListResponse } from "../utils/mentor-list";
 import {
   IconChevronDown,
   IconChevronLeft,
@@ -14,8 +13,6 @@ import {
   IconStar,
   IconStarFilled,
 } from "@tabler/icons-react";
-
-const mentorPortraits = [BoImg, OipImg, GradImg, WhiteImg];
 
 const AllMentors = () => {
   const navigate = useNavigate();
@@ -43,7 +40,7 @@ const AllMentors = () => {
       return;
     }
     // Check role - chỉ mentor và mentee được phép vào
-    if (user.role === "mentor" || user.role === "mentee") {
+    if (hasUserRole(user, "mentor") || hasUserRole(user, "mentee")) {
       return;
     }
     // Nếu không phải mentor hoặc mentee, redirect về signin
@@ -61,7 +58,6 @@ const AllMentors = () => {
   const [selectedRating, setSelectedRating] = useState<any>("");
   const [selectedSkills, setSelectedSkills] = useState<any[]>([]);
   const [selectedJobTitles, setSelectedJobTitles] = useState<any[]>([]);
-  const [selectedPriceRange, setSelectedPriceRange] = useState<any>("");
   const [sortBy, setSortBy] = useState<any>("relevance");
   const [searchTerm, setSearchTerm] = useState<any>("");
 
@@ -69,221 +65,28 @@ const AllMentors = () => {
   const [isRatingExpanded, setIsRatingExpanded] = useState<any>(true);
   const [isSkillsExpanded, setIsSkillsExpanded] = useState<any>(true);
   const [isJobTitlesExpanded, setIsJobTitlesExpanded] = useState<any>(true);
-  const [isPriceExpanded, setIsPriceExpanded] = useState<any>(true);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState<any>(false);
 
   // Pagination
   const [currentPage, setCurrentPage] = useState<any>(1);
   const [mentorsPerPage] = useState<any>(6);
 
-  // TODO: Replace with actual API call to fetch all mentors
   useEffect(() => {
     const fetchMentors = async () => {
       try {
         setLoading(true);
+        setError(null);
 
-        // TODO: Replace with actual API endpoint
-        // const response = await fetch('/api/mentors');
-        // const data = await response.json();
-        // setMentors(data);
-
-        // Mock data for now
-        const mockMentors = [
-          {
-            id: 1,
-            name: "Sarah Johnson",
-            title: "Senior Frontend Developer",
-            avatar: "/api/placeholder/200/200",
-            rating: 4.9,
-            reviewCount: 245,
-            studentCount: 3521,
-            skills: ["React", "TypeScript", "Next.js", "Tailwind CSS"],
-            hourlyRate: 75,
-            description:
-              "Expert in modern frontend technologies with 8+ years experience",
-            verified: true,
-            online: true,
-          },
-          {
-            id: 2,
-            name: "Michael Chen",
-            title: "Full Stack Engineer",
-            avatar: "/api/placeholder/200/200",
-            rating: 4.8,
-            reviewCount: 189,
-            studentCount: 2847,
-            skills: ["Node.js", "React", "PostgreSQL", "AWS"],
-            hourlyRate: 85,
-            description:
-              "Full-stack developer specializing in scalable web applications",
-            verified: true,
-            online: true,
-          },
-          {
-            id: 3,
-            name: "Emily Rodriguez",
-            title: "UX/UI Designer",
-            avatar: "/api/placeholder/200/200",
-            rating: 4.7,
-            reviewCount: 156,
-            studentCount: 1923,
-            skills: ["Figma", "Adobe XD", "User Research", "Prototyping"],
-            hourlyRate: 65,
-            description:
-              "Creative designer focused on user-centered design principles",
-            verified: true,
-            online: false,
-          },
-          {
-            id: 4,
-            name: "David Kim",
-            title: "DevOps Engineer",
-            avatar: "/api/placeholder/200/200",
-            rating: 4.6,
-            reviewCount: 98,
-            studentCount: 1456,
-            skills: ["Docker", "Kubernetes", "AWS", "CI/CD"],
-            hourlyRate: 95,
-            description: "Infrastructure expert with cloud computing expertise",
-            verified: true,
-            online: true,
-          },
-          {
-            id: 5,
-            name: "Lisa Wang",
-            title: "Mobile Developer",
-            avatar: "/api/placeholder/200/200",
-            rating: 4.8,
-            reviewCount: 267,
-            studentCount: 2156,
-            skills: ["React Native", "Flutter", "iOS", "Android"],
-            hourlyRate: 80,
-            description: "Cross-platform mobile development specialist",
-            verified: true,
-            online: true,
-          },
-          {
-            id: 6,
-            name: "James Thompson",
-            title: "Data Scientist",
-            avatar: "/api/placeholder/200/200",
-            rating: 4.5,
-            reviewCount: 134,
-            studentCount: 987,
-            skills: ["Python", "Machine Learning", "TensorFlow", "SQL"],
-            hourlyRate: 90,
-            description: "AI/ML expert with strong statistical background",
-            verified: true,
-            online: false,
-          },
-          {
-            id: 7,
-            name: "Maria Garcia",
-            title: "Backend Developer",
-            avatar: "/api/placeholder/200/200",
-            rating: 4.7,
-            reviewCount: 178,
-            studentCount: 2234,
-            skills: ["Java", "Spring Boot", "MongoDB", "Microservices"],
-            hourlyRate: 70,
-            description: "Scalable backend systems and API development expert",
-            verified: true,
-            online: true,
-          },
-          {
-            id: 8,
-            name: "Robert Brown",
-            title: "Cybersecurity Specialist",
-            avatar: "/api/placeholder/200/200",
-            rating: 4.9,
-            reviewCount: 89,
-            studentCount: 765,
-            skills: [
-              "Penetration Testing",
-              "Network Security",
-              "CISSP",
-              "Ethical Hacking",
-            ],
-            hourlyRate: 110,
-            description:
-              "Cybersecurity expert with enterprise security experience",
-            verified: true,
-            online: true,
-          },
-          {
-            id: 9,
-            name: "Jennifer Liu",
-            title: "Product Manager",
-            avatar: "/api/placeholder/200/200",
-            rating: 4.6,
-            reviewCount: 145,
-            studentCount: 1234,
-            skills: [
-              "Product Strategy",
-              "Agile",
-              "User Analytics",
-              "Roadmapping",
-            ],
-            hourlyRate: 85,
-            description:
-              "Strategic product management with 6+ years at tech startups",
-            verified: true,
-            online: false,
-          },
-          {
-            id: 10,
-            name: "Alex Martinez",
-            title: "Blockchain Developer",
-            avatar: "/api/placeholder/200/200",
-            rating: 4.4,
-            reviewCount: 67,
-            studentCount: 543,
-            skills: ["Solidity", "Web3", "Smart Contracts", "DeFi"],
-            hourlyRate: 120,
-            description: "Blockchain and cryptocurrency development specialist",
-            verified: true,
-            online: true,
-          },
-          {
-            id: 11,
-            name: "Sophie Anderson",
-            title: "Digital Marketing Expert",
-            avatar: "/api/placeholder/200/200",
-            rating: 4.8,
-            reviewCount: 223,
-            studentCount: 1876,
-            skills: ["SEO", "Google Ads", "Social Media", "Content Marketing"],
-            hourlyRate: 55,
-            description: "Digital marketing strategist with proven ROI results",
-            verified: true,
-            online: true,
-          },
-          {
-            id: 12,
-            name: "Carlos Oliveira",
-            title: "Game Developer",
-            avatar: "/api/placeholder/200/200",
-            rating: 4.5,
-            reviewCount: 112,
-            studentCount: 892,
-            skills: ["Unity", "C#", "3D Modeling", "Game Design"],
-            hourlyRate: 65,
-            description: "Indie game developer with published titles on Steam",
-            verified: true,
-            online: false,
-          },
-        ];
-
-        const mentorsWithImages = mockMentors.map((mentor, index) => ({
-          ...mentor,
-          avatar: mentorPortraits[index % mentorPortraits.length],
-        }));
-        setMentors(mentorsWithImages);
-        setFilteredMentors(mentorsWithImages);
-        setLoading(false);
+        const response = await profileApi.getTopMentors(50);
+        const realMentors = mapMentorListResponse(response);
+        setMentors(realMentors);
+        setFilteredMentors(realMentors);
       } catch (err) {
         console.error("Error fetching mentors:", err);
         setError("Failed to load mentors");
+        setMentors([]);
+        setFilteredMentors([]);
+      } finally {
         setLoading(false);
       }
     };
@@ -334,20 +137,11 @@ const AllMentors = () => {
     "Game Developer",
   ];
 
-  const priceRanges = [
-    { label: "Under $25/hr", value: "0-25" },
-    { label: "$25 - $50/hr", value: "25-50" },
-    { label: "$50 - $75/hr", value: "50-75" },
-    { label: "$75 - $100/hr", value: "75-100" },
-    { label: "Over $100/hr", value: "100+" },
-  ];
-
   // Clear all filters
   const clearAllFilters = () => {
     setSelectedRating("");
     setSelectedSkills([]);
     setSelectedJobTitles([]);
-    setSelectedPriceRange("");
     setSortBy("relevance");
     setSearchTerm("");
   };
@@ -363,7 +157,6 @@ const AllMentors = () => {
     if (selectedRating) count++;
     if (selectedSkills.length > 0) count++;
     if (selectedJobTitles.length > 0) count++;
-    if (selectedPriceRange) count++;
     if (searchTerm) count++;
     return count;
   };
@@ -412,27 +205,10 @@ const AllMentors = () => {
       );
     }
 
-    // Filter by price range
-    if (selectedPriceRange) {
-      const [min, max] = selectedPriceRange
-        .split("-")
-        .map((p) => (p === "+" ? Infinity : parseInt(p)));
-      filtered = filtered.filter((mentor) => {
-        if (max === undefined) return mentor.hourlyRate >= min;
-        return mentor.hourlyRate >= min && mentor.hourlyRate <= max;
-      });
-    }
-
     // Sort mentors
     switch (sortBy) {
       case "rating":
         filtered.sort((a, b) => b.rating - a.rating);
-        break;
-      case "price-low":
-        filtered.sort((a, b) => a.hourlyRate - b.hourlyRate);
-        break;
-      case "price-high":
-        filtered.sort((a, b) => b.hourlyRate - a.hourlyRate);
         break;
       case "students":
         filtered.sort((a, b) => b.studentCount - a.studentCount);
@@ -452,7 +228,6 @@ const AllMentors = () => {
     selectedRating,
     selectedSkills,
     selectedJobTitles,
-    selectedPriceRange,
     sortBy,
     searchTerm,
     mentors,
@@ -467,11 +242,9 @@ const AllMentors = () => {
   );
   const totalPages = Math.ceil(filteredMentors.length / mentorsPerPage);
 
-  // TODO: Implement mentor profile navigation
   const handleViewProfile = (mentorId) => {
-    // TODO: Navigate to mentor profile page when route is ready
-    // navigate(`/mentor/${mentorId}`);
-    console.log(`Navigate to mentor profile: ${mentorId}`);
+    navigate(`/mentor/${mentorId}`);
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   // TODO: Implement skill filter toggle
@@ -564,8 +337,6 @@ const AllMentors = () => {
                 >
                   <option value="relevance">Relevance</option>
                   <option value="rating">Rating</option>
-                  <option value="price-low">Price: Low to High</option>
-                  <option value="price-high">Price: High to Low</option>
                   <option value="students">Most Students</option>
                 </select>
               </div>
@@ -716,38 +487,6 @@ const AllMentors = () => {
                   </div>
                 )}
               </div>
-
-              {/* Price Range Filter */}
-              <div className="mb-6">
-                <h3
-                  className="font-semibold text-gray-900 mb-3 flex items-center justify-between cursor-pointer"
-                  onClick={() => setIsPriceExpanded(!isPriceExpanded)}
-                >
-                  <span>Prices</span>
-                  <IconChevronDown aria-hidden="true" className={`h-4 w-4 transition-transform ${isPriceExpanded ? "rotate-180" : ""}`} stroke={1.8} />
-                </h3>
-                {isPriceExpanded && (
-                  <div className="space-y-2">
-                    {priceRanges.map((range) => (
-                      <label key={range.value} className="flex items-center">
-                        <input
-                          type="radio"
-                          name="priceRange"
-                          value={range.value}
-                          checked={selectedPriceRange === range.value}
-                          onChange={(e) =>
-                            setSelectedPriceRange(e.target.value)
-                          }
-                          className="mr-2"
-                        />
-                        <span className="text-sm text-gray-700">
-                          {range.label}
-                        </span>
-                      </label>
-                    ))}
-                  </div>
-                )}
-              </div>
             </div>
           </div>
 
@@ -763,14 +502,17 @@ const AllMentors = () => {
                   >
                     {/* Mentor Avatar */}
                     <div className="aspect-w-16 aspect-h-12 bg-gray-200">
-                      <img
-                        src={mentor.avatar}
-                        alt={mentor.name}
-                        className="w-full h-48 object-cover"
-                        onError={(event) => {
-                          event.currentTarget.src = BoImg;
-                        }}
-                      />
+                      {mentor.avatar ? (
+                        <img
+                          src={mentor.avatar}
+                          alt={mentor.name}
+                          className="h-48 w-full object-cover"
+                        />
+                      ) : (
+                        <div className="flex h-48 w-full items-center justify-center bg-[var(--ui-accent-soft)] text-4xl font-extrabold text-[var(--ui-accent)]">
+                          {mentor.name.charAt(0).toUpperCase()}
+                        </div>
+                      )}
                     </div>
 
                     {/* Mentor Info */}
@@ -784,9 +526,6 @@ const AllMentors = () => {
                             {mentor.title}
                           </p>
                         </div>
-                        {mentor.online && (
-                          <span className="w-3 h-3 bg-green-500 rounded-full"></span>
-                        )}
                       </div>
 
                       {/* Rating */}

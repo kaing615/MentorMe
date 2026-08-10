@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException,
@@ -28,6 +29,8 @@ type LessonInput = {
   order?: number;
 };
 
+const PUBLIC_COURSE_SELECT = "-link -lessons -mentees -thumbnailPublicId";
+
 @Injectable()
 export class CourseService {
   constructor(
@@ -48,6 +51,7 @@ export class CourseService {
     const [courses, total] = await Promise.all([
       this.courses
         .find(filter)
+        .select(PUBLIC_COURSE_SELECT)
         .populate("mentor", "userName avatarUrl jobTitle")
         .skip(skip)
         .limit(query.limit)
@@ -69,9 +73,8 @@ export class CourseService {
     this.assertId(id);
     const course = await this.courses
       .findById(id)
-      .populate("mentor", "userName firstName lastName avatarUrl")
-      .populate("mentees", "userName avatarUrl")
-      .populate("lessons");
+      .select(PUBLIC_COURSE_SELECT)
+      .populate("mentor", "userName firstName lastName avatarUrl");
     if (!course) throw new NotFoundException("Khóa học không tồn tại!");
     return {
       message: "Lấy thông tin khóa học thành công!",
@@ -91,6 +94,7 @@ export class CourseService {
     if (categories.length) filter.category = { $in: categories };
     const courses = await this.courses
       .find(filter)
+      .select(PUBLIC_COURSE_SELECT)
       .populate("mentor", "userName email avatarUrl")
       .sort({ rate: -1, createdAt: -1 })
       .limit(Math.min(Number(limitValue) || 6, 50));
@@ -106,6 +110,7 @@ export class CourseService {
     const [courses, total] = await Promise.all([
       this.courses
         .find({ mentor: mentorId })
+        .select(PUBLIC_COURSE_SELECT)
         .populate("mentor", "firstName lastName avatarUrl jobTitle")
         .limit(limit)
         .skip((page - 1) * limit)
@@ -216,13 +221,20 @@ export class CourseService {
 
   async remove(user: UserDocument, id: string) {
     const course = await this.owned(user, id);
+    if (
+      course.mentees.length > 0 ||
+      (await this.purchases.exists({ course: course._id }))
+    ) {
+      throw new ConflictException(
+        "Không thể xóa khóa học đã có học viên. Hãy ngừng hiển thị khóa học thay vì xóa.",
+      );
+    }
     await this.connection.transaction(async (session) => {
       await this.lessons.deleteMany({ course: id }, { session });
       await this.reviewModel.deleteMany(
         { target: id, targetType: "Course" },
         { session },
       );
-      await this.purchases.deleteMany({ course: id }, { session });
       await this.courses.deleteOne({ _id: id }, { session });
     });
     if (course.thumbnailPublicId) {
@@ -268,12 +280,12 @@ export class CourseService {
             : { createdAt: -1 as const };
     const [reviews, totalReviews] = await Promise.all([
       this.reviewModel
-        .find({})
+        .find({ targetType: "Course" })
         .populate("author", "userName firstName lastName avatarUrl")
         .sort(sort)
         .skip((page - 1) * limit)
         .limit(limit),
-      this.reviewModel.countDocuments({}),
+      this.reviewModel.countDocuments({ targetType: "Course" }),
     ]);
     return {
       reviews,

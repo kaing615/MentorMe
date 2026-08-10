@@ -4,166 +4,41 @@ import { useDispatch, useSelector } from "react-redux";
 import {
   IconArrowLeft,
   IconArrowRight,
-  IconBrain,
   IconBriefcase,
-  IconChartDots,
   IconCode,
+  IconMessageCircle,
+  IconPalette,
+  IconSearch,
+  IconSpeakerphone,
   IconStarFilled,
+  IconTrendingUp,
   IconUsers,
 } from "@tabler/icons-react";
 import { useNavigate } from "react-router-dom";
+import gsap from "gsap";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { useGSAP } from "@gsap/react";
 
-import oipImg from "../assets/OIP.webp";
-import BoImg from "../assets/Bơ.jpg";
 import BecomeMentor from "../assets/become-an-mentor.jpg";
 import MentoringHero from "../assets/mentoring-hero.jpg";
 
-import { MENTEE_PATH } from "../routes/path";
 import { showLoading, hideLoading } from "../redux/features/loading.slice";
-import { clearUser } from "../redux/features/user.slice";
 import courseApi from "../api/modules/course.api.js";
 import profileApi from "../api/modules/profile.api.js";
 import cartApi from "../api/modules/cart.api.js";
 import purchasedCourseApi from "../api/modules/purchasedCourse.api.js";
 import reviewApi from "../api/modules/review.api.js";
+import { hasUserRole } from "../utils/user-role";
 import { toast } from "react-toastify";
 
 const categories = [
-  { icon: IconCode, name: "Engineering", description: "Build practical technical skills" },
-  { icon: IconChartDots, name: "Product", description: "Turn ideas into useful products" },
-  { icon: IconBriefcase, name: "Career", description: "Plan your next professional move" },
-  { icon: IconBrain, name: "Leadership", description: "Lead people with more clarity" },
+  { icon: IconCode, name: "Programming", description: "Build practical technical skills" },
+  { icon: IconPalette, name: "Design", description: "Create thoughtful digital experiences" },
+  { icon: IconBriefcase, name: "Business", description: "Turn ideas into sustainable growth" },
+  { icon: IconSpeakerphone, name: "Marketing", description: "Reach the right audience with clarity" },
 ];
 
-const fallbackCourses = [
-  {
-    title: "Programming Fundamentals",
-    mentor: "Ronald Richards",
-    rating: 4.8,
-    ratings: 1200,
-    hours: 22,
-    lectures: 155,
-    level: "Beginner",
-    price: 149.9,
-    img: oipImg,
-  },
-  {
-    title: "UI/UX Design Basics",
-    mentor: "Jane Smith",
-    rating: 4.7,
-    ratings: 980,
-    hours: 18,
-    lectures: 120,
-    level: "Beginner",
-    price: 129.9,
-    img: BoImg,
-  },
-  {
-    title: "Digital Marketing 101",
-    mentor: "Alex Johnson",
-    rating: 4.9,
-    ratings: 1500,
-    hours: 25,
-    lectures: 180,
-    level: "Intermediate",
-    price: 159.9,
-    img: oipImg,
-  },
-  {
-    title: "Data Science Bootcamp",
-    mentor: "Emily Lee",
-    rating: 4.8,
-    ratings: 1100,
-    hours: 30,
-    lectures: 200,
-    level: "Advanced",
-    price: 199.9,
-    img: BoImg,
-  },
-  {
-    title: "Business Analytics",
-    mentor: "Chris Martin",
-    rating: 4.6,
-    ratings: 900,
-    hours: 20,
-    lectures: 140,
-    level: "Intermediate",
-    price: 139.9,
-    img: oipImg,
-  },
-  {
-    title: "Frontend Development",
-    mentor: "Sara Kim",
-    rating: 4.9,
-    ratings: 1700,
-    hours: 28,
-    lectures: 210,
-    level: "Advanced",
-    price: 189.9,
-    img: BoImg,
-  },
-];
-
-const mentors = [
-  { name: "First", students: "2400", reviews: "4.9", img: BoImg },
-  { name: "Jane Smith", students: "1800", reviews: "4.8", img: oipImg },
-  { name: "Alex Johnson", students: "2100", reviews: "4.7", img: BoImg },
-  { name: "Emily Lee", students: "1950", reviews: "4.9", img: oipImg },
-  { name: "Chris Martin", students: "1700", reviews: "4.6", img: BoImg },
-  { name: "Last", students: "2200", reviews: "4.9", img: oipImg },
-];
-
-// Fallback mentors data for when API fails
-const fallbackMentors = [
-  {
-    name: "First",
-    students: "2400",
-    reviews: "4.9",
-    img: BoImg,
-    jobTitle: "UI/UX Designer",
-    category: "Design",
-  },
-  {
-    name: "Jane Smith",
-    students: "1800",
-    reviews: "4.8",
-    img: oipImg,
-    jobTitle: "Frontend Developer",
-    category: "Development",
-  },
-  {
-    name: "Alex Johnson",
-    students: "2100",
-    reviews: "4.7",
-    img: BoImg,
-    jobTitle: "Marketing Expert",
-    category: "Marketing",
-  },
-  {
-    name: "Emily Lee",
-    students: "1950",
-    reviews: "4.9",
-    img: oipImg,
-    jobTitle: "Data Scientist",
-    category: "Data Science",
-  },
-  {
-    name: "Chris Martin",
-    students: "1700",
-    reviews: "4.6",
-    img: BoImg,
-    jobTitle: "Business Analyst",
-    category: "Business",
-  },
-  {
-    name: "Last",
-    students: "2200",
-    reviews: "4.9",
-    img: oipImg,
-    jobTitle: "Product Manager",
-    category: "Product",
-  },
-];
+gsap.registerPlugin(ScrollTrigger, useGSAP);
 
 // Native horizontal scroll blocker (optional hook)
 const useHorizontalScrollBlockSwipe = () => {
@@ -184,6 +59,7 @@ const HomeScreen = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const user = useSelector((state: any) => state.user);
+  const pageRef = useRef<any>(null);
 
   // --- AUTH CHECK (mentor và mentee đều được xem) ---
   useEffect(() => {
@@ -207,7 +83,7 @@ const HomeScreen = () => {
       return;
     }
     // Check role - chỉ mentor và mentee được phép vào
-    if (user.role === "mentor" || user.role === "mentee") {
+    if (hasUserRole(user, "mentor") || hasUserRole(user, "mentee")) {
       return;
     }
     // Nếu không phải mentor hoặc mentee, redirect về signin
@@ -217,8 +93,10 @@ const HomeScreen = () => {
 
   const [topCourses, setTopCourses] = useState<any[]>([]);
   const [coursesLoading, setCoursesLoading] = useState<any>(false);
+  const [coursesError, setCoursesError] = useState<any>(false);
   const [topMentors, setTopMentors] = useState<any[]>([]);
   const [mentorsLoading, setMentorsLoading] = useState<any>(false);
+  const [mentorsError, setMentorsError] = useState<any>(false);
   // State để lưu purchased courses status
   const [purchasedCoursesMap, setPurchasedCoursesMap] = useState<any>(new Map());
 
@@ -228,6 +106,43 @@ const HomeScreen = () => {
 
   const dragCourses = useHorizontalScrollBlockSwipe();
   const dragMentors = useHorizontalScrollBlockSwipe();
+
+  useGSAP(
+    () => {
+      const media = gsap.matchMedia();
+      media.add("(prefers-reduced-motion: no-preference)", () => {
+        gsap
+          .timeline({ defaults: { ease: "power3.out" } })
+          .from("[data-hero-copy] > *", {
+            y: 24,
+            opacity: 0,
+            duration: 0.65,
+            stagger: 0.08,
+          })
+          .from(
+            "[data-hero-media]",
+            { scale: 0.96, opacity: 0, duration: 0.8 },
+            "<0.1",
+          );
+
+        gsap.utils.toArray<HTMLElement>("[data-reveal]").forEach((section) => {
+          ScrollTrigger.create({
+            trigger: section,
+            start: "top 86%",
+            once: true,
+            onEnter: () =>
+              gsap.fromTo(
+                section,
+                { y: 28, opacity: 0 },
+                { y: 0, opacity: 1, duration: 0.7, ease: "power2.out" },
+              ),
+          });
+        });
+      });
+      return () => media.revert();
+    },
+    { scope: pageRef },
+  );
 
   const computeMentorStats = async (mentorId) => {
     // 1) Lấy toàn bộ khóa học của mentor để suy ra mentee (unique)
@@ -312,11 +227,11 @@ const HomeScreen = () => {
 
     if (!user) {
       toast.error("Please login to add courses to cart");
-      navigate("/login");
+      navigate("/auth/signin");
       return;
     }
 
-    if (user.role !== "mentee") {
+    if (!hasUserRole(user, "mentee")) {
       toast.error("Only mentees can purchase courses");
       return;
     }
@@ -333,54 +248,12 @@ const HomeScreen = () => {
 
     try {
       dispatch(showLoading());
-
-      // Try API first, fallback to localStorage
-      try {
-        const { response, error } = await cartApi.addToCart(
-          { courseId },
-          dispatch
-        );
-
-        if (response) {
-          toast.success("Course added to cart successfully!");
-          return;
-        } else if (error) {
-          throw new Error(error.message || "API failed");
-        }
-      } catch (apiError) {
-        // Fallback to localStorage
-        const existingCart = localStorage.getItem("mockCart");
-        const cartItems = existingCart ? JSON.parse(existingCart) : [];
-
-        // Check if course already in cart
-        const alreadyInCart = cartItems.some(
-          (item) => (item._id || item.id) === courseId
-        );
-
-        if (alreadyInCart) {
-          toast.info("Course is already in your cart");
-          return;
-        }
-
-        // Add course to cart
-        cartItems.push({
-          id: courseId,
-          _id: courseId,
-          title: course.title,
-          price: course.price,
-          image: course.thumbnailUrl || course.thumbnail || course.img,
-          mentor:
-            course?.mentor?.userName ||
-            course?.mentor?.email ||
-            course?.mentor?.fullName ||
-            course?.mentor ||
-            "Unknown Mentor",
-          addedAt: new Date().toISOString(),
-        });
-
-        localStorage.setItem("mockCart", JSON.stringify(cartItems));
-        toast.success("Course added to cart successfully!");
-      }
+      const { response, error } = await cartApi.addToCart(
+        { courseId },
+        dispatch,
+      );
+      if (error || !response) throw error || new Error("Cart unavailable");
+      toast.success("Course added to cart successfully!");
     } catch (error) {
       console.error("Add to cart error:", error);
       toast.error("Failed to add course to cart");
@@ -395,11 +268,11 @@ const HomeScreen = () => {
 
     if (!user) {
       toast.error("Please login to purchase courses");
-      navigate("/login");
+      navigate("/auth/signin");
       return;
     }
 
-    if (user.role !== "mentee") {
+    if (!hasUserRole(user, "mentee")) {
       toast.error("Only mentees can purchase courses");
       return;
     }
@@ -414,60 +287,13 @@ const HomeScreen = () => {
       return;
     }
 
-    // Kiểm tra nếu đã có trong giỏ hàng
-    let alreadyInCart = false;
-    try {
-      // Ưu tiên kiểm tra qua API nếu có
-      if (cartApi && cartApi.getCart) {
-        const { response } = await cartApi.getCart();
-        if (response && Array.isArray(response.items)) {
-          alreadyInCart = response.items.some(
-            (item) => (item._id || item.id) === courseId
-          );
-        }
-      }
-    } catch {
-      // Fallback localStorage
-      const existingCart = localStorage.getItem("mockCart");
-      const cartItems = existingCart ? JSON.parse(existingCart) : [];
-      alreadyInCart = cartItems.some(
-        (item) => (item._id || item.id) === courseId
-      );
-    }
-
-    if (alreadyInCart) {
-      // Nếu đã có trong giỏ hàng thì chuyển tới giỏ hàng và cuộn lên đầu trang
-      navigate("/shoppingcart");
-      window.scrollTo({ top: 0, behavior: "smooth" });
-      return;
-    }
-
-    // Nếu chưa có thì thêm vào giỏ hàng
     try {
       dispatch(showLoading());
-      // Thêm qua API nếu có
-      if (cartApi && cartApi.addToCart) {
-        await cartApi.addToCart({ courseId }, dispatch);
-      } else {
-        // Fallback localStorage
-        const existingCart = localStorage.getItem("mockCart");
-        const cartItems = existingCart ? JSON.parse(existingCart) : [];
-        cartItems.push({
-          id: courseId,
-          _id: courseId,
-          title: course.title,
-          price: course.price,
-          image: course.thumbnailUrl || course.thumbnail || course.img,
-          mentor:
-            course?.mentor?.userName ||
-            course?.mentor?.email ||
-            course?.mentor?.fullName ||
-            course?.mentor ||
-            "Unknown Mentor",
-          addedAt: new Date().toISOString(),
-        });
-        localStorage.setItem("mockCart", JSON.stringify(cartItems));
-      }
+      const { response, error } = await cartApi.addToCart(
+        { courseId },
+        dispatch,
+      );
+      if (error || !response) throw error || new Error("Cart unavailable");
       toast.success("Course added to cart successfully!");
     } catch (error) {
       toast.error("Failed to add course to cart");
@@ -545,6 +371,7 @@ const HomeScreen = () => {
   useEffect(() => {
     const fetchTopCourses = async () => {
       setCoursesLoading(true);
+      setCoursesError(false);
       try {
         const { response, err } = await courseApi.getTopCourses({
           limit: 6,
@@ -556,10 +383,12 @@ const HomeScreen = () => {
         } else {
           console.error("Failed to fetch top courses:", err);
           setTopCourses([]);
+          setCoursesError(true);
         }
       } catch (error) {
         console.error("Error fetching top courses:", error);
         setTopCourses([]);
+        setCoursesError(true);
       } finally {
         setCoursesLoading(false);
       }
@@ -571,9 +400,12 @@ const HomeScreen = () => {
   useEffect(() => {
     const fetchTopMentors = async () => {
       setMentorsLoading(true);
+      setMentorsError(false);
       try {
         const response = await profileApi.getTopMentors(6);
-        const raw = response?.data?.mentors || fallbackMentors;
+        const raw = Array.isArray(response?.data?.mentors)
+          ? response.data.mentors
+          : [];
         // Enrich mỗi mentor với stats
         const enriched = await Promise.all(
           raw.map(async (m) => {
@@ -592,7 +424,8 @@ const HomeScreen = () => {
         setTopMentors(enriched);
       } catch (error) {
         console.error("Error fetching top mentors:", error);
-        setTopMentors(fallbackMentors);
+        setTopMentors([]);
+        setMentorsError(true);
       } finally {
         setMentorsLoading(false);
       }
@@ -603,7 +436,7 @@ const HomeScreen = () => {
   // Fetch purchased courses for smart navigation
   useEffect(() => {
     const fetchPurchasedCourses = async () => {
-      if (!user || user.role !== "mentee") return;
+      if (!hasUserRole(user, "mentee")) return;
 
       // Check purchase status for displayed courses
       if (topCourses.length > 0) {
@@ -640,85 +473,94 @@ const HomeScreen = () => {
   }, [user, topCourses]); // Depend on topCourses to check when courses are loaded
 
   return (
-    <div className="flex min-h-[100dvh] flex-col bg-[var(--ui-page)]">
+    <div ref={pageRef} className="flex min-h-[100dvh] flex-col overflow-hidden bg-[var(--ui-page)]">
       {/* Hero */}
-      <section className="bg-[var(--ui-surface)] px-4 py-12 sm:px-6 lg:px-8 lg:py-16">
-        <div className="mx-auto grid max-w-7xl grid-cols-1 items-center gap-10 lg:grid-cols-[0.88fr_1.12fr]">
-          <div className="w-full max-w-xl">
-          <h1 className="max-w-[13ch] text-4xl font-extrabold leading-[1.05] tracking-[-0.045em] text-[var(--ui-text)] sm:text-5xl lg:text-6xl">
-            Build momentum with expert guidance.
-          </h1>
-          <p className="mt-6 max-w-[48ch] text-base leading-7 text-[var(--ui-text-muted)] sm:text-lg">
-            Learn with experienced mentors through focused sessions built around your goals.
-          </p>
-          <div className="mt-8 flex flex-wrap gap-3">
-            <button
-              onClick={handleSeeAllCourses}
-              className="min-h-12 whitespace-nowrap rounded-xl bg-[var(--ui-accent)] px-6 py-3 font-bold text-white transition-colors hover:bg-[var(--ui-accent-strong)] active:translate-y-px"
-            >
-              Browse courses
-            </button>
-            <button
-              onClick={() => navigate("/all-mentors")}
-              className="min-h-12 whitespace-nowrap rounded-xl border border-[var(--ui-border)] bg-[var(--ui-surface)] px-6 py-3 font-bold text-[var(--ui-text)] transition-colors hover:bg-[var(--ui-surface-muted)] active:translate-y-px"
-            >
-              Find a mentor
-            </button>
-          </div>
+      <section className="ui-hero-surface relative bg-[var(--ui-surface)] px-4 pb-16 pt-12 sm:px-6 lg:px-8 lg:pb-24 lg:pt-20">
+        <div className="pointer-events-none absolute -right-36 -top-44 h-[32rem] w-[32rem] rounded-full bg-[var(--ui-accent-soft)] opacity-70 blur-3xl" />
+        <div className="relative mx-auto grid max-w-7xl grid-cols-1 items-center gap-12 lg:grid-cols-[0.86fr_1.14fr] lg:gap-16">
+          <div data-hero-copy className="w-full max-w-2xl">
+            <span className="ui-eyebrow ui-eyebrow-plain">Guidance that moves you forward</span>
+            <h1 className="mt-6 max-w-[15ch] text-4xl font-[780] leading-[0.98] tracking-[-0.06em] text-[var(--ui-text)] sm:text-6xl">
+              Learn faster with the right mentor.
+            </h1>
+            <p className="mt-6 max-w-[42ch] text-base leading-7 text-[var(--ui-text-muted)] sm:text-lg">
+              Find focused guidance, practical courses, and a clearer path to your next goal.
+            </p>
+            <div className="mt-9 flex flex-wrap gap-3">
+              <button
+                onClick={() => navigate("/all-mentors")}
+                className="min-h-12 whitespace-nowrap rounded-full bg-[var(--ui-accent-fill)] px-6 py-3 font-bold text-white shadow-[var(--ui-shadow-sm)] transition-all hover:-translate-y-0.5 hover:bg-[var(--ui-accent-fill-hover)]"
+              >
+                Find your mentor
+              </button>
+              <button
+                onClick={handleSeeAllCourses}
+                className="min-h-12 whitespace-nowrap rounded-full bg-[var(--ui-surface-muted)] px-6 py-3 font-bold text-[var(--ui-text)] transition-colors hover:bg-[var(--ui-accent-soft)]"
+              >
+                Explore courses
+              </button>
+            </div>
           </div>
 
-          <div className="overflow-hidden rounded-2xl border border-[var(--ui-border)] bg-[var(--ui-surface-muted)] shadow-[var(--ui-shadow)]">
-            <img
-              src={MentoringHero}
-              alt="A learner and mentor reviewing a practical learning plan"
-              className="aspect-[3/2] h-full w-full object-cover"
-              fetchPriority="high"
-            />
+          <div data-hero-media className="relative lg:pl-4">
+            <div className="absolute -bottom-5 -left-5 h-32 w-32 rounded-[2rem] bg-[var(--ui-accent-soft)]" />
+            <div className="ui-image-frame relative overflow-hidden rounded-[2rem] border border-[var(--ui-border)] shadow-[var(--ui-shadow-lg)]">
+              <img
+                src={MentoringHero}
+                alt="A learner and mentor reviewing a practical learning plan"
+                className="aspect-[4/3] h-full w-full object-cover"
+                fetchPriority="high"
+              />
+              <div className="absolute inset-x-5 bottom-5 rounded-2xl bg-[color-mix(in_srgb,var(--ui-surface)_88%,transparent)] p-4 shadow-[var(--ui-shadow-sm)] backdrop-blur-md sm:max-w-xs">
+                <p className="text-xs font-bold uppercase tracking-[0.14em] text-[var(--ui-accent)]">Your next step</p>
+                <p className="mt-1 text-sm font-semibold leading-5 text-[var(--ui-text)]">Turn a big goal into a practical plan you can follow.</p>
+              </div>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* Stats */}
-      <section className="w-full bg-[var(--ui-surface)] px-4 pb-12 sm:px-6 lg:px-8">
-        <div className="mx-auto grid max-w-7xl grid-cols-2 gap-y-6 rounded-2xl border border-[var(--ui-border)] bg-[var(--ui-surface-muted)] px-4 py-6 text-center sm:grid-cols-4 sm:gap-y-0">
+      <section data-reveal className="w-full bg-[var(--ui-surface)] px-4 pb-16 sm:px-6 lg:px-8 lg:pb-24">
+        <div className="mx-auto grid max-w-7xl gap-px overflow-hidden rounded-[1.75rem] border border-[var(--ui-border)] bg-[var(--ui-border)] md:grid-cols-3">
           {[
-            { label: "1:1", desc: "Focused mentor sessions" },
-            { label: "Flexible", desc: "Online or in person" },
-            { label: "Direct", desc: "Message your mentor" },
-            { label: "Practical", desc: "Guidance for real goals" },
-          ].map((item, idx) => (
-            <div
-              key={idx}
-              className={`min-w-0 px-2 sm:px-4 ${
-                idx % 2 !== 0 ? "border-l border-[var(--ui-border)]" : ""
-              } ${
-                idx === 2 ? "sm:border-l sm:border-[var(--ui-border)]" : ""
-              }`}
-            >
-              <h3 className="mb-1 text-lg font-extrabold text-[var(--ui-text)] sm:text-xl">
-                {item.label}
-              </h3>
-              <p className="text-xs leading-5 text-[var(--ui-text-muted)] sm:text-sm">{item.desc}</p>
+            { icon: IconSearch, step: "01", title: "Discover", copy: "Explore mentors and courses shaped around your goal." },
+            { icon: IconMessageCircle, step: "02", title: "Connect", copy: "Choose a mentor, then agree on focus and format." },
+            { icon: IconTrendingUp, step: "03", title: "Move forward", copy: "Apply the plan, ask better questions, and keep momentum." },
+          ].map(({ icon: StepIcon, step, title, copy }) => (
+            <div key={step} className="bg-[var(--ui-surface-muted)] p-6 sm:p-8">
+              <div className="flex items-center justify-between">
+                <StepIcon aria-hidden="true" className="text-[var(--ui-accent)]" size={26} stroke={1.7} />
+                <span className="text-xs font-extrabold tracking-[0.18em] text-[var(--ui-text-muted)]">{step}</span>
+              </div>
+              <h2 className="mt-8 text-xl font-extrabold tracking-[-0.03em] text-[var(--ui-text)]">{title}</h2>
+              <p className="mt-2 max-w-[32ch] text-sm leading-6 text-[var(--ui-text-muted)]">{copy}</p>
             </div>
           ))}
         </div>
       </section>
 
       {/* Top Categories */}
-      <section className="w-full bg-[var(--ui-surface)] px-4 py-14 sm:px-6 lg:px-8">
+      <section data-reveal className="w-full bg-[var(--ui-page)] px-4 py-20 sm:px-6 lg:px-8 lg:py-24">
         <div className="mx-auto w-full max-w-7xl">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-2xl font-extrabold tracking-[-0.03em] text-[var(--ui-text)]">
-              Top Categories
+          <div className="mb-9 max-w-2xl">
+            <span className="text-xs font-extrabold uppercase tracking-[0.16em] text-[var(--ui-accent)]">Explore by direction</span>
+            <h2 className="mt-3 text-3xl font-extrabold tracking-[-0.045em] text-[var(--ui-text)] sm:text-4xl">
+              Start with what you want to build.
             </h2>
+            <p className="mt-3 text-base leading-7 text-[var(--ui-text-muted)]">Choose a category to see real courses currently available.</p>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-8">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-4">
             {categories.map((cat) => {
               const CategoryIcon = cat.icon;
               return (
-              <div
+              <button
+                type="button"
                 key={cat.name}
-                className="flex flex-col gap-4 rounded-2xl border border-[var(--ui-border)] bg-[var(--ui-surface)] px-5 py-7 transition-transform hover:-translate-y-1"
+                onClick={() => {
+                  localStorage.setItem("searchPageActiveTab", "courses");
+                  navigate(`/platform/search?category=${encodeURIComponent(cat.name)}`);
+                }}
+                className="ui-card ui-card-interactive flex min-h-56 flex-col gap-4 px-5 py-6 text-left"
               >
                 <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[var(--ui-accent-soft)] text-[var(--ui-accent)]">
                   <CategoryIcon aria-hidden="true" size={25} stroke={1.7} />
@@ -729,7 +571,10 @@ const HomeScreen = () => {
                 <span className="text-sm leading-6 text-[var(--ui-text-muted)]">
                   {cat.description}
                 </span>
-              </div>
+                <span className="mt-auto inline-flex items-center gap-1 text-sm font-bold text-[var(--ui-accent)]">
+                  View courses <IconArrowRight aria-hidden="true" size={17} stroke={1.8} />
+                </span>
+              </button>
               );
             })}
           </div>
@@ -737,10 +582,13 @@ const HomeScreen = () => {
       </section>
 
       {/* Top Courses */}
-      <section className="w-full border-t border-[var(--ui-border)] bg-[var(--ui-surface)] px-4 py-12 sm:px-6 lg:px-8">
+      <section data-reveal className="w-full bg-[var(--ui-surface)] px-4 py-20 sm:px-6 lg:px-8 lg:py-24">
         <div className="max-w-7xl mx-auto w-full">
-          <div className="flex justify-between items-center mb-6 px-2">
-            <h2 className="text-2xl font-bold text-[#1A2233]">Top Courses</h2>
+          <div className="mb-9 flex items-end justify-between gap-6 px-2">
+            <div className="max-w-2xl">
+              <span className="text-xs font-extrabold uppercase tracking-[0.16em] text-[var(--ui-accent)]">Learn by doing</span>
+              <h2 className="mt-3 text-3xl font-extrabold tracking-[-0.045em] text-[var(--ui-text)] sm:text-4xl">Courses built for practical progress.</h2>
+            </div>
             <button
               onClick={handleSeeAllCourses}
               className="rounded-lg px-3 py-2 text-sm font-bold text-[var(--ui-accent)] transition-colors hover:bg-[var(--ui-accent-soft)]"
@@ -750,7 +598,7 @@ const HomeScreen = () => {
           </div>
 
           <div
-            className="group relative overflow-hidden"
+            className="group flex items-center gap-3 overflow-hidden"
             onMouseEnter={() => setHoveredCarousel("courses")}
             onMouseLeave={() => setHoveredCarousel(null)}
           >
@@ -758,11 +606,11 @@ const HomeScreen = () => {
             <button
               type="button"
               aria-label="Scroll left"
-              className={`absolute left-0 top-1/2 -translate-y-1/2 z-10 w-14 h-36 flex items-center justify-center transition-opacity duration-200 ${
+              className={`order-1 hidden h-11 w-11 shrink-0 items-center justify-center transition-opacity duration-200 sm:flex ${
                 hoveredCarousel === "courses"
                   ? "opacity-100 pointer-events-auto"
                   : "opacity-0 pointer-events-none"
-              } bg-white/20 backdrop-blur-md rounded-full shadow-lg border border-white/40 hover:bg-white/40`}
+              } rounded-full bg-[var(--ui-surface-raised)] text-[var(--ui-text)] shadow-[var(--ui-shadow-sm)] backdrop-blur-md hover:bg-[var(--ui-accent-soft)]`}
               onClick={() => scrollCarouselBy(coursesRef, -1)}
             >
               <IconArrowLeft aria-hidden="true" size={28} stroke={1.8} />
@@ -771,11 +619,11 @@ const HomeScreen = () => {
             <button
               type="button"
               aria-label="Scroll right"
-              className={`absolute right-0 top-1/2 -translate-y-1/2 z-10 w-14 h-36 flex items-center justify-center transition-opacity duration-200 ${
+              className={`order-3 hidden h-11 w-11 shrink-0 items-center justify-center transition-opacity duration-200 sm:flex ${
                 hoveredCarousel === "courses"
                   ? "opacity-100 pointer-events-auto"
                   : "opacity-0 pointer-events-none"
-              } bg-white/20 backdrop-blur-md rounded-full shadow-lg border border-white/40 hover:bg-white/40`}
+              } rounded-full bg-[var(--ui-surface-raised)] text-[var(--ui-text)] shadow-[var(--ui-shadow-sm)] backdrop-blur-md hover:bg-[var(--ui-accent-soft)]`}
               onClick={() => scrollCarouselBy(coursesRef, 1)}
             >
               <IconArrowRight aria-hidden="true" size={28} stroke={1.8} />
@@ -783,7 +631,7 @@ const HomeScreen = () => {
 
             <div
               ref={coursesRef}
-              className="top-courses-drag overflow-x-auto whitespace-nowrap select-none -mx-2 px-2 no-scrollbar"
+              className="top-courses-drag order-2 min-w-0 flex-1 overflow-x-auto whitespace-nowrap select-none -mx-2 px-2 no-scrollbar"
               style={{
                 WebkitOverflowScrolling: "touch",
                 scrollSnapType: "x mandatory",
@@ -806,14 +654,23 @@ const HomeScreen = () => {
                         <div className="h-6 bg-gray-200 rounded mt-2 w-1/3" />
                       </div>
                     ))
-                  : (topCourses.length > 0 ? topCourses : fallbackCourses).map(
+                  : coursesError ? (
+                    <div className="w-[calc(100vw-4rem)] max-w-3xl rounded-2xl border border-[var(--ui-border)] bg-[var(--ui-surface-muted)] p-8 text-left">
+                      <p className="font-bold text-[var(--ui-text)]">Courses could not be loaded.</p>
+                      <p className="mt-2 text-sm text-[var(--ui-text-muted)]">Please refresh and try again.</p>
+                    </div>
+                  ) : topCourses.length === 0 ? (
+                    <div className="w-[calc(100vw-4rem)] max-w-3xl rounded-2xl border border-dashed border-[var(--ui-border)] bg-[var(--ui-surface-muted)] p-8 text-left">
+                      <p className="font-bold text-[var(--ui-text)]">No courses found</p>
+                      <p className="mt-2 text-sm text-[var(--ui-text-muted)]">Published courses will appear here.</p>
+                    </div>
+                  ) : topCourses.map(
                       (course, idx) => {
                         const courseId =
                           course._id || course.id || course.courseId;
-                        const price =
-                          course.price ??
-                          fallbackCourses[idx % fallbackCourses.length].price ??
-                          0;
+                        const price = course.price ?? 0;
+                        const thumbnail =
+                          course.thumbnailUrl || course.thumbnail || course.img;
                         const rate = course.rate ?? course.rating ?? 0;
                         const hours = course.duration ?? course.hours ?? 0;
                         const lectures = course.lectures ?? 0;
@@ -826,7 +683,7 @@ const HomeScreen = () => {
                         return (
                           <div
                             key={courseId || idx}
-                            className="border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow min-h-[450px] flex flex-col cursor-pointer bg-white"
+                            className="ui-card ui-card-interactive min-h-[450px] cursor-pointer overflow-hidden flex flex-col"
                             onClick={() => {
                               if (courseId)
                                 navigate(`/course-detail/${courseId}`);
@@ -838,17 +695,19 @@ const HomeScreen = () => {
                               maxWidth: "320px",
                             }}
                           >
-                            <img
-                              src={
-                                course.thumbnailUrl ||
-                                course.thumbnail ||
-                                course.img ||
-                                oipImg
-                              }
-                              alt={course.title || "Course"}
-                              className="w-full h-48 object-cover"
-                              onError={(e) => (e.currentTarget.src = oipImg)}
-                            />
+                            <div className="relative flex h-48 items-center justify-center overflow-hidden bg-[var(--ui-accent-soft)] text-[var(--ui-accent)]">
+                              <IconCode aria-hidden="true" size={36} stroke={1.5} />
+                              {thumbnail && (
+                                <img
+                                  src={thumbnail}
+                                  alt={course.title || "Course"}
+                                  className="absolute inset-0 h-full w-full object-cover"
+                                  onError={(e) => {
+                                    e.currentTarget.style.display = "none";
+                                  }}
+                                />
+                              )}
+                            </div>
                             <div className="flex-1 flex flex-col p-4 pb-0">
                               <div
                                 className="flex flex-col"
@@ -857,10 +716,10 @@ const HomeScreen = () => {
                                   justifyContent: "flex-start",
                                 }}
                               >
-                                <h4 className="font-semibold text-gray-900 mb-2 line-clamp-2">
+                                <h4 className="mb-2 line-clamp-2 font-semibold text-[var(--ui-text)]">
                                   {course.title || "Untitled Course"}
                                 </h4>
-                                <p className="text-sm text-gray-600 mb-2">
+                                <p className="mb-2 text-sm text-[var(--ui-text-muted)]">
                                   By{" "}
                                   {(() => {
                                     const capitalizeWords = (str) =>
@@ -892,14 +751,14 @@ const HomeScreen = () => {
                                     {"★".repeat(Math.floor(rate || 0))}
                                     {(rate || 0) % 1 !== 0 && "☆"}
                                   </div>
-                                  <span className="text-sm text-gray-600">
+                                  <span className="text-sm text-[var(--ui-text-muted)]">
                                     ({course.numberOfRatings || 0} Ratings)
                                   </span>
                                 </div>
-                                <div className="text-sm text-gray-700 mb-1">
+                                <div className="mb-1 text-sm text-[var(--ui-text)]">
                                   {hours} Total Hours • {lectures} Lectures
                                 </div>
-                                <div className="text-sm text-gray-600 mb-2">
+                                <div className="mb-2 text-sm text-[var(--ui-text-muted)]">
                                   {course.category || "General"}
                                 </div>
 
@@ -912,7 +771,7 @@ const HomeScreen = () => {
                                         .map((tag, index) => (
                                           <span
                                             key={index}
-                                            className="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full font-medium"
+                                            className="inline-block rounded-full bg-[var(--ui-accent-soft)] px-2 py-1 text-xs font-medium text-[var(--ui-accent)]"
                                           >
                                             {tag}
                                           </span>
@@ -930,7 +789,7 @@ const HomeScreen = () => {
                                 {course.language &&
                                   course.language.length > 0 && (
                                     <div className="mb-2">
-                                      <p className="text-xs text-gray-500 mb-1">
+                                      <p className="mb-1 text-xs text-[var(--ui-text-muted)]">
                                         Languages:
                                       </p>
                                       <div className="flex flex-wrap gap-1">
@@ -960,7 +819,7 @@ const HomeScreen = () => {
                                   </p>
                                 )}
                               </div>
-                              <p className="font-bold text-xl text-gray-900 mb-2 mt-auto">
+                              <p className="mb-2 mt-auto text-xl font-bold text-[var(--ui-text)]">
                                 $
                                 {(() => {
                                   const priceNum =
@@ -977,7 +836,7 @@ const HomeScreen = () => {
                               </p>
 
                               {/* Add to Cart and Buy Now buttons for mentees */}
-                              {user && user.role === "mentee" && (
+                              {hasUserRole(user, "mentee") && (
                                 <div className="flex flex-col gap-2 mt-2 mb-4">
                                   {isCourseAlreadyPurchased(courseId) ? (
                                     <>
@@ -1025,10 +884,13 @@ const HomeScreen = () => {
       </section>
 
       {/* Top Mentors */}
-      <section className="w-full bg-[var(--ui-surface)] px-4 py-12 sm:px-6 lg:px-8">
+      <section data-reveal className="w-full bg-[var(--ui-page)] px-4 py-20 sm:px-6 lg:px-8 lg:py-24">
         <div className="mx-auto w-full max-w-7xl">
-          <div className="flex justify-between items-center mb-6 px-2">
-            <h2 className="text-2xl font-bold text-[#1A2233]">Top Mentors</h2>
+          <div className="mb-9 flex items-end justify-between gap-6 px-2">
+            <div className="max-w-2xl">
+              <span className="text-xs font-extrabold uppercase tracking-[0.16em] text-[var(--ui-accent)]">Learn with someone who knows the path</span>
+              <h2 className="mt-3 text-3xl font-extrabold tracking-[-0.045em] text-[var(--ui-text)] sm:text-4xl">Meet mentors available now.</h2>
+            </div>
             <button
               onClick={handleSeeAllMentors}
               className="rounded-lg px-3 py-2 text-sm font-bold text-[var(--ui-accent)] transition-colors hover:bg-[var(--ui-accent-soft)]"
@@ -1038,7 +900,7 @@ const HomeScreen = () => {
           </div>
 
           <div
-            className="group relative overflow-hidden"
+            className="group flex items-center gap-3 overflow-hidden"
             onMouseEnter={() => setHoveredCarousel("mentors")}
             onMouseLeave={() => setHoveredCarousel(null)}
           >
@@ -1046,11 +908,11 @@ const HomeScreen = () => {
             <button
               type="button"
               aria-label="Scroll left"
-              className={`absolute left-0 top-1/2 -translate-y-1/2 z-10 w-14 h-36 flex items-center justify-center transition-opacity duration-200 ${
+              className={`order-1 hidden h-11 w-11 shrink-0 items-center justify-center transition-opacity duration-200 sm:flex ${
                 hoveredCarousel === "mentors"
                   ? "opacity-100 pointer-events-auto"
                   : "opacity-0 pointer-events-none"
-              } bg-white/20 backdrop-blur-md rounded-full shadow-lg border border-white/40 hover:bg-white/40`}
+              } rounded-full bg-[var(--ui-surface-raised)] text-[var(--ui-text)] shadow-[var(--ui-shadow-sm)] backdrop-blur-md hover:bg-[var(--ui-accent-soft)]`}
               onClick={() => scrollCarouselBy(mentorsRef, -1, "button")}
             >
               <IconArrowLeft aria-hidden="true" size={28} stroke={1.8} />
@@ -1059,11 +921,11 @@ const HomeScreen = () => {
             <button
               type="button"
               aria-label="Scroll right"
-              className={`absolute right-0 top-1/2 -translate-y-1/2 z-10 w-14 h-36 flex items-center justify-center transition-opacity duration-200 ${
+              className={`order-3 hidden h-11 w-11 shrink-0 items-center justify-center transition-opacity duration-200 sm:flex ${
                 hoveredCarousel === "mentors"
                   ? "opacity-100 pointer-events-auto"
                   : "opacity-0 pointer-events-none"
-              } bg-white/20 backdrop-blur-md rounded-full shadow-lg border border-white/40 hover:bg-white/40`}
+              } rounded-full bg-[var(--ui-surface-raised)] text-[var(--ui-text)] shadow-[var(--ui-shadow-sm)] backdrop-blur-md hover:bg-[var(--ui-accent-soft)]`}
               onClick={() => scrollCarouselBy(mentorsRef, 1, "button")}
             >
               <IconArrowRight aria-hidden="true" size={28} stroke={1.8} />
@@ -1071,7 +933,7 @@ const HomeScreen = () => {
 
             <div
               ref={mentorsRef}
-              className="top-mentors-drag overflow-x-auto whitespace-nowrap select-none -mx-2 px-2 no-scrollbar"
+              className="top-mentors-drag order-2 min-w-0 flex-1 overflow-x-auto whitespace-nowrap select-none -mx-2 px-2 no-scrollbar"
               style={{
                 WebkitOverflowScrolling: "touch",
                 scrollSnapType: "x mandatory",
@@ -1098,36 +960,48 @@ const HomeScreen = () => {
                         <div className="w-full h-10 bg-gray-200 rounded-lg"></div>
                       </div>
                     ))
-                  : topMentors.map((mentor, idx) => (
+                  : mentorsError ? (
+                    <div className="w-[calc(100vw-4rem)] max-w-3xl rounded-2xl border border-[var(--ui-border)] bg-[var(--ui-surface)] p-8 text-left">
+                      <p className="font-bold text-[var(--ui-text)]">Mentors could not be loaded.</p>
+                      <p className="mt-2 text-sm text-[var(--ui-text-muted)]">Please refresh and try again.</p>
+                    </div>
+                  ) : topMentors.length === 0 ? (
+                    <div className="w-[calc(100vw-4rem)] max-w-3xl rounded-2xl border border-dashed border-[var(--ui-border)] bg-[var(--ui-surface)] p-8 text-left">
+                      <p className="font-bold text-[var(--ui-text)]">No mentors found</p>
+                      <p className="mt-2 text-sm text-[var(--ui-text-muted)]">Approved mentor profiles will appear here.</p>
+                    </div>
+                  ) : topMentors.map((mentor, idx) => (
                       <div
                         key={mentor._id || idx}
-                        className="bg-white rounded-[18px] border border-[#D6E3F3] shadow-sm flex flex-col items-center p-6 min-w-[260px] max-w-[300px] w-full transition-all duration-200 hover:shadow-lg hover:-translate-y-1 active:scale-95 focus:outline-none focus:ring-2 focus:ring-blue-400 group cursor-pointer"
+                        className="ui-card ui-card-interactive group flex w-full min-w-[260px] max-w-[300px] cursor-pointer flex-col items-center p-6 focus:outline-none focus:ring-2 focus:ring-[var(--ui-accent)]"
                         role="button"
                         style={{ outline: "none", scrollSnapAlign: "start" }}
                         onClick={() => handleMentorClick(mentor._id)}
                       >
-                        <img
-                          src={mentor.avatarUrl || BoImg}
-                          alt={
-                            mentor.fullName ||
-                            `${mentor.firstName} ${mentor.lastName}`
-                          }
-                          className="w-28 h-28 object-cover rounded-[14px] mb-4 group-hover:scale-105 transition-transform duration-200"
-                          onError={(e) => {
-                            e.currentTarget.src = BoImg; // Fallback image
-                          }}
-                        />
+                        <div className="relative mb-4 flex h-28 w-28 items-center justify-center overflow-hidden rounded-2xl bg-[var(--ui-accent-soft)] text-2xl font-extrabold text-[var(--ui-accent)]">
+                          <span>{(mentor.firstName?.[0] || mentor.fullName?.[0] || "M").toUpperCase()}</span>
+                          {mentor.avatarUrl && (
+                            <img
+                              src={mentor.avatarUrl}
+                              alt={mentor.fullName || `${mentor.firstName || ""} ${mentor.lastName || ""}`.trim() || "Mentor"}
+                              className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                              onError={(e) => {
+                                e.currentTarget.style.display = "none";
+                              }}
+                            />
+                          )}
+                        </div>
                         <div className="flex flex-col items-center flex-1 w-full">
-                          <div className="font-bold text-lg text-[#1A2233] mb-1 text-center">
+                          <div className="mb-1 text-center text-lg font-bold text-[var(--ui-text)]">
                             {mentor.fullName ||
                               `${mentor.firstName || ""} ${
                                 mentor.lastName || ""
                               }`.trim()}
                           </div>
-                          <div className="text-sm text-[#6B7280] mb-2 text-center">
+                          <div className="mb-2 text-center text-sm text-[var(--ui-text-muted)]">
                             {mentor.jobTitle || "Professional"}
                           </div>
-                          <div className="text-xs text-[#6B7280] mb-3 text-center">
+                          <div className="mb-3 text-center text-xs text-[var(--ui-text-muted)]">
                             {(() => {
                               let category = mentor.category || "General";
 
@@ -1157,17 +1031,17 @@ const HomeScreen = () => {
                                 {(mentor.averageRating ?? 0).toFixed(1)}
                               </span>
                             </div>
-                            <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 rounded-full">
-                              <IconUsers aria-hidden="true" className="h-4 w-4 text-blue-600" stroke={1.8} />
-                              <span className="text-sm font-medium text-blue-800">
+                            <div className="flex items-center gap-2 rounded-full bg-[var(--ui-accent-soft)] px-3 py-2">
+                              <IconUsers aria-hidden="true" className="h-4 w-4 text-[var(--ui-accent)]" stroke={1.8} />
+                              <span className="text-sm font-medium text-[var(--ui-accent)]">
                                 {mentor.totalMentees ?? 0}
                               </span>
-                              <span className="text-xs text-blue-600">
+                              <span className="text-xs text-[var(--ui-accent)]">
                                 students
                               </span>
                             </div>
                           </div>
-                          <div className="w-full flex items-center justify-center gap-2 bg-[#2563eb] text-white font-semibold rounded-lg py-2 mt-auto text-base hover:bg-[#1749b1] transition">
+                          <div className="mt-auto flex w-full items-center justify-center gap-2 rounded-xl bg-[var(--ui-accent-fill)] py-2.5 text-base font-semibold text-white transition hover:bg-[var(--ui-accent-fill-hover)]">
                             View Profile
                             <IconArrowRight aria-hidden="true" size={19} stroke={1.8} />
                           </div>
@@ -1180,88 +1054,34 @@ const HomeScreen = () => {
         </div>
       </section>
 
-      {/* Become a Mentor & Education */}
-      <section className="w-full bg-[var(--ui-surface)] px-4 py-12 sm:px-6 lg:px-8">
-        <div className="mx-auto flex w-full max-w-7xl flex-col gap-20 md:gap-28">
-          {/* Mentor Card */}
-          <div className="flex flex-col md:flex-row items-center md:items-stretch gap-10 md:gap-0">
-            <div className="flex-1 flex justify-center items-center">
-              <div className="relative w-[320px] h-[320px] md:w-[340px] md:h-[340px] flex items-center justify-center">
-                <div className="absolute inset-0 rounded-[48px] bg-[#E6E6FA]" />
-                <img
-                  src={BecomeMentor}
-                  alt="mentor"
-                  className="w-full h-full object-cover rounded-[48px] relative z-10"
-                />
-              </div>
-            </div>
-            <div className="flex-1 flex flex-col justify-center md:pl-12">
-              <h3 className="text-2xl md:text-3xl font-bold text-[#1A2233] mb-3 text-right md:text-left">
-                Become a Mentor
-              </h3>
-              <p className="text-gray-600 text-base md:text-lg mb-6 max-w-lg text-right md:text-left">
-                Instructors from around the world teach millions of students on
-                MentorMe.
-              </p>
-              <div className="flex justify-end md:justify-start">
-                <button
-                  onClick={() => {
-                    // Clear user data using Redux action (will also clear localStorage)
-                    dispatch(clearUser());
-                    // Clear all authentication related data from both localStorage and sessionStorage
-                    localStorage.removeItem("user");
-                    localStorage.removeItem("token");
-                    localStorage.removeItem("actkn");
-                    localStorage.removeItem("isLoggedIn");
-                    sessionStorage.removeItem("user");
-                    sessionStorage.removeItem("token");
-                    sessionStorage.removeItem("actkn");
-                    sessionStorage.removeItem("isLoggedIn");
-                    // Reset header về trạng thái mặc định khi đăng xuất
-                    localStorage.setItem("mentorMode", "false");
-                    // Navigate to apply as mentor page
-                    navigate("/auth/apply-as-men");
-                    window.scrollTo(0, 0);
-                    toast.success("Redirecting to mentor application!");
-                  }}
-                  className="inline-flex min-h-12 items-center gap-2 rounded-xl bg-[var(--ui-text)] px-6 py-3 text-base font-bold text-[var(--ui-surface)] transition-opacity hover:opacity-85 active:translate-y-px"
-                >
-                  <span>Become a mentor</span>
-                  <IconArrowRight aria-hidden="true" size={19} stroke={1.8} />
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* Education Card */}
-          <div className="flex flex-col-reverse md:flex-row items-center md:items-stretch gap-10 md:gap-0">
-            <div className="flex-1 flex flex-col justify-center md:pr-12">
-              <h3 className="text-2xl md:text-3xl font-bold text-[#1A2233] mb-3 text-left">
-                Transform your life through education
-              </h3>
-              <p className="text-gray-600 text-base md:text-lg mb-6 max-w-lg text-left">
-                Learners around the world are launching new careers, advancing
-                in their fields, and enriching their lives.
-              </p>
-              <div className="flex justify-start">
-                <button
-                  onClick={handleSeeAllCourses}
-                  className="inline-flex min-h-12 items-center gap-2 rounded-xl bg-[var(--ui-text)] px-6 py-3 text-base font-bold text-[var(--ui-surface)] transition-opacity hover:opacity-85 active:translate-y-px"
-                >
-                  <span>Browse courses</span>
-                  <IconArrowRight aria-hidden="true" size={19} stroke={1.8} />
-                </button>
-              </div>
-            </div>
-            <div className="flex-1 flex justify-center items-center">
-              <div className="relative w-[320px] h-[320px] md:w-[340px] md:h-[340px] flex items-center justify-center">
-                <div className="absolute inset-0 rounded-[48px] bg-[#D6E3F3]" />
-                <img
-                  src={oipImg}
-                  alt="education"
-                  className="w-full h-full object-cover rounded-[48px] relative z-10"
-                />
-              </div>
+      <section data-reveal className="w-full bg-[var(--ui-surface)] px-4 py-20 sm:px-6 lg:px-8 lg:py-24">
+        <div className="mx-auto grid max-w-7xl overflow-hidden rounded-[2rem] bg-[var(--ui-accent-fill)] shadow-[var(--ui-shadow-lg)] lg:grid-cols-[0.8fr_1.2fr]">
+          <img
+            src={BecomeMentor}
+            alt="A mentor supporting a focused learning conversation"
+            className="h-full min-h-72 w-full object-cover"
+          />
+          <div className="flex flex-col justify-center p-8 text-white sm:p-12 lg:p-16">
+            <span className="text-xs font-extrabold uppercase tracking-[0.16em] text-cyan-100">Share what you know</span>
+            <h2 className="mt-4 max-w-[13ch] text-3xl font-extrabold leading-tight tracking-[-0.045em] sm:text-5xl">Help someone make their next move.</h2>
+            <p className="mt-5 max-w-[48ch] text-base leading-7 text-cyan-50">Create a mentor profile with your current account and start guiding learners in your field.</p>
+            <div className="mt-8 flex flex-wrap gap-3">
+              <button
+                onClick={() => {
+                  navigate("/auth/apply-as-men");
+                  window.scrollTo(0, 0);
+                }}
+                className="inline-flex min-h-12 items-center gap-2 rounded-full !bg-white px-6 py-3 text-base font-bold !text-cyan-950 transition-transform hover:-translate-y-0.5"
+              >
+                Mentor with MentorMe
+                <IconArrowRight aria-hidden="true" size={19} stroke={1.8} />
+              </button>
+              <button
+                onClick={handleSeeAllCourses}
+                className="min-h-12 rounded-full bg-cyan-950/25 px-6 py-3 text-base font-bold text-white transition-colors hover:bg-cyan-950/40"
+              >
+                Browse courses
+              </button>
             </div>
           </div>
         </div>

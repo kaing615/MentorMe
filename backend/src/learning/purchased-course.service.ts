@@ -9,6 +9,7 @@ import type { Connection, Model } from "mongoose";
 import { Types } from "mongoose";
 import type { UserDocument } from "../identity/user.schema";
 import { User } from "../identity/user.schema";
+import { NotificationService } from "../engagement/notification.service";
 import { Booking } from "../mentoring/booking.schema";
 import { Course } from "./course.schema";
 import type { AddPurchasedCourseReviewDto } from "./dto/add-purchased-course-review.dto";
@@ -40,6 +41,7 @@ export class PurchasedCourseService {
     @InjectModel(User.name) private readonly users: Model<User>,
     @InjectModel(Booking.name) private readonly bookings: Model<Booking>,
     private readonly enrolments: EnrolmentService,
+    private readonly notifications: NotificationService,
   ) {}
 
   async list(user: UserDocument) {
@@ -118,7 +120,7 @@ export class PurchasedCourseService {
     }
     const course = await this.courses
       .findById(courseId)
-      .select("title description price thumbnail");
+      .select("title description price thumbnail link");
     return {
       message: "Bạn đã mua khóa học này.",
       isPurchased: true,
@@ -132,13 +134,41 @@ export class PurchasedCourseService {
   }
 
   async progress(user: UserDocument, id: string, dto: UpdateProgressDto) {
-    const purchase = await this.owned(user, id);
-    purchase.progress = dto.progress;
-    purchase.lastAccessDate = new Date();
-    purchase.isCompleted = dto.progress === 100;
-    purchase.completedAt = purchase.isCompleted ? new Date() : null;
-    await purchase.save();
-    return purchase;
+    this.assertId(id);
+    return this.connection.transaction(async (session) => {
+      const purchase = await this.purchases
+        .findOne({ _id: id, mentee: user._id })
+        .session(session);
+      if (!purchase) {
+        throw new NotFoundException(
+          "Purchased course not found or you don't have permission.",
+        );
+      }
+      const completedNow = !purchase.isCompleted && dto.progress === 100;
+      purchase.progress = dto.progress;
+      purchase.lastAccessDate = new Date();
+      purchase.isCompleted = dto.progress === 100;
+      purchase.completedAt = purchase.isCompleted ? new Date() : null;
+      await purchase.save({ session });
+      if (completedNow) {
+        await this.notifications.notify(
+          {
+            recipient: user._id,
+            type: "course_completed",
+            title: "Course completed",
+            body: "Congratulations! You completed your course.",
+            link: `/purchased-courses/details/${String(purchase._id)}`,
+            metadata: {
+              purchasedCourseId: String(purchase._id),
+              courseId: String(purchase.course),
+            },
+            eventKey: `course:completed:${String(purchase._id)}`,
+          },
+          session,
+        );
+      }
+      return purchase;
+    });
   }
 
   async review(
@@ -152,23 +182,6 @@ export class PurchasedCourseService {
     purchase.reviewDate = new Date();
     await purchase.save();
     return purchase;
-  }
-
-  async remove(user: UserDocument, id: string) {
-    const purchase = await this.owned(user, id);
-    await this.connection.transaction(async (session) => {
-      await this.purchases.deleteOne({ _id: purchase._id }, { session });
-      await this.courses.updateOne(
-        { _id: purchase.course },
-        { $pull: { mentees: user._id } },
-        { session },
-      );
-    });
-    return {
-      message: "Purchased course deleted successfully.",
-      deletedPurchasedCourseId: id,
-      courseId: purchase.course,
-    };
   }
 
   async mentees(user: UserDocument) {

@@ -5,10 +5,10 @@
 
 import axios from "axios";
 import queryString from "query-string";
+import { resolveApiBaseUrl } from "./base-url";
 
 // Cấu hình base URL từ environment variables
-const API_ROOT = (import.meta.env.VITE_API_URL || "").replace(/\/+$/, "");
-const baseURL = /\/api\/v1$/i.test(API_ROOT) ? API_ROOT : `${API_ROOT}/api/v1`;
+const baseURL = resolveApiBaseUrl(import.meta.env.VITE_API_URL);
 
 // Tạo axios instance
 const apiClient = axios.create({

@@ -1,12 +1,12 @@
 # MentorMe API Documentation
 
-## 📋 Tổng quan API Endpoints
+## Tổng quan API Endpoints
 
 ### Base URL: `http://localhost:5000/api`
 
 ---
 
-## 🔐 User Authentication APIs
+## User Authentication APIs
 
 ### 1. Đăng ký User thông thường
 
@@ -145,7 +145,7 @@ POST /api/user/reset-password
 
 ---
 
-## 👤 Profile Management APIs
+## Profile Management APIs
 
 ### 1. Lấy thông tin Profile
 
@@ -231,7 +231,7 @@ PUT /api/profile/avatar
 
 ---
 
-## 🔒 Authentication & Authorization
+## Authentication & Authorization
 
 ### JWT Token
 
@@ -247,7 +247,7 @@ PUT /api/profile/avatar
 
 ---
 
-## 📁 File Upload
+## File Upload
 
 ### Supported Formats
 
@@ -261,7 +261,7 @@ PUT /api/profile/avatar
 
 ---
 
-## ⚠️ Error Responses
+## Error Responses
 
 ### Common HTTP Status Codes
 
@@ -286,7 +286,7 @@ PUT /api/profile/avatar
 
 ---
 
-## 🧪 Testing
+## Testing
 
 ### Postman/Thunder Client
 
@@ -301,7 +301,7 @@ JWT_TOKEN=your_jwt_token_here
 
 ---
 
-## 📝 Notes
+## Notes
 
 1. **Skills Format**: Khi gửi qua form-data, skills phải là JSON string: `["JavaScript", "Node.js"]`
 2. **Security**: Tất cả sensitive data đã được làm sạch trước khi trả về

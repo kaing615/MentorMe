@@ -4,7 +4,7 @@ import { useDispatch } from "react-redux";
 import { showLoading, hideLoading } from "../redux/features/loading.slice";
 import { toast } from "react-toastify";
 import cartApi from "../api/modules/cart.api";
-import { cart as mockCart, menteeUser, order } from "../data/seedData";
+import { hasUserRole } from "../utils/user-role";
 
 // Local currency formatter (USD)
 function formatCurrency(amount) {
@@ -63,7 +63,7 @@ const ShoppingCart = () => {
         user = null;
       }
 
-      if (!user || user.role !== "mentee") {
+      if (!hasUserRole(user, "mentee")) {
         toast.error("Chỉ mentee mới có thể xem giỏ hàng");
         navigate("/auth/signin");
         return;
@@ -78,52 +78,7 @@ const ShoppingCart = () => {
         const { response, error } = await cartApi.getCart(dispatch);
 
         if (error) {
-          // If no cart found or error, try localStorage mock cart first
-          console.warn(
-            "[DEBUG ShoppingCart] Cart API error, using localStorage fallback:",
-            error
-          );
-
-          const mockCartData = localStorage.getItem("mockCart");
-          if (mockCartData) {
-            try {
-              const cartItems = JSON.parse(mockCartData);
-              console.log(
-                "[DEBUG ShoppingCart] Using localStorage cart items:",
-                cartItems
-              );
-              const mappedCourses = cartItems.map((item, index) => ({
-                ...item,
-                id: item.id || item._id || index,
-                selected: true,
-                quantity: 1,
-                price: parseFloat(item.price) || 0,
-              }));
-              setCourses(mappedCourses);
-              setSelectedCourses(mappedCourses.map((course) => course.id));
-              setSelectAll(true);
-            } catch (e) {
-              console.error("Error parsing localStorage cart:", e);
-            }
-          } else if (mockCart.user === (user._id || menteeUser._id)) {
-            // Fallback to seed data if no localStorage
-            const mappedCourses = mockCart.items
-              .filter((item) => item && item.courseId) // Filter out invalid items
-              .map((item) => ({
-                ...item.courseId,
-                id: item.courseId._id,
-                selected: true,
-                quantity: item.quantity,
-              }));
-            setCourses(mappedCourses);
-            setSelectedCourses(mappedCourses);
-            setSubtotal(mockCart.subtotalAmount || 0);
-            setDiscount(mockCart.discountAmount || 0);
-            setTax(mockCart.taxAmount || 0);
-            setTotal(mockCart.totalAmount || 0);
-            setCartData(mockCart);
-          }
-          return;
+          throw new Error(error.message || "Không thể tải giỏ hàng");
         }
 
         const cart = response?.data?.cart;

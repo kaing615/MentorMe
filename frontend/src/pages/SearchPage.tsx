@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import courseApi from "../api/modules/course.api";
 import profileApi from "../api/modules/profile.api";
 import cartApi from "../api/modules/cart.api";
 import reviewApi from "../api/modules/review.api";
+import { hasUserRole } from "../utils/user-role";
 import { toast } from "react-toastify";
 import { showLoading, hideLoading } from "../redux/features/loading.slice";
 import {
@@ -25,6 +26,7 @@ import BoImg from "../assets/Bơ.jpg";
 
 const SearchPage = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const dispatch = useDispatch();
   const user = useSelector((state: any) => state.user);
 
@@ -47,7 +49,7 @@ const SearchPage = () => {
       navigate("/auth/signin");
       return;
     }
-    if (user.role === "mentor" || user.role === "mentee") {
+    if (hasUserRole(user, "mentor") || hasUserRole(user, "mentee")) {
       return;
     }
     navigate("/auth/signin");
@@ -56,6 +58,7 @@ const SearchPage = () => {
 
   // Tab state - khôi phục tab cuối cùng từ localStorage
   const [activeTab, setActiveTab] = useState<any>(() => {
+    if (searchParams.get("category")) return "courses";
     const savedTab = localStorage.getItem("searchPageActiveTab");
     return savedTab || "courses";
   });
@@ -76,7 +79,10 @@ const SearchPage = () => {
 
   // Filter states
   const [searchTerm, setSearchTerm] = useState<any>("");
-  const [selectedCategories, setSelectedCategories] = useState<any[]>([]);
+  const [selectedCategories, setSelectedCategories] = useState<any[]>(() => {
+    const category = searchParams.get("category");
+    return category ? [category] : [];
+  });
   const [selectedLevels, setSelectedLevels] = useState<any[]>([]);
   const [selectedPriceRange, setSelectedPriceRange] = useState<any>("");
   const [selectedRating, setSelectedRating] = useState<any>("");
@@ -138,12 +144,11 @@ const SearchPage = () => {
 
       const courses = Array.isArray(coursesRes) ? coursesRes : [];
       courses.forEach((c) => {
-        // Sử dụng studentsCount nếu có thay vì mentees array
+        // Count reported enrolments when the API does not expose mentee IDs.
         if (c.studentsCount || c.enrolledStudents) {
-          // Tạo fake mentee IDs dựa trên student count
           const count = c.studentsCount || c.enrolledStudents || 0;
           for (let i = 0; i < count; i++) {
-            menteeSet.add(`${mentorId}_${c._id}_${i}`);
+            menteeSet.add(`${c._id}_${i}`);
           }
         }
 
@@ -160,11 +165,6 @@ const SearchPage = () => {
         `Error fetching courses for mentor ${mentorId}:`,
         error.message
       );
-      // Fallback: random mentee count
-      const randomCount = Math.floor(Math.random() * 30) + 15;
-      for (let i = 0; i < randomCount; i++) {
-        menteeSet.add(`fallback_${mentorId}_${i}`);
-      }
     }
 
     // 2) Lấy reviews (course + booking) rồi tính trung bình như HomeScreen
@@ -233,11 +233,11 @@ const SearchPage = () => {
 
     if (!user) {
       toast.error("Please login to add courses to cart");
-      navigate("/login");
+      navigate("/auth/signin");
       return;
     }
 
-    if (user.role !== "mentee") {
+    if (!hasUserRole(user, "mentee")) {
       toast.error("Only mentees can purchase courses");
       return;
     }
@@ -253,45 +253,12 @@ const SearchPage = () => {
 
     try {
       dispatch(showLoading());
-
-      try {
-        const { response, error } = await cartApi.addToCart(
-          { courseId },
-          dispatch
-        );
-
-        if (response) {
-          toast.success("Course added to cart successfully!");
-          return;
-        } else if (error) {
-          throw new Error(error.message || "API failed");
-        }
-      } catch (apiError) {
-        const existingCart = localStorage.getItem("mockCart");
-        const cartItems = existingCart ? JSON.parse(existingCart) : [];
-
-        const alreadyInCart = cartItems.some(
-          (item) => (item._id || item.id) === courseId
-        );
-
-        if (alreadyInCart) {
-          toast.info("Course is already in your cart");
-          return;
-        }
-
-        cartItems.push({
-          id: courseId,
-          _id: courseId,
-          title: course.title,
-          price: course.price,
-          image: course.image,
-          mentor: course.mentor || "Unknown Mentor",
-          addedAt: new Date().toISOString(),
-        });
-
-        localStorage.setItem("mockCart", JSON.stringify(cartItems));
-        toast.success("Course added to cart successfully!");
-      }
+      const { response, error } = await cartApi.addToCart(
+        { courseId },
+        dispatch,
+      );
+      if (error || !response) throw error || new Error("Cart unavailable");
+      toast.success("Course added to cart successfully!");
     } catch (error) {
       console.error("Add to cart error:", error);
       toast.error("Failed to add course to cart");
@@ -305,11 +272,11 @@ const SearchPage = () => {
 
     if (!user) {
       toast.error("Please login to purchase courses");
-      navigate("/login");
+      navigate("/auth/signin");
       return;
     }
 
-    if (user.role !== "mentee") {
+    if (!hasUserRole(user, "mentee")) {
       toast.error("Only mentees can purchase courses");
       return;
     }
@@ -649,7 +616,7 @@ const SearchPage = () => {
   // Fetch purchased courses for smart navigation
   useEffect(() => {
     const fetchPurchasedCourses = async () => {
-      if (!user || user.role !== "mentee") return;
+      if (!hasUserRole(user, "mentee")) return;
 
       if (courses.length > 0) {
         const statusMap = new Map();
@@ -1506,7 +1473,7 @@ const SearchPage = () => {
                             })()}
                           </div>
 
-                          {user && user.role === "mentee" && (
+                          {hasUserRole(user, "mentee") && (
                             <div className="flex flex-col gap-2 mt-3 mb-3 px-4">
                               {isCourseAlreadyPurchased(course.id) ? (
                                 <>

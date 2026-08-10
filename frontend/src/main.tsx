@@ -7,6 +7,9 @@ import { Provider } from "react-redux";
 import { BrowserRouter } from "react-router-dom";
 import createPrivateClient from "./api/clients/private.client.js";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { applyTheme, getInitialTheme } from "./utils/theme";
+
+applyTheme(getInitialTheme(), false);
 
 const queryClient = new QueryClient({
   defaultOptions: {

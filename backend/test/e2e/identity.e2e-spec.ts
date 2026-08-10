@@ -218,5 +218,43 @@ describe("identity", () => {
       "https://cdn.example.com/avatar.png",
     );
     expect(response.body.data.user.role).toBe("mentor");
+    expect(response.body.data.user.roles).toEqual(["mentor"]);
+  });
+
+  it("upgrades the authenticated mentee instead of creating a duplicate user", async () => {
+    const signin = await request(app.getHttpServer())
+      .post("/api/v1/user/signin")
+      .send({ email: "new-mentee@example.com", password: "secret123" })
+      .expect(200);
+
+    const response = await request(app.getHttpServer())
+      .post("/api/v1/user/applyMentor")
+      .set("Authorization", `Bearer ${signin.body.data.token}`)
+      .field("userName", "new_mentee")
+      .field("firstName", "New")
+      .field("lastName", "Mentee")
+      .field("jobTitle", "Frontend Engineer")
+      .field("location", "Ho Chi Minh City")
+      .field("category", "Development")
+      .field("skills", "React,TypeScript")
+      .field(
+        "bio",
+        "I help learners build accessible frontend applications through practical guided projects.",
+      )
+      .field(
+        "mentorReason",
+        "I want to help learners grow with focused and practical feedback.",
+      )
+      .field("linkedinUrl", "https://linkedin.com/in/new-mentee")
+      .attach("avatar", Buffer.from("image"), {
+        filename: "avatar.png",
+        contentType: "image/png",
+      })
+      .expect(201);
+
+    expect(response.body.data.user.role).toBe("mentor");
+    expect(response.body.data.user.roles).toEqual(["mentee", "mentor"]);
+    expect(response.body.data.user.email).toBe("new-mentee@example.com");
+    expect(await users.countDocuments({ email: "new-mentee@example.com" })).toBe(1);
   });
 });

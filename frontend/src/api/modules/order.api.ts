@@ -7,12 +7,13 @@ const fail = (error) => ({ error, err: error });
 const orderApi: any = {
   // Tạo order từ checkout session
   createOrder: async (
-    { billingInfo, paymentMethod, discountCode },
+    { courses, billingInfo, paymentMethod, discountCode },
     dispatch
   ) => {
     try {
       const privateClient = createPrivateClient(dispatch);
       const response = await privateClient.post("/orders", {
+        courses,
         billingInfo,
         paymentMethod,
         discountCode,

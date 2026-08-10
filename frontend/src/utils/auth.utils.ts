@@ -2,8 +2,8 @@
  * Authentication utilities for production environment
  */
 
-import axios from "axios";
 import { toast } from "react-toastify";
+import { apiClient } from "../api/clients/api.client";
 
 /**
  * Validate if current user still exists in database
@@ -19,11 +19,7 @@ export const validateCurrentUser = async () => {
     }
 
     // Call backend to validate user
-    const response = await axios.get("/api/v1/user/validate", {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
+    const response = await apiClient.get("/profile");
 
     return response.status === 200;
   } catch (error) {
@@ -47,16 +43,6 @@ export const validateCurrentUser = async () => {
  * Clear all authentication data from localStorage
  */
 export const clearAuthData = () => {
-  // Get current user ID before clearing to remove user-specific data
-  let currentUserId = null;
-  try {
-    const userStr = localStorage.getItem("user");
-    const user = userStr ? JSON.parse(userStr) : null;
-    currentUserId = user?.id || user?._id;
-  } catch (e) {
-    // Ignore parse errors
-  }
-
   // Clear main auth data
   localStorage.removeItem("token");
   localStorage.removeItem("actkn");
@@ -65,14 +51,6 @@ export const clearAuthData = () => {
   localStorage.removeItem("mentorProfileTab");
   localStorage.removeItem("menteeProfileTab");
   localStorage.removeItem("selectedRole");
-
-  // Clear user-specific course data
-  if (currentUserId) {
-    localStorage.removeItem(`mockPurchasedCourses_${currentUserId}`);
-  }
-
-  // Clear any legacy course data
-  localStorage.removeItem("mockPurchasedCourses");
 
   // Clear any other app-specific cached data
   const keysToRemove = [];
@@ -83,8 +61,7 @@ export const clearAuthData = () => {
       (key.includes("course") ||
         key.includes("Course") ||
         key.includes("profile") ||
-        key.includes("Profile") ||
-        (currentUserId && key.includes(currentUserId)))
+        key.includes("Profile"))
     ) {
       keysToRemove.push(key);
     }

@@ -10,6 +10,8 @@ import type { ClientSession, Connection, Model } from "mongoose";
 import { Types } from "mongoose";
 import type { UserDocument } from "../identity/user.schema";
 import { User } from "../identity/user.schema";
+import { hasUserRole } from "../common/auth/user-role";
+import { NotificationService } from "../engagement/notification.service";
 import { Availability } from "./availability.schema";
 import { Booking, type BookingDocument } from "./booking.schema";
 import { assertBookingTransition } from "./booking-state";
@@ -29,6 +31,7 @@ export class BookingService {
     @InjectModel(Booking.name) private readonly bookings: Model<Booking>,
     @InjectModel(Relationship.name)
     private readonly relationships: Model<Relationship>,
+    private readonly notifications: NotificationService,
   ) {}
 
   async create(
@@ -36,6 +39,9 @@ export class BookingService {
     mentorId: string,
     dto: CreateBookingDto,
   ): Promise<ActionResult> {
+    if (!hasUserRole(mentee, "mentee")) {
+      throw new ForbiddenException("Only mentees can create bookings");
+    }
     if (!Types.ObjectId.isValid(mentorId)) {
       throw new BadRequestException("Invalid mentor ID");
     }
@@ -53,6 +59,9 @@ export class BookingService {
     const end = this.parseTime(dto.end);
     if (start.minutes >= end.minutes) {
       throw new BadRequestException("Invalid time range");
+    }
+    if (this.at(date, start.minutes) <= new Date()) {
+      throw new BadRequestException("Cannot book a past time slot");
     }
 
     const booking = await this.connection.transaction(async (session) => {
@@ -130,6 +139,19 @@ export class BookingService {
         availabilityId: availability._id,
       });
       await created.save({ session });
+      await this.notifications.notify(
+        {
+          recipient: mentorId,
+          actor: menteeId,
+          type: "booking_created",
+          title: "New booking request",
+          body: "A mentee requested a mentoring session.",
+          link: "/mentor-profile?tab=bookings",
+          metadata: { bookingId: String(created._id) },
+          eventKey: `booking:created:${String(created._id)}`,
+        },
+        session,
+      );
       return created;
     });
 
@@ -244,6 +266,24 @@ export class BookingService {
       booking.status = "cancelled";
       if (reason) booking.declineReason = reason;
       await booking.save({ session });
+      const recipient =
+        String(booking.mentor) === userId ? booking.mentee : booking.mentor;
+      await this.notifications.notify(
+        {
+          recipient,
+          actor: userId,
+          type: "booking_cancelled",
+          title: "Booking cancelled",
+          body: "A mentoring session was cancelled.",
+          link:
+            String(recipient) === String(booking.mentor)
+              ? "/mentor-profile?tab=bookings"
+              : "/profile?tab=bookings",
+          metadata: { bookingId: String(booking._id) },
+          eventKey: `booking:cancelled:${String(booking._id)}`,
+        },
+        session,
+      );
       return { message: "Booking cancelled", booking };
     });
   }
@@ -265,6 +305,9 @@ export class BookingService {
         );
       }
       assertBookingTransition(booking.status, to);
+      if (to === "active" && this.startAt(booking) <= new Date()) {
+        throw new BadRequestException("Cannot confirm a past session");
+      }
 
       const slot = await this.availabilities.updateOne(
         {
@@ -305,6 +348,22 @@ export class BookingService {
       booking.status = to;
       if (to === "rejected") booking.declineReason = reason ?? "";
       await booking.save({ session });
+      await this.notifications.notify(
+        {
+          recipient: booking.mentee,
+          actor: user._id,
+          type: to === "active" ? "booking_confirmed" : "booking_declined",
+          title: to === "active" ? "Booking confirmed" : "Booking declined",
+          body:
+            to === "active"
+              ? "Your mentor confirmed the session."
+              : "Your mentor declined the session.",
+          link: "/profile?tab=bookings",
+          metadata: { bookingId: String(booking._id), reason },
+          eventKey: `booking:${to === "active" ? "confirmed" : "declined"}:${String(booking._id)}`,
+        },
+        session,
+      );
       return { message, booking };
     });
   }
@@ -347,6 +406,7 @@ export class BookingService {
     user: UserDocument,
     query: Record<string, string | undefined>,
   ) {
+    await this.finishPast(field, user._id);
     const filter = this.listFilter(query);
     filter[field] = user._id;
     const limit = Math.min(Number(query.limit) || 10, 100);
@@ -359,6 +419,27 @@ export class BookingService {
       .sort({ createdAt: -1 })
       .limit(limit)
       .populate(population);
+  }
+
+  private async finishPast(
+    field: "mentor" | "mentee",
+    userId: Types.ObjectId,
+  ): Promise<void> {
+    const now = new Date();
+    const active = await this.bookings.find({
+      [field]: userId,
+      status: "active",
+      date: { $lte: now },
+    });
+    const ids = active
+      .filter((booking) => this.endAt(booking) <= now)
+      .map(({ _id }) => _id);
+    if (ids.length) {
+      await this.bookings.updateMany(
+        { _id: { $in: ids }, status: "active" },
+        { $set: { status: "finished" } },
+      );
+    }
   }
 
   private listFilter(
@@ -435,8 +516,16 @@ export class BookingService {
 
   private startAt(booking: BookingDocument): Date {
     const time = this.parseTime(booking.start);
-    const value = new Date(booking.date);
-    value.setUTCHours(Math.floor(time.minutes / 60), time.minutes % 60, 0, 0);
+    return this.at(booking.date, time.minutes);
+  }
+
+  private endAt(booking: BookingDocument): Date {
+    return this.at(booking.date, this.parseTime(booking.end).minutes);
+  }
+
+  private at(date: Date, minutes: number): Date {
+    const value = new Date(date);
+    value.setUTCHours(Math.floor(minutes / 60), minutes % 60, 0, 0);
     return value;
   }
 }

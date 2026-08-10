@@ -44,6 +44,10 @@ describe("messaging socket", () => {
     ]);
     me = currentUser!._id;
     peer = peerUser!._id;
+    await connection.collection("relationships").insertOne({
+      mentor: peer,
+      mentee: me,
+    });
     const jwt = app.get(JwtService);
     meToken = await jwt.signAsync({ id: String(me) });
     peerToken = await jwt.signAsync({ id: String(peer) });

@@ -14,6 +14,7 @@ import { FileInterceptor } from "@nestjs/platform-express";
 import { CurrentUser } from "../common/auth/current-user.decorator";
 import { JwtAuthGuard } from "../common/auth/jwt-auth.guard";
 import { AuthService } from "./auth.service";
+import { ApplyMentorDto } from "./dto/apply-mentor.dto";
 import { ForgotPasswordDto } from "./dto/forgot-password.dto";
 import { ResendEmailDto } from "./dto/resend-email.dto";
 import { ResetPasswordDto } from "./dto/reset-password.dto";
@@ -69,6 +70,17 @@ export class UserController {
   ) {
     if (!file) throw new BadRequestException("Avatar là bắt buộc");
     return this.auth.signUpMentor(dto, file);
+  }
+
+  @Post("applyMentor")
+  @UseGuards(JwtAuthGuard)
+  @UseInterceptors(FileInterceptor("avatar"))
+  applyMentor(
+    @CurrentUser() user: UserDocument,
+    @Body() dto: ApplyMentorDto,
+    @UploadedFile() file?: Express.Multer.File,
+  ) {
+    return this.auth.applyAsMentor(user, dto, file);
   }
 
   @Post("avatar")

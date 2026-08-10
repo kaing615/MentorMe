@@ -13,6 +13,7 @@ const SearchDropdown = () => {
   const [mentors, setMentors] = useState<any[]>([]);
   const [courses, setCourses] = useState<any[]>([]);
   const [loading, setLoading] = useState<any>(false);
+  const [searchError, setSearchError] = useState<any>(false);
   const [featuredMentors, setFeaturedMentors] = useState<any[]>([]);
   const [featuredCourses, setFeaturedCourses] = useState<any[]>([]);
 
@@ -28,6 +29,7 @@ const SearchDropdown = () => {
 
   // Load featured mentors and courses
   const loadFeaturedItems = async () => {
+    setSearchError(false);
     try {
       // Load featured mentors (top mentors from backend)
       const mentorResponse = await getTopMentors();
@@ -48,91 +50,9 @@ const SearchDropdown = () => {
       }
     } catch (error) {
       console.error("Error loading featured items:", error);
-      // Use fallback data if API fails
-      setFeaturedMentors([
-        {
-          _id: "1",
-          firstName: "An",
-          lastName: "Nguyen",
-          profile: {
-            jobTitle: "Senior Software Engineer",
-            skills: ["JavaScript", "React", "Node.js"],
-            category: "Programming",
-          },
-          rating: 4.8,
-          avatarUrl: null,
-        },
-        {
-          _id: "2",
-          firstName: "Thao",
-          lastName: "Tran",
-          profile: {
-            jobTitle: "UI/UX Designer",
-            skills: ["Figma", "Adobe XD", "Design Systems"],
-            category: "Design",
-          },
-          rating: 4.9,
-          avatarUrl: null,
-        },
-        {
-          _id: "3",
-          firstName: "Linh",
-          lastName: "Pham",
-          profile: {
-            jobTitle: "Data Scientist",
-            skills: ["Python", "Machine Learning", "SQL"],
-            category: "Data Science",
-          },
-          rating: 4.7,
-          avatarUrl: null,
-        },
-        {
-          _id: "4",
-          firstName: "Quang",
-          lastName: "Le",
-          profile: {
-            jobTitle: "Business Consultant",
-            skills: ["Strategy", "Marketing", "Finance"],
-            category: "Business",
-          },
-          rating: 4.6,
-          avatarUrl: null,
-        },
-      ]);
-      setFeaturedCourses([
-        {
-          _id: "1",
-          title: "Complete React Development",
-          category: "Programming",
-          tags: ["React", "JavaScript", "Frontend"],
-          rating: 4.7,
-          thumbnail: null,
-        },
-        {
-          _id: "2",
-          title: "UI/UX Design Fundamentals",
-          category: "Design",
-          tags: ["Design", "UX", "Figma"],
-          rating: 4.8,
-          thumbnail: null,
-        },
-        {
-          _id: "3",
-          title: "Data Science with Python",
-          category: "Data Science",
-          tags: ["Python", "Data Analysis", "Machine Learning"],
-          rating: 4.6,
-          thumbnail: null,
-        },
-        {
-          _id: "4",
-          title: "Digital Marketing Mastery",
-          category: "Marketing",
-          tags: ["Marketing", "SEO", "Social Media"],
-          rating: 4.5,
-          thumbnail: null,
-        },
-      ]);
+      setFeaturedMentors([]);
+      setFeaturedCourses([]);
+      setSearchError(true);
     }
   };
 
@@ -145,9 +65,11 @@ const SearchDropdown = () => {
     }
 
     setLoading(true);
+    setSearchError(false);
     try {
       // Search mentors - get more results to filter
       const mentorResponse = await searchMentors({
+        name: query,
         page: 1,
         limit: 20, // Get more results for better filtering
       });
@@ -198,33 +120,9 @@ const SearchDropdown = () => {
       }
     } catch (error) {
       console.error("Search error:", error);
-      // Show filtered results from featured items as fallback
-      const filteredMentors = featuredMentors.filter((mentor) => {
-        const fullName = `${mentor.firstName} ${mentor.lastName}`.toLowerCase();
-        const searchTerm = query.toLowerCase();
-
-        return (
-          fullName.includes(searchTerm) ||
-          mentor.profile?.jobTitle?.toLowerCase().includes(searchTerm) ||
-          mentor.profile?.category?.toLowerCase().includes(searchTerm) ||
-          mentor.profile?.skills?.some((skill) =>
-            skill.toLowerCase().includes(searchTerm)
-          )
-        );
-      });
-
-      const filteredCourses = featuredCourses.filter((course) => {
-        const searchTerm = query.toLowerCase();
-
-        return (
-          course.title?.toLowerCase().includes(searchTerm) ||
-          course.category?.toLowerCase().includes(searchTerm) ||
-          course.tags?.some((tag) => tag.toLowerCase().includes(searchTerm))
-        );
-      });
-
-      setMentors(filteredMentors);
-      setCourses(filteredCourses);
+      setMentors([]);
+      setCourses([]);
+      setSearchError(true);
     } finally {
       setLoading(false);
     }
@@ -309,7 +207,7 @@ const SearchDropdown = () => {
       {/* Search Input */}
       <div
         onClick={() => inputRef.current?.focus()}
-        className="flex min-h-10 items-center gap-2 rounded-lg border border-[var(--ui-border)] bg-[var(--ui-surface)] px-3 py-2 transition-colors focus-within:border-[var(--ui-accent)]"
+        className="flex min-h-12 items-center gap-2 rounded-full border border-[var(--ui-border)] bg-[var(--ui-surface)] px-4 py-0.5 shadow-[var(--ui-shadow-xs)] transition-all focus-within:border-[var(--ui-accent)] focus-within:shadow-[0_0_0_4px_var(--ui-accent-soft)]"
       >
         <IconSearch aria-hidden="true" className="text-[var(--ui-text-muted)]" size={20} stroke={1.8} />
         <input
@@ -323,7 +221,7 @@ const SearchDropdown = () => {
           onKeyDown={handleKeyPress}
           className="min-w-0 flex-1 border-none bg-transparent text-sm font-normal text-[var(--ui-text)] outline-none placeholder:text-[var(--ui-text-muted)]"
         />
-        <button aria-label="Submit search" onClick={handleSearchSubmit} className="rounded-md p-1 text-[var(--ui-text-muted)] hover:text-[var(--ui-accent)]">
+        <button aria-label="Submit search" onClick={handleSearchSubmit} className="-mr-2 inline-flex h-11 w-11 items-center justify-center rounded-full text-[var(--ui-text-muted)] hover:bg-[var(--ui-accent-soft)] hover:text-[var(--ui-accent)]">
           <IconSearch aria-hidden="true" size={18} stroke={1.8} />
         </button>
       </div>
@@ -332,7 +230,7 @@ const SearchDropdown = () => {
       {isOpen && (
         <div
           ref={dropdownRef}
-          className="absolute left-0 right-0 top-full z-50 mt-2 max-h-[420px] overflow-auto rounded-xl border border-[var(--ui-border)] bg-[var(--ui-surface)] shadow-[var(--ui-shadow)]"
+          className="absolute left-0 right-0 top-full z-50 mt-3 max-h-[420px] overflow-auto rounded-2xl border border-[var(--ui-border)] bg-[var(--ui-surface)] shadow-[var(--ui-shadow-lg)]"
           style={{ minWidth: 260 }}
         >
           {loading ? (
@@ -345,7 +243,7 @@ const SearchDropdown = () => {
             <div className="py-2">
               {/* Header with See All buttons */}
               {!searchQuery.trim() && (
-                <div className="px-3 py-2 border-b border-slate-100 bg-slate-50">
+                <div className="border-b border-[var(--ui-border)] bg-[var(--ui-surface-muted)] px-3 py-2">
                   <div className="flex justify-between">
                     <button
                       onClick={() => {
@@ -355,7 +253,7 @@ const SearchDropdown = () => {
                         );
                         navigate("/platform/search");
                       }}
-                      className="text-sm text-blue-600 hover:underline px-0 py-1 bg-transparent"
+                      className="bg-transparent px-0 py-1 text-sm text-[var(--ui-accent)] hover:underline"
                     >
                       See all courses
                     </button>
@@ -374,9 +272,9 @@ const SearchDropdown = () => {
 
               {/* Search Results Header */}
               {searchQuery.trim() && (
-                <div className="p-3 border-b border-slate-100 bg-slate-50">
+                <div className="border-b border-[var(--ui-border)] bg-[var(--ui-surface-muted)] p-3">
                   <div className="flex justify-between items-center">
-                    <span className="text-sm font-semibold text-slate-600">
+                    <span className="text-sm font-semibold text-[var(--ui-text-muted)]">
                       Search results for "{searchQuery}"
                     </span>
                     <div className="flex gap-2">
@@ -400,8 +298,8 @@ const SearchDropdown = () => {
               {/* Mentors Section */}
               {displayMentors.length > 0 && (
                 <div className="py-2">
-                  <div className="px-3 py-2 border-b border-slate-100 bg-slate-50">
-                    <span className="font-semibold text-slate-700">
+                  <div className="border-b border-[var(--ui-border)] bg-[var(--ui-surface-muted)] px-3 py-2">
+                    <span className="font-semibold text-[var(--ui-text)]">
                       Mentors
                     </span>
                   </div>
@@ -410,10 +308,10 @@ const SearchDropdown = () => {
                       <div
                         key={mentor._id}
                         onClick={() => handleMentorClick(mentor._id)}
-                        className="flex items-center gap-2 px-3 py-2 rounded text-slate-800 text-base font-normal cursor-pointer hover:bg-slate-100 transition-all"
+                        className="flex cursor-pointer items-center gap-2 rounded px-3 py-2 text-base font-normal text-[var(--ui-text)] transition-all hover:bg-[var(--ui-accent-soft)]"
                         style={{ minHeight: 36 }}
                       >
-                        <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center overflow-hidden">
+                        <div className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full bg-[var(--ui-accent-soft)]">
                           {mentor.avatarUrl ? (
                             <img
                               src={mentor.avatarUrl}
@@ -421,7 +319,7 @@ const SearchDropdown = () => {
                               className="w-full h-full object-cover rounded-full"
                             />
                           ) : (
-                            <span className="text-slate-500 font-semibold text-base">
+                            <span className="text-base font-semibold text-[var(--ui-accent)]">
                               {mentor.firstName?.charAt(0)}
                               {mentor.lastName?.charAt(0)}
                             </span>
@@ -442,8 +340,8 @@ const SearchDropdown = () => {
               {/* Courses Section */}
               {displayCourses.length > 0 && (
                 <div className="py-2">
-                  <div className="px-3 py-2 border-b border-slate-100 bg-slate-50">
-                    <span className="font-semibold text-slate-700">
+                  <div className="border-b border-[var(--ui-border)] bg-[var(--ui-surface-muted)] px-3 py-2">
+                    <span className="font-semibold text-[var(--ui-text)]">
                       Courses
                     </span>
                   </div>
@@ -452,10 +350,10 @@ const SearchDropdown = () => {
                       <div
                         key={course._id}
                         onClick={() => handleCourseClick(course._id)}
-                        className="flex items-center gap-2 px-3 py-2 rounded text-slate-800 text-base font-normal cursor-pointer hover:bg-slate-100 transition-all"
+                        className="flex cursor-pointer items-center gap-2 rounded px-3 py-2 text-base font-normal text-[var(--ui-text)] transition-all hover:bg-[var(--ui-accent-soft)]"
                         style={{ minHeight: 36 }}
                       >
-                        <div className="w-8 h-8 rounded bg-slate-200 flex items-center justify-center overflow-hidden">
+                        <div className="flex h-8 w-8 items-center justify-center overflow-hidden rounded bg-[var(--ui-accent-soft)] text-[var(--ui-accent)]">
                           {course.thumbnail ? (
                             <img
                               src={course.thumbnail}
@@ -469,7 +367,7 @@ const SearchDropdown = () => {
                         <span className="flex-1 truncate block">
                           {course.title}
                           {course.category && (
-                            <span className="ml-2 text-xs text-slate-500">
+                            <span className="ml-2 text-xs text-[var(--ui-text-muted)]">
                               {course.category}
                             </span>
                           )}
@@ -480,13 +378,19 @@ const SearchDropdown = () => {
                 </div>
               )}
 
+              {searchError && (
+                <div className="px-5 py-8 text-center text-sm text-[var(--ui-text-muted)]">
+                  Search is unavailable right now. Please try again.
+                </div>
+              )}
+
               {/* No Results */}
-              {searchQuery.trim() &&
+              {!searchError && searchQuery.trim() &&
                 displayMentors.length === 0 &&
                 displayCourses.length === 0 &&
                 !loading && (
-                  <div className="p-8 text-center text-slate-400">
-                    <IconSearch aria-hidden="true" className="mx-auto mb-3 text-slate-300" size={36} stroke={1.5} />
+                  <div className="p-8 text-center text-[var(--ui-text-muted)]">
+                    <IconSearch aria-hidden="true" className="mx-auto mb-3 text-[var(--ui-accent)]" size={36} stroke={1.5} />
                     <p className="font-medium">No results found</p>
                     <p className="text-sm mt-1">
                       Try another keyword or see all mentors/courses below

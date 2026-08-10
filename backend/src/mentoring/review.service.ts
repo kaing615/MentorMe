@@ -9,7 +9,9 @@ import type { Connection, Model } from "mongoose";
 import { Types } from "mongoose";
 import sanitizeHtml from "sanitize-html";
 import type { UserDocument } from "../identity/user.schema";
+import { NotificationService } from "../engagement/notification.service";
 import { Booking } from "./booking.schema";
+import { Profile } from "./profile.schema";
 import type { CreateReviewDto } from "./dto/create-review.dto";
 import type { ReviewQueryDto } from "./dto/review-query.dto";
 import type { UpdateReviewDto } from "./dto/update-review.dto";
@@ -46,6 +48,8 @@ export class ReviewService {
     @InjectConnection() private readonly connection: Connection,
     @InjectModel(Review.name) private readonly reviews: Model<Review>,
     @InjectModel(Booking.name) private readonly bookings: Model<Booking>,
+    @InjectModel(Profile.name) private readonly profiles: Model<Profile>,
+    private readonly notifications: NotificationService,
   ) {}
 
   async create(
@@ -86,13 +90,41 @@ export class ReviewService {
       content: this.clean(item.content),
       rate: Number(item.rate),
     }));
+    const recipients = await Promise.all(
+      items.map((item) => this.reviewRecipient(user, item)),
+    );
     try {
-      if (Array.isArray(input)) {
-        return this.connection.transaction((session) =>
-          this.reviews.insertMany(docs, { session }),
-        );
-      }
-      return await this.reviews.create(docs[0]!);
+      const created = await this.connection.transaction(async (session) => {
+        const inserted = await this.reviews.insertMany(docs, { session });
+        for (const [index, review] of inserted.entries()) {
+          const recipient = recipients[index];
+          if (!recipient || String(recipient) === String(user._id)) continue;
+          const item = items[index]!;
+          await this.notifications.notify(
+            {
+              recipient,
+              actor: user._id,
+              type: "review_received",
+              title: "New review",
+              body: `You received a ${item.rate}-star review.`,
+              link:
+                item.targetType === "Booking"
+                  ? "/mentor-profile?tab=reviews"
+                  : `/${item.targetType.toLowerCase()}/${item.target}`,
+              metadata: {
+                reviewId: String(review._id),
+                targetType: item.targetType,
+                target: item.target,
+              },
+              eventKey: `review:received:${String(review._id)}`,
+            },
+            session,
+          );
+        }
+        return inserted;
+      });
+      await this.refreshTargets(items);
+      return Array.isArray(input) ? created : created[0]!;
     } catch (error) {
       if (
         error &&
@@ -175,6 +207,7 @@ export class ReviewService {
     if (dto.content !== undefined) review.content = this.clean(dto.content);
     if (dto.rate !== undefined) review.rate = dto.rate;
     await review.save();
+    await this.refreshTarget(review.targetType, review.target);
     return review;
   }
 
@@ -184,6 +217,7 @@ export class ReviewService {
     if (!review) throw new NotFoundException("Review not found");
     this.assertOwner(user, review);
     await review.deleteOne();
+    await this.refreshTarget(review.targetType, review.target);
     return { success: true, id };
   }
 
@@ -219,7 +253,7 @@ export class ReviewService {
       return Boolean(
         await this.bookings.exists({
           _id: item.target,
-          status: { $in: ["active", "finished"] },
+          status: "finished",
           $or: [{ mentor: userId }, { mentee: userId }],
         }),
       );
@@ -229,7 +263,7 @@ export class ReviewService {
         await this.bookings.exists({
           mentor: item.target,
           mentee: userId,
-          status: { $in: ["active", "finished"] },
+          status: "finished",
         })
       ) {
         return true;
@@ -246,9 +280,84 @@ export class ReviewService {
       .findOne({ _id: new Types.ObjectId(item.target) });
     return Boolean(
       course &&
-        (String(course.mentor) === String(userId) ||
-          course.mentees?.some((id) => String(id) === String(userId))),
+        course.mentees?.some((id) => String(id) === String(userId)),
     );
+  }
+
+  private async reviewRecipient(
+    user: UserDocument,
+    item: CreateReviewDto,
+  ): Promise<Types.ObjectId | null> {
+    if (item.targetType === "Mentor") return new Types.ObjectId(item.target);
+    if (item.targetType === "Course") {
+      return (
+        await this.connection
+          .collection<CourseRecord>("courses")
+          .findOne({ _id: new Types.ObjectId(item.target) })
+      )?.mentor ?? null;
+    }
+    const booking = await this.bookings.findById(item.target).lean();
+    if (!booking) return null;
+    return String(booking.mentor) === String(user._id)
+      ? booking.mentee
+      : booking.mentor;
+  }
+
+  private async refreshTargets(items: CreateReviewDto[]): Promise<void> {
+    for (const item of items) {
+      await this.refreshTarget(item.targetType, new Types.ObjectId(item.target));
+    }
+  }
+
+  private async refreshTarget(
+    targetType: ReviewTargetType,
+    target: Types.ObjectId,
+  ): Promise<void> {
+    if (targetType === "Course") {
+      const reviews = await this.reviews.find({ targetType, target }).select("rate");
+      await this.connection.collection("courses").updateOne(
+        { _id: target },
+        {
+          $set: {
+            rate: this.average(reviews),
+            numberOfRatings: reviews.length,
+          },
+        },
+      );
+      return;
+    }
+
+    const mentorId =
+      targetType === "Mentor"
+        ? target
+        : (await this.bookings.findById(target).select("mentor").lean())?.mentor;
+    if (!mentorId) return;
+    const bookingIds = await this.bookings.distinct("_id", { mentor: mentorId });
+    const reviews = await this.reviews
+      .find({
+        $or: [
+          { targetType: "Mentor", target: mentorId },
+          { targetType: "Booking", target: { $in: bookingIds } },
+        ],
+      })
+      .select("rate");
+    await this.profiles.findOneAndUpdate(
+      { user: mentorId },
+      {
+        $set: {
+          rate: this.average(reviews),
+          reviews: reviews.map(({ _id }) => _id),
+        },
+        $setOnInsert: { user: mentorId },
+      },
+      { upsert: true },
+    );
+  }
+
+  private average(reviews: Array<{ rate: number }>): number {
+    return reviews.length
+      ? reviews.reduce((sum, review) => sum + review.rate, 0) / reviews.length
+      : 0;
   }
 
   private async targetInfo(targetType: ReviewTargetType, target: Types.ObjectId) {

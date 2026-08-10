@@ -2,9 +2,16 @@ import React, { useEffect } from "react";
 import { Navigate } from "react-router-dom";
 import { useSelector } from "react-redux";
 import { toast } from "react-toastify";
+import { hasUserRole, type UserRole } from "../../utils/user-role";
 
-const ProtectedRoute = ({ children }) => {
-  const { isAuthenticated, status } = useSelector((state: any) => state.auth);
+const ProtectedRoute = ({ children, requiredRole }: { children: React.ReactNode; requiredRole?: UserRole }) => {
+  const { isAuthenticated, status, user } = useSelector((state: any) => state.auth);
+  let currentUser = user;
+  try {
+    currentUser = JSON.parse(localStorage.getItem("user") || "null") || user;
+  } catch {
+    currentUser = user;
+  }
 
   // Show notification when user is not authenticated
   useEffect(() => {
@@ -40,6 +47,10 @@ const ProtectedRoute = ({ children }) => {
   // Redirect to login if not authenticated
   if (!isAuthenticated) {
     return <Navigate to="/auth/signin" replace />;
+  }
+
+  if (requiredRole && !hasUserRole(currentUser, requiredRole)) {
+    return <Navigate to={currentUser?.role === "mentor" ? "/mentor/home" : "/home"} replace />;
   }
 
   // Render protected content if authenticated

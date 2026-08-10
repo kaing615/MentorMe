@@ -8,9 +8,13 @@ import purchasedCourseApi from "../api/modules/purchasedCourse.api";
 import availabilityApi from "../api/modules/availability.api";
 import bookingApi from "../api/modules/booking.api";
 import reviewApi from "../api/modules/review.api";
+import { hasUserRole } from "../utils/user-role";
 import { toast } from "react-toastify";
 import { showLoading, hideLoading } from "../redux/features/loading.slice";
 import { IoStar, IoStarOutline } from "react-icons/io5";
+import { IconHeart } from "@tabler/icons-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import favoriteApi from "../api/modules/favorite.api";
 
 // Stars render function
 const renderStars = (rating) => {
@@ -76,6 +80,7 @@ const getRatingBreakdown = (reviews) => {
 const MentorPage = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
+  const queryClient = useQueryClient();
   const user = useSelector((state: any) => state.user);
   const { id } = useParams(); // Lấy ID mentor từ URL
   const location = useLocation(); // Lấy state từ navigation
@@ -104,7 +109,7 @@ const MentorPage = () => {
     if (user.role === "mentor") {
       return;
     }
-    if (user.role === "mentee") {
+    if (hasUserRole(user, "mentee")) {
       return;
     }
     // if (user.role === "admin") {
@@ -138,6 +143,31 @@ const MentorPage = () => {
   const [bookingStep, setBookingStep] = useState<any>(1);
   const [bookingNotes, setBookingNotes] = useState<any>("");
   const [showMonthYearPicker, setShowMonthYearPicker] = useState<any>(false);
+  let viewer = user;
+  try {
+    viewer = JSON.parse(localStorage.getItem("user") || "null") || user;
+  } catch {
+    viewer = user;
+  }
+  const isMenteeView =
+    hasUserRole(viewer, "mentee") &&
+    localStorage.getItem("mentorMode") !== "true";
+  const mentorTargetId =
+    id || mentor?.user?._id || mentor?.profile?.user?._id || mentor?._id;
+  const favorites = useQuery({
+    queryKey: ["favorites"],
+    queryFn: favoriteApi.list,
+    enabled: isMenteeView,
+  });
+  const favoriteMutation = useMutation({
+    mutationFn: ({ mentorId, active }: { mentorId: string; active: boolean }) =>
+      active
+        ? favoriteApi.remove("mentor", mentorId)
+        : favoriteApi.add("mentor", mentorId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["favorites"] }),
+  });
+  const isFavorite =
+    favorites.data?.mentors.some((item) => item._id === mentorTargetId) ?? false;
 
   // Helper function to check if course is already purchased
   const isCourseAlreadyPurchased = (courseId) => {
@@ -178,11 +208,11 @@ const MentorPage = () => {
 
     if (!user) {
       toast.error("Please login to add courses to cart");
-      navigate("/login");
+      navigate("/auth/signin");
       return;
     }
 
-    if (user.role !== "mentee") {
+    if (!hasUserRole(user, "mentee")) {
       toast.error("Only mentees can purchase courses");
       return;
     }
@@ -199,49 +229,12 @@ const MentorPage = () => {
 
     try {
       dispatch(showLoading());
-
-      // Try API first, fallback to localStorage
-      try {
-        const { response, error } = await cartApi.addToCart(
-          { courseId },
-          dispatch
-        );
-
-        if (response) {
-          toast.success("Course added to cart successfully!");
-          return;
-        } else if (error) {
-          throw new Error(error.message || "API failed");
-        }
-      } catch (apiError) {
-        // Fallback to localStorage
-        const existingCart = localStorage.getItem("mockCart");
-        const cartItems = existingCart ? JSON.parse(existingCart) : [];
-
-        // Check if course already in cart
-        const alreadyInCart = cartItems.some(
-          (item) => (item._id || item.id) === courseId
-        );
-
-        if (alreadyInCart) {
-          toast.info("Course is already in your cart");
-          return;
-        }
-
-        // Add course to cart
-        cartItems.push({
-          id: courseId,
-          _id: courseId,
-          title: course.title,
-          price: course.price,
-          image: course.thumbnail,
-          mentor: course.authorName || course.mentorName || "Unknown Mentor",
-          addedAt: new Date().toISOString(),
-        });
-
-        localStorage.setItem("mockCart", JSON.stringify(cartItems));
-        toast.success("Course added to cart successfully!");
-      }
+      const { response, error } = await cartApi.addToCart(
+        { courseId },
+        dispatch,
+      );
+      if (error || !response) throw error || new Error("Cart unavailable");
+      toast.success("Course added to cart successfully!");
     } catch (error) {
       toast.error("Failed to add course to cart");
     } finally {
@@ -256,11 +249,11 @@ const MentorPage = () => {
 
     if (!user) {
       toast.error("Please login to purchase courses");
-      navigate("/login");
+      navigate("/auth/signin");
       return;
     }
 
-    if (user.role !== "mentee") {
+    if (!hasUserRole(user, "mentee")) {
       toast.error("Only mentees can purchase courses");
       return;
     }
@@ -428,7 +421,7 @@ const MentorPage = () => {
   // Fetch purchased courses for smart navigation
   useEffect(() => {
     const fetchPurchasedCourses = async () => {
-      if (!user || user.role !== "mentee") return;
+      if (!hasUserRole(user, "mentee")) return;
 
       // Check purchase status for displayed courses
       if (courses.length > 0) {
@@ -599,7 +592,7 @@ const MentorPage = () => {
       return;
     }
 
-    if (!user || user.role !== "mentee") {
+    if (!hasUserRole(user, "mentee")) {
       toast.error("Chỉ mentee mới có thể đặt lịch");
       return;
     }
@@ -700,18 +693,18 @@ const MentorPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-white-50 flex flex-col py-0">
+    <div className="flex min-h-[100dvh] flex-col bg-[var(--ui-page)] py-0">
       <main
         className={`w-full flex flex-col ${showBookingModal ? "blur-sm" : ""}`}
       >
-        <div className="w-full mt-8 p-0">
+        <div className="w-full p-0 py-10">
           {/* Mentor Info Section - fetch and display real data */}
           {mentor && (
-            <div className="w-full flex flex-col lg:flex-row lg:items-start lg:justify-between lg:gap-8 max-w-7xl mx-auto px-2 md:px-4 mb-12">
+            <div className="ui-card mx-auto mb-12 flex w-[calc(100%-2rem)] max-w-7xl flex-col px-5 py-8 sm:px-8 lg:flex-row lg:items-start lg:justify-between lg:gap-8 lg:px-10">
               {/* Left info + about */}
               <div className="flex-1 min-w-0 max-w-full lg:max-w-[calc(100%-21rem)] pr-0 lg:pr-8">
-                <div className="text-base text-gray-500 mb-1">Mentor</div>
-                <h1 className="text-4xl font-bold text-gray-900 mb-1">
+                <div className="ui-eyebrow mb-4">Verified mentor</div>
+                <h1 className="mb-2 text-4xl font-extrabold tracking-[-0.045em] text-[var(--ui-text)] sm:text-5xl">
                   {mentor?.profile?.firstName ||
                     mentor?.user?.firstName ||
                     "Mentor"}{" "}
@@ -812,20 +805,18 @@ const MentorPage = () => {
               </div>
               {/* Right avatar & info buttons */}
               <div className="flex flex-col items-center w-full lg:w-80 flex-shrink-0 mt-8 lg:mt-0">
-                <div className="w-40 h-40 rounded-full overflow-hidden border-4 border-gray-100 shadow mb-6 bg-gray-200 ">
-                  <img
-                    src={
-                      mentor?.profile?.avatarUrl ||
-                      mentor?.user?.avatarUrl ||
-                      "https://randomuser.me/api/portraits/men/32.jpg"
-                    }
-                    alt={
-                      mentor?.profile?.firstName ||
-                      mentor?.user?.firstName ||
-                      "Mentor"
-                    }
-                    className="w-full h-full object-cover"
-                  />
+                <div className="relative mb-6 flex h-40 w-40 items-center justify-center overflow-hidden rounded-full border-4 border-[var(--ui-surface)] bg-[var(--ui-accent-soft)] text-4xl font-extrabold text-[var(--ui-accent)] shadow">
+                  <span>{(mentor?.profile?.firstName?.[0] || mentor?.user?.firstName?.[0] || "M").toUpperCase()}</span>
+                  {(mentor?.profile?.avatarUrl || mentor?.user?.avatarUrl) && (
+                    <img
+                      src={mentor?.profile?.avatarUrl || mentor?.user?.avatarUrl}
+                      alt={mentor?.profile?.firstName || mentor?.user?.firstName || "Mentor"}
+                      className="absolute inset-0 h-full w-full object-cover"
+                      onError={(e) => {
+                        e.currentTarget.style.display = "none";
+                      }}
+                    />
+                  )}
                 </div>
                 <div className="flex flex-col gap-3 w-full max-w-xs">
                   {((mentor?.profile?.links?.website &&
@@ -935,13 +926,33 @@ const MentorPage = () => {
                     </button>
                   ) : null}
                   {/* Only show Book Now button for mentees */}
-                  {user && user.role === "mentee" && (
-                    <button
-                      className="w-full bg-gray-900 text-white rounded py-2 font-semibold mt-2 hover:bg-gray-800 transition"
-                      onClick={openBookingModal}
-                    >
-                      Book Now
-                    </button>
+                  {isMenteeView && (
+                    <>
+                      <button
+                        type="button"
+                        aria-pressed={isFavorite}
+                        disabled={!mentorTargetId || favoriteMutation.isPending}
+                        onClick={() =>
+                          favoriteMutation.mutate({
+                            mentorId: mentorTargetId,
+                            active: isFavorite,
+                          })
+                        }
+                        className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-md bg-[var(--ui-surface-muted)] px-4 text-sm font-bold text-[var(--ui-text)] transition-colors hover:bg-[var(--ui-accent-soft)] hover:text-[var(--ui-accent)] disabled:opacity-50"
+                      >
+                        <IconHeart
+                          size={19}
+                          fill={isFavorite ? "currentColor" : "none"}
+                        />
+                        {isFavorite ? "Saved mentor" : "Save mentor"}
+                      </button>
+                      <button
+                        className="min-h-11 w-full rounded bg-[var(--ui-accent-fill)] py-2 font-semibold text-white transition-colors hover:bg-[var(--ui-accent-fill-hover)]"
+                        onClick={openBookingModal}
+                      >
+                        Book Now
+                      </button>
+                    </>
                   )}
                 </div>
               </div>
@@ -1146,7 +1157,7 @@ const MentorPage = () => {
                         </div>
 
                         {/* Add to Cart and Buy Now buttons for mentees */}
-                        {user && user.role === "mentee" && (
+                        {hasUserRole(user, "mentee") && (
                           <div className="flex flex-col gap-2 mt-3">
                             {isCourseAlreadyPurchased(
                               course._id || course.id

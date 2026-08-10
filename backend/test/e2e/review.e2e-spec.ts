@@ -13,6 +13,7 @@ describe("reviews", () => {
   let app: INestApplication;
   let connection: Connection;
   let reviews: Model<Review>;
+  let bookings: Model<Booking>;
   let mentorId: string;
   let menteeId: string;
   let bookingId: string;
@@ -25,7 +26,7 @@ describe("reviews", () => {
     connection = app.get<Connection>(getConnectionToken());
     await connection.dropDatabase();
     const users = app.get<Model<User>>(getModelToken(User.name));
-    const bookings = app.get<Model<Booking>>(getModelToken(Booking.name));
+    bookings = app.get<Model<Booking>>(getModelToken(Booking.name));
     reviews = app.get<Model<Review>>(getModelToken(Review.name));
     const jwt = app.get(JwtService);
     const [mentor, mentee, outsider] = await users.create([
@@ -91,6 +92,16 @@ describe("reviews", () => {
       .send({ targetType: "Booking", target: bookingId, rate: 5 })
       .expect(403);
 
+    await request(app.getHttpServer())
+      .post("/api/v1/reviews")
+      .set("Authorization", `Bearer ${menteeToken}`)
+      .send({ targetType: "Booking", target: bookingId, rate: 5 })
+      .expect(403);
+    await bookings.updateOne(
+      { _id: bookingId },
+      { $set: { status: "finished" } },
+    );
+
     const created = await request(app.getHttpServer())
       .post("/api/v1/reviews")
       .set("Authorization", `Bearer ${menteeToken}`)
@@ -102,6 +113,13 @@ describe("reviews", () => {
       })
       .expect(201);
     expect(created.body.data.content).toBe("Helpful session");
+    expect(
+      await connection.collection("notifications").countDocuments({
+        recipient: new Types.ObjectId(mentorId),
+        actor: new Types.ObjectId(menteeId),
+        type: "review_received",
+      }),
+    ).toBe(1);
 
     await request(app.getHttpServer())
       .post("/api/v1/reviews")
@@ -120,6 +138,17 @@ describe("reviews", () => {
       .set("Authorization", `Bearer ${menteeToken}`)
       .send({ targetType: "Mentor", target: mentorId, rate: 5 })
       .expect(201);
+    expect(
+      await connection.collection("notifications").countDocuments({
+        recipient: new Types.ObjectId(mentorId),
+        type: "review_received",
+      }),
+    ).toBe(3);
+
+    const mentorProfile = await request(app.getHttpServer())
+      .get(`/api/v1/profile/mentor/${mentorId}`)
+      .expect(200);
+    expect(mentorProfile.body.data.profile.rate).toBe(5);
   });
 
   it("lists target, own, and mentor booking reviews", async () => {
@@ -155,6 +184,12 @@ describe("reviews", () => {
       .set("Authorization", `Bearer ${menteeToken}`)
       .expect(200);
     expect(mentor.body.data.items).toHaveLength(1);
+
+    const courseReviews = await request(app.getHttpServer())
+      .get("/api/v1/course/reviews")
+      .expect(200);
+    expect(courseReviews.body.data.totalReviews).toBe(1);
+    expect(courseReviews.body.data.reviews[0].targetType).toBe("Course");
   });
 
   it("updates and deletes only as the review owner", async () => {

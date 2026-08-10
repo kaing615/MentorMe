@@ -11,6 +11,7 @@ import { MentoringModule } from "./mentoring/mentoring.module";
 import { MessagingModule } from "./messaging/messaging.module";
 import { ProfileModule } from "./mentoring/profile.module";
 import { SupportModule } from "./support/support.module";
+import { EngagementModule } from "./engagement/engagement.module";
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { SupportModule } from "./support/support.module";
     MessagingModule,
     ProfileModule,
     SupportModule,
+    EngagementModule,
   ],
 })
 export class AppModule {}

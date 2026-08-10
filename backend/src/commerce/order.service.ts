@@ -39,6 +39,13 @@ export class OrderService {
       if (courses.length !== new Set(ids).size) {
         throw new BadRequestException("Khóa học không tồn tại!");
       }
+      if (
+        courses.some((course) =>
+          course.mentees.some((mentee) => String(mentee) === String(user._id)),
+        )
+      ) {
+        throw new BadRequestException("Bạn đã mua một trong các khóa học này.");
+      }
       const subtotalAmount = courses.reduce((sum, course) => sum + course.price, 0);
       const discountAmount = cart?.discountAmount ?? 0;
       const totalAmount = subtotalAmount - discountAmount;
@@ -77,7 +84,6 @@ export class OrderService {
         paymentMethod: dto.paymentMethod ?? "bank",
       });
       await order.save({ session });
-      if (cart) await this.carts.deleteOne({ _id: cart._id }, { session });
       return {
         message: cart ? "Tạo đơn hàng thành công!" : "Tạo order thành công!",
         order,

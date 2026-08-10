@@ -4,6 +4,7 @@ import { useDispatch, useSelector } from "react-redux";
 import courseApi from "../api/modules/course.api";
 import cartApi from "../api/modules/cart.api";
 import purchasedCourseApi from "../api/modules/purchasedCourse.api";
+import { hasUserRole } from "../utils/user-role";
 import { toast } from "react-toastify";
 import { showLoading, hideLoading } from "../redux/features/loading.slice";
 import {
@@ -45,7 +46,7 @@ const AllCoursePage = () => {
       return;
     }
     // Check role - chỉ mentor và mentee được phép vào
-    if (user.role === "mentor" || user.role === "mentee") {
+    if (hasUserRole(user, "mentor") || hasUserRole(user, "mentee")) {
       return;
     }
     // Nếu không phải mentor hoặc mentee, redirect về signin
@@ -127,11 +128,11 @@ const AllCoursePage = () => {
 
     if (!user) {
       toast.error("Please login to add courses to cart");
-      navigate("/login");
+      navigate("/auth/signin");
       return;
     }
 
-    if (user.role !== "mentee") {
+    if (!hasUserRole(user, "mentee")) {
       toast.error("Only mentees can purchase courses");
       return;
     }
@@ -148,51 +149,12 @@ const AllCoursePage = () => {
 
     try {
       dispatch(showLoading());
-
-      // Try API first, fallback to localStorage
-      try {
-        const { response, error } = await cartApi.addToCart(
-          { courseId },
-          dispatch
-        );
-
-        if (response) {
-          toast.success("Course added to cart successfully!");
-          return;
-        } else if (error) {
-          throw new Error(error.message || "API failed");
-        }
-      } catch (apiError) {
-        console.log("API failed, using localStorage fallback:", apiError);
-
-        // Fallback to localStorage
-        const existingCart = localStorage.getItem("mockCart");
-        const cartItems = existingCart ? JSON.parse(existingCart) : [];
-
-        // Check if course already in cart
-        const alreadyInCart = cartItems.some(
-          (item) => (item._id || item.id) === courseId
-        );
-
-        if (alreadyInCart) {
-          toast.info("Course is already in your cart");
-          return;
-        }
-
-        // Add course to cart
-        cartItems.push({
-          id: courseId,
-          _id: courseId,
-          title: course.title,
-          price: course.price,
-          image: course.image,
-          mentor: course.mentor || "Unknown Mentor",
-          addedAt: new Date().toISOString(),
-        });
-
-        localStorage.setItem("mockCart", JSON.stringify(cartItems));
-        toast.success("Course added to cart successfully!");
-      }
+      const { response, error } = await cartApi.addToCart(
+        { courseId },
+        dispatch,
+      );
+      if (error || !response) throw error || new Error("Cart unavailable");
+      toast.success("Course added to cart successfully!");
     } catch (error) {
       console.error("Add to cart error:", error);
       toast.error("Failed to add course to cart");
@@ -202,16 +164,16 @@ const AllCoursePage = () => {
   };
 
   // Buy Now function
-  const handleBuyNow = (e, course) => {
+  const handleBuyNow = async (e, course) => {
     e.stopPropagation();
 
     if (!user) {
       toast.error("Please login to purchase courses");
-      navigate("/login");
+      navigate("/auth/signin");
       return;
     }
 
-    if (user.role !== "mentee") {
+    if (!hasUserRole(user, "mentee")) {
       toast.error("Only mentees can purchase courses");
       return;
     }
@@ -226,13 +188,17 @@ const AllCoursePage = () => {
       return;
     }
 
-    // Show loading page
     dispatch(showLoading());
-
-    // Navigate with a slight delay to show loading
-    setTimeout(() => {
-      navigate(`/shoppingcart`);
-    }, 300);
+    const { response, error } = await cartApi.addToCart(
+      { courseId },
+      dispatch,
+    );
+    dispatch(hideLoading());
+    if (error || !response) {
+      toast.error("Failed to add course to cart");
+      return;
+    }
+    navigate("/shoppingcart");
   };
 
   // Fetch all courses from API
@@ -328,7 +294,7 @@ const AllCoursePage = () => {
   useEffect(() => {
     const fetchPurchasedCourses = async () => {
       // ⭐ Chỉ fetch purchased courses nếu user là mentee
-      if (!user || user.role !== "mentee") {
+      if (!hasUserRole(user, "mentee")) {
         return;
       }
 
@@ -993,7 +959,7 @@ const AllCoursePage = () => {
                       </div>
 
                       {/* Add to Cart and Buy Now buttons for mentees */}
-                      {user && user.role === "mentee" && (
+                      {hasUserRole(user, "mentee") && (
                         <div className="flex flex-col gap-2 mt-3 mb-3 px-4">
                           {isCourseAlreadyPurchased(course.id) ? (
                             <>

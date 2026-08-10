@@ -1,5 +1,5 @@
 import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
-import { HydratedDocument } from "mongoose";
+import { HydratedDocument, Schema as MongooseSchema, Types } from "mongoose";
 
 export type UserDocument = HydratedDocument<User>;
 
@@ -58,6 +58,15 @@ export class User {
 
   @Prop({ type: String, enum: ["mentor", "mentee", "admin"] })
   role?: "mentor" | "mentee" | "admin";
+
+  @Prop({ type: [String], enum: ["mentor", "mentee", "admin"], default: [] })
+  roles!: Array<"mentor" | "mentee" | "admin">;
+
+  @Prop({ type: [MongooseSchema.Types.ObjectId], ref: "Course", default: [] })
+  favoriteCourses!: Types.ObjectId[];
+
+  @Prop({ type: [MongooseSchema.Types.ObjectId], ref: "User", default: [] })
+  favoriteMentors!: Types.ObjectId[];
 
   @Prop({ default: false })
   isVerified!: boolean;

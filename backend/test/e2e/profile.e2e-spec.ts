@@ -39,6 +39,10 @@ describe("profiles", () => {
     menteeToken = await jwt.signAsync({ id: String(mentee._id) });
     mentorToken = await jwt.signAsync({ id: String(mentor._id) });
     mentorId = String(mentor._id);
+    await connection.collection("relationships").insertOne({
+      mentor: mentor._id,
+      mentee: mentee._id,
+    });
     jest.spyOn(app.get(CloudinaryService), "uploadAvatar").mockResolvedValue({
       url: "https://cdn.example.com/profile-avatar.png",
       publicId: "avatars/profile-avatar",
@@ -69,7 +73,7 @@ describe("profiles", () => {
       .expect(200);
 
     expect(response.body.data.profile.role).toBe("mentor");
-    expect(response.body.data.totalMentees).toBe(0);
+    expect(response.body.data.totalMentees).toBe(1);
   });
 
   it("returns stable top-mentor metrics instead of random values", async () => {
@@ -79,7 +83,9 @@ describe("profiles", () => {
 
     expect(response.body.data.mentors).toHaveLength(1);
     expect(response.body.data.mentors[0].averageRating).toBe(0);
-    expect(response.body.data.mentors[0].totalStudents).toBe(0);
+    expect(response.body.data.mentors[0].totalReviews).toBe(0);
+    expect(response.body.data.mentors[0].totalStudents).toBe(1);
+    expect(response.body.data.mentors[0].skills).toEqual([]);
   });
 
   it("updates a mentee profile", async () => {
@@ -93,12 +99,19 @@ describe("profiles", () => {
         bio: "Learning with a mentor.",
         goal: "Become a stronger engineer.",
         languages: ["Vietnamese", "English"],
+        links: {
+          website: "https://mentee.example.com",
+          linkedin: "https://linkedin.com/in/profile-mentee",
+        },
       })
       .expect(200);
 
     expect(response.body.data.user.firstName).toBe("Updated");
     expect(response.body.data.profile.goal).toBe(
       "Become a stronger engineer.",
+    );
+    expect(response.body.data.profile.links.website).toBe(
+      "https://mentee.example.com",
     );
   });
 

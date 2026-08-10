@@ -22,7 +22,6 @@ import { useDispatch } from "react-redux";
 import { showLoading, hideLoading } from "../redux/features/loading.slice";
 import { toast } from "react-toastify";
 import orderApi from "../api/modules/order.api";
-import { order } from "../data/seedData";
 
 const OrderComplete = () => {
   const navigate = useNavigate();
@@ -195,7 +194,7 @@ const OrderComplete = () => {
                 <div className="flex justify-between">
                   <span className="text-gray-600">Order ID:</span>
                   <span className="font-medium text-gray-900">
-                    {order._id || "#Loading..."}
+                    {orderInfo._id || orderInfo.orderNumber || "Unavailable"}
                   </span>
                 </div>
                 <div className="flex justify-between">
@@ -214,7 +213,7 @@ const OrderComplete = () => {
                 <div className="flex justify-between">
                   <span className="text-gray-600">Status:</span>
                   <span className="font-medium text-green-600 capitalize">
-                    {orderInfo?.status || "Completed"}
+                    {orderInfo?.status || "Unavailable"}
                   </span>
                 </div>
               </div>

@@ -11,7 +11,6 @@ import githublogo from "../assets/github.png";
 import googlelogo from "../assets/google.png";
 import twitterlogo from "../assets/twitter.png";
 import microsoftlogo from "../assets/microsoft.png";
-import minatoImg from "../assets/minato.webp"; // đổi lại .jpg nếu repo bạn dùng .jpg
 import { ImQuotesLeft } from "react-icons/im";
 import { VscCodeReview } from "react-icons/vsc";
 import { showLoading, hideLoading } from "../redux/features/loading.slice";
@@ -19,11 +18,16 @@ import courseApi from "../api/modules/course.api";
 import cartApi from "../api/modules/cart.api";
 import { toast } from "react-toastify";
 import { MENTEE_PATH, MENTOR_PATH, PATH } from "../routes/path";
+import { hasUserRole } from "../utils/user-role";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { IconHeart } from "@tabler/icons-react";
+import favoriteApi from "../api/modules/favorite.api";
 
 const CourseDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const dispatch = useDispatch();
+  const queryClient = useQueryClient();
 
   // Check authentication and role
   useEffect(() => {
@@ -61,6 +65,24 @@ const CourseDetail = () => {
   const [currentUser, setCurrentUser] = useState<any>(null);
   // State để lưu purchased courses status
   const [purchasedCoursesMap, setPurchasedCoursesMap] = useState<any>(new Map());
+  const isMenteeView =
+    hasUserRole(currentUser, "mentee") &&
+    localStorage.getItem("mentorMode") !== "true";
+  const favorites = useQuery({
+    queryKey: ["favorites"],
+    queryFn: favoriteApi.list,
+    enabled: isMenteeView,
+  });
+  const favoriteMutation = useMutation({
+    mutationFn: ({ courseId, active }: { courseId: string; active: boolean }) =>
+      active
+        ? favoriteApi.remove("course", courseId)
+        : favoriteApi.add("course", courseId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["favorites"] }),
+  });
+  const isFavorite =
+    favorites.data?.courses.some((course) => course._id === courseData?._id) ??
+    false;
 
   // Get current user info
   useEffect(() => {
@@ -180,7 +202,7 @@ const CourseDetail = () => {
   // Fetch purchased courses for smart navigation
   useEffect(() => {
     const fetchPurchasedCourses = async () => {
-      if (!currentUser || currentUser.role !== "mentee") return;
+      if (!hasUserRole(currentUser, "mentee")) return;
 
       // Check purchase status for main course and related courses
       const allCourses = [];
@@ -260,7 +282,7 @@ const CourseDetail = () => {
       return;
     }
 
-    if (!user || user.role !== "mentee") {
+    if (!hasUserRole(user, "mentee")) {
       toast.error("Chỉ mentee mới có thể mua khóa học");
       return;
     }
@@ -375,7 +397,7 @@ const CourseDetail = () => {
       return;
     }
 
-    if (!user || user.role !== "mentee") {
+    if (!hasUserRole(user, "mentee")) {
       toast.error("Chỉ mentee mới có thể mua khóa học");
       return;
     }
@@ -451,25 +473,6 @@ const CourseDetail = () => {
       </div>
     );
   }
-
-  // Testimonials sample
-  const testimonials = [
-    {
-      name: "Jane Doe",
-      text: "MentorMe is a game-changer! I love how easy it is to connect with real mentors who actually get what I'm going through.",
-      avatar: minatoImg,
-    },
-    {
-      name: "John Smith",
-      text: "This programming course was exactly what I needed! The instructor explains complex concepts clearly.",
-      avatar: minatoImg,
-    },
-    {
-      name: "Sarah Wilson",
-      text: "Amazing learning experience! The course content is well-structured and the mentor is always available to help.",
-      avatar: minatoImg,
-    },
-  ];
 
   // Scroll testimonial
   const scrollTestimonialBy = (direction) => {
@@ -624,7 +627,7 @@ const CourseDetail = () => {
           <div title="hold author" className="flex flex-row mt-4">
             <div
               title="avatar of author"
-              className="w-12 h-12 rounded-full bg-gray-300 mr-3 cursor-pointer"
+              className="relative mr-3 flex h-12 w-12 cursor-pointer items-center justify-center overflow-hidden rounded-full bg-[var(--ui-accent-soft)] font-bold text-[var(--ui-accent)]"
               onClick={() => {
                 if (courseData.mentor?._id) {
                   navigate(`/mentor/${courseData.mentor._id}`, {
@@ -633,14 +636,17 @@ const CourseDetail = () => {
                 }
               }}
             >
-              <img
-                src={courseData.mentor?.avatarUrl}
-                alt="Avatar"
-                className="w-full h-full object-cover rounded-full"
-                onError={(e) => {
-                  e.currentTarget.src = minatoImg;
-                }}
-              />
+              <span>{(courseData.mentor?.firstName?.[0] || courseData.mentor?.userName?.[0] || "M").toUpperCase()}</span>
+              {courseData.mentor?.avatarUrl && (
+                <img
+                  src={courseData.mentor.avatarUrl}
+                  alt="Avatar"
+                  className="absolute inset-0 h-full w-full rounded-full object-cover"
+                  onError={(e) => {
+                    e.currentTarget.style.display = "none";
+                  }}
+                />
+              )}
             </div>
             <div title="hold name of author" className="flex flex-row mt-3">
               <div>Create by</div>
@@ -1022,8 +1028,26 @@ const CourseDetail = () => {
             </div>
 
             {/* Add to Cart and Buy Now buttons for mentees */}
-            {currentUser && currentUser.role === "mentee" && (
+            {isMenteeView && (
               <div className="flex flex-col gap-3 mb-4">
+                <button
+                  type="button"
+                  aria-pressed={isFavorite}
+                  disabled={!courseData?._id || favoriteMutation.isPending}
+                  onClick={() =>
+                    favoriteMutation.mutate({
+                      courseId: courseData._id,
+                      active: isFavorite,
+                    })
+                  }
+                  className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-md bg-[var(--ui-surface-muted)] px-4 text-sm font-bold text-[var(--ui-text)] transition-colors hover:bg-[var(--ui-accent-soft)] hover:text-[var(--ui-accent)] disabled:opacity-50"
+                >
+                  <IconHeart
+                    size={19}
+                    fill={isFavorite ? "currentColor" : "none"}
+                  />
+                  {isFavorite ? "Saved to favorites" : "Save course"}
+                </button>
                 {isCourseAlreadyPurchased(courseData?._id) ? (
                   <div className="w-full flex flex-col gap-3">
                     <div className="w-full bg-green-100 text-green-700 py-3 px-4 rounded-md text-sm font-medium text-center">
@@ -1267,25 +1291,22 @@ const CourseDetail = () => {
                           maxHeight: "6rem",
                         }}
                       >
-                        {review.content || "Great course!"}
+                        {review.content || "No written feedback."}
                       </div>
                       <div className="flex items-center gap-3 mt-2 group-hover:scale-105 transition-all duration-300">
-                        <img
-                          src={
-                            review.author?.avatarUrl ||
-                            review.author?.avatar ||
-                            minatoImg
-                          }
-                          alt={
-                            review.author?.firstName ||
-                            review.author?.userName ||
-                            "User"
-                          }
-                          className="w-11 h-11 rounded-full object-cover border transition-all duration-300 group-hover:border-blue-300 group-hover:shadow-lg group-hover:scale-110"
-                          onError={(e) => {
-                            e.currentTarget.src = minatoImg;
-                          }}
-                        />
+                        <div className="relative flex h-11 w-11 items-center justify-center overflow-hidden rounded-full bg-[var(--ui-accent-soft)] font-bold text-[var(--ui-accent)] transition-transform duration-300 group-hover:scale-110">
+                          <span>{(review.author?.firstName?.[0] || review.author?.userName?.[0] || "A").toUpperCase()}</span>
+                          {(review.author?.avatarUrl || review.author?.avatar) && (
+                            <img
+                              src={review.author.avatarUrl || review.author.avatar}
+                              alt={review.author?.firstName || review.author?.userName || "User"}
+                              className="absolute inset-0 h-full w-full object-cover"
+                              onError={(e) => {
+                                e.currentTarget.style.display = "none";
+                              }}
+                            />
+                          )}
+                        </div>
                         <div className="flex flex-col transition-all duration-300 group-hover:translate-x-1">
                           <span className="font-semibold text-sm text-slate-700 group-hover:text-slate-800 transition-colors duration-300">
                             {review.author?.firstName && review.author?.lastName
@@ -1499,7 +1520,7 @@ const CourseDetail = () => {
                       </div>
 
                       {/* Add to Cart and Buy Now buttons for mentees */}
-                      {currentUser && currentUser.role === "mentee" && (
+                      {hasUserRole(currentUser, "mentee") && (
                         <div className="flex flex-col gap-2 mt-auto w-full">
                           {isCourseAlreadyPurchased(
                             course._id || course.courseId
@@ -1638,7 +1659,7 @@ const CourseDetail = () => {
               <div className="mb-6 animate-in slide-in-from-bottom-4 duration-400 delay-300">
                 <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6 border border-blue-100 transform transition-all duration-300 hover:shadow-md">
                   <p className="text-gray-800 text-lg leading-relaxed whitespace-pre-wrap">
-                    {selectedReview.content || "Great course!"}
+                    {selectedReview.content || "No written feedback."}
                   </p>
                 </div>
               </div>
@@ -1646,22 +1667,19 @@ const CourseDetail = () => {
               {/* Author Info */}
               <div className="animate-in slide-in-from-bottom-4 duration-400 delay-400">
                 <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-xl border border-gray-200">
-                  <img
-                    src={
-                      selectedReview.author?.avatarUrl ||
-                      selectedReview.author?.avatar ||
-                      minatoImg
-                    }
-                    alt={
-                      selectedReview.author?.firstName ||
-                      selectedReview.author?.userName ||
-                      "User"
-                    }
-                    className="w-16 h-16 rounded-full object-cover border-2 border-gray-200 shadow-sm transform transition-all duration-300 hover:scale-105"
-                    onError={(e) => {
-                      e.currentTarget.src = minatoImg;
-                    }}
-                  />
+                  <div className="relative flex h-16 w-16 items-center justify-center overflow-hidden rounded-full bg-[var(--ui-accent-soft)] text-xl font-bold text-[var(--ui-accent)] shadow-sm">
+                    <span>{(selectedReview.author?.firstName?.[0] || selectedReview.author?.userName?.[0] || "A").toUpperCase()}</span>
+                    {(selectedReview.author?.avatarUrl || selectedReview.author?.avatar) && (
+                      <img
+                        src={selectedReview.author.avatarUrl || selectedReview.author.avatar}
+                        alt={selectedReview.author?.firstName || selectedReview.author?.userName || "User"}
+                        className="absolute inset-0 h-full w-full object-cover"
+                        onError={(e) => {
+                          e.currentTarget.style.display = "none";
+                        }}
+                      />
+                    )}
+                  </div>
                   <div className="flex-1">
                     <span className="text-xl font-semibold text-gray-900 block">
                       {selectedReview.author?.firstName &&
