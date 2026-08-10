@@ -72,5 +72,9 @@ export const normalizeNotifications = (payload: unknown) => {
     items: Array.isArray(data.items) ? (data.items as AppNotification[]) : [],
     unreadCount:
       typeof data.unreadCount === "number" ? data.unreadCount : 0,
+    total: typeof data.total === "number" ? data.total : 0,
+    page: typeof data.page === "number" ? data.page : 1,
+    limit: typeof data.limit === "number" ? data.limit : 20,
+    hasMore: data.hasMore === true,
   };
 };

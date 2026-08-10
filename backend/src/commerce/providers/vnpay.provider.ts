@@ -13,10 +13,11 @@ export class VnpayProvider implements PaymentProvider {
   constructor(private readonly config: ConfigService) {}
 
   create(input: CreatePaymentInput) {
+    this.assertEnabled();
     const params: Record<string, string> = {
       vnp_Version: "2.1.0",
       vnp_Command: "pay",
-      vnp_TmnCode: this.config.get<string>("VNPAY_TMN_CODE") ?? "DEMO_TMN_CODE",
+      vnp_TmnCode: this.config.getOrThrow<string>("VNPAY_TMN_CODE"),
       vnp_Amount: String(input.amount * 100),
       vnp_CreateDate: new Date().toISOString().replace(/[-:T.]/g, "").slice(0, 14),
       vnp_CurrCode: "VND",
@@ -39,6 +40,7 @@ export class VnpayProvider implements PaymentProvider {
   }
 
   verifyCallback(input: PaymentCallbackInput): Promise<VerifiedPayment> {
+    this.assertEnabled();
     const params = { ...input.query };
     const signature = params.vnp_SecureHash ?? "";
     delete params.vnp_SecureHash;
@@ -75,10 +77,16 @@ export class VnpayProvider implements PaymentProvider {
     return crypto
       .createHmac(
         "sha512",
-        this.config.get<string>("VNPAY_HASH_SECRET") ?? "DEMO_HASH_SECRET",
+        this.config.getOrThrow<string>("VNPAY_HASH_SECRET"),
       )
       .update(data)
       .digest("hex");
+  }
+
+  private assertEnabled(): void {
+    if (this.config.get<boolean>("VNPAY_ENABLED") !== true) {
+      throw new BadRequestException("VNPay is not configured");
+    }
   }
 
   private equal(left: string, right: string): boolean {

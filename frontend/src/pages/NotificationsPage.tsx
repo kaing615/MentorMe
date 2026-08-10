@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   IconBell,
@@ -26,11 +27,13 @@ const NotificationIcon = ({ type }: { type: string }) => {
 };
 
 const NotificationsPage = () => {
+  const [page, setPage] = useState(1);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const notifications = useQuery({
-    queryKey: ["notifications"],
-    queryFn: notificationApi.list,
+    queryKey: ["notifications", "page", page],
+    queryFn: () => notificationApi.list({ page, limit: 20 }),
+    placeholderData: (previous) => previous,
   });
   const markRead = useMutation({
     mutationFn: notificationApi.markRead,
@@ -48,6 +51,7 @@ const NotificationsPage = () => {
       notification.type,
       mentorMode,
       notification.link,
+      notification.metadata,
     );
     if (target.storageKey && target.tab) {
       localStorage.setItem(target.storageKey, target.tab);
@@ -57,6 +61,7 @@ const NotificationsPage = () => {
 
   const items = notifications.data?.items ?? [];
   const unreadCount = notifications.data?.unreadCount ?? 0;
+  const hasMore = notifications.data?.hasMore ?? false;
 
   return (
     <main className="min-h-[calc(100dvh-4.5rem)] bg-[var(--ui-page)]">
@@ -156,6 +161,33 @@ const NotificationsPage = () => {
             );
           })}
         </div>
+
+        {(page > 1 || hasMore) && (
+          <nav
+            className="mt-8 flex items-center justify-center gap-3"
+            aria-label="Notification pages"
+          >
+            <button
+              type="button"
+              disabled={page === 1 || notifications.isFetching}
+              onClick={() => setPage((value) => Math.max(1, value - 1))}
+              className="min-h-11 rounded-full border border-[var(--ui-border)] px-5 text-sm font-bold text-[var(--ui-text)] transition-colors hover:bg-[var(--ui-surface-muted)] disabled:opacity-40"
+            >
+              Previous
+            </button>
+            <span className="text-sm font-bold text-[var(--ui-text-muted)]">
+              Page {page}
+            </span>
+            <button
+              type="button"
+              disabled={!hasMore || notifications.isFetching}
+              onClick={() => setPage((value) => value + 1)}
+              className="min-h-11 rounded-full bg-[var(--ui-accent-fill)] px-5 text-sm font-bold text-white transition-colors hover:bg-[var(--ui-accent-fill-hover)] disabled:opacity-40"
+            >
+              Next
+            </button>
+          </nav>
+        )}
       </section>
     </main>
   );

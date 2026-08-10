@@ -13,8 +13,9 @@ export class MomoProvider implements PaymentProvider {
   constructor(private readonly config: ConfigService) {}
 
   async create(input: CreatePaymentInput) {
-    const partnerCode = this.value("MOMO_PARTNER_CODE", "DEMO_PARTNER_CODE");
-    const accessKey = this.value("MOMO_ACCESS_KEY", "DEMO_ACCESS_KEY");
+    this.assertEnabled();
+    const partnerCode = this.value("MOMO_PARTNER_CODE");
+    const accessKey = this.value("MOMO_ACCESS_KEY");
     const requestId = `${input.orderNumber}_${Date.now()}`;
     const redirectUrl =
       this.config.get<string>("MOMO_REDIRECT_URL") ?? input.returnUrl;
@@ -66,6 +67,7 @@ export class MomoProvider implements PaymentProvider {
   }
 
   verifyCallback(input: PaymentCallbackInput): Promise<VerifiedPayment> {
+    this.assertEnabled();
     if (!this.record(input.body)) throw new BadRequestException("Invalid MoMo callback");
     const body = input.body;
     const value = (key: string): string => {
@@ -75,7 +77,7 @@ export class MomoProvider implements PaymentProvider {
         : "";
     };
     const raw = [
-      `accessKey=${this.value("MOMO_ACCESS_KEY", "DEMO_ACCESS_KEY")}`,
+      `accessKey=${this.value("MOMO_ACCESS_KEY")}`,
       `amount=${value("amount")}`,
       `extraData=${value("extraData")}`,
       `message=${value("message")}`,
@@ -107,7 +109,7 @@ export class MomoProvider implements PaymentProvider {
 
   private sign(raw: string): string {
     return crypto
-      .createHmac("sha256", this.value("MOMO_SECRET_KEY", "DEMO_SECRET_KEY"))
+      .createHmac("sha256", this.value("MOMO_SECRET_KEY"))
       .update(raw)
       .digest("hex");
   }
@@ -118,8 +120,14 @@ export class MomoProvider implements PaymentProvider {
     return a.length === b.length && crypto.timingSafeEqual(a, b);
   }
 
-  private value(key: string, fallback: string): string {
-    return this.config.get<string>(key) ?? fallback;
+  private value(key: string): string {
+    return this.config.getOrThrow<string>(key);
+  }
+
+  private assertEnabled(): void {
+    if (this.config.get<boolean>("MOMO_ENABLED") !== true) {
+      throw new BadRequestException("MoMo is not configured");
+    }
   }
 
   private record(value: unknown): value is Record<string, unknown> {

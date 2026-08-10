@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import { InjectConnection, InjectModel } from "@nestjs/mongoose";
-import type { Connection, Model } from "mongoose";
+import type { ClientSession, Connection, Model } from "mongoose";
 import { Types } from "mongoose";
 import sanitizeHtml from "sanitize-html";
 import type { UserDocument } from "../identity/user.schema";
@@ -121,9 +121,9 @@ export class ReviewService {
             session,
           );
         }
+        await this.refreshTargets(items, session);
         return inserted;
       });
-      await this.refreshTargets(items);
       return Array.isArray(input) ? created : created[0]!;
     } catch (error) {
       if (
@@ -201,24 +201,28 @@ export class ReviewService {
         "At least one field (content or rate) is required",
       );
     }
-    const review = await this.reviews.findById(id);
-    if (!review) throw new NotFoundException("Review not found");
-    this.assertOwner(user, review);
-    if (dto.content !== undefined) review.content = this.clean(dto.content);
-    if (dto.rate !== undefined) review.rate = dto.rate;
-    await review.save();
-    await this.refreshTarget(review.targetType, review.target);
-    return review;
+    return this.connection.transaction(async (session) => {
+      const review = await this.reviews.findById(id).session(session);
+      if (!review) throw new NotFoundException("Review not found");
+      this.assertOwner(user, review);
+      if (dto.content !== undefined) review.content = this.clean(dto.content);
+      if (dto.rate !== undefined) review.rate = dto.rate;
+      await review.save({ session });
+      await this.refreshTarget(review.targetType, review.target, session);
+      return review;
+    });
   }
 
   async remove(user: UserDocument, id: string) {
     this.assertId(id, "review");
-    const review = await this.reviews.findById(id);
-    if (!review) throw new NotFoundException("Review not found");
-    this.assertOwner(user, review);
-    await review.deleteOne();
-    await this.refreshTarget(review.targetType, review.target);
-    return { success: true, id };
+    return this.connection.transaction(async (session) => {
+      const review = await this.reviews.findById(id).session(session);
+      if (!review) throw new NotFoundException("Review not found");
+      this.assertOwner(user, review);
+      await review.deleteOne({ session });
+      await this.refreshTarget(review.targetType, review.target, session);
+      return { success: true, id };
+    });
   }
 
   private async page(
@@ -254,7 +258,7 @@ export class ReviewService {
         await this.bookings.exists({
           _id: item.target,
           status: "finished",
-          $or: [{ mentor: userId }, { mentee: userId }],
+          mentee: userId,
         }),
       );
     }
@@ -303,18 +307,29 @@ export class ReviewService {
       : booking.mentor;
   }
 
-  private async refreshTargets(items: CreateReviewDto[]): Promise<void> {
+  private async refreshTargets(
+    items: CreateReviewDto[],
+    session: ClientSession,
+  ): Promise<void> {
     for (const item of items) {
-      await this.refreshTarget(item.targetType, new Types.ObjectId(item.target));
+      await this.refreshTarget(
+        item.targetType,
+        new Types.ObjectId(item.target),
+        session,
+      );
     }
   }
 
   private async refreshTarget(
     targetType: ReviewTargetType,
     target: Types.ObjectId,
+    session: ClientSession,
   ): Promise<void> {
     if (targetType === "Course") {
-      const reviews = await this.reviews.find({ targetType, target }).select("rate");
+      const reviews = await this.reviews
+        .find({ targetType, target })
+        .select("rate")
+        .session(session);
       await this.connection.collection("courses").updateOne(
         { _id: target },
         {
@@ -323,6 +338,7 @@ export class ReviewService {
             numberOfRatings: reviews.length,
           },
         },
+        { session },
       );
       return;
     }
@@ -330,9 +346,17 @@ export class ReviewService {
     const mentorId =
       targetType === "Mentor"
         ? target
-        : (await this.bookings.findById(target).select("mentor").lean())?.mentor;
+        : (
+            await this.bookings
+              .findById(target)
+              .select("mentor")
+              .session(session)
+              .lean()
+          )?.mentor;
     if (!mentorId) return;
-    const bookingIds = await this.bookings.distinct("_id", { mentor: mentorId });
+    const bookingIds = await this.bookings
+      .distinct("_id", { mentor: mentorId })
+      .session(session);
     const reviews = await this.reviews
       .find({
         $or: [
@@ -340,7 +364,8 @@ export class ReviewService {
           { targetType: "Booking", target: { $in: bookingIds } },
         ],
       })
-      .select("rate");
+      .select("rate")
+      .session(session);
     await this.profiles.findOneAndUpdate(
       { user: mentorId },
       {
@@ -350,7 +375,7 @@ export class ReviewService {
         },
         $setOnInsert: { user: mentorId },
       },
-      { upsert: true },
+      { upsert: true, session },
     );
   }
 

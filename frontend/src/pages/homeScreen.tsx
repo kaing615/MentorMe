@@ -29,6 +29,7 @@ import cartApi from "../api/modules/cart.api.js";
 import purchasedCourseApi from "../api/modules/purchasedCourse.api.js";
 import reviewApi from "../api/modules/review.api.js";
 import { hasUserRole } from "../utils/user-role";
+import { formatVnd } from "../utils/currency";
 import { toast } from "react-toastify";
 
 const categories = [
@@ -820,19 +821,7 @@ const HomeScreen = () => {
                                 )}
                               </div>
                               <p className="mb-2 mt-auto text-xl font-bold text-[var(--ui-text)]">
-                                $
-                                {(() => {
-                                  const priceNum =
-                                    typeof price === "number"
-                                      ? price
-                                      : parseFloat(price || 0);
-                                  return priceNum % 1 === 0
-                                    ? priceNum.toLocaleString("en-US")
-                                    : priceNum.toLocaleString("en-US", {
-                                        minimumFractionDigits: 1,
-                                        maximumFractionDigits: 2,
-                                      });
-                                })()}
+                                {formatVnd(Number(price) || 0)}
                               </p>
 
                               {/* Add to Cart and Buy Now buttons for mentees */}

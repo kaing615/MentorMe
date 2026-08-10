@@ -44,9 +44,20 @@ describe("messaging socket", () => {
     ]);
     me = currentUser!._id;
     peer = peerUser!._id;
-    await connection.collection("relationships").insertOne({
+    const relationship = await connection.collection("relationships").insertOne({
       mentor: peer,
       mentee: me,
+    });
+    await connection.collection("bookings").insertOne({
+      relationship: relationship.insertedId,
+      mentor: peer,
+      mentee: me,
+      status: "active",
+      date: new Date(),
+      start: "09:00",
+      end: "09:30",
+      slotId: new Types.ObjectId(),
+      availabilityId: new Types.ObjectId(),
     });
     const jwt = app.get(JwtService);
     meToken = await jwt.signAsync({ id: String(me) });

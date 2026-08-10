@@ -18,6 +18,7 @@ describe("reviews", () => {
   let menteeId: string;
   let bookingId: string;
   let menteeToken: string;
+  let mentorToken: string;
   let outsiderToken: string;
   let courseId: Types.ObjectId;
 
@@ -77,6 +78,7 @@ describe("reviews", () => {
       mentees: [mentee!._id],
     });
     menteeToken = await jwt.signAsync({ id: menteeId });
+    mentorToken = await jwt.signAsync({ id: mentorId });
     outsiderToken = await jwt.signAsync({ id: String(outsider!._id) });
   });
 
@@ -101,6 +103,12 @@ describe("reviews", () => {
       { _id: bookingId },
       { $set: { status: "finished" } },
     );
+
+    await request(app.getHttpServer())
+      .post("/api/v1/reviews")
+      .set("Authorization", `Bearer ${mentorToken}`)
+      .send({ targetType: "Booking", target: bookingId, rate: 5 })
+      .expect(403);
 
     const created = await request(app.getHttpServer())
       .post("/api/v1/reviews")
@@ -221,5 +229,49 @@ describe("reviews", () => {
       .set("Authorization", `Bearer ${menteeToken}`)
       .expect(200);
     expect(await reviews.findById(id)).toBeNull();
+  });
+
+  it("rolls back the review when aggregate refresh fails", async () => {
+    const target = new Types.ObjectId();
+    await connection.collection("courses").insertOne({
+      _id: target,
+      title: "Atomic review target",
+      mentor: new Types.ObjectId(mentorId),
+      mentees: [new Types.ObjectId(menteeId)],
+      blockAggregate: true,
+    });
+    await connection.db!.command({
+      collMod: "courses",
+      validator: {
+        $or: [
+          { blockAggregate: { $ne: true } },
+          { rate: { $exists: false } },
+        ],
+      },
+      validationLevel: "strict",
+      validationAction: "error",
+    });
+
+    try {
+      await request(app.getHttpServer())
+        .post("/api/v1/reviews")
+        .set("Authorization", `Bearer ${menteeToken}`)
+        .send({ targetType: "Course", target: String(target), rate: 5 })
+        .expect(500);
+
+      expect(
+        await reviews.countDocuments({ targetType: "Course", target }),
+      ).toBe(0);
+      expect(
+        await connection.collection("notifications").countDocuments({
+          "metadata.target": String(target),
+        }),
+      ).toBe(0);
+    } finally {
+      await connection.db!.command({
+        collMod: "courses",
+        validator: {},
+      });
+    }
   });
 });

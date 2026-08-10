@@ -31,8 +31,8 @@ const NotificationPopover = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const notifications = useQuery({
-    queryKey: ["notifications"],
-    queryFn: notificationApi.list,
+    queryKey: ["notifications", "popover"],
+    queryFn: () => notificationApi.list({ limit: 5 }),
     refetchInterval: 30_000,
   });
   const markRead = useMutation({
@@ -45,7 +45,7 @@ const NotificationPopover = () => {
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: ["notifications"] }),
   });
-  const items = notifications.data?.items.slice(0, 5) ?? [];
+  const items = notifications.data?.items ?? [];
   const unreadCount = notifications.data?.unreadCount ?? 0;
 
   const openNotification = async (notification: AppNotification) => {
@@ -54,6 +54,7 @@ const NotificationPopover = () => {
       notification.type,
       localStorage.getItem("mentorMode") === "true",
       notification.link,
+      notification.metadata,
     );
     if (target.storageKey && target.tab) {
       localStorage.setItem(target.storageKey, target.tab);
@@ -69,7 +70,7 @@ const NotificationPopover = () => {
           type="button"
           aria-label={`Notifications${unreadCount ? `, ${unreadCount} unread` : ""}`}
           title="Notifications"
-          className="relative hidden h-11 w-11 items-center justify-center rounded-full text-[var(--ui-text-muted)] transition-colors hover:bg-[var(--ui-surface-muted)] hover:text-[var(--ui-accent)] lg:inline-flex"
+          className="relative inline-flex h-11 w-11 items-center justify-center rounded-full text-[var(--ui-text-muted)] transition-colors hover:bg-[var(--ui-surface-muted)] hover:text-[var(--ui-accent)]"
         >
           <IconBell aria-hidden="true" size={21} stroke={1.8} />
           {unreadCount > 0 && (

@@ -6,6 +6,7 @@ import {
 } from "@nestjs/common";
 import { InjectConnection, InjectModel } from "@nestjs/mongoose";
 import type { Connection, Model } from "mongoose";
+import { hasUserRole } from "../common/auth/user-role";
 import type { UserDocument } from "../identity/user.schema";
 import { NotificationService } from "../engagement/notification.service";
 import { EnrolmentService } from "../learning/enrolment.service";
@@ -43,11 +44,17 @@ export class PaymentService {
     ipAddress: string,
     returnUrl: string,
   ) {
+    if (!hasUserRole(user, "mentee")) {
+      throw new ForbiddenException("Only mentees can create payments");
+    }
     const order = await this.owned(user, orderNumber);
     if (order.status !== "pending") {
       throw new BadRequestException(
         "Đơn hàng không ở trạng thái chờ thanh toán!",
       );
+    }
+    if (order.currency !== "VND") {
+      throw new BadRequestException("Unsupported order currency");
     }
     const payment = await provider.create({
       orderNumber,
@@ -71,6 +78,7 @@ export class PaymentService {
       status: order.status,
       paymentInfo: order.paymentInfo,
       totalAmount: order.totalAmount,
+      currency: order.currency,
       paidAt: order.paymentInfo?.paidAt,
       transactionId: order.transactionId ?? order.paymentInfo?.transactionId,
     };
@@ -151,7 +159,10 @@ export class PaymentService {
           .findOne({ orderNumber: payment.orderNumber })
           .session(session);
         if (!order) throw new NotFoundException("Order not found");
-        if (Number(order.totalAmount || order.amount) !== payment.amount) {
+        if (
+          order.currency !== "VND" ||
+          Number(order.totalAmount || order.amount) !== payment.amount
+        ) {
           throw new BadRequestException("Invalid amount");
         }
 

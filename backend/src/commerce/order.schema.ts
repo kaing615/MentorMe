@@ -65,6 +65,7 @@ export class Order {
   @Prop({ default: 0, min: 0 }) discountAmount!: number;
   @Prop({ required: true }) amount!: number;
   @Prop({ required: true, min: 0 }) totalAmount!: number;
+  @Prop({ enum: ["VND"], default: "VND", required: true }) currency!: "VND";
   @Prop({ type: BillingInfoSchema }) billingInfo?: BillingInfo;
   @Prop({ type: PaymentInfoSchema }) paymentInfo?: PaymentInfo;
   @Prop({ default: "bank" }) paymentMethod!: string;

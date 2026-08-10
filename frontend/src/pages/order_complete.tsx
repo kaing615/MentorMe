@@ -7,21 +7,14 @@ function formatDate(dateStr) {
     d.getHours()
   )}:${pad(d.getMinutes())}`;
 }
-// Local currency formatter (USD)
-function formatCurrency(amount) {
-  if (typeof amount !== "number") return "$0";
-  return amount.toLocaleString("en-US", {
-    style: "currency",
-    currency: "USD",
-  });
-}
-
 import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import { useDispatch } from "react-redux";
 import { showLoading, hideLoading } from "../redux/features/loading.slice";
 import { toast } from "react-toastify";
 import orderApi from "../api/modules/order.api";
+import { formatVnd as formatCurrency } from "../utils/currency";
+import { hasUserRole } from "../utils/user-role";
 
 const OrderComplete = () => {
   const navigate = useNavigate();
@@ -53,7 +46,7 @@ const OrderComplete = () => {
         user = null;
       }
 
-      if (!user || user.role !== "mentee") {
+      if (!hasUserRole(user, "mentee")) {
         toast.error("Chỉ mentee mới có thể xem đơn hàng");
         navigate("/auth/signin");
         return;

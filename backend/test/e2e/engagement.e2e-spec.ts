@@ -152,12 +152,26 @@ describe("engagement", () => {
     ]);
 
     const list = await request(app.getHttpServer())
-      .get("/api/v1/notifications")
+      .get("/api/v1/notifications?page=1&limit=1")
       .set("Authorization", `Bearer ${menteeToken}`)
       .expect(200);
-    expect(list.body.data.items).toHaveLength(2);
+    expect(list.body.data.items).toHaveLength(1);
     expect(list.body.data.unreadCount).toBe(2);
     expect(list.body.data.items[0].type).toBe("message_received");
+    expect(list.body.data).toMatchObject({
+      total: 2,
+      page: 1,
+      limit: 1,
+      hasMore: true,
+    });
+
+    const secondPage = await request(app.getHttpServer())
+      .get("/api/v1/notifications?page=2&limit=1")
+      .set("Authorization", `Bearer ${menteeToken}`)
+      .expect(200);
+    expect(secondPage.body.data.items).toHaveLength(1);
+    expect(secondPage.body.data.items[0].type).toBe("booking_confirmed");
+    expect(secondPage.body.data.hasMore).toBe(false);
 
     await request(app.getHttpServer())
       .patch(`/api/v1/notifications/${String(firstId)}/read`)

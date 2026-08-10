@@ -5,12 +5,7 @@ import { showLoading, hideLoading } from "../redux/features/loading.slice";
 import { toast } from "react-toastify";
 import cartApi from "../api/modules/cart.api";
 import { hasUserRole } from "../utils/user-role";
-
-// Local currency formatter (USD)
-function formatCurrency(amount) {
-  if (typeof amount !== "number") return "$0";
-  return amount.toLocaleString("en-US", { style: "currency", currency: "USD" });
-}
+import { formatVnd as formatCurrency } from "../utils/currency";
 
 const ShoppingCart = () => {
   const navigate = useNavigate();

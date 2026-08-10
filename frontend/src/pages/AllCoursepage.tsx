@@ -5,6 +5,7 @@ import courseApi from "../api/modules/course.api";
 import cartApi from "../api/modules/cart.api";
 import purchasedCourseApi from "../api/modules/purchasedCourse.api";
 import { hasUserRole } from "../utils/user-role";
+import { formatVnd } from "../utils/currency";
 import { toast } from "react-toastify";
 import { showLoading, hideLoading } from "../redux/features/loading.slice";
 import {
@@ -359,10 +360,10 @@ const AllCoursePage = () => {
 
   const priceRanges = [
     { label: "Free", value: "free" },
-    { label: "Under $50", value: "0-50" },
-    { label: "$50 - $100", value: "50-100" },
-    { label: "$100 - $200", value: "100-200" },
-    { label: "Over $200", value: "200+" },
+    { label: "Under 100.000 ₫", value: "0-100000" },
+    { label: "100.000 ₫ - 300.000 ₫", value: "100000-300000" },
+    { label: "300.000 ₫ - 500.000 ₫", value: "300000-500000" },
+    { label: "Over 500.000 ₫", value: "500000+" },
   ];
 
   // Clear all filters
@@ -943,19 +944,7 @@ const AllCoursePage = () => {
                       )}
 
                       <div className="font-bold text-xl text-gray-900 mt-auto">
-                        $
-                        {(() => {
-                          const price =
-                            typeof course.price === "number"
-                              ? course.price
-                              : parseFloat(course.price || 0);
-                          return price % 1 === 0
-                            ? price.toLocaleString("en-US")
-                            : price.toLocaleString("en-US", {
-                                minimumFractionDigits: 1,
-                                maximumFractionDigits: 2,
-                              });
-                        })()}
+                        {formatVnd(Number(course.price) || 0)}
                       </div>
 
                       {/* Add to Cart and Buy Now buttons for mentees */}

@@ -112,8 +112,11 @@ export class MessagingService {
       { mentor: sender, mentee: receiver },
       { mentor: receiver, mentee: sender },
     ];
-    const [relationship, course] = await Promise.all([
-      this.connection.collection("relationships").findOne({ $or: pair }),
+    const [booking, course] = await Promise.all([
+      this.connection.collection("bookings").findOne({
+        $or: pair,
+        status: { $in: ["active", "finished"] },
+      }),
       this.connection.collection("courses").findOne({
         $or: [
           { mentor: sender, mentees: receiver },
@@ -121,9 +124,9 @@ export class MessagingService {
         ],
       }),
     ]);
-    if (!relationship && !course) {
+    if (!booking && !course) {
       throw new ForbiddenException(
-        "Messaging is available after a booking or course purchase",
+        "Messaging is available after a confirmed booking or course purchase",
       );
     }
   }

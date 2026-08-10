@@ -7,6 +7,7 @@ import {
 } from "@nestjs/common";
 import { InjectConnection, InjectModel } from "@nestjs/mongoose";
 import type { Connection, FilterQuery, Model } from "mongoose";
+import { hasUserRole } from "../common/auth/user-role";
 import type { UserDocument } from "../identity/user.schema";
 import { Course } from "../learning/course.schema";
 import { Cart } from "./cart.schema";
@@ -25,6 +26,9 @@ export class OrderService {
   ) {}
 
   async create(user: UserDocument, dto: CreateOrderDto) {
+    if (!hasUserRole(user, "mentee")) {
+      throw new ForbiddenException("Only mentees can create orders");
+    }
     return this.connection.transaction(async (session) => {
       const cart = dto.courses?.length
         ? null
@@ -72,6 +76,7 @@ export class OrderService {
         discountAmount,
         amount: totalAmount,
         totalAmount,
+        currency: "VND",
         billingInfo: {
           ...billing,
           country: billing.country ?? "Vietnam",
@@ -132,6 +137,7 @@ export class OrderService {
           subtotal: order.subtotalAmount || order.amount,
           discount: order.discountAmount || 0,
           total: order.totalAmount || order.amount,
+          currency: order.currency,
         },
         billingInfo: order.billingInfo,
         paymentInfo: order.paymentInfo,
@@ -249,6 +255,7 @@ export class OrderService {
       formattedOrderNumber: this.formatted(order.orderNumber),
       items: order.items,
       totalAmount: order.totalAmount,
+      currency: order.currency,
       status: order.status,
       createdAt: order.createdAt,
       coursesGranted: order.coursesGranted,

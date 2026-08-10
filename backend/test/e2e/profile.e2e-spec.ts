@@ -2,6 +2,7 @@ import type { INestApplication } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
 import { getConnectionToken, getModelToken } from "@nestjs/mongoose";
 import type { Connection, Model } from "mongoose";
+import { Types } from "mongoose";
 import request from "supertest";
 import { CloudinaryService } from "../../src/infrastructure/files/cloudinary.service";
 import { User } from "../../src/identity/user.schema";
@@ -39,9 +40,24 @@ describe("profiles", () => {
     menteeToken = await jwt.signAsync({ id: String(mentee._id) });
     mentorToken = await jwt.signAsync({ id: String(mentor._id) });
     mentorId = String(mentor._id);
-    await connection.collection("relationships").insertOne({
+    const relationship = await connection.collection("relationships").insertOne({
       mentor: mentor._id,
       mentee: mentee._id,
+    });
+    await connection.collection("relationships").insertOne({
+      mentor: mentor._id,
+      mentee: new Types.ObjectId(),
+    });
+    await connection.collection("bookings").insertOne({
+      relationship: relationship.insertedId,
+      mentor: mentor._id,
+      mentee: mentee._id,
+      status: "active",
+      date: new Date(),
+      start: "09:00",
+      end: "09:30",
+      slotId: new Types.ObjectId(),
+      availabilityId: new Types.ObjectId(),
     });
     jest.spyOn(app.get(CloudinaryService), "uploadAvatar").mockResolvedValue({
       url: "https://cdn.example.com/profile-avatar.png",

@@ -1,4 +1,4 @@
-import { Controller, Delete, Get, HttpCode, Param, Patch, Post, UseGuards } from "@nestjs/common";
+import { Controller, Delete, Get, HttpCode, Param, Patch, Post, Query, UseGuards } from "@nestjs/common";
 import { CurrentUser } from "../common/auth/current-user.decorator";
 import { JwtAuthGuard } from "../common/auth/jwt-auth.guard";
 import type { UserDocument } from "../identity/user.schema";
@@ -38,8 +38,12 @@ export class EngagementController {
   }
 
   @Get("notifications")
-  listNotifications(@CurrentUser() user: UserDocument) {
-    return this.notifications.list(user);
+  listNotifications(
+    @CurrentUser() user: UserDocument,
+    @Query("page") page?: string,
+    @Query("limit") limit?: string,
+  ) {
+    return this.notifications.list(user, page, limit);
   }
 
   @Patch("notifications/read-all")

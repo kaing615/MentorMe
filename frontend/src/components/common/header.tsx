@@ -358,6 +358,28 @@ const Header = () => {
                         >
                           Profile
                         </button>
+                        {shouldShowMenteeHeaderActions(displayUser, showCategories) && (
+                          <>
+                            <button
+                              className="w-full border-t border-[var(--ui-border)] px-4 py-3 text-left text-sm font-medium text-[var(--ui-text)] hover:bg-[var(--ui-surface-muted)] lg:hidden"
+                              onClick={() => {
+                                setShowAvatarDropdown(false);
+                                handleHeaderAction("favorites");
+                              }}
+                            >
+                              Favorites
+                            </button>
+                            <button
+                              className="w-full border-t border-[var(--ui-border)] px-4 py-3 text-left text-sm font-medium text-[var(--ui-text)] hover:bg-[var(--ui-surface-muted)] lg:hidden"
+                              onClick={() => {
+                                setShowAvatarDropdown(false);
+                                handleHeaderAction("cart");
+                              }}
+                            >
+                              Shopping cart
+                            </button>
+                          </>
+                        )}
                         {hasUserRole(displayUser, "mentor") &&
                           hasUserRole(displayUser, "mentee") && (
                             <button

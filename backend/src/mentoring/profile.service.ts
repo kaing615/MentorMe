@@ -178,15 +178,16 @@ export class ProfileService {
   }
 
   private async totalMentees(mentorId: unknown): Promise<number> {
-    const [relationships, courseMentees] = (await Promise.all([
-      this.connection.collection("relationships").distinct("mentee", {
+    const [bookingMentees, courseMentees] = (await Promise.all([
+      this.connection.collection("bookings").distinct("mentee", {
         mentor: mentorId,
+        status: { $in: ["active", "finished"] },
       }),
       this.connection.collection("courses").distinct("mentees", {
         mentor: mentorId,
       }),
     ])) as [unknown[], unknown[]];
-    return new Set([...relationships, ...courseMentees].map(String)).size;
+    return new Set([...bookingMentees, ...courseMentees].map(String)).size;
   }
 
   private response(user: UserDocument, profile: Profile) {

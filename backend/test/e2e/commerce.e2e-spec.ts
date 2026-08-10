@@ -22,6 +22,7 @@ describe("commerce", () => {
   let purchases: Model<PurchasedCourse>;
   let courseId: string;
   let userToken: string;
+  let mentorToken: string;
   let adminToken: string;
   let userId: string;
   let firstOrder: string;
@@ -87,6 +88,7 @@ describe("commerce", () => {
       isActive: true,
     });
     userToken = await jwt.signAsync({ id: String(user!._id) });
+    mentorToken = await jwt.signAsync({ id: String(mentor!._id) });
     userId = String(user!._id);
     adminToken = await jwt.signAsync({ id: String(admin!._id) });
     jest.spyOn(app.get(MomoProvider), "create").mockResolvedValue({
@@ -182,6 +184,7 @@ describe("commerce", () => {
       .expect(200);
     firstOrder = created.body.data.order.orderNumber as string;
     expect(created.body.data.order.totalAmount).toBe(112500);
+    expect(created.body.data.order.currency).toBe("VND");
     expect(await carts.countDocuments()).toBe(1);
 
     const list = await request(app.getHttpServer())
@@ -259,6 +262,24 @@ describe("commerce", () => {
       .set("Authorization", `Bearer ${userToken}`)
       .send({ courses: [{ courseId }] })
       .expect(400);
+  });
+
+  it("rejects commerce mutations from mentor-only users", async () => {
+    await request(app.getHttpServer())
+      .post("/api/v1/cart")
+      .set("Authorization", `Bearer ${mentorToken}`)
+      .send({ courseId })
+      .expect(403);
+    await request(app.getHttpServer())
+      .post("/api/v1/orders")
+      .set("Authorization", `Bearer ${mentorToken}`)
+      .send({ courses: [{ courseId }] })
+      .expect(403);
+    await request(app.getHttpServer())
+      .post("/api/v1/payment/vnpay/create")
+      .set("Authorization", `Bearer ${mentorToken}`)
+      .send({ orderNumber: firstOrder })
+      .expect(403);
   });
 
   it("notifies the buyer when a payment callback fails", async () => {

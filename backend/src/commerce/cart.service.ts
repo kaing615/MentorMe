@@ -1,10 +1,12 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import type { Model } from "mongoose";
+import { hasUserRole } from "../common/auth/user-role";
 import type { UserDocument } from "../identity/user.schema";
 import { Course } from "../learning/course.schema";
 import { Cart, type CartDocument } from "./cart.schema";
@@ -127,6 +129,9 @@ export class CartService {
   }
 
   private async findOrCreate(user: UserDocument): Promise<CartDocument> {
+    if (!hasUserRole(user, "mentee")) {
+      throw new ForbiddenException("Only mentees can use the cart");
+    }
     return (
       (await this.carts.findOne({ user: user._id })) ??
       (await this.carts.create({ user: user._id, courses: [], totalPrice: 0 }))

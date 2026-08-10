@@ -8,13 +8,8 @@ import orderApi from "../api/modules/order.api";
 import vnpayLogo from "../assets/Icon VNPAY.png";
 import { resolvePaymentProvider } from "../utils/payment-flow";
 import { hasUserRole } from "../utils/user-role";
+import { formatVnd as formatCurrency } from "../utils/currency";
 import { IconBuildingBank, IconDeviceMobile } from "@tabler/icons-react";
-
-// Local currency formatter (USD)
-function formatCurrency(amount) {
-  if (typeof amount !== "number") return "$0";
-  return amount.toLocaleString("en-US", { style: "currency", currency: "USD" });
-}
 
 const Checkout = () => {
   const navigate = useNavigate();
@@ -647,7 +642,7 @@ const Checkout = () => {
                           </div>
                         </div>
                         <p className="text-sm text-gray-600 mt-3">
-                          Scan QR code with MoMo app to pay $290.00
+                          Scan QR code with MoMo app to pay {formatCurrency(total)}
                         </p>
                       </div>
                     </div>
@@ -719,7 +714,7 @@ const Checkout = () => {
                             Account Holder: MENTORME ADMIN
                           </p>
                           <p className="text-sm text-gray-600">
-                            Amount: $290.00
+                            Amount: {formatCurrency(total)}
                           </p>
                           <p className="text-sm text-gray-600">
                             Reference: MENTORME CHECKOUT

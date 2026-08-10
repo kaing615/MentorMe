@@ -23,16 +23,29 @@ export class NotificationService {
     private readonly notifications: Model<Notification>,
   ) {}
 
-  async list(user: UserDocument) {
-    const [items, unreadCount] = await Promise.all([
+  async list(user: UserDocument, pageValue?: string, limitValue?: string) {
+    const page = Math.max(Number(pageValue) || 1, 1);
+    const limit = Math.min(Math.max(Number(limitValue) || 20, 1), 50);
+    const filter = { recipient: user._id };
+    const [items, total, unreadCount] = await Promise.all([
       this.notifications
-        .find({ recipient: user._id })
+        .find(filter)
         .sort({ createdAt: -1, _id: -1 })
+        .skip((page - 1) * limit)
+        .limit(limit)
         .populate("actor", "firstName lastName avatarUrl role")
         .lean(),
+      this.notifications.countDocuments(filter),
       this.notifications.countDocuments({ recipient: user._id, readAt: null }),
     ]);
-    return { items, unreadCount };
+    return {
+      items,
+      total,
+      page,
+      limit,
+      hasMore: page * limit < total,
+      unreadCount,
+    };
   }
 
   async markRead(user: UserDocument, id: string) {

@@ -9,6 +9,7 @@ import availabilityApi from "../api/modules/availability.api";
 import bookingApi from "../api/modules/booking.api";
 import reviewApi from "../api/modules/review.api";
 import { hasUserRole } from "../utils/user-role";
+import { formatVnd } from "../utils/currency";
 import { toast } from "react-toastify";
 import { showLoading, hideLoading } from "../redux/features/loading.slice";
 import { IoStar, IoStarOutline } from "react-icons/io5";
@@ -1141,19 +1142,7 @@ const MentorPage = () => {
                         )}
 
                         <div className="font-bold text-xl text-gray-900 mt-auto">
-                          $
-                          {(() => {
-                            const price =
-                              typeof course.price === "number"
-                                ? course.price
-                                : parseFloat(course.price || 0);
-                            return price % 1 === 0
-                              ? price.toLocaleString("en-US")
-                              : price.toLocaleString("en-US", {
-                                  minimumFractionDigits: 1,
-                                  maximumFractionDigits: 2,
-                                });
-                          })()}
+                          {formatVnd(Number(course.price) || 0)}
                         </div>
 
                         {/* Add to Cart and Buy Now buttons for mentees */}

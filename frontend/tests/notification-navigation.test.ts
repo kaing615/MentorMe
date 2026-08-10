@@ -23,6 +23,12 @@ test("notification events resolve to the correct role-specific destination", () 
     storageKey: "menteeProfileTab",
     tab: "mycourses",
   });
+  assert.deepEqual(
+    getNotificationTarget("payment_failed", false, "/fallback", {
+      orderNumber: "ORD-123",
+    }),
+    { path: "/order-detail?orderId=ORD-123" },
+  );
   assert.deepEqual(getNotificationTarget("unknown", false, "/fallback"), {
     path: "/fallback",
   });

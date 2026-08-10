@@ -19,6 +19,7 @@ import cartApi from "../api/modules/cart.api";
 import { toast } from "react-toastify";
 import { MENTEE_PATH, MENTOR_PATH, PATH } from "../routes/path";
 import { hasUserRole } from "../utils/user-role";
+import { formatVnd } from "../utils/currency";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { IconHeart } from "@tabler/icons-react";
 import favoriteApi from "../api/modules/favorite.api";
@@ -989,36 +990,12 @@ const CourseDetail = () => {
               className="flex flex-row items-center space-x-3 mb-4"
             >
               <span className="text-3xl font-bold text-black">
-                $
-                {(() => {
-                  const price =
-                    typeof discountedPrice === "number"
-                      ? discountedPrice
-                      : parseFloat(discountedPrice || 0);
-                  return price % 1 === 0
-                    ? price.toLocaleString("en-US")
-                    : price.toLocaleString("en-US", {
-                        minimumFractionDigits: 1,
-                        maximumFractionDigits: 2,
-                      });
-                })()}
+                {formatVnd(Number(discountedPrice) || 0)}
               </span>
               {discount > 0 && (
                 <>
                   <span className="text-xl font-semibold text-gray-400 line-through">
-                    $
-                    {(() => {
-                      const price =
-                        typeof basePrice === "number"
-                          ? basePrice
-                          : parseFloat(basePrice || 0);
-                      return price % 1 === 0
-                        ? price.toLocaleString("en-US")
-                        : price.toLocaleString("en-US", {
-                            minimumFractionDigits: 1,
-                            maximumFractionDigits: 2,
-                          });
-                    })()}
+                    {formatVnd(Number(basePrice) || 0)}
                   </span>
                   <span className="text-xl font-semibold text-green-600">
                     {discount}% Off
@@ -1405,14 +1382,6 @@ const CourseDetail = () => {
                   const p = Number(course.price) || 0;
                   const d = Number(course.discount) || 0;
                   const discountedPrice = p - p * (d / 100);
-                  const formatPrice = (price) => {
-                    return price % 1 === 0
-                      ? price.toLocaleString("en-US")
-                      : price.toLocaleString("en-US", {
-                          minimumFractionDigits: 1,
-                          maximumFractionDigits: 2,
-                        });
-                  };
                   return (
                     <div
                       key={course.courseId || course._id || idx}
@@ -1507,14 +1476,14 @@ const CourseDetail = () => {
 
                       <div className="font-bold flex flex-row text-xl mt-auto gap-1 mb-3">
                         <div title="discount">
-                          ${formatPrice(discountedPrice)}
+                          {formatVnd(discountedPrice)}
                         </div>
                         {d > 0 && (
                           <div
                             title="original"
                             className="text-base font-semibold text-gray-400 line-through"
                           >
-                            ${formatPrice(p)}
+                            {formatVnd(p)}
                           </div>
                         )}
                       </div>

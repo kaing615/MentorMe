@@ -17,12 +17,30 @@ test("normalizes wrapped engagement responses without mock fallbacks", () => {
   const notification = { _id: "notification-1", type: "message_received" };
   assert.deepEqual(
     normalizeNotifications({
-      data: { items: [notification], unreadCount: 1 },
+      data: {
+        items: [notification],
+        unreadCount: 1,
+        total: 12,
+        page: 2,
+        limit: 5,
+        hasMore: true,
+      },
     }),
-    { items: [notification], unreadCount: 1 },
+    {
+      items: [notification],
+      unreadCount: 1,
+      total: 12,
+      page: 2,
+      limit: 5,
+      hasMore: true,
+    },
   );
   assert.deepEqual(normalizeNotifications(undefined), {
     items: [],
     unreadCount: 0,
+    total: 0,
+    page: 1,
+    limit: 20,
+    hasMore: false,
   });
 });
