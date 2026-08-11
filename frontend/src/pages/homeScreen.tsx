@@ -21,7 +21,6 @@ import { useGSAP } from "@gsap/react";
 
 import BecomeMentor from "../assets/become-an-mentor.jpg";
 import MentoringHero from "../assets/mentoring-hero.jpg";
-import MemoMascot from "../assets/mimo-mascot.png";
 
 import { showLoading, hideLoading } from "../redux/features/loading.slice";
 import courseApi from "../api/modules/course.api.js";
@@ -513,19 +512,12 @@ const HomeScreen = () => {
           <div data-hero-media data-scale-media className="relative lg:pl-4">
             <div className="absolute -bottom-6 -left-3 h-32 w-32 rotate-6 rounded-[45%_55%_48%_52%] border-2 border-dashed border-yellow-300/65" />
             <div className="ui-image-frame relative rotate-[0.45deg] overflow-hidden rounded-[2rem] border-2 !border-yellow-300/70 shadow-[var(--ui-shadow-lg)]">
-              <div className="memo-orbit-scene aspect-[4/3]" aria-hidden="true">
-                <span className="memo-orbit-ring memo-orbit-ring--outer" />
-                <span className="memo-orbit-ring memo-orbit-ring--inner" />
-                {["one", "two", "three"].map((orbit) => (
-                  <img
-                    key={orbit}
-                    src={MemoMascot}
-                    alt=""
-                    className={`memo-orbit-character memo-orbit-character--${orbit}`}
-                    draggable={false}
-                  />
-                ))}
-              </div>
+              <img
+                src={MentoringHero}
+                alt="A learner and mentor reviewing a practical learning plan"
+                className="aspect-[4/3] h-full w-full object-cover"
+                fetchPriority="high"
+              />
               <div className="absolute inset-x-5 bottom-5 rounded-2xl border border-white/25 bg-blue-950/70 p-4 text-white shadow-[var(--ui-shadow-sm)] backdrop-blur-md sm:max-w-xs">
                 <p className="text-sm font-bold text-white">Your next step</p>
                 <p className="mt-1 text-sm font-semibold leading-5 text-blue-100">Turn a big goal into a practical plan you can follow.</p>
