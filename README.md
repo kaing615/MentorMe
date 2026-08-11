@@ -1,186 +1,240 @@
+<div align="center">
+  <img src="frontend/public/favicon.svg" alt="MentorMe logo" width="72" height="72">
+
 # MentorMe
 
-> Nền tảng kết nối mentor và mentee, giúp sinh viên, học sinh dễ dàng tìm kiếm, đặt lịch hẹn tư vấn, trò chuyện và phát triển cá nhân cùng chuyên gia.
+### Guidance that moves you forward.
 
----
+A full-stack mentoring platform for discovering mentors, booking consultations, learning through courses, and communicating in real time.
 
-## 🚀 Tính năng chính
+<p>
+  <img alt="React 19" src="https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react&logoColor=111827">
+  <img alt="NestJS 11" src="https://img.shields.io/badge/NestJS-11-E0234E?style=flat-square&logo=nestjs&logoColor=white">
+  <img alt="Node.js 22" src="https://img.shields.io/badge/Node.js-22-339933?style=flat-square&logo=nodedotjs&logoColor=white">
+  <img alt="MongoDB 8" src="https://img.shields.io/badge/MongoDB-8-47A248?style=flat-square&logo=mongodb&logoColor=white">
+  <img alt="Docker" src="https://img.shields.io/badge/Docker-Compose-2496ED?style=flat-square&logo=docker&logoColor=white">
+</p>
 
-- Đăng ký / Đăng nhập (OAuth Google, JWT)
-- Quản lý hồ sơ mentor & mentee (bio, avatar, chuyên môn, lịch rảnh)
-- Tìm kiếm mentor theo lĩnh vực/chuyên môn
-- Đặt lịch hẹn tư vấn (online/offline)
-- Chat trực tuyến giữa mentor - mentee (sau khi đặt lịch thành công)
-- Video call qua WebRTC
-- Gửi, nhận tài liệu
-- Đánh giá, review mentor
-- Thông báo nhắc lịch, xác nhận, nhắc đánh giá
-- Quản lý lịch hẹn cá nhân
+<p>
+  <a href="https://github.com/kaing615/MentorMe/actions/workflows/backend.yml"><img alt="Backend CI" src="https://github.com/kaing615/MentorMe/actions/workflows/backend.yml/badge.svg"></a>
+  <a href="https://github.com/kaing615/MentorMe/actions/workflows/frontend.yml"><img alt="Frontend CI" src="https://github.com/kaing615/MentorMe/actions/workflows/frontend.yml/badge.svg"></a>
+</p>
+</div>
 
----
+## Current product
 
-## 🏗️ Công nghệ sử dụng
+### Mentees
 
-- **Frontend:** ReactJS, Vite, MUI
-- **Backend:** NestJS 11, TypeScript, MongoDB, Socket.IO
-- **Realtime chat:** Socket.IO
-- **Video call:** WebRTC
-- **Auth:** OAuth Google + JWT
-- **File Storage:** Cloudinary / AWS S3
-- **Email:** MailGun
-- **CI/CD:** Docker, GitHub Actions, AWS / DigitalOcean
-- **Database:** MongoDB Atlas
+- Sign up, verify an email address, and authenticate with JWT.
+- Maintain a personal profile and apply to become a mentor using existing profile data.
+- Discover backend-powered mentors and courses and save favorites.
+- Book consultations from a mentor's published availability.
+- Manage a cart, orders, and access to purchased courses.
+- Exchange messages, receive notifications, and review eligible interactions.
 
----
+### Mentors
 
-## ⚡️ Khởi động nhanh dự án
+- Manage a professional profile, availability, and courses.
+- Accept, reject, complete, and track bookings.
+- See mentees who purchased a course or completed a consultation.
+- Exchange messages, receive notifications, and manage reviews.
+- Use a role-aware header that hides mentee-only commerce actions.
 
-### Clone code về máy
+### Platform
 
-```bash
-git clone https://github.com/kaing615/MentorMe/
+- RBAC redirects users from login using the active `role` returned by the backend; users do not select a role on the login screen.
+- Favorites and notifications use real backend data without mock fallbacks.
+- Notifications open in a popover with a dedicated “See all” page.
+- Responsive light/dark themes and the Mimo quick-help assistant.
+- Optional VNPay and MoMo payment providers, disabled by default.
+
+## Architecture
+
+MentorMe currently runs as a **modular monolith**:
+
+```text
+React 19 + Vite 6
+        │ REST / Socket.IO
+        ▼
+NestJS 11 API ───── Background worker
+        │
+        ▼
+MongoDB 8 replica set
 ```
 
-### Chạy bằng Docker Compose
+| Layer | Technology |
+| --- | --- |
+| Frontend | React 19, Vite 6, React Router, Redux Toolkit, TanStack Query, Tailwind CSS, MUI, Ant Design |
+| Backend | NestJS 11, TypeScript, Mongoose 8, REST, Swagger |
+| Realtime | Socket.IO authenticated with JWT |
+| Database | MongoDB 8 replica set; transactions protect booking, payment, and review flows |
+| Integrations | Cloudinary, Nodemailer/SMTP, VNPay, MoMo |
+| Operations | Docker Compose, GitHub Actions, health checks, and production deployment assets under `deploy/` |
 
-```bash
-cp backend/.env.example backend/.env
-docker compose up --build
+## Quick start with Docker
+
+### Requirements
+
+- Docker Desktop with Docker Compose.
+- Ports `3000`, `4000`, and `27017` available locally.
+
+### 1. Clone and create environment files
+
+```powershell
+git clone https://github.com/kaing615/MentorMe.git
+cd MentorMe
+Copy-Item backend/.env.example backend/.env
+Copy-Item frontend/.env.example frontend/.env
 ```
 
-### Chạy Local
-Nên chạy bằng Docker để đồng bộ
-#### Cài đặt backend
+On macOS or Linux, replace `Copy-Item` with `cp`.
 
-```bash
+### 2. Configure the application
+
+Replace `JWT_SECRET` in `backend/.env` with a long, random value. Docker Compose overrides `MONGO_URL` so the API can reach the Mongo container.
+
+> The repository does not seed mock accounts. Mentee registration requires `MAIL_HOST`, `MAIL_USER`, and `MAIL_PASS` so the user can receive a verification link. Create a mentor account through **Become a mentor** after signing in.
+
+### 3. Start the stack
+
+```powershell
+docker compose up -d --build
+docker compose ps
+```
+
+| Service | Address |
+| --- | --- |
+| Web app | http://localhost:3000 |
+| REST API | http://localhost:4000/api/v1 |
+| Swagger UI | http://localhost:4000/api-docs |
+| Liveness probe | http://localhost:4000/health/live |
+| Readiness probe | http://localhost:4000/health/ready |
+
+Inspect logs or stop the stack:
+
+```powershell
+docker compose logs -f backend frontend
+docker compose down
+```
+
+## Run without Docker
+
+This mode requires Node.js 22 and a MongoDB replica set reachable through `MONGO_URL`. A standalone MongoDB server cannot run the transactions used by the application.
+
+```powershell
 cd backend
-cp .env.example .env        # Điền MongoDB, JWT và các provider cần dùng
+Copy-Item .env.example .env
 npm ci
 npm run dev
 ```
 
-#### Cài đặt frontend
+In another terminal:
 
-```bash
-cd frontend 
-npm install
-npm run dev            
+```powershell
+cd frontend
+Copy-Item .env.example .env
+npm ci
+npm run dev
 ```
 
-### Cấu trúc thư mục
+The Vite development server runs at `http://localhost:5173`. If ports or origins change, update `CORS_ORIGINS`, `FRONTEND_URL`, and `VITE_API_URL` accordingly.
 
-```bash
+## Environment variables
+
+Complete templates are available at [`backend/.env.example`](backend/.env.example) and [`frontend/.env.example`](frontend/.env.example).
+
+| Group | Main variables | Notes |
+| --- | --- | --- |
+| Required | `MONGO_URL`, `JWT_SECRET`, `CORS_ORIGINS` | The backend rejects missing values at startup |
+| Frontend | `VITE_API_URL` | Defaults locally to `http://localhost:4000/api/v1` |
+| Email | `MAIL_HOST`, `MAIL_PORT`, `MAIL_USER`, `MAIL_PASS` | Required for email verification and password resets |
+| Media | `CLOUDINARY_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` | Required for avatar and thumbnail uploads |
+| VNPay | `VNPAY_ENABLED` and `VNPAY_*` credentials | Credentials are required only when `VNPAY_ENABLED=true` |
+| MoMo | `MOMO_ENABLED` and `MOMO_*` credentials | Credentials are required only when `MOMO_ENABLED=true` |
+
+Never commit `.env` files or real credentials.
+
+## Verification
+
+### Backend
+
+Backend tests use a dedicated MongoDB replica set on port `27018`:
+
+```powershell
+cd backend
+docker compose -f docker-compose.test.yml up -d --wait
+npm ci
+npm run typecheck
+npm run lint
+npm test
+npm run build
+docker compose -f docker-compose.test.yml down
+```
+
+### Frontend
+
+```powershell
+cd frontend
+npm ci
+npm test
+npm run typecheck
+npm run lint -- --quiet
+npm run build
+```
+
+## Repository structure
+
+```text
 MentorMe/
-├── backend/
-│   ├── src/
-│   ├── test/
-│   ├── Dockerfile
-│   └── .env.example
-├── frontend/
-│   ├── public/
-│   ├── src/
-│   └── Dockerfile
-├── docker-compose.yml
-├── README.md
-└── .gitignore
+├── backend/               NestJS API, worker, and tests
+│   └── src/
+│       ├── identity/      Authentication and users
+│       ├── mentoring/     Profiles, availability, bookings, and reviews
+│       ├── learning/      Courses, lessons, and enrolments
+│       ├── commerce/      Cart, orders, and payments
+│       ├── messaging/     Realtime messaging
+│       ├── engagement/    Favorites and notifications
+│       └── support/       Help requests
+├── frontend/              React application and frontend tests
+├── deploy/                Production deployment assets
+├── docs/                  System design, diagrams, and runbooks
+├── .github/workflows/     Backend, frontend, and delivery CI
+└── docker-compose.yml     Local development stack
 ```
 
----
+## Common local issues
 
-## Chú ý workflow
+- **`Email đã được sử dụng`**: the user already exists in MongoDB; sign in with that account or reset the local database.
+- **Mongo transaction or replica-set errors**: use a MongoDB replica set; Docker Compose configures one automatically.
+- **Port already in use**: stop the service occupying `3000`, `4000`, or `27017` before starting Compose.
+- **Payment unavailable**: this is expected when a provider is disabled or missing credentials.
 
-### 1. Tạo nhánh riêng cho mỗi người
+Delete all local Docker data — this cannot be undone:
 
-Ví dụ:
-
-#### Tạo nhánh
-
-```bash
-git checkout main
-git pull origin main
-git checkout -b feature/tam-auth
+```powershell
+docker compose down -v
+docker compose up -d --build
 ```
 
-#### Commit
+## Contributing
 
-```bash
-git add .
-git commit -m "Add login API"
-git push -u origin feature/tam-auth
+1. Create a `feat/...`, `fix/...`, or `docs/...` branch from `main`.
+2. Use Conventional Commits.
+3. Run the relevant tests, type checks, lint, and build.
+4. Push the branch and open a pull request into `main`; do not push directly to `main`.
+
+```text
+feat(booking): add consultation availability workflow
+fix(auth): derive post-login route from backend role
+docs(readme): refresh local setup guide
 ```
 
-### 2. Khi hoàn thành 1 phần, lên GitHub tạo Pull Request (PR) từ nhánh feature/tam-auth về main
+## Contributors
 
-Những người khác (hoặc leader) review, góp ý, đồng ý thì mới merge vào main.
-
-### 3. Lưu ý khi Merge
-
-Nếu nhiều bạn cùng sửa chung 1 file, sẽ dễ bị merge conflict. Nên trao đổi rõ ai làm phần nào, hoặc tách rõ folder/module.
-
-### 4. Đặt tên nhánh
-
-feature/tennguoi-chucnang hoặc tennguoi-chucnang (dễ nhớ, đồng bộ là được).
-
-## Tóm lại
-
-- **KHÔNG push thẳng lên main.**
-
-- **NÊN mỗi bạn 1 nhánh riêng, hoặc mỗi tính năng 1 nhánh.**
-
-- **Tạo PR, review rồi merge vào main.**
-
-## Chú ý trước khi merge vào main
-### Bước 1: Làm tính năng trên nhánh riêng của mình
-Code, commit, test tính năng.
-
-Push nhánh đó lên GitHub.
-
-### Bước 2: Merge vào branch dev trước
-Tạo Pull Request (PR) từ nhánh feature vào dev.
-
-Test tích hợp trên nhánh dev (có thể deploy lên dev server cho team review/test).
-
-Fix bug, resolve conflict nếu có.
-
-Không làm việc trực tiếp trên dev, chỉ merge từ feature branch vào.
-
-### Bước 3: Khi đã test xong trên dev → Tạo Pull Request từ dev vào main
-Chỉ merge dev vào main khi đã test ổn định.
-
-Không được merge thẳng, luôn tạo PR để review lại lần cuối.
-
-### Bước 4: Review kỹ trước khi merge vào main:
-Đảm bảo PR đã được duyệt (approve) đủ số người (leader hoặc reviewer).
-
-Check conflict, check CI/CD build pass.
-
-## Commit theo convention sau:
-```bash
-<loại_commit>(<phạm_vi>): <nội_dung_ngắn_gọn>
-```
-- <loại_commit>: Loại thay đổi, ví dụ: feat, fix, refactor, docs, test, chore.
-- <phạm_vi>: Phần của dự án bị ảnh hưởng (ví dụ: course, user, api, ...).
-- <nội_dung_ngắn_gọn>: Diễn giải vắn tắt nội dung commit.
-### Một số loại commit thường dùng
-- feat: Thêm tính năng mới
-- fix: Sửa lỗi
-- refactor: Chỉnh sửa code, không thay đổi logic
-- docs: Cập nhật tài liệu
-- test: Thêm hoặc sửa test
-- chore: Các thay đổi lặt vặt khác
-### Ví dụ
-```bash
-feat(course): add getCourses controller with filter and pagination
-fix(course): handle bug when filtering by rate
-docs: update README with setup instructions
-refactor(user): change user model structure
-```
-
-## 👥 Contributors :
-### Leader : Nguyễn Đình Tâm (DevOps, Backend)
-- Văn Công Khoa (Backend, Frontend)
-- Trần Minh Quang (Frontend)
-- Nguyễn Phước Quý Bảo (Backend, Frontend)
-- Đỗ Đăng Khoa (Backend, Frontend)
-- Phạm Đăng Khoa (Frontend)
-- Huỳnh Lê Đại Thắng (DevOps, Backend)
+- **Nguyễn Đình Tâm** — Team lead · DevOps · Backend
+- Văn Công Khoa — Backend · Frontend
+- Trần Minh Quang — Frontend
+- Nguyễn Phước Quý Bảo — Backend · Frontend
+- Đỗ Đăng Khoa — Backend · Frontend
+- Phạm Đăng Khoa — Frontend
+- Huỳnh Lê Đại Thắng — DevOps · Backend
