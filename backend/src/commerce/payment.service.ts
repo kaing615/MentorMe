@@ -6,8 +6,12 @@ import {
 } from "@nestjs/common";
 import { InjectConnection, InjectModel } from "@nestjs/mongoose";
 import type { Connection, Model } from "mongoose";
+import { hasUserRole } from "../common/auth/user-role";
 import type { UserDocument } from "../identity/user.schema";
+import { NotificationService } from "../engagement/notification.service";
 import { EnrolmentService } from "../learning/enrolment.service";
+import { Course } from "../learning/course.schema";
+import { Cart } from "./cart.schema";
 import { Order } from "./order.schema";
 import { assertOrderTransition } from "./order-state";
 import { PaymentEvent } from "./payment-event.schema";
@@ -27,7 +31,10 @@ export class PaymentService {
     @InjectModel(Order.name) private readonly orders: Model<Order>,
     @InjectModel(PaymentEvent.name)
     private readonly events: Model<PaymentEvent>,
+    @InjectModel(Cart.name) private readonly carts: Model<Cart>,
+    @InjectModel(Course.name) private readonly courses: Model<Course>,
     private readonly enrolments: EnrolmentService,
+    private readonly notifications: NotificationService,
   ) {}
 
   async create(
@@ -37,11 +44,17 @@ export class PaymentService {
     ipAddress: string,
     returnUrl: string,
   ) {
+    if (!hasUserRole(user, "mentee")) {
+      throw new ForbiddenException("Only mentees can create payments");
+    }
     const order = await this.owned(user, orderNumber);
     if (order.status !== "pending") {
       throw new BadRequestException(
         "Đơn hàng không ở trạng thái chờ thanh toán!",
       );
+    }
+    if (order.currency !== "VND") {
+      throw new BadRequestException("Unsupported order currency");
     }
     const payment = await provider.create({
       orderNumber,
@@ -65,6 +78,7 @@ export class PaymentService {
       status: order.status,
       paymentInfo: order.paymentInfo,
       totalAmount: order.totalAmount,
+      currency: order.currency,
       paidAt: order.paymentInfo?.paidAt,
       transactionId: order.transactionId ?? order.paymentInfo?.transactionId,
     };
@@ -88,6 +102,11 @@ export class PaymentService {
           session,
         });
       }
+      await this.removePaidCoursesFromCart(
+        order.mentee,
+        order.items.map(({ courseId }) => courseId),
+        session,
+      );
       order.status = "paid";
       order.coursesGranted = true;
       order.grantedAt = new Date();
@@ -102,6 +121,18 @@ export class PaymentService {
       };
       if (dto.notes !== undefined) order.notes = dto.notes;
       await order.save({ session });
+      await this.notifications.notify(
+        {
+          recipient: order.mentee,
+          type: "payment_paid",
+          title: "Payment successful",
+          body: "Your payment was confirmed and your courses are ready.",
+          link: "/profile?tab=orders",
+          metadata: { orderNumber: order.orderNumber },
+          eventKey: `payment:paid:${String(order._id)}`,
+        },
+        session,
+      );
       return {
         message: "Xác nhận thanh toán thành công!",
         order: { orderNumber: order.orderNumber, status: order.status, transactionId },
@@ -128,7 +159,10 @@ export class PaymentService {
           .findOne({ orderNumber: payment.orderNumber })
           .session(session);
         if (!order) throw new NotFoundException("Order not found");
-        if (Number(order.totalAmount || order.amount) !== payment.amount) {
+        if (
+          order.currency !== "VND" ||
+          Number(order.totalAmount || order.amount) !== payment.amount
+        ) {
           throw new BadRequestException("Invalid amount");
         }
 
@@ -157,6 +191,11 @@ export class PaymentService {
               session,
             });
           }
+          await this.removePaidCoursesFromCart(
+            order.mentee,
+            order.items.map(({ courseId }) => courseId),
+            session,
+          );
           order.status = "paid";
           order.coursesGranted = true;
           order.grantedAt = new Date();
@@ -174,6 +213,24 @@ export class PaymentService {
           order.status = "failed";
         }
         await order.save({ session });
+        await this.notifications.notify(
+          {
+            recipient: order.mentee,
+            type: payment.status === "paid" ? "payment_paid" : "payment_failed",
+            title:
+              payment.status === "paid"
+                ? "Payment successful"
+                : "Payment failed",
+            body:
+              payment.status === "paid"
+                ? "Your payment was confirmed and your courses are ready."
+                : "Your payment could not be completed.",
+            link: "/profile?tab=orders",
+            metadata: { orderNumber: order.orderNumber },
+            eventKey: `payment:${payment.status}:${String(order._id)}`,
+          },
+          session,
+        );
         return { duplicate: false, payment };
       });
       return result;
@@ -190,6 +247,29 @@ export class PaymentService {
         "code" in error &&
         error.code === 11000,
     );
+  }
+
+  private async removePaidCoursesFromCart(
+    userId: unknown,
+    courseIds: unknown[],
+    session: import("mongoose").ClientSession,
+  ): Promise<void> {
+    const cart = await this.carts.findOne({ user: userId }).session(session);
+    if (!cart) return;
+    const paid = new Set(courseIds.map(String));
+    cart.courses = cart.courses.filter(({ course }) => !paid.has(String(course)));
+    if (!cart.courses.length) {
+      await cart.deleteOne({ session });
+      return;
+    }
+    const remaining = await this.courses
+      .find({ _id: { $in: cart.courses.map(({ course }) => course) } })
+      .select("price")
+      .session(session);
+    cart.totalPrice = remaining.reduce((sum, course) => sum + course.price, 0);
+    cart.discountCode = "";
+    cart.discountAmount = 0;
+    await cart.save({ session });
   }
 
   private async owned(user: UserDocument, orderNumber: string) {

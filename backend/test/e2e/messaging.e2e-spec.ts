@@ -50,6 +50,25 @@ describe("messaging", () => {
     me = currentUser!._id;
     peer = peerUser!._id;
     other = otherUser!._id;
+    const relationship = await connection.collection("relationships").insertOne({
+      mentor: peer,
+      mentee: me,
+    });
+    await connection.collection("bookings").insertOne({
+      relationship: relationship.insertedId,
+      mentor: peer,
+      mentee: me,
+      status: "active",
+      date: new Date(),
+      start: "09:00",
+      end: "09:30",
+      slotId: new Types.ObjectId(),
+      availabilityId: new Types.ObjectId(),
+    });
+    await connection.collection("relationships").insertOne({
+      mentor: other,
+      mentee: me,
+    });
     token = await app
       .get(JwtService)
       .signAsync({ id: String(currentUser!._id) });
@@ -57,6 +76,7 @@ describe("messaging", () => {
 
   beforeEach(async () => {
     await connection.collection("messages").deleteMany({});
+    await connection.collection("notifications").deleteMany({});
   });
 
   afterAll(async () => {
@@ -92,6 +112,27 @@ describe("messaging", () => {
       status: "sent",
       read: false,
     });
+    expect(
+      await connection.collection("notifications").countDocuments({
+        recipient: peer,
+        actor: me,
+        type: "message_received",
+      }),
+    ).toBe(1);
+  });
+
+  it("requires an existing mentoring relationship", async () => {
+    await request(app.getHttpServer())
+      .post("/api/v1/messages")
+      .set(auth())
+      .send({ receiver: String(other), content: "hello" })
+      .expect(403);
+
+    await request(app.getHttpServer())
+      .post("/api/v1/messages")
+      .set(auth())
+      .send({ receiver: String(new Types.ObjectId()), content: "hello" })
+      .expect(404);
   });
 
   it.each([

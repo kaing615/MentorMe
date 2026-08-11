@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { toast } from "react-toastify";
-import { FaUserCircle } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
 import { FaFacebook } from "react-icons/fa6";
 import { FaXTwitter } from "react-icons/fa6";
@@ -14,7 +13,7 @@ import purchasedCourseApi from "../api/modules/purchasedCourse.api";
 import bookingApi from "../api/modules/booking.api";
 import reviewApi from "../api/modules/review.api";
 import authUtils from "../utils/auth.utils";
-import minatoImg from "../assets/minato.jpg";
+import { hasUserRole } from "../utils/user-role";
 import courseApi from "../api/modules/course.api";
 import MentorMenteeChat from "../components/MentorMenteeChat";
 
@@ -75,7 +74,7 @@ const MenteeProfile = () => {
       return;
     }
     // Check role
-    if (user.role === "mentee") {
+    if (hasUserRole(user, "mentee")) {
       return;
     }
     if (user.role === "mentor") {
@@ -103,6 +102,7 @@ const MenteeProfile = () => {
 
   // State cho sidebar (chỉ cập nhật khi save thành công)
   const [sidebarData, setSidebarData] = useState<any>({
+    userName: "",
     firstName: "",
     lastName: "",
     avatarUrl: "",
@@ -240,6 +240,7 @@ const MenteeProfile = () => {
             role: "",
           });
           setSidebarData({
+            userName: "",
             firstName: "",
             lastName: "",
             avatarUrl: "",
@@ -272,6 +273,7 @@ const MenteeProfile = () => {
 
           // Set sidebar data (chỉ cập nhật khi save thành công)
           setSidebarData({
+            userName: user?.userName || "",
             firstName: user?.firstName || "",
             lastName: user?.lastName || "",
             avatarUrl: user?.avatarUrl || "",
@@ -336,7 +338,7 @@ const MenteeProfile = () => {
           id: review._id,
           type: getReviewType(review.targetType), // Map backend targetType to UI type
           targetTitle: review.targetInfo?.title || "Unknown",
-          targetImage: review.targetInfo?.thumbnail || minatoImg,
+          targetImage: review.targetInfo?.thumbnail || "",
           instructor: review.targetInfo?.instructor || null,
           mentorSpecialty: review.targetInfo?.mentorSpecialty || null,
           rating: review.rate || review.rating || 0,
@@ -1168,7 +1170,9 @@ const MenteeProfile = () => {
         filtered = filtered.filter((booking) => booking.status === "active");
         break;
       case "declined":
-        filtered = filtered.filter((booking) => booking.status === "cancelled");
+        filtered = filtered.filter((booking) =>
+          ["cancelled", "rejected"].includes(booking.status),
+        );
         break;
       case "all":
       default:
@@ -1355,6 +1359,7 @@ const MenteeProfile = () => {
 
         // Cập nhật sidebar data (chỉ khi save thành công)
         setSidebarData({
+          userName: updatedUser?.userName || "",
           firstName: updatedUser?.firstName || "",
           lastName: updatedUser?.lastName || "",
           avatarUrl: updatedUser?.avatarUrl || "",
@@ -1386,15 +1391,14 @@ const MenteeProfile = () => {
   };
   return (
     <>
-      <div className="min-h-screen bg-white-100">
+      <div className="min-h-screen bg-[var(--ui-page)]">
         {/* Main Layout Container */}
-        <div className="flex max-w-7xl mx-auto pt-10 gap-8 px-8 min-h-screen">
+        <div className="mx-auto flex min-h-screen max-w-7xl flex-col gap-6 px-4 pt-6 sm:px-6 lg:flex-row lg:gap-8 lg:px-8 lg:pt-10">
           {/* Sidebar - Fixed width and height */}
           <div
-            style={{ width: 280, minWidth: 280 }}
-            className="bg-slate-50 rounded-2xl shadow-sm p-8 flex flex-col items-center sticky top-10 self-start"
+            className="ui-card flex w-full flex-col items-center self-start p-6 lg:sticky lg:top-24 lg:w-[280px] lg:min-w-[280px] lg:p-8"
           >
-            <div className="w-24 h-24 rounded-full bg-gray-300 flex items-center justify-center mb-4 relative overflow-hidden">
+            <div className="relative mb-4 flex h-24 w-24 items-center justify-center overflow-hidden rounded-full bg-[var(--ui-text)] text-[var(--ui-surface)]">
               {sidebarData.avatarUrl ? (
                 <img
                   src={sidebarData.avatarUrl}
@@ -1402,19 +1406,23 @@ const MenteeProfile = () => {
                   className="absolute inset-0 w-full h-full object-cover rounded-full"
                 />
               ) : (
-                <FaUserCircle className="w-24 h-24 text-gray-300" />
+                <span className="text-3xl font-bold" aria-label="Profile initial">
+                  {(sidebarData.firstName || sidebarData.userName || "U")
+                    .charAt(0)
+                    .toUpperCase()}
+                </span>
               )}
             </div>
-            <h2 className="font-semibold text-xl text-gray-900 mb-3">
-              {sidebarData.firstName || sidebarData.lastName
-                ? `${sidebarData.firstName} ${sidebarData.lastName}`.trim()
-                : "Mentee"}
+            <h2 className="mb-2 text-center text-xl font-semibold text-gray-900">
+              {`${sidebarData.firstName} ${sidebarData.lastName}`.trim() ||
+                sidebarData.userName ||
+                "Mentee"}
             </h2>
-            <button className="bg-blue-600 text-white border-none rounded-lg px-6 py-1.5 mb-6 font-medium text-base">
+            <span className="mb-6 inline-flex h-7 items-center rounded-full bg-blue-100 px-2.5 text-xs font-semibold text-blue-700">
               Mentee
-            </button>
+            </span>
             <nav className="w-full">
-              <ul className="flex flex-col gap-2">
+              <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:flex lg:flex-col">
                 <li
                   className={`px-4 py-2.5 rounded-lg font-medium transition-all duration-200 cursor-pointer ${
                     activeTab === "profile"
@@ -1514,50 +1522,74 @@ const MenteeProfile = () => {
           {/* Main Content */}
           <div className="flex-1 min-w-0">
             {activeTab === "profile" && (
-              <form className="space-y-6">
+              <form
+                className="space-y-6"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  void handleUpdateProfile();
+                }}
+              >
                 {/* Personal Information Section */}
                 <div className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100">
                   <h3 className="text-lg font-semibold text-gray-900 mb-6">
                     Personal Information
                   </h3>
-                  <div className="grid grid-cols-3 gap-4 mb-4">
+                  <div className="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Username
+                        Username <span className="text-red-600">*</span>
                       </label>
                       <input
                         type="text"
                         name="userName"
                         value={formData.userName}
                         onChange={handleInputChange}
+                        required
+                        minLength={3}
+                        maxLength={30}
                         className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                         placeholder="Username"
                       />
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        First Name
+                        First Name <span className="text-red-600">*</span>
                       </label>
                       <input
                         type="text"
                         name="firstName"
                         value={formData.firstName}
                         onChange={handleInputChange}
+                        required
+                        maxLength={50}
                         className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                       />
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Last Name
+                        Last Name <span className="text-red-600">*</span>
                       </label>
                       <input
                         type="text"
                         name="lastName"
                         value={formData.lastName}
                         onChange={handleInputChange}
+                        required
+                        maxLength={50}
                         className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                       />
                     </div>
+                  </div>
+                  <div className="mb-4">
+                    <label className="mb-1 block text-sm font-medium text-gray-700">
+                      Email
+                    </label>
+                    <input
+                      type="email"
+                      value={formData.email || ""}
+                      readOnly
+                      className="w-full cursor-not-allowed rounded border border-gray-300 bg-gray-100 px-3 py-2 text-gray-600"
+                    />
                   </div>
                   <div className="mb-4">
                     <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -1734,16 +1766,15 @@ const MenteeProfile = () => {
                 </div>
                 {/* Nút lưu profile ở cuối form */}
                 <button
-                  type="button"
+                  type="submit"
                   className={`bg-blue-600 text-white px-6 py-2 rounded-lg font-semibold mt-8 float-right transition-all duration-200 ${
                     loading
                       ? "opacity-50 cursor-not-allowed"
                       : "hover:bg-blue-700 hover:scale-105"
                   }`}
-                  onClick={loading ? undefined : handleUpdateProfile}
                   disabled={loading}
                 >
-                  {loading ? "Saving..." : "Save Profile"}
+                  {loading ? "Saving..." : "Save Changes"}
                 </button>
               </form>
             )}
@@ -1826,21 +1857,18 @@ const MenteeProfile = () => {
                             className="border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow bg-white"
                           >
                             {/* Course Image */}
-                            <div className="relative">
-                              <img
-                                src={
-                                  course.thumbnail ||
-                                  course.imageUrl ||
-                                  course.image ||
-                                  "https://via.placeholder.com/300x200/f3f4f6/9ca3af?text=Course+Image"
-                                }
-                                alt={course.title}
-                                className="w-full h-48 object-cover"
-                                onError={(e) => {
-                                  e.currentTarget.src =
-                                    "https://via.placeholder.com/300x200/f3f4f6/9ca3af?text=Course+Image";
-                                }}
-                              />
+                            <div className="relative flex h-48 items-center justify-center bg-[var(--ui-accent-soft)] font-bold text-[var(--ui-accent)]">
+                              <span>Course</span>
+                              {(course.thumbnail || course.imageUrl || course.image) && (
+                                <img
+                                  src={course.thumbnail || course.imageUrl || course.image}
+                                  alt={course.title}
+                                  className="absolute inset-0 h-full w-full object-cover"
+                                  onError={(e) => {
+                                    e.currentTarget.style.display = "none";
+                                  }}
+                                />
+                              )}
                             </div>
 
                             <div className="p-4">
@@ -1858,11 +1886,7 @@ const MenteeProfile = () => {
                                       alt={`${mentor.firstName} ${mentor.lastName}`}
                                       className="w-full h-full object-cover"
                                       onError={(e) => {
-                                        e.currentTarget.src =
-                                          "https://via.placeholder.com/32x32/e5e7eb/9ca3af?text=" +
-                                          (mentor.firstName?.charAt(0) ||
-                                            mentor.lastName?.charAt(0) ||
-                                            "M");
+                                        e.currentTarget.style.display = "none";
                                       }}
                                     />
                                   ) : (
@@ -2710,11 +2734,19 @@ const MenteeProfile = () => {
                           {/* Mentor Header */}
                           <div className="flex items-start gap-4 mb-4">
                             <div className="relative">
-                              <img
-                                src={mentor.avatarUrl || minatoImg}
-                                alt={mentor.displayName}
-                                className="w-16 h-16 rounded-full object-cover border-2 border-gray-100"
-                              />
+                              <div className="relative flex h-16 w-16 items-center justify-center overflow-hidden rounded-full border-2 border-[var(--ui-border)] bg-[var(--ui-accent-soft)] text-lg font-bold text-[var(--ui-accent)]">
+                                <span>{(mentor.displayName?.[0] || "M").toUpperCase()}</span>
+                                {mentor.avatarUrl && (
+                                  <img
+                                    src={mentor.avatarUrl}
+                                    alt={mentor.displayName}
+                                    className="absolute inset-0 h-full w-full object-cover"
+                                    onError={(e) => {
+                                      e.currentTarget.style.display = "none";
+                                    }}
+                                  />
+                                )}
+                              </div>
                             </div>
                             <div className="flex-1 min-w-0">
                               <h4 className="font-semibold text-gray-900 mb-1 truncate">
@@ -3001,15 +3033,25 @@ const MenteeProfile = () => {
                           >
                             <div className="flex items-start gap-4">
                               {/* Avatar/Image */}
-                              <img
-                                src={review.targetImage}
-                                alt={review.targetTitle}
-                                className={`w-16 h-16 object-cover ${
+                              <div
+                                className={`relative flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden bg-[var(--ui-accent-soft)] font-bold text-[var(--ui-accent)] ${
                                   review.type === "course"
                                     ? "rounded-lg"
                                     : "rounded-full"
                                 }`}
-                              />
+                              >
+                                <span>{(review.targetTitle?.[0] || "R").toUpperCase()}</span>
+                                {review.targetImage && (
+                                  <img
+                                    src={review.targetImage}
+                                    alt={review.targetTitle}
+                                    className="absolute inset-0 h-full w-full object-cover"
+                                    onError={(e) => {
+                                      e.currentTarget.style.display = "none";
+                                    }}
+                                  />
+                                )}
+                              </div>
 
                               <div className="flex-1">
                                 <div className="flex items-start justify-between mb-3">
@@ -3291,19 +3333,19 @@ const MenteeProfile = () => {
               {/* Course Info */}
               {reviewCourse && (
                 <div className="flex items-start gap-4 mb-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-100 transform transition-all duration-300 hover:shadow-md">
-                  <img
-                    src={
-                      reviewCourse.thumbnail ||
-                      reviewCourse.imageUrl ||
-                      "https://via.placeholder.com/60x40"
-                    }
-                    alt={reviewCourse.title}
-                    className="w-16 h-12 object-cover rounded-lg shadow-sm"
-                    onError={(e) => {
-                      e.currentTarget.src =
-                        "https://via.placeholder.com/60x40/f3f4f6/6b7280?text=Course";
-                    }}
-                  />
+                  <div className="relative flex h-12 w-16 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-[var(--ui-accent-soft)] text-xs font-bold text-[var(--ui-accent)] shadow-sm">
+                    <span>Course</span>
+                    {(reviewCourse.thumbnail || reviewCourse.imageUrl) && (
+                      <img
+                        src={reviewCourse.thumbnail || reviewCourse.imageUrl}
+                        alt={reviewCourse.title}
+                        className="absolute inset-0 h-full w-full object-cover"
+                        onError={(e) => {
+                          e.currentTarget.style.display = "none";
+                        }}
+                      />
+                    )}
+                  </div>
                   <div className="flex-1">
                     <h4 className="font-semibold text-gray-900 mb-1 leading-tight">
                       {reviewCourse.title}
@@ -3769,11 +3811,19 @@ const MenteeProfile = () => {
               </div>
               {selectedMentor && (
                 <div className="mt-3 flex items-center gap-3">
-                  <img
-                    src={selectedMentor.avatarUrl || minatoImg}
-                    alt={selectedMentor.displayName}
-                    className="w-12 h-12 rounded-full object-cover"
-                  />
+                  <div className="relative flex h-12 w-12 items-center justify-center overflow-hidden rounded-full bg-[var(--ui-accent-soft)] font-bold text-[var(--ui-accent)]">
+                    <span>{(selectedMentor.displayName?.[0] || "M").toUpperCase()}</span>
+                    {selectedMentor.avatarUrl && (
+                      <img
+                        src={selectedMentor.avatarUrl}
+                        alt={selectedMentor.displayName}
+                        className="absolute inset-0 h-full w-full object-cover"
+                        onError={(e) => {
+                          e.currentTarget.style.display = "none";
+                        }}
+                      />
+                    )}
+                  </div>
                   <div>
                     <p className="font-semibold text-gray-900">
                       {selectedMentor.displayName}

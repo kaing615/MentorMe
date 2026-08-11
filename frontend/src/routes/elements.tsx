@@ -30,6 +30,9 @@ import VerifyEmailPage from "../pages/VerifyEmailPage";
 import Checkout from "../pages/checkout";
 import OrderComplete from "../pages/order_complete";
 import ShoppingCart from "../pages/shoppingcart";
+import PaymentReturnPage from "../pages/PaymentReturnPage";
+import FavoritesPage from "../pages/FavoritesPage";
+import NotificationsPage from "../pages/NotificationsPage";
 
 const useRouterElements = () => {
   const elements = useRoutes([
@@ -38,8 +41,29 @@ const useRouterElements = () => {
       element: <WelcomePage />,
     },
     {
+      path: "/payment/vnpay/return",
+      element: <PaymentReturnPage provider="vnpay" />,
+    },
+    {
+      path: "/payment/momo/return",
+      element: <PaymentReturnPage provider="momo" />,
+    },
+    {
+      path: "/notifications",
+      element: (
+        <ProtectedRoute>
+          <AllPagesLayout />
+        </ProtectedRoute>
+      ),
+      children: [{ index: true, element: <NotificationsPage /> }],
+    },
+    {
       path: PATH.MENTEE,
-      element: <AllPagesLayout />,
+      element: (
+        <ProtectedRoute requiredRole="mentee">
+          <AllPagesLayout />
+        </ProtectedRoute>
+      ),
       children: [
         {
           path: MENTEE_PATH.HOME,
@@ -85,12 +109,20 @@ const useRouterElements = () => {
           path: MENTEE_PATH.ALLMENTORS,
           element: <AllMentors />,
         },
+        {
+          path: MENTEE_PATH.FAVORITES,
+          element: <FavoritesPage />,
+        },
       ],
     },
 
     {
       path: PATH.PLATFORM,
-      element: <AllPagesLayout />,
+      element: (
+        <ProtectedRoute>
+          <AllPagesLayout />
+        </ProtectedRoute>
+      ),
       children: [
         {
           path: PLATFORM_PATH.HOMESCREEN,
@@ -109,7 +141,11 @@ const useRouterElements = () => {
 
     {
       path: PATH.MENTOR,
-      element: <AllPagesLayout />,
+      element: (
+        <ProtectedRoute requiredRole="mentor">
+          <AllPagesLayout />
+        </ProtectedRoute>
+      ),
       children: [
         {
           path: MENTOR_PATH.HOME,

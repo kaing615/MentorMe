@@ -4,37 +4,36 @@ import authApi from "../api/modules/auth.api";
 import { toast } from "react-toastify";
 import { useNavigate } from "react-router-dom";
 import { MENTEE_PATH, MENTOR_PATH, PATH } from "../routes/path";
+import profileApi from "../api/modules/profile.api";
+
+const getStoredUser = () => {
+  try {
+    return JSON.parse(localStorage.getItem("user") || "null");
+  } catch {
+    return null;
+  }
+};
 
 const ApplyAsMentor = () => {
   const navigate = useNavigate();
+  const [existingUser] = useState<any>(getStoredUser);
+  const isMenteeUpgrade =
+    existingUser?.role === "mentee" &&
+    Boolean(localStorage.getItem("actkn") || localStorage.getItem("token"));
 
   // Check if user is already authenticated
   useEffect(() => {
-    const token = sessionStorage.getItem("token");
-    const role = sessionStorage.getItem("role");
-
-    if (token && role) {
-      // Redirect based on role
-      switch (role) {
-        case "mentee":
-          navigate(`/${MENTEE_PATH.HOME}`);
-          break;
-        case "mentor":
-          navigate(`${PATH.MENTOR}/${MENTOR_PATH.HOME}`);
-          break;
-        case "admin":
-          navigate(PATH.ADMIN);
-          break;
-        default:
-          navigate(PATH.MENTEE);
-      }
+    if (existingUser?.role === "mentor") {
+      navigate(`${PATH.MENTOR}/${MENTOR_PATH.HOME}`);
+    } else if (existingUser?.role === "admin") {
+      navigate(PATH.ADMIN);
     }
-  }, [navigate]);
+  }, [existingUser, navigate]);
   const [formData, setFormData] = useState<any>({
-    firstName: "",
-    lastName: "",
-    username: "",
-    email: "",
+    firstName: existingUser?.firstName || "",
+    lastName: existingUser?.lastName || "",
+    username: existingUser?.userName || "",
+    email: existingUser?.email || "",
     password: "",
     confirmPassword: "",
     jobTitle: "",
@@ -49,10 +48,41 @@ const ApplyAsMentor = () => {
   });
 
   const [profileImage, setProfileImage] = useState<any>(null);
+  const [profileImageFile, setProfileImageFile] = useState<any>(null);
   const [currentStep, setCurrentStep] = useState<any>(1);
   const [completedSteps, setCompletedSteps] = useState<any[]>([]);
   const [errors, setErrors] = useState<any>({});
   const [touched, setTouched] = useState<any>({});
+
+  useEffect(() => {
+    if (!isMenteeUpgrade) return;
+    profileApi
+      .getProfile()
+      .then((response) => {
+        const data = response?.data;
+        const user = data?.user || existingUser;
+        const profile = data?.profile || {};
+        setFormData((current) => ({
+          ...current,
+          firstName: user?.firstName || "",
+          lastName: user?.lastName || "",
+          username: user?.userName || "",
+          email: user?.email || "",
+          jobTitle: profile.jobTitle || "",
+          location: profile.location || user?.location || "",
+          category: profile.category || "",
+          skills: (profile.skills || user?.skills || []).join(", "),
+          bio: profile.bio || user?.bio || "",
+          linkedin: profile.links?.linkedin || user?.linkedinUrl || "",
+          introVideo: profile.introVideo || user?.introVideo || "",
+          reason: profile.mentorReason || user?.mentorReason || "",
+          achievement:
+            profile.greatestAchievement || user?.greatestAchievement || "",
+        }));
+        setProfileImage(user?.avatarUrl || null);
+      })
+      .catch(() => toast.error("Không thể tải thông tin hiện tại."));
+  }, [existingUser, isMenteeUpgrade]);
 
   // Validate step 1 fields
   const validateStep1 = (validatePhoto = false) => {
@@ -63,15 +93,17 @@ const ApplyAsMentor = () => {
     if (!formData.email.trim()) newErrors.email = "Email is required";
     else if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(formData.email))
       newErrors.email = "Invalid email format";
-    if (!formData.password) newErrors.password = "Password is required";
-    if (!formData.confirmPassword)
-      newErrors.confirmPassword = "Confirm password is required";
-    if (
-      formData.password &&
-      formData.confirmPassword &&
-      formData.password !== formData.confirmPassword
-    )
-      newErrors.confirmPassword = "Passwords do not match";
+    if (!isMenteeUpgrade) {
+      if (!formData.password) newErrors.password = "Password is required";
+      if (!formData.confirmPassword)
+        newErrors.confirmPassword = "Confirm password is required";
+      if (
+        formData.password &&
+        formData.confirmPassword &&
+        formData.password !== formData.confirmPassword
+      )
+        newErrors.confirmPassword = "Passwords do not match";
+    }
     if (!formData.jobTitle.trim()) newErrors.jobTitle = "Job title is required";
     if (!formData.location.trim()) newErrors.location = "Location is required";
     if (validatePhoto && !profileImage)
@@ -135,6 +167,7 @@ const ApplyAsMentor = () => {
   const handleImageUpload = (event) => {
     const file = event.target.files[0];
     if (file) {
+      setProfileImageFile(file);
       const reader = new FileReader();
       reader.onload = (e) => {
         setProfileImage(e.target.result);
@@ -215,9 +248,11 @@ const ApplyAsMentor = () => {
       formDataToSend.append("firstName", formData.firstName);
       formDataToSend.append("lastName", formData.lastName);
       formDataToSend.append("userName", formData.username);
-      formDataToSend.append("email", formData.email);
-      formDataToSend.append("password", formData.password);
-      formDataToSend.append("confirmPassword", formData.confirmPassword);
+      if (!isMenteeUpgrade) {
+        formDataToSend.append("email", formData.email);
+        formDataToSend.append("password", formData.password);
+        formDataToSend.append("confirmPassword", formData.confirmPassword);
+      }
       formDataToSend.append("jobTitle", formData.jobTitle);
       formDataToSend.append("location", formData.location);
 
@@ -244,22 +279,28 @@ const ApplyAsMentor = () => {
       );
 
       // Profile image
-      if (profileImage) {
-        // Convert base64 to blob
-        const response = await fetch(profileImage);
-        const blob = await response.blob();
-        formDataToSend.append("avatar", blob, "profile-image.jpg");
+      if (profileImageFile) {
+        formDataToSend.append("avatar", profileImageFile);
       }
 
-      // Debug log
-      console.log("Sending FormData:");
-      for (const [key, value] of formDataToSend.entries()) {
-        console.log(key, value);
+      const response = isMenteeUpgrade
+        ? await authApi.applyMentor(formDataToSend)
+        : await authApi.signupMentor(formDataToSend);
+
+      if (isMenteeUpgrade) {
+        const result = response?.data;
+        localStorage.setItem(
+          "user",
+          JSON.stringify({ ...result.user, isLoggedIn: true }),
+        );
+        localStorage.setItem("actkn", result.token);
+        localStorage.setItem("mentorMode", "true");
+        toast.success("Tài khoản của bạn đã chuyển sang mentor.");
+        navigate(`${PATH.MENTOR}/${MENTOR_PATH.PROFILE}`);
+        return;
       }
 
-      const response = await authApi.signupMentor(formDataToSend);
-
-      toast.success("Đăng ký mentor thành công! Vui lòng chờ admin duyệt.");
+      toast.success("Đăng ký mentor thành công!");
 
       // Reset form or redirect
       setFormData({
@@ -280,6 +321,7 @@ const ApplyAsMentor = () => {
         achievement: "",
       });
       setProfileImage(null);
+      setProfileImageFile(null);
       setCurrentStep(1);
       setCompletedSteps([]);
       setErrors({});
@@ -287,7 +329,9 @@ const ApplyAsMentor = () => {
     } catch (error) {
       console.error("Submit error:", error);
       console.error("Error details:", error.response);
-      if (error.response?.data?.data?.message) {
+      if (error?.data?.message) {
+        toast.error(error.data.message);
+      } else if (error.response?.data?.data?.message) {
         toast.error(error.response.data.data.message);
       } else if (error.response?.data?.message) {
         toast.error(error.response.data.message);
@@ -502,6 +546,7 @@ const ApplyAsMentor = () => {
                 }`}
                 onChange={handleChange}
                 onBlur={handleBlur}
+                readOnly={isMenteeUpgrade}
               />
               {errors.username && touched.username && (
                 <span className="text-red-500 text-sm mt-1">
@@ -527,6 +572,7 @@ const ApplyAsMentor = () => {
                 }`}
                 onChange={handleChange}
                 onBlur={handleBlur}
+                readOnly={isMenteeUpgrade}
               />
               {errors.email && touched.email && (
                 <span className="text-red-500 text-sm mt-1">
@@ -535,7 +581,8 @@ const ApplyAsMentor = () => {
               )}
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 mb-4 gap-4">
+            {!isMenteeUpgrade && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 mb-4 gap-4">
               <div className="flex flex-col gap-1">
                 <label htmlFor="password" className="text-lg font-medium text-left">
                   Password <span className="text-red-500">*</span>
@@ -584,7 +631,8 @@ const ApplyAsMentor = () => {
                   </span>
                 )}
               </div>
-            </div>
+              </div>
+            )}
 
             <div className="grid grid-cols-1 sm:grid-cols-2 mb-4 gap-4">
               <div className="flex flex-col gap-1">
@@ -643,7 +691,7 @@ const ApplyAsMentor = () => {
                 disabled={currentStep >= 3}
                 className={`flex items-center text-left py-3 px-6 mb-3.5 gap-2 rounded-lg border-0 cursor-pointer transition-colors duration-200 ${
                   currentStep >= 3 || Object.keys(validateStep1()).length > 0
-                    ? "bg-gray-400 text-gray-600 cursor-not-allowed"
+                    ? "bg-gray-400 text-white cursor-not-allowed"
                     : "bg-slate-950 text-white hover:bg-slate-800"
                 }`}
               >
@@ -797,7 +845,7 @@ const ApplyAsMentor = () => {
                 disabled={currentStep >= 3}
                   className={`flex items-center text-left py-3 px-6 sm:ml-auto mb-3.5 gap-2 rounded-lg border-0 cursor-pointer transition-colors duration-200 ${
                   currentStep >= 3 || Object.keys(validateStep2()).length > 0
-                    ? "bg-gray-400 text-gray-600 cursor-not-allowed"
+                    ? "bg-gray-400 text-white cursor-not-allowed"
                     : "bg-slate-950 text-white hover:bg-slate-800"
                 }`}
               >

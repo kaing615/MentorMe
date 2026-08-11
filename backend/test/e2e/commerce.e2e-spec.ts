@@ -2,10 +2,13 @@ import type { INestApplication } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
 import { getConnectionToken, getModelToken } from "@nestjs/mongoose";
 import type { Connection, Model } from "mongoose";
+import { Types } from "mongoose";
 import request from "supertest";
 import { Cart } from "../../src/commerce/cart.schema";
 import { Discount } from "../../src/commerce/discount.schema";
 import { MomoProvider } from "../../src/commerce/providers/momo.provider";
+import type { PaymentProvider } from "../../src/commerce/payment-provider";
+import { PaymentService } from "../../src/commerce/payment.service";
 import { User } from "../../src/identity/user.schema";
 import { Course } from "../../src/learning/course.schema";
 import { PurchasedCourse } from "../../src/learning/purchased-course.schema";
@@ -15,10 +18,13 @@ describe("commerce", () => {
   let app: INestApplication;
   let connection: Connection;
   let carts: Model<Cart>;
+  let courses: Model<Course>;
   let purchases: Model<PurchasedCourse>;
   let courseId: string;
   let userToken: string;
+  let mentorToken: string;
   let adminToken: string;
+  let userId: string;
   let firstOrder: string;
   let paidOrder: string;
   let cancellableOrder: string;
@@ -32,7 +38,7 @@ describe("commerce", () => {
       getModelToken(PurchasedCourse.name),
     );
     const users = app.get<Model<User>>(getModelToken(User.name));
-    const courses = app.get<Model<Course>>(getModelToken(Course.name));
+    courses = app.get<Model<Course>>(getModelToken(Course.name));
     const jwt = app.get(JwtService);
     const discounts = app.get<Model<Discount>>(getModelToken(Discount.name));
     const [mentor, user, admin] = await users.create([
@@ -82,6 +88,8 @@ describe("commerce", () => {
       isActive: true,
     });
     userToken = await jwt.signAsync({ id: String(user!._id) });
+    mentorToken = await jwt.signAsync({ id: String(mentor!._id) });
+    userId = String(user!._id);
     adminToken = await jwt.signAsync({ id: String(admin!._id) });
     jest.spyOn(app.get(MomoProvider), "create").mockResolvedValue({
       redirectUrl: "https://momo.example.com/pay",
@@ -94,12 +102,12 @@ describe("commerce", () => {
     await app.close();
   });
 
-  const directOrder = async (): Promise<string> => {
+  const directOrder = async (targetCourseId = courseId): Promise<string> => {
     const response = await request(app.getHttpServer())
       .post("/api/v1/orders")
       .set("Authorization", `Bearer ${userToken}`)
       .send({
-        courses: [{ courseId, price: 1 }],
+        courses: [{ courseId: targetCourseId, price: 1 }],
         totalAmount: 1,
         billingInfo: {
           email: "commerce-user@example.com",
@@ -176,7 +184,8 @@ describe("commerce", () => {
       .expect(200);
     firstOrder = created.body.data.order.orderNumber as string;
     expect(created.body.data.order.totalAmount).toBe(112500);
-    expect(await carts.countDocuments()).toBe(0);
+    expect(created.body.data.order.currency).toBe("VND");
+    expect(await carts.countDocuments()).toBe(1);
 
     const list = await request(app.getHttpServer())
       .get("/api/v1/orders")
@@ -240,10 +249,87 @@ describe("commerce", () => {
       .send({ orderNumber: paidOrder, transactionId: "MANUAL-1" })
       .expect(200);
     expect(await purchases.countDocuments()).toBe(1);
+    expect(await carts.countDocuments()).toBe(0);
+    expect(
+      await connection.collection("notifications").countDocuments({
+        recipient: new Types.ObjectId(userId),
+        type: "payment_paid",
+      }),
+    ).toBe(1);
+
+    await request(app.getHttpServer())
+      .post("/api/v1/orders")
+      .set("Authorization", `Bearer ${userToken}`)
+      .send({ courses: [{ courseId }] })
+      .expect(400);
+  });
+
+  it("rejects commerce mutations from mentor-only users", async () => {
+    await request(app.getHttpServer())
+      .post("/api/v1/cart")
+      .set("Authorization", `Bearer ${mentorToken}`)
+      .send({ courseId })
+      .expect(403);
+    await request(app.getHttpServer())
+      .post("/api/v1/orders")
+      .set("Authorization", `Bearer ${mentorToken}`)
+      .send({ courses: [{ courseId }] })
+      .expect(403);
+    await request(app.getHttpServer())
+      .post("/api/v1/payment/vnpay/create")
+      .set("Authorization", `Bearer ${mentorToken}`)
+      .send({ orderNumber: firstOrder })
+      .expect(403);
+  });
+
+  it("notifies the buyer when a payment callback fails", async () => {
+    const failedCourse = await courses.create({
+      title: "Failed payment course",
+      description: "A separate course for failed payment coverage.",
+      price: 125000,
+      mentor: (await courses.findById(courseId))!.mentor,
+      category: "Development",
+      link: "https://example.com/failed-payment",
+      lectures: 1,
+    });
+    const orderNumber = await directOrder(String(failedCourse._id));
+    const provider: PaymentProvider = {
+      create: () => Promise.reject(new Error("not used")),
+      verifyCallback: () => Promise.resolve({
+        provider: "momo",
+        eventId: "FAILED-EVENT-1",
+        transactionId: "FAILED-TRANSACTION-1",
+        orderNumber,
+        amount: 125000,
+        status: "failed",
+      }),
+    };
+    await app.get(PaymentService).handleCallback(provider, {
+      query: {},
+      body: {},
+      headers: {},
+    });
+    expect(
+      await connection.collection("notifications").countDocuments({
+        recipient: new Types.ObjectId(userId),
+        type: "payment_failed",
+      }),
+    ).toBe(1);
   });
 
   it("returns an explicit not-implemented response for Stripe", async () => {
-    const momoOrder = await directOrder();
+    const anotherCourse = async (title: string) =>
+      courses.create({
+        title,
+        description: "A separate course for payment-provider coverage.",
+        price: 125000,
+        mentor: (await courses.findById(courseId))!.mentor,
+        category: "Development",
+        link: `https://example.com/${title}`,
+        lectures: 1,
+      });
+    const momoCourse = await anotherCourse("Momo course");
+    const momoOrder = await directOrder(String(momoCourse._id));
     const momo = await request(app.getHttpServer())
       .post("/api/v1/payment/momo/create")
       .set("Authorization", `Bearer ${userToken}`)
@@ -251,7 +337,8 @@ describe("commerce", () => {
       .expect(200);
     expect(momo.body.data.paymentUrl).toBe("https://momo.example.com/pay");
 
-    const orderNumber = await directOrder();
+    const stripeCourse = await anotherCourse("Stripe course");
+    const orderNumber = await directOrder(String(stripeCourse._id));
     await request(app.getHttpServer())
       .post("/api/v1/payment/stripe/create")
       .set("Authorization", `Bearer ${userToken}`)

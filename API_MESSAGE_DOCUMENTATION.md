@@ -159,14 +159,14 @@ POST /api/v1/messages/mark-delivered
 - Đã tích hợp vào mentor profile tại tab "Message"
 
 ### Features đã implement
-1. ✅ Lấy danh sách conversations
-2. ✅ Lấy messages với pagination
-3. ✅ Gửi tin nhắn với optimistic UI
-4. ✅ Đánh dấu đã đọc
-5. ✅ Tìm kiếm conversations
-6. ✅ Real-time UI updates
-7. ✅ Loading states
-8. ✅ Error handling
+1. Lấy danh sách conversations
+2. Lấy messages với pagination
+3. Gửi tin nhắn với optimistic UI
+4. Đánh dấu đã đọc
+5. Tìm kiếm conversations
+6. Real-time UI updates
+7. Loading states
+8. Error handling
 
 ### Features cần thêm (tùy chọn)
 - [ ] WebSocket/SSE cho real-time messaging

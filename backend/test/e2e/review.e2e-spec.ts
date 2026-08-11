@@ -13,10 +13,12 @@ describe("reviews", () => {
   let app: INestApplication;
   let connection: Connection;
   let reviews: Model<Review>;
+  let bookings: Model<Booking>;
   let mentorId: string;
   let menteeId: string;
   let bookingId: string;
   let menteeToken: string;
+  let mentorToken: string;
   let outsiderToken: string;
   let courseId: Types.ObjectId;
 
@@ -25,7 +27,7 @@ describe("reviews", () => {
     connection = app.get<Connection>(getConnectionToken());
     await connection.dropDatabase();
     const users = app.get<Model<User>>(getModelToken(User.name));
-    const bookings = app.get<Model<Booking>>(getModelToken(Booking.name));
+    bookings = app.get<Model<Booking>>(getModelToken(Booking.name));
     reviews = app.get<Model<Review>>(getModelToken(Review.name));
     const jwt = app.get(JwtService);
     const [mentor, mentee, outsider] = await users.create([
@@ -35,6 +37,7 @@ describe("reviews", () => {
         firstName: "Review",
         lastName: "Mentor",
         role: "mentor",
+        roles: ["mentor", "mentee"],
         isVerified: true,
       },
       {
@@ -76,6 +79,7 @@ describe("reviews", () => {
       mentees: [mentee!._id],
     });
     menteeToken = await jwt.signAsync({ id: menteeId });
+    mentorToken = await jwt.signAsync({ id: mentorId });
     outsiderToken = await jwt.signAsync({ id: String(outsider!._id) });
   });
 
@@ -85,9 +89,40 @@ describe("reviews", () => {
   });
 
   it("creates sanitized reviews only for eligible targets", async () => {
+    await connection.collection("courses").updateOne(
+      { _id: courseId },
+      { $addToSet: { mentees: new Types.ObjectId(mentorId) } },
+    );
+    await request(app.getHttpServer())
+      .post("/api/v1/reviews")
+      .set("Authorization", `Bearer ${mentorToken}`)
+      .send({ targetType: "Course", target: String(courseId), rate: 5 })
+      .expect(403);
+    await request(app.getHttpServer())
+      .post("/api/v1/reviews")
+      .set("Authorization", `Bearer ${mentorToken}`)
+      .send({ targetType: "Mentor", target: mentorId, rate: 5 })
+      .expect(403);
+
     await request(app.getHttpServer())
       .post("/api/v1/reviews")
       .set("Authorization", `Bearer ${outsiderToken}`)
+      .send({ targetType: "Booking", target: bookingId, rate: 5 })
+      .expect(403);
+
+    await request(app.getHttpServer())
+      .post("/api/v1/reviews")
+      .set("Authorization", `Bearer ${menteeToken}`)
+      .send({ targetType: "Booking", target: bookingId, rate: 5 })
+      .expect(403);
+    await bookings.updateOne(
+      { _id: bookingId },
+      { $set: { status: "finished" } },
+    );
+
+    await request(app.getHttpServer())
+      .post("/api/v1/reviews")
+      .set("Authorization", `Bearer ${mentorToken}`)
       .send({ targetType: "Booking", target: bookingId, rate: 5 })
       .expect(403);
 
@@ -102,6 +137,13 @@ describe("reviews", () => {
       })
       .expect(201);
     expect(created.body.data.content).toBe("Helpful session");
+    expect(
+      await connection.collection("notifications").countDocuments({
+        recipient: new Types.ObjectId(mentorId),
+        actor: new Types.ObjectId(menteeId),
+        type: "review_received",
+      }),
+    ).toBe(1);
 
     await request(app.getHttpServer())
       .post("/api/v1/reviews")
@@ -120,6 +162,17 @@ describe("reviews", () => {
       .set("Authorization", `Bearer ${menteeToken}`)
       .send({ targetType: "Mentor", target: mentorId, rate: 5 })
       .expect(201);
+    expect(
+      await connection.collection("notifications").countDocuments({
+        recipient: new Types.ObjectId(mentorId),
+        type: "review_received",
+      }),
+    ).toBe(3);
+
+    const mentorProfile = await request(app.getHttpServer())
+      .get(`/api/v1/profile/mentor/${mentorId}`)
+      .expect(200);
+    expect(mentorProfile.body.data.profile.rate).toBe(5);
   });
 
   it("lists target, own, and mentor booking reviews", async () => {
@@ -155,6 +208,12 @@ describe("reviews", () => {
       .set("Authorization", `Bearer ${menteeToken}`)
       .expect(200);
     expect(mentor.body.data.items).toHaveLength(1);
+
+    const courseReviews = await request(app.getHttpServer())
+      .get("/api/v1/course/reviews")
+      .expect(200);
+    expect(courseReviews.body.data.totalReviews).toBe(1);
+    expect(courseReviews.body.data.reviews[0].targetType).toBe("Course");
   });
 
   it("updates and deletes only as the review owner", async () => {
@@ -186,5 +245,49 @@ describe("reviews", () => {
       .set("Authorization", `Bearer ${menteeToken}`)
       .expect(200);
     expect(await reviews.findById(id)).toBeNull();
+  });
+
+  it("rolls back the review when aggregate refresh fails", async () => {
+    const target = new Types.ObjectId();
+    await connection.collection("courses").insertOne({
+      _id: target,
+      title: "Atomic review target",
+      mentor: new Types.ObjectId(mentorId),
+      mentees: [new Types.ObjectId(menteeId)],
+      blockAggregate: true,
+    });
+    await connection.db!.command({
+      collMod: "courses",
+      validator: {
+        $or: [
+          { blockAggregate: { $ne: true } },
+          { rate: { $exists: false } },
+        ],
+      },
+      validationLevel: "strict",
+      validationAction: "error",
+    });
+
+    try {
+      await request(app.getHttpServer())
+        .post("/api/v1/reviews")
+        .set("Authorization", `Bearer ${menteeToken}`)
+        .send({ targetType: "Course", target: String(target), rate: 5 })
+        .expect(500);
+
+      expect(
+        await reviews.countDocuments({ targetType: "Course", target }),
+      ).toBe(0);
+      expect(
+        await connection.collection("notifications").countDocuments({
+          "metadata.target": String(target),
+        }),
+      ).toBe(0);
+    } finally {
+      await connection.db!.command({
+        collMod: "courses",
+        validator: {},
+      });
+    }
   });
 });

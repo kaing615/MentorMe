@@ -1,9 +1,9 @@
 // src/api/clients/private.client.js
 import axios from "axios";
 import { logout } from "../../redux/features/auth.slice.js";
+import { resolveApiBaseUrl } from "./base-url";
 
-const API_ROOT = (import.meta.env.VITE_API_URL || "").replace(/\/+$/, "");
-const baseURL = /\/api\/v1$/i.test(API_ROOT) ? API_ROOT : `${API_ROOT}/api/v1`;
+const baseURL = resolveApiBaseUrl(import.meta.env.VITE_API_URL);
 
 const createPrivateClient = (dispatch = undefined) => {
   const client = axios.create({

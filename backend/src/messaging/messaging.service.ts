@@ -1,6 +1,11 @@
-import { BadRequestException, Injectable } from "@nestjs/common";
-import { InjectModel } from "@nestjs/mongoose";
-import type { FilterQuery, Model } from "mongoose";
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from "@nestjs/common";
+import { InjectConnection, InjectModel } from "@nestjs/mongoose";
+import type { Connection, FilterQuery, Model } from "mongoose";
 import { Types } from "mongoose";
 import type {
   MarkDeliveredDto,
@@ -10,6 +15,8 @@ import type {
 } from "./messaging.dto";
 import { Message } from "./message.schema";
 import type { MessageDocument, MessageType } from "./message.schema";
+import { User } from "../identity/user.schema";
+import { NotificationService } from "../engagement/notification.service";
 
 type DeliveryResult = {
   matched: number;
@@ -21,7 +28,10 @@ type DeliveryResult = {
 @Injectable()
 export class MessagingService {
   constructor(
+    @InjectConnection() private readonly connection: Connection,
     @InjectModel(Message.name) private readonly messages: Model<Message>,
+    @InjectModel(User.name) private readonly users: Model<User>,
+    private readonly notifications: NotificationService,
   ) {}
 
   async send(senderId: string, input: SendMessageDto): Promise<MessageDocument> {
@@ -31,6 +41,7 @@ export class MessagingService {
     if (senderId === input.receiver) {
       throw new BadRequestException("Cannot send message to yourself");
     }
+    await this.assertCanMessage(senderId, input.receiver);
     const messageType: MessageType = input.messageType ?? "text";
     if (!["text", "image", "file"].includes(messageType)) {
       throw new BadRequestException("Invalid messageType");
@@ -57,16 +68,67 @@ export class MessagingService {
       throw new BadRequestException("Each attachment must include url and type");
     }
 
-    return this.messages.create({
-      sender: new Types.ObjectId(senderId),
-      receiver: new Types.ObjectId(input.receiver),
-      messageType,
-      content,
-      attachments,
-      status: "sent",
-      sentAt: new Date(),
-      read: false,
+    return this.connection.transaction(async (session) => {
+      const message = new this.messages({
+        sender: new Types.ObjectId(senderId),
+        receiver: new Types.ObjectId(input.receiver),
+        messageType,
+        content,
+        attachments,
+        status: "sent",
+        sentAt: new Date(),
+        read: false,
+      });
+      await message.save({ session });
+      await this.notifications.notify(
+        {
+          recipient: input.receiver,
+          actor: senderId,
+          type: "message_received",
+          title: "New message",
+          body: content || "You received a new attachment.",
+          link: `/messages/${senderId}`,
+          metadata: { messageId: String(message._id) },
+          eventKey: `message:received:${String(message._id)}`,
+        },
+        session,
+      );
+      return message;
     });
+  }
+
+  private async assertCanMessage(senderId: string, receiverId: string): Promise<void> {
+    const sender = new Types.ObjectId(senderId);
+    const receiver = new Types.ObjectId(receiverId);
+    const [senderUser, receiverUser] = await Promise.all([
+      this.users.findById(sender).select("role").lean(),
+      this.users.findById(receiver).select("role").lean(),
+    ]);
+    if (!receiverUser) throw new NotFoundException("Receiver not found");
+    if (!senderUser) throw new NotFoundException("Sender not found");
+    if (senderUser.role === "admin" || receiverUser.role === "admin") return;
+
+    const pair = [
+      { mentor: sender, mentee: receiver },
+      { mentor: receiver, mentee: sender },
+    ];
+    const [booking, course] = await Promise.all([
+      this.connection.collection("bookings").findOne({
+        $or: pair,
+        status: { $in: ["active", "finished"] },
+      }),
+      this.connection.collection("courses").findOne({
+        $or: [
+          { mentor: sender, mentees: receiver },
+          { mentor: receiver, mentees: sender },
+        ],
+      }),
+    ]);
+    if (!booking && !course) {
+      throw new ForbiddenException(
+        "Messaging is available after a confirmed booking or course purchase",
+      );
+    }
   }
 
   async list(userId: string, query: MessageListQueryDto) {

@@ -6,6 +6,7 @@ import { useSelector, useDispatch } from "react-redux";
 import { restoreUser } from "./redux/features/user.slice";
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import MascotQuickHelp from "./components/common/MascotQuickHelp";
 
 function App() {
   const elements = useRouterElements();
@@ -28,6 +29,7 @@ function App() {
     <CartProvider>
       <LoadingPage loading={isLoading} />
       {elements}
+      <MascotQuickHelp />
       <ToastContainer
         position="top-right"
         autoClose={3000}

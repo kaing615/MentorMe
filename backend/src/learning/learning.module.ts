@@ -1,6 +1,7 @@
 import { Module } from "@nestjs/common";
 import { MongooseModule } from "@nestjs/mongoose";
 import { IdentityModule } from "../identity/identity.module";
+import { EngagementModule } from "../engagement/engagement.module";
 import { InfrastructureModule } from "../infrastructure/infrastructure.module";
 import { MentoringModule } from "../mentoring/mentoring.module";
 import { CourseController } from "./course.controller";
@@ -15,6 +16,7 @@ import { PurchasedCourseService } from "./purchased-course.service";
 @Module({
   imports: [
     IdentityModule,
+    EngagementModule,
     InfrastructureModule,
     MentoringModule,
     MongooseModule.forFeature([

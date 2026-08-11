@@ -3,10 +3,11 @@ import {
   ForbiddenException,
   Injectable,
 } from "@nestjs/common";
-import { InjectModel } from "@nestjs/mongoose";
-import type { Model } from "mongoose";
+import { InjectConnection, InjectModel } from "@nestjs/mongoose";
+import type { Connection, Model } from "mongoose";
 import { User } from "../identity/user.schema";
 import type { UserDocument } from "../identity/user.schema";
+import { hasUserRole } from "../common/auth/user-role";
 import { CloudinaryService } from "../infrastructure/files/cloudinary.service";
 import type { UpdateMentorProfileDto } from "./dto/update-mentor-profile.dto";
 import type { UpdateMenteeProfileDto } from "./dto/update-mentee-profile.dto";
@@ -15,6 +16,7 @@ import { Profile } from "./profile.schema";
 @Injectable()
 export class ProfileService {
   constructor(
+    @InjectConnection() private readonly connection: Connection,
     @InjectModel(User.name) private readonly users: Model<User>,
     @InjectModel(Profile.name) private readonly profiles: Model<Profile>,
     private readonly files: CloudinaryService,
@@ -32,7 +34,10 @@ export class ProfileService {
       throw new BadRequestException("User này không phải là mentor");
     }
     const profile = await this.findOrCreate(user);
-    return { ...this.response(user, profile), totalMentees: 0 };
+    return {
+      ...this.response(user, profile),
+      totalMentees: await this.totalMentees(user._id),
+    };
   }
 
   async getTopMentors(limitValue?: string) {
@@ -52,8 +57,10 @@ export class ProfileService {
           category: profile.category || user.category || "",
           avatarUrl: user.avatarUrl || "",
           bio: profile.bio || user.bio || "",
+          skills: profile.skills || [],
           averageRating: profile.rate || 0,
-          totalStudents: 0,
+          totalReviews: profile.reviews?.length || 0,
+          totalStudents: await this.totalMentees(user._id),
         };
       }),
     );
@@ -61,7 +68,7 @@ export class ProfileService {
   }
 
   async updateMentee(user: UserDocument, dto: UpdateMenteeProfileDto) {
-    if (user.role !== "mentee") {
+    if (!hasUserRole(user, "mentee")) {
       throw new ForbiddenException(
         "Chỉ mentee mới có thể cập nhật thông tin này",
       );
@@ -81,6 +88,10 @@ export class ProfileService {
     if (dto.education !== undefined) profile.education = dto.education;
     if (dto.languages !== undefined) profile.languages = dto.languages;
     if (dto.timezone !== undefined) profile.timezone = dto.timezone;
+    if (dto.links?.website !== undefined) profile.links.website = dto.links.website;
+    if (dto.links?.twitter !== undefined) profile.links.twitter = dto.links.twitter;
+    if (dto.links?.linkedin !== undefined) profile.links.linkedin = dto.links.linkedin;
+    if (dto.links?.facebook !== undefined) profile.links.facebook = dto.links.facebook;
     await profile.save();
 
     return {
@@ -95,7 +106,7 @@ export class ProfileService {
     dto: UpdateMentorProfileDto,
     file?: Express.Multer.File,
   ) {
-    if (user.role !== "mentor") {
+    if (!hasUserRole(user, "mentor")) {
       throw new ForbiddenException(
         "Chỉ mentor mới có thể cập nhật thông tin này",
       );
@@ -164,6 +175,19 @@ export class ProfileService {
       },
       { new: true, upsert: true },
     );
+  }
+
+  private async totalMentees(mentorId: unknown): Promise<number> {
+    const [bookingMentees, courseMentees] = (await Promise.all([
+      this.connection.collection("bookings").distinct("mentee", {
+        mentor: mentorId,
+        status: { $in: ["active", "finished"] },
+      }),
+      this.connection.collection("courses").distinct("mentees", {
+        mentor: mentorId,
+      }),
+    ])) as [unknown[], unknown[]];
+    return new Set([...bookingMentees, ...courseMentees].map(String)).size;
   }
 
   private response(user: UserDocument, profile: Profile) {

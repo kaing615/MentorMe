@@ -1,15 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation, useParams } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
-import {
-  generateCourses,
-  generateReviews,
-  generateMentors,
-} from "../utils/mockData";
 import courseApi from "../api/modules/course.api";
 import purchasedCourseApi from "../api/modules/purchasedCourse.api";
 import cartApi from "../api/modules/cart.api";
 import profileApi from "../api/modules/profile.api";
+import { hasUserRole } from "../utils/user-role";
 import { showLoading, hideLoading } from "../redux/features/loading.slice";
 import { toast } from "react-toastify";
 
@@ -43,7 +39,7 @@ const OrderCompleteCourse = () => {
       return;
     }
     // Check role - chỉ mentee được phép vào order complete
-    if (user.role === "mentee") {
+    if (hasUserRole(user, "mentee")) {
       return;
     }
     // Nếu không phải mentee, redirect về home
@@ -116,39 +112,12 @@ const OrderCompleteCourse = () => {
     new URLSearchParams(location.search).get("courseId") ||
     urlId; // Fallback: treat urlId as courseId
 
-  // Helper function to check if course is already purchased (from mentor-page.jsx)
-  const isCourseAlreadyPurchased = (courseId) => {
-    // Get current user ID for user-specific localStorage
-    const userStr = localStorage.getItem("user");
-    let currentUserId = null;
-    try {
-      const user = userStr ? JSON.parse(userStr) : null;
-      currentUserId = user?.id || user?._id;
-    } catch (e) {
-      // Ignore parse errors
-    }
-
-    const mockKey = currentUserId
-      ? `mockPurchasedCourses_${currentUserId}`
-      : "mockPurchasedCourses";
-    const mockPurchasedCourses = localStorage.getItem(mockKey);
-
-    if (mockPurchasedCourses) {
-      try {
-        const purchasedCourses = JSON.parse(mockPurchasedCourses);
-        return purchasedCourses.some(
-          (purchased) =>
-            (purchased.course?._id ||
-              purchased.course?.id ||
-              purchased.courseId) === courseId
-        );
-      } catch (error) {
-        console.error("Error parsing purchased courses:", error);
-        return false;
-      }
-    }
-    return false;
-  };
+  const isCourseAlreadyPurchased = (candidateCourseId) =>
+    Boolean(
+      purchasedCourseData &&
+        (purchasedCourseData.courseId === candidateCourseId ||
+          courseData?._id === candidateCourseId),
+    );
 
   // Add to Cart function (from mentor-page.jsx)
   const handleAddToCart = async (e, course) => {
@@ -156,11 +125,11 @@ const OrderCompleteCourse = () => {
 
     if (!user) {
       toast.error("Please login to add courses to cart");
-      navigate("/login");
+      navigate("/auth/signin");
       return;
     }
 
-    if (user.role !== "mentee") {
+    if (!hasUserRole(user, "mentee")) {
       toast.error("Only mentees can purchase courses");
       return;
     }
@@ -177,51 +146,12 @@ const OrderCompleteCourse = () => {
 
     try {
       dispatch(showLoading());
-
-      // Try API first, fallback to localStorage
-      try {
-        const { response, error } = await cartApi.addToCart(
-          { courseId },
-          dispatch
-        );
-
-        if (response) {
-          toast.success("Course added to cart successfully!");
-          return;
-        } else if (error) {
-          throw new Error(error.message || "API failed");
-        }
-      } catch (apiError) {
-        console.log("API failed, using localStorage fallback:", apiError);
-
-        // Fallback to localStorage
-        const existingCart = localStorage.getItem("mockCart");
-        const cartItems = existingCart ? JSON.parse(existingCart) : [];
-
-        // Check if course already in cart
-        const alreadyInCart = cartItems.some(
-          (item) => (item._id || item.id) === courseId
-        );
-
-        if (alreadyInCart) {
-          toast.info("Course is already in your cart");
-          return;
-        }
-
-        // Add course to cart
-        cartItems.push({
-          id: courseId,
-          _id: courseId,
-          title: course.title,
-          price: course.price,
-          image: course.thumbnail,
-          mentor: course.authorName || course.mentorName || "Unknown Mentor",
-          addedAt: new Date().toISOString(),
-        });
-
-        localStorage.setItem("mockCart", JSON.stringify(cartItems));
-        toast.success("Course added to cart successfully!");
-      }
+      const { response, error } = await cartApi.addToCart(
+        { courseId },
+        dispatch,
+      );
+      if (error || !response) throw error || new Error("Cart unavailable");
+      toast.success("Course added to cart successfully!");
     } catch (error) {
       console.error("Add to cart error:", error);
       toast.error("Failed to add course to cart");
@@ -236,11 +166,11 @@ const OrderCompleteCourse = () => {
 
     if (!user) {
       toast.error("Please login to purchase courses");
-      navigate("/login");
+      navigate("/auth/signin");
       return;
     }
 
-    if (user.role !== "mentee") {
+    if (!hasUserRole(user, "mentee")) {
       toast.error("Only mentees can purchase courses");
       return;
     }
@@ -397,43 +327,6 @@ const OrderCompleteCourse = () => {
         const finalCourseId = courseId || purchasedCourseId; // Use either courseId or treat purchasedCourseId as courseId
 
         if (finalCourseId && !usedPurchasedCourseId) {
-          // Check localStorage for purchased courses first
-          const userStr = localStorage.getItem("user");
-          let currentUserId = null;
-          try {
-            const user = userStr ? JSON.parse(userStr) : null;
-            currentUserId = user?.id || user?._id;
-          } catch (e) {}
-
-          const mockKey = currentUserId
-            ? `mockPurchasedCourses_${currentUserId}`
-            : "mockPurchasedCourses";
-          const mockPurchasedCourses = localStorage.getItem(mockKey);
-
-          let isPurchasedFromLocalStorage = false;
-          let localPurchasedData = null;
-
-          if (mockPurchasedCourses) {
-            try {
-              const purchasedCourses = JSON.parse(mockPurchasedCourses);
-
-              const purchasedCourse = purchasedCourses.find(
-                (item) =>
-                  item.courseId === courseId ||
-                  item.courseInfo?._id === courseId
-              );
-
-              if (purchasedCourse) {
-                isPurchasedFromLocalStorage = true;
-                localPurchasedData = {
-                  courseId: purchasedCourse.courseId,
-                  purchaseDate: purchasedCourse.purchaseDate,
-                  lastAccessDate: new Date().toISOString(),
-                };
-              }
-            } catch (e) {}
-          }
-
           // Fetch both course details and purchased course details from API
           const [courseResult, purchasedResult] = await Promise.allSettled([
             courseApi.getDetail({ courseId }),
@@ -617,14 +510,8 @@ const OrderCompleteCourse = () => {
             }
           }
 
-          // Handle purchased course details (prioritize localStorage over API)
-          if (isPurchasedFromLocalStorage) {
-            console.log(
-              "✅ Setting purchasedCourseData from localStorage:",
-              localPurchasedData
-            );
-            setPurchasedCourseData(localPurchasedData);
-          } else if (
+          // Handle purchased course details from the API only.
+          if (
             purchasedResult.status === "fulfilled" &&
             !purchasedResult.value.error
           ) {
@@ -642,6 +529,10 @@ const OrderCompleteCourse = () => {
                 progress: apiData.courseData.progress,
                 lastAccessDate: apiData.courseData.lastAccessDate,
               });
+              setCourseData((current) => ({
+                ...current,
+                link: apiData.courseData.courseInfo?.link || current?.link,
+              }));
             } else {
               console.log(
                 "ℹ️ Course not purchased according to API check endpoint"
@@ -685,8 +576,8 @@ const OrderCompleteCourse = () => {
   const handleSeeAllCourses = () => {
     navigate("/all-courses", {
       state: {
-        mentorId: courseData.mentor?.id || 1,
-        mentorName: courseData.mentor?.name || "John Doe",
+        mentorId: courseData.mentor?.id,
+        mentorName: courseData.mentor?.name,
       },
     });
   };
@@ -822,9 +713,11 @@ const OrderCompleteCourse = () => {
 
   // Function to handle course access
   const handleCourseAccess = () => {
-    const courseLink =
-      courseData.link || "https://drive.google.com/drive/folders/example";
-    window.open(courseLink, "_blank");
+    if (!courseData.link) {
+      toast.error("Bạn chưa có quyền truy cập nội dung khóa học này");
+      return;
+    }
+    window.open(courseData.link, "_blank", "noopener,noreferrer");
   };
 
   // Function to navigate to mentor profile
@@ -846,34 +739,29 @@ const OrderCompleteCourse = () => {
   };
 
   const handleSubmitRating = async () => {
+    if (!userRating) {
+      toast.error("Please select a rating");
+      return;
+    }
+
     try {
-      // TODO: Replace with actual API call when BE is ready
-      // const response = await fetch(`/api/courses/${courseData.id}/ratings`, {
-      //   method: 'POST',
-      //   headers: {
-      //     'Content-Type': 'application/json',
-      //     'Authorization': `Bearer ${userToken}`,
-      //   },
-      //   body: JSON.stringify({
-      //     rating: userRating,
-      //     comment: userComment,
-      //   }),
-      // });
-      // const result = await response.json();
-
-      // Using mockup implementation for now
-      console.log("Rating submitted:", {
-        courseId: courseData.id,
-        rating: userRating,
-        comment: userComment,
-        timestamp: new Date().toISOString(),
+      const targetCourseId = courseData?._id || courseData?.id;
+      const { response, error } = await courseApi.addCourseReview({
+        courseId: targetCourseId,
+        reviewData: {
+          rating: userRating,
+          comment: userComment.trim(),
+        },
       });
-
-      alert("Thank you for your rating!");
+      if (error || !response) {
+        throw error || new Error("Review service unavailable");
+      }
+      await fetchCourseReviews(targetCourseId);
+      toast.success("Thank you for your rating!");
       handleCloseRatingPopup();
     } catch (error) {
       console.error("Error submitting rating:", error);
-      alert("Failed to submit rating. Please try again.");
+      toast.error("Failed to submit rating. Please try again.");
     }
   };
 
@@ -1036,18 +924,19 @@ const OrderCompleteCourse = () => {
             {/* Mentor Profile Card */}
             <div className="bg-gray-50 rounded-lg p-6 mb-6">
               <div className="flex items-center space-x-6 mb-4">
-                <img
-                  src={
-                    mentorData?.avatar ||
-                    "https://via.placeholder.com/80x80/f3f4f6/6b7280?text=M"
-                  }
-                  alt={mentorData?.name || "Mentor"}
-                  className="w-20 h-20 rounded-full object-cover border-4 border-white shadow-md"
-                  onError={(e) => {
-                    e.currentTarget.src =
-                      "https://via.placeholder.com/80x80/f3f4f6/6b7280?text=M";
-                  }}
-                />
+                <div className="relative flex h-20 w-20 items-center justify-center overflow-hidden rounded-full border-4 border-white bg-[var(--ui-accent-soft)] text-xl font-bold text-[var(--ui-accent)] shadow-md">
+                  <span>{(mentorData?.firstName?.[0] || mentorData?.name?.[0] || "M").toUpperCase()}</span>
+                  {mentorData?.avatar && (
+                    <img
+                      src={mentorData.avatar}
+                      alt={mentorData?.name || "Mentor"}
+                      className="absolute inset-0 h-full w-full object-cover"
+                      onError={(e) => {
+                        e.currentTarget.style.display = "none";
+                      }}
+                    />
+                  )}
+                </div>
                 <div className="flex-1">
                   <h4 className="text-xl font-bold text-gray-800 mb-1">
                     {mentorData?.firstName &&
@@ -1274,23 +1163,21 @@ const OrderCompleteCourse = () => {
                       }
                     >
                       {/* Course Image */}
-                      <div className="relative">
-                        <img
-                          src={
-                            course.thumbnail ||
-                            course.image ||
-                            "https://via.placeholder.com/320x200/f3f4f6/6b7280?text=Course+Image"
-                          }
-                          alt={course.title}
-                          className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300"
-                          onError={(e) => {
-                            e.currentTarget.src =
-                              "https://via.placeholder.com/320x200/f3f4f6/6b7280?text=Course+Image";
-                          }}
-                        />
+                      <div className="relative flex h-48 items-center justify-center overflow-hidden bg-[var(--ui-accent-soft)] font-bold text-[var(--ui-accent)]">
+                        <span>Course</span>
+                        {(course.thumbnail || course.image) && (
+                          <img
+                            src={course.thumbnail || course.image}
+                            alt={course.title}
+                            className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                            onError={(e) => {
+                              e.currentTarget.style.display = "none";
+                            }}
+                          />
+                        )}
                         <div className="absolute top-3 right-3 bg-white bg-opacity-95 backdrop-blur-sm px-3 py-1 rounded-full shadow-md">
                           <span className="text-sm font-bold text-gray-800">
-                            ${course.price || "170"}
+                            {course.price != null ? `$${course.price}` : "Price unavailable"}
                           </span>
                         </div>
                       </div>
@@ -1412,7 +1299,7 @@ const OrderCompleteCourse = () => {
                         </div>
 
                         {/* Add to Cart and Buy Now buttons for mentees */}
-                        {user && user.role === "mentee" && (
+                        {hasUserRole(user, "mentee") && (
                           <div className="flex flex-col gap-2 mt-3">
                             {isCourseAlreadyPurchased(
                               course._id || course.id
@@ -1751,18 +1638,19 @@ const OrderCompleteCourse = () => {
         <div className="max-w-5xl mx-auto px-4 py-8">
           {/* Course Header */}
           <div className="bg-white rounded-lg overflow-hidden shadow-sm mb-6">
-            <img
-              src={
-                courseData.imageUrl ||
-                "https://via.placeholder.com/800x300/f3f4f6/6b7280?text=Course+Image"
-              }
-              alt={courseData.title}
-              className="w-full h-64 object-cover"
-              onError={(e) => {
-                e.currentTarget.src =
-                  "https://via.placeholder.com/800x300/f3f4f6/6b7280?text=Course+Image";
-              }}
-            />
+            <div className="relative flex h-64 items-center justify-center bg-[var(--ui-accent-soft)] text-lg font-bold text-[var(--ui-accent)]">
+              <span>Course</span>
+              {courseData.imageUrl && (
+                <img
+                  src={courseData.imageUrl}
+                  alt={courseData.title}
+                  className="absolute inset-0 h-full w-full object-cover"
+                  onError={(e) => {
+                    e.currentTarget.style.display = "none";
+                  }}
+                />
+              )}
+            </div>
             <div className="p-6">
               <h1 className="text-2xl font-bold mb-4">{courseData.title}</h1>
 

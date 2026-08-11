@@ -28,6 +28,7 @@ export const MENTEE_PATH = {
   ORDERCOMPLETECOURSE: "order-complete-course",
   CHECKOUT: "checkout",
   ORDERDETAIL: "order-detail",
+  FAVORITES: "favorites",
 };
 
 export const ADMIN_PATH = {

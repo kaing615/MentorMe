@@ -4,7 +4,16 @@ import {
   IsString,
   MaxLength,
   MinLength,
+  ValidateNested,
 } from "class-validator";
+import { Type } from "class-transformer";
+
+class ProfileLinksDto {
+  @IsOptional() @IsString() website?: string;
+  @IsOptional() @IsString() twitter?: string;
+  @IsOptional() @IsString() linkedin?: string;
+  @IsOptional() @IsString() facebook?: string;
+}
 
 export class UpdateMenteeProfileDto {
   @IsString()
@@ -29,4 +38,8 @@ export class UpdateMenteeProfileDto {
   @IsOptional() @IsString() education?: string;
   @IsOptional() @IsArray() @IsString({ each: true }) languages?: string[];
   @IsOptional() @IsString() timezone?: string;
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => ProfileLinksDto)
+  links?: ProfileLinksDto;
 }

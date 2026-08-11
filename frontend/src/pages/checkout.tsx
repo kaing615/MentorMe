@@ -5,24 +5,11 @@ import { showLoading, hideLoading } from "../redux/features/loading.slice";
 import { toast } from "react-toastify";
 import checkoutApi from "../api/modules/checkout.api";
 import orderApi from "../api/modules/order.api";
-import purchasedCourseApi from "../api/modules/purchasedCourse.api";
-import cartApi from "../api/modules/cart.api";
 import vnpayLogo from "../assets/Icon VNPAY.png";
-import {
-  cart as seedCart,
-  coupon as seedCoupon,
-  coupon2 as seedCoupon2,
-  menteeUser as seedUser,
-  order,
-} from "../data/seedData";
-
-const seedCoupons: any[] = [seedCoupon, seedCoupon2];
-
-// Local currency formatter (USD)
-function formatCurrency(amount) {
-  if (typeof amount !== "number") return "$0";
-  return amount.toLocaleString("en-US", { style: "currency", currency: "USD" });
-}
+import { resolvePaymentProvider } from "../utils/payment-flow";
+import { hasUserRole } from "../utils/user-role";
+import { formatVnd as formatCurrency } from "../utils/currency";
+import { IconBuildingBank, IconDeviceMobile } from "@tabler/icons-react";
 
 const Checkout = () => {
   const navigate = useNavigate();
@@ -52,7 +39,7 @@ const Checkout = () => {
       return;
     }
     // Check role - chỉ mentee được phép vào checkout
-    if (user.role === "mentee") {
+    if (hasUserRole(user, "mentee")) {
       return;
     }
     // Nếu không phải mentee, redirect về home
@@ -64,8 +51,7 @@ const Checkout = () => {
     return;
   }, [navigate]);
 
-  // State for checkout session and cart data
-  const [checkoutSession, setCheckoutSession] = useState<any>(null);
+  // State for checkout and cart data
   const [cartData, setCartData] = useState<any>(null);
   const [selectedCourses, setSelectedCourses] = useState<any[]>([]);
   const [loading, setLoading] = useState<any>(true);
@@ -122,9 +108,9 @@ const Checkout = () => {
         user = null;
       }
 
-      if (!user || user.role !== "mentee") {
+      if (!hasUserRole(user, "mentee")) {
         toast.error("Chỉ mentee mới có thể thanh toán");
-        navigate("/login");
+        navigate("/auth/signin");
         return;
       }
 
@@ -132,7 +118,7 @@ const Checkout = () => {
       setLoading(true);
 
       try {
-        // Get selected courses from navigation state or fallback to mock
+        // Get selected courses from navigation state.
         let coursesToUse = [];
         let cartDataFromState = null;
 
@@ -147,17 +133,6 @@ const Checkout = () => {
           navigate("/shoppingcart");
           return;
         }
-
-        // Create mock checkout session (bypass cart operations to avoid errors)
-        const mockSession = {
-          _id: "mock_session_" + Date.now(),
-          userId: user.id,
-          courses: coursesToUse.map((c) => c._id),
-          subtotal: coursesToUse.reduce((sum, c) => sum + (c.price || 0), 0),
-          totalPrice: coursesToUse.reduce((sum, c) => sum + (c.price || 0), 0),
-          expiresAt: new Date(Date.now() + 30 * 60 * 1000), // 30 minutes
-        };
-        setCheckoutSession(mockSession);
 
         setSelectedCourses(coursesToUse);
         setCartData(cartDataFromState);
@@ -191,7 +166,6 @@ const Checkout = () => {
   const [showCouponInput, setShowCouponInput] = useState<any>(false);
   const [couponMessage, setCouponMessage] = useState<any>("");
   const [couponMessageType, setCouponMessageType] = useState<any>(""); // "success" or "error"
-  const [showCouponSuggestions, setShowCouponSuggestions] = useState<any>(false);
   const [showMomoQR, setShowMomoQR] = useState<any>(false);
   const [showBankQR, setShowBankQR] = useState<any>(false);
   const [showDatePicker, setShowDatePicker] = useState<any>(false);
@@ -222,395 +196,66 @@ const Checkout = () => {
     setTouched({ country: true, state: true, paymentMethod: true });
     if (!ok) return;
 
-    if (!checkoutSession) {
-      toast.error("Phiên thanh toán không hợp lệ");
-      return;
-    }
-
     setProcessingPayment(true);
     dispatch(showLoading());
 
     try {
-      // Prepare billing info
+      const user = JSON.parse(localStorage.getItem("user") || "{}");
+      const provider = resolvePaymentProvider(paymentMethod);
       const billingInfo = {
         country: formData.country,
-        state: formData.state,
-        email: "mentee@example.com", // Mock email
-        firstName: "Mock",
-        lastName: "User",
-        address: formData.address || "Mock Address",
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        address: formData.address || formData.state,
       };
 
-      // Create order via backend API
-      const orderPayload = {
+      const { response: orderResponse, error: orderError } =
+        await orderApi.createOrder({
         courses: selectedCourses.map((course) => ({
           courseId: course._id,
-          title: course.title,
-          price: course.price,
         })),
-        totalAmount: total,
-        discountAmount: discount,
-        billingInfo: billingInfo,
-      };
+          billingInfo,
+          paymentMethod: provider,
+          discountCode: appliedCoupon?.code,
+        }, dispatch);
 
-      console.log("Creating order with payload:", orderPayload);
-
-      // Call backend to create order
-      const createOrderResponse = await fetch("/api/v1/orders", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${
-            localStorage.getItem("token") || localStorage.getItem("actkn")
-          }`,
-        },
-        body: JSON.stringify(orderPayload),
-      });
-
-      console.log("Create order response status:", createOrderResponse.status);
-      console.log(
-        "Create order response headers:",
-        createOrderResponse.headers
-      );
-
-      if (!createOrderResponse.ok) {
-        const errorData = await createOrderResponse.json();
-        console.error("Create order error:", errorData);
-        throw new Error(errorData.message || "Không thể tạo đơn hàng");
+      if (orderError) {
+        throw new Error(orderError?.data?.message || orderError?.message || "Không thể tạo đơn hàng");
       }
-
-      const orderData = await createOrderResponse.json();
-      console.log("Create order response data:", orderData);
-
-      const order = orderData?.data?.order;
-
-      if (!order) {
-        console.error("No order in response:", orderData);
+      const order = orderResponse?.data?.order;
+      if (!order?.orderNumber) {
         throw new Error("Không nhận được thông tin đơn hàng");
       }
 
-      console.log("Order created successfully:", order);
-
-      // For mock payment, directly mark order as paid via payment API
-      try {
-        const paymentResponse = await fetch("/api/v1/payment/manual", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${
-              localStorage.getItem("token") || localStorage.getItem("actkn")
-            }`,
-          },
-          body: JSON.stringify({
-            orderNumber: order.orderNumber,
-            transactionId: `MANUAL_${Date.now()}`,
-          }),
+      const { response: paymentResponse, error: paymentError } =
+        await checkoutApi.createPayment({
+          provider,
+          orderNumber: order.orderNumber,
         });
-
-        if (!paymentResponse.ok) {
-          throw new Error("Không thể xử lý thanh toán");
-        }
-
-        const paymentData = await paymentResponse.json();
-        console.log("Payment processed successfully:", paymentData);
-
-        // Save purchased courses to localStorage
-        await savePurchasedCoursesToLocalStorage();
-
-        // Remove purchased courses from cart
-        await removePurchasedCoursesFromCart();
-
-        toast.success("Đặt hàng và thanh toán thành công!");
-
-        // Navigate to order complete page
-        navigate(`/order-detail?orderId=${order.orderNumber}`, {
-          state: {
-            orderInfo: {
-              orderNumber: order.orderNumber,
-              formattedOrderNumber:
-                order.formattedOrderNumber || `ORD-${order.orderNumber}`,
-              selectedCourses,
-              subtotal,
-              discount,
-              tax,
-              total,
-              appliedCoupon,
-              status: "Completed",
-              createdAt: order.createdAt,
-            },
-          },
-        });
-      } catch (paymentError) {
-        console.error("Payment processing failed:", paymentError);
-        // If payment fails, still save to localStorage as fallback
-        await savePurchasedCoursesToLocalStorage();
-        await removePurchasedCoursesFromCart();
-
-        toast.success("Đặt hàng thành công! (Sử dụng dữ liệu local)");
-        navigate(`/order-detail?orderId=${order.orderNumber}`, {
-          state: {
-            orderInfo: {
-              orderNumber: order.orderNumber,
-              selectedCourses,
-              subtotal,
-              discount,
-              tax,
-              total,
-              status: "Completed",
-            },
-          },
-        });
+      if (paymentError) {
+        throw new Error(paymentError?.data?.message || paymentError?.message || "Không thể tạo phiên thanh toán");
       }
+      const paymentUrl = paymentResponse?.data?.paymentUrl;
+      if (!paymentUrl) throw new Error("Cổng thanh toán không trả về đường dẫn");
+
+      window.location.assign(paymentUrl);
     } catch (error) {
       console.error("Checkout error:", error);
-
-      // Fallback to mock order if backend fails
-      console.log("Backend failed, using mock order as fallback");
-      await createMockOrder();
+      toast.error(error instanceof Error ? error.message : "Thanh toán thất bại");
     } finally {
       setProcessingPayment(false);
       dispatch(hideLoading());
     }
   };
 
-  // Helper function to save purchased courses to localStorage
-  const savePurchasedCoursesToLocalStorage = async () => {
-    try {
-      // Get current user ID for user-specific localStorage
-      const userStr = localStorage.getItem("user");
-      let currentUserId = null;
-      try {
-        const user = userStr ? JSON.parse(userStr) : null;
-        currentUserId = user?.id || user?._id;
-      } catch (e) {
-        console.warn("Error parsing user:", e);
-      }
-
-      const mockKey = currentUserId
-        ? `mockPurchasedCourses_${currentUserId}`
-        : "mockPurchasedCourses";
-      const existingPurchased = localStorage.getItem(mockKey);
-      let purchasedCourses = [];
-
-      if (existingPurchased) {
-        try {
-          purchasedCourses = JSON.parse(existingPurchased);
-        } catch (e) {
-          purchasedCourses = [];
-        }
-      }
-
-      // Add new courses to purchased list
-      selectedCourses.forEach((course) => {
-        // Check if course already exists
-        const exists = purchasedCourses.some(
-          (pc) =>
-            pc.courseId === course._id || pc.courseInfo?._id === course._id
-        );
-
-        if (!exists) {
-          purchasedCourses.push({
-            courseId: course._id,
-            courseInfo: {
-              _id: course._id,
-              title: course.title,
-              description: course.description,
-              price: course.price,
-              mentor: course.mentor,
-              category: course.category,
-              duration: course.duration,
-              rate: course.rate,
-              lectures: course.lectures,
-              thumbnail: course.thumbnail,
-            },
-            purchaseDate: new Date().toISOString(),
-            progress: 0, // Starting progress
-            lastAccessDate: new Date().toISOString(),
-            isCompleted: false,
-            orderInfo: {
-              transactionId: `MOCK_${Date.now()}`,
-              paymentMethod: paymentMethod,
-              createdAt: new Date().toISOString(),
-            },
-          });
-        }
-      });
-
-      localStorage.setItem(mockKey, JSON.stringify(purchasedCourses));
-      console.log(
-        `Saved purchased courses to localStorage (${mockKey}):`,
-        purchasedCourses.length
-      );
-    } catch (err) {
-      console.error("Error saving purchased courses:", err);
-    }
-  };
-
-  // Helper function to remove purchased courses from cart
-  const removePurchasedCoursesFromCart = async () => {
-    console.log("[DEBUG] Starting removePurchasedCoursesFromCart");
-    console.log("[DEBUG] Selected courses to remove:", selectedCourses);
-
-    try {
-      // Get current user ID for user-specific cart
-      const userStr = localStorage.getItem("user");
-      let currentUserId = null;
-      try {
-        const user = userStr ? JSON.parse(userStr) : null;
-        currentUserId = user?.id || user?._id;
-      } catch (e) {
-        console.warn("Error parsing user:", e);
-      }
-
-      console.log("[DEBUG] Current user ID:", currentUserId);
-
-      // Get purchased course IDs
-      const purchasedCourseIds = selectedCourses.map((course) => course._id);
-      console.log("[DEBUG] Course IDs to remove:", purchasedCourseIds);
-
-      // Remove from backend cart if user is authenticated
-      if (currentUserId && purchasedCourseIds.length > 0) {
-        console.log("[DEBUG] Removing from backend cart...");
-        for (const courseId of purchasedCourseIds) {
-          try {
-            console.log(`[DEBUG] Removing course ${courseId} from backend...`);
-            const result = await cartApi.removeFromCart({ courseId }, dispatch);
-            console.log(
-              `[DEBUG] Backend remove result for ${courseId}:`,
-              result
-            );
-          } catch (error) {
-            console.warn(
-              `[DEBUG] Failed to remove course ${courseId} from backend cart:`,
-              error
-            );
-          }
-        }
-      }
-
-      // Also remove from localStorage cart as fallback
-      const cartKey = currentUserId ? `cart_${currentUserId}` : "cart";
-      console.log("[DEBUG] Checking localStorage cart with key:", cartKey);
-      const existingCart = localStorage.getItem(cartKey);
-
-      if (existingCart) {
-        try {
-          let cartItems = JSON.parse(existingCart);
-          console.log("[DEBUG] Current localStorage cart items:", cartItems);
-
-          // Filter out purchased courses
-          const originalLength = cartItems.length;
-          cartItems = cartItems.filter(
-            (item) =>
-              !purchasedCourseIds.includes(item._id || item.id || item.courseId)
-          );
-
-          localStorage.setItem(cartKey, JSON.stringify(cartItems));
-          console.log(
-            `[DEBUG] Updated localStorage cart (${cartKey}), removed ${
-              originalLength - cartItems.length
-            } items, remaining:`,
-            cartItems.length
-          );
-        } catch (e) {
-          console.warn("[DEBUG] Error updating localStorage cart:", e);
-        }
-      } else {
-        console.log("[DEBUG] No localStorage cart found");
-      }
-    } catch (err) {
-      console.error("[DEBUG] Error removing purchased courses from cart:", err);
-    }
-  };
-
-  // Mock order creation as fallback
-  const createMockOrder = async () => {
-    const mockOrderInfo = {
-      orderNumber: "ORD" + Date.now(),
-      formattedOrderNumber: `ORD-${Date.now()}`,
-      items: selectedCourses.map((course) => ({
-        courseId: course._id,
-        title: course.title,
-        price: course.price,
-        quantity: 1,
-        thumbnail: course.thumbnail,
-      })),
-      courses: selectedCourses.map((c) => c._id),
-      summary: {
-        subtotal: subtotal,
-        discount: discount,
-        total: total,
-      },
-      billingInfo: {
-        email: "mentee@example.com",
-        firstName: "Mock",
-        lastName: "User",
-        country: formData.country,
-        address: formData.address || "Mock Address",
-      },
-      status: "paid",
-      createdAt: new Date().toISOString(),
-    };
-
-    await savePurchasedCoursesToLocalStorage();
-    await removePurchasedCoursesFromCart();
-
-    toast.success("Đặt hàng thành công!");
-
-    // Navigate to order complete page
-    navigate(`/order-detail?orderId=${mockOrderInfo.orderNumber}`, {
-      state: {
-        orderInfo: {
-          ...mockOrderInfo,
-          selectedCourses,
-          subtotal,
-          discount,
-          tax,
-          total,
-          appliedCoupon,
-          status: "Completed",
-        },
-      },
-    });
-  };
-
-  // Apply coupon code (ready for DB/seed test)
-  // TODO: Replace with API call to fetch coupon from DB
   const applyCouponCode = () => {
     if (!showCouponInput) {
       setShowCouponInput(true);
       setCouponMessage("");
     } else if (couponCode.trim()) {
-      // Find matching coupon in seedCoupons
-      const foundCoupon = seedCoupons.find(
-        (c) =>
-          c.code.toUpperCase() === couponCode.trim().toUpperCase() && c.isActive
-      );
-      if (foundCoupon) {
-        // Calculate coupon discount
-        let couponDiscount = 0;
-        if (foundCoupon.discountType === "percent") {
-          couponDiscount = Math.round(
-            (subtotal * foundCoupon.discountValue) / 100
-          );
-        } else {
-          couponDiscount = foundCoupon.discountValue;
-        }
-        // Total discount = base + coupon
-        const totalDiscount = BASE_DISCOUNT + couponDiscount;
-        setDiscount(totalDiscount);
-        const newTax = (subtotal - totalDiscount) * TAX_RATE;
-        setTax(newTax);
-        setTotal(subtotal - totalDiscount + newTax);
-        setAppliedCoupon({ ...foundCoupon, discount: couponDiscount });
-        setCouponMessage("Coupon applied successfully!");
-        setCouponMessageType("success");
-        setShowCouponInput(false);
-        setCouponCode("");
-      } else {
-        setCouponMessage("Invalid or inactive coupon code.");
-        setCouponMessageType("error");
-      }
+      setCouponMessage("Coupon codes are not available yet.");
+      setCouponMessageType("error");
     }
   };
 
@@ -680,7 +325,7 @@ const Checkout = () => {
   };
 
   return (
-    <div className="min-h-screen bg-white-50">
+    <div className="min-h-[100dvh] bg-[var(--ui-page)]">
       {/* Loading State */}
       {loading && (
         <div className="flex items-center justify-center min-h-screen">
@@ -697,12 +342,12 @@ const Checkout = () => {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             {/* Left Column - Checkout Form */}
             <div className="lg:col-span-2">
-              <h1 className="text-2xl font-bold text-gray-900 mb-6">
-                Checkout Page
+              <h1 className="mb-6 text-3xl font-extrabold tracking-[-0.035em] text-[var(--ui-text)]">
+                Secure checkout
               </h1>
 
               {/* Billing Information */}
-              <div className="bg-gray-50 p-6 rounded-lg border border-gray-200 mb-6">
+              <div className="ui-card mb-6 p-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -782,6 +427,7 @@ const Checkout = () => {
                       type="radio"
                       name="paymentMethod"
                       value="Credit/Debit Card"
+                      disabled
                       checked={paymentMethod === "Credit/Debit Card"}
                       onChange={(e) => {
                         setPaymentMethod(e.target.value);
@@ -793,7 +439,7 @@ const Checkout = () => {
                       className="w-4 h-4 text-blue-600"
                     />
                     <span className="text-gray-900 font-medium">
-                      Credit/Debit Card
+                      Credit/Debit Card (Coming soon)
                     </span>
                     <div className="flex gap-2 ml-auto">
                       {/* Visa Logo */}
@@ -960,7 +606,7 @@ const Checkout = () => {
                       checked={paymentMethod === "Momo"}
                       onChange={(e) => {
                         setPaymentMethod(e.target.value);
-                        setShowMomoQR(true);
+                        setShowMomoQR(false);
                         setShowBankQR(false);
                         setTouched((t) => ({ ...t, paymentMethod: true }));
                         validate(formData, e.target.value);
@@ -985,7 +631,7 @@ const Checkout = () => {
                           {/* QR Code placeholder - replace with actual QR code */}
                           <div className="w-48 h-48 bg-white border-2 border-gray-300 rounded-lg flex items-center justify-center">
                             <div className="text-center">
-                              <div className="text-4xl mb-2">📱</div>
+                              <IconDeviceMobile aria-hidden="true" className="mx-auto mb-2 text-[var(--ui-accent)]" size={36} stroke={1.5} />
                               <p className="text-sm text-gray-600">
                                 MoMo QR Code
                               </p>
@@ -996,7 +642,7 @@ const Checkout = () => {
                           </div>
                         </div>
                         <p className="text-sm text-gray-600 mt-3">
-                          Scan QR code with MoMo app to pay $290.00
+                          Scan QR code with MoMo app to pay {formatCurrency(total)}
                         </p>
                       </div>
                     </div>
@@ -1010,6 +656,7 @@ const Checkout = () => {
                       type="radio"
                       name="paymentMethod"
                       value="Bank Transfer"
+                      disabled
                       checked={paymentMethod === "Bank Transfer"}
                       onChange={(e) => {
                         setPaymentMethod(e.target.value);
@@ -1021,7 +668,7 @@ const Checkout = () => {
                       className="w-4 h-4 text-blue-600"
                     />
                     <span className="text-gray-900 font-medium">
-                      Bank Transfer
+                      Bank Transfer (Coming soon)
                     </span>
                     <div className="ml-auto">
                       <div className="bg-blue-500 text-white px-3 py-1 rounded text-xs font-bold">
@@ -1040,7 +687,7 @@ const Checkout = () => {
                           {/* Bank QR Code placeholder - replace with actual QR code */}
                           <div className="w-48 h-48 bg-white border-2 border-gray-300 rounded-lg flex items-center justify-center">
                             <div className="text-center">
-                              <div className="text-4xl mb-2">🏦</div>
+                              <IconBuildingBank aria-hidden="true" className="mx-auto mb-2 text-[var(--ui-accent)]" size={36} stroke={1.5} />
                               <p className="text-sm text-gray-600">
                                 Bank QR Code
                               </p>
@@ -1067,7 +714,7 @@ const Checkout = () => {
                             Account Holder: MENTORME ADMIN
                           </p>
                           <p className="text-sm text-gray-600">
-                            Amount: $290.00
+                            Amount: {formatCurrency(total)}
                           </p>
                           <p className="text-sm text-gray-600">
                             Reference: MENTORME CHECKOUT
@@ -1106,11 +753,11 @@ const Checkout = () => {
 
             {/* Right Column - Order Summary */}
             <div className="lg:col-span-1">
-              <h1 className="text-2xl font-bold text-gray-900 mb-6">
+              <h2 className="mb-6 text-2xl font-extrabold tracking-[-0.025em] text-[var(--ui-text)]">
                 Order Details
-              </h1>
+              </h2>
 
-              <div className="bg-gray-50 p-6 rounded-lg border border-gray-200 sticky top-8">
+              <div className="ui-card sticky top-24 p-6">
                 {/* Course Summary */}
                 <div className="mb-6 p-4 bg-white rounded-lg border border-gray-200">
                   <h3 className="font-medium text-gray-900 mb-3">
@@ -1244,13 +891,6 @@ const Checkout = () => {
                           onChange={(e) => setCouponCode(e.target.value)}
                           placeholder="Enter coupon code"
                           className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                          onFocus={() => setShowCouponSuggestions(true)}
-                          onBlur={() =>
-                            setTimeout(
-                              () => setShowCouponSuggestions(false),
-                              150
-                            )
-                          }
                           onKeyPress={(e) => {
                             if (e.key === "Enter") {
                               applyCouponCode();
@@ -1265,34 +905,6 @@ const Checkout = () => {
                           Apply
                         </button>
                       </div>
-
-                      {/* Coupon suggestions dropdown */}
-                      {showCouponSuggestions && (
-                        <div className="absolute left-0 top-12 z-10 w-full bg-white border border-gray-200 rounded-lg shadow-lg">
-                          <div className="p-2 text-xs text-gray-500">
-                            Available coupons:
-                          </div>
-                          {seedCoupons.map((c) => (
-                            <div
-                              key={c.code}
-                              className="px-4 py-2 cursor-pointer hover:bg-blue-50 text-sm"
-                              onMouseDown={() => {
-                                setCouponCode(c.code);
-                                setShowCouponSuggestions(false);
-                              }}
-                            >
-                              <span className="font-semibold text-blue-700">
-                                {c.code}
-                              </span>
-                              {c.description && (
-                                <span className="ml-2 text-gray-500">
-                                  - {c.description}
-                                </span>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      )}
 
                       {/* Coupon message */}
                       {couponMessage && (

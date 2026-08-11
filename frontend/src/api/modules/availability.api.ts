@@ -1,33 +1,21 @@
-import axios from "axios";
-
-// Tự động thêm token cho mọi request
-axios.interceptors.request.use((config) => {
-  const token =
-    localStorage.getItem("actkn") ||
-    localStorage.getItem("token") ||
-    sessionStorage.getItem("actkn");
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
-});
+import { apiClient } from "../clients/api.client";
 
 const availabilityEndpoints = {
-  create: "/api/v1/availability",
-  todaySchedule: "/api/v1/availability/today-schedule",
-  mentorRange: "/api/v1/availability/mentor/range",
-  mentorPublic: (mentorId) => `/api/v1/availability/mentor/${mentorId}/public`,
-  overview: "/api/v1/availability/overview",
-  mySchedules: "/api/v1/availability/my-schedules",
-  delete: (availabilityId) => `/api/v1/availability/${availabilityId}`,
-  cleanupOld: "/api/v1/availability/cleanup-old",
+  create: "/availability",
+  todaySchedule: "/availability/today-schedule",
+  mentorRange: "/availability/mentor/range",
+  mentorPublic: (mentorId) => `/availability/mentor/${mentorId}/public`,
+  overview: "/availability/overview",
+  mySchedules: "/availability/my-schedules",
+  delete: (availabilityId) => `/availability/${availabilityId}`,
+  cleanupOld: "/availability/cleanup-old",
 };
 
 const availabilityApi: any = {
   // Mentor tạo hoặc cập nhật availability cho một ngày
   createOrUpdateAvailability: async (data) => {
     try {
-      const response = await axios.post(availabilityEndpoints.create, data);
+      const response = await apiClient.post(availabilityEndpoints.create, data);
       return { response: response.data };
     } catch (err) {
       return { error: err.response?.data || err };
@@ -38,7 +26,7 @@ const availabilityApi: any = {
   getTodaySchedule: async (date) => {
     try {
       const params = date ? { date } : {};
-      const response = await axios.get(availabilityEndpoints.todaySchedule, {
+      const response = await apiClient.get(availabilityEndpoints.todaySchedule, {
         params,
       });
       return { response: response.data };
@@ -54,7 +42,7 @@ const availabilityApi: any = {
       if (startDate) params.startDate = startDate;
       if (endDate) params.endDate = endDate;
 
-      const response = await axios.get(availabilityEndpoints.mentorRange, {
+      const response = await apiClient.get(availabilityEndpoints.mentorRange, {
         params,
       });
       return { response: response.data };
@@ -73,7 +61,7 @@ const availabilityApi: any = {
       // Add cache-busting parameter
       params._t = Date.now();
 
-      const response = await axios.get(
+      const response = await apiClient.get(
         availabilityEndpoints.mentorPublic(mentorId),
         {
           params,
@@ -92,7 +80,7 @@ const availabilityApi: any = {
   // Lấy availability overview của mentor trong 7 ngày tới
   getAvailabilityOverview: async () => {
     try {
-      const response = await axios.get(availabilityEndpoints.overview);
+      const response = await apiClient.get(availabilityEndpoints.overview);
       return { response: response.data };
     } catch (err) {
       return { error: err.response?.data || err };
@@ -102,7 +90,7 @@ const availabilityApi: any = {
   // Lấy danh sách tất cả schedules của mentor
   getMySchedules: async () => {
     try {
-      const response = await axios.get(availabilityEndpoints.mySchedules);
+      const response = await apiClient.get(availabilityEndpoints.mySchedules);
       return { response: response.data };
     } catch (err) {
       return { error: err.response?.data || err };
@@ -112,7 +100,7 @@ const availabilityApi: any = {
   // Xóa availability
   deleteAvailability: async (availabilityId) => {
     try {
-      const response = await axios.delete(
+      const response = await apiClient.delete(
         availabilityEndpoints.delete(availabilityId)
       );
       return { response: response.data };
@@ -124,7 +112,7 @@ const availabilityApi: any = {
   // Manual cleanup old availabilities (Admin only)
   cleanupOldAvailabilities: async (daysBack = 3) => {
     try {
-      const response = await axios.post(availabilityEndpoints.cleanupOld, {
+      const response = await apiClient.post(availabilityEndpoints.cleanupOld, {
         daysBack,
       });
       return { response: response.data };

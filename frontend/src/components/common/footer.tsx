@@ -1,13 +1,14 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import { PATH, PLATFORM_PATH } from "../../routes/path";
+import BrandLogo from "./BrandLogo";
 
 const Footer = () => {
   return (
-    <footer className="mt-16 w-full border-t border-[var(--ui-border)] bg-[var(--ui-surface)] px-4 py-12 text-[var(--ui-text)] sm:px-6 lg:px-8">
+    <footer className="mt-20 w-full border-t border-[var(--ui-border)] bg-[var(--ui-surface)] px-4 py-14 text-[var(--ui-text)] sm:px-6 lg:px-8">
       <div className="mx-auto grid max-w-7xl grid-cols-1 gap-10 sm:grid-cols-[1.5fr_1fr_1fr]">
         <div className="max-w-sm">
-          <div className="mb-3 text-lg font-extrabold tracking-[-0.03em]">MentorMe</div>
+          <BrandLogo className="mb-4" />
           <p className="max-w-[38ch] text-sm leading-6 text-[var(--ui-text-muted)]">
             Find the right mentor, book a focused session, and move forward with practical guidance.
           </p>

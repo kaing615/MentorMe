@@ -11,7 +11,6 @@
  */
 
 import { apiClient } from "../clients/api.client.js";
-import axios from "axios";
 
 /**
  * Lấy danh sách tất cả cuộc trò chuyện của user hiện tại
@@ -19,25 +18,11 @@ import axios from "axios";
  */
 export const getConversations = async () => {
   try {
-    // Temporarily bypass apiClient to test
-    const token =
-      sessionStorage.getItem("actkn") || localStorage.getItem("actkn");
-    const cleanToken = token?.replace(/^Bearer\s+/i, "")?.replace(/^"|"$/g, "");
-
-    const response = await axios.get(
-      "http://localhost:4000/api/v1/messages/conversations",
-      {
-        headers: {
-          Authorization: `Bearer ${cleanToken}`,
-          "Content-Type": "application/json",
-          "Cache-Control": "no-cache",
-        },
-      }
-    );
+    const response = await apiClient.get("/messages/conversations");
 
     return response.data;
   } catch (error) {
-    console.error("❌ Direct axios call failed:", error);
+    console.error("❌ Conversations request failed:", error);
     console.error("❌ Error response:", error.response?.data);
     console.error("❌ Error status:", error.response?.status);
     throw error;
@@ -53,23 +38,8 @@ export const getConversations = async () => {
  */
 export const getMessages = async (peerId, limit = 50, cursor = null) => {
   try {
-    // Temporarily bypass apiClient for getMessages too
-    const token =
-      sessionStorage.getItem("actkn") || localStorage.getItem("actkn");
-    const cleanToken = token?.replace(/^Bearer\s+/i, "")?.replace(/^"|"$/g, "");
-
-    // Build URL with query params manually
-    let url = `http://localhost:4000/api/v1/messages?peer=${peerId}&limit=${limit}`;
-    if (cursor) {
-      url += `&cursor=${encodeURIComponent(cursor)}`;
-    }
-
-    const response = await axios.get(url, {
-      headers: {
-        Authorization: `Bearer ${cleanToken}`,
-        "Content-Type": "application/json",
-        "Cache-Control": "no-cache",
-      },
+    const response = await apiClient.get("/messages", {
+      params: { peer: peerId, limit, ...(cursor && { cursor }) },
     });
 
     return response.data;
@@ -96,11 +66,6 @@ export const sendMessage = async (
   attachments = []
 ) => {
   try {
-    // Temporarily bypass apiClient for sendMessage too
-    const token =
-      sessionStorage.getItem("actkn") || localStorage.getItem("actkn");
-    const cleanToken = token?.replace(/^Bearer\s+/i, "")?.replace(/^"|"$/g, "");
-
     const payload = {
       receiver: receiverId,
       content: content.trim(),
@@ -108,16 +73,7 @@ export const sendMessage = async (
       attachments,
     };
 
-    const response = await axios.post(
-      "http://localhost:4000/api/v1/messages",
-      payload,
-      {
-        headers: {
-          Authorization: `Bearer ${cleanToken}`,
-          "Content-Type": "application/json",
-        },
-      }
-    );
+    const response = await apiClient.post("/messages", payload);
 
     return response.data;
   } catch (error) {
@@ -134,21 +90,7 @@ export const sendMessage = async (
  */
 export const markMessagesAsRead = async (peerId) => {
   try {
-    // Temporarily bypass apiClient for markMessagesAsRead too
-    const token =
-      sessionStorage.getItem("actkn") || localStorage.getItem("actkn");
-    const cleanToken = token?.replace(/^Bearer\s+/i, "")?.replace(/^"|"$/g, "");
-
-    const response = await axios.post(
-      "http://localhost:4000/api/v1/messages/mark-read",
-      { peerId },
-      {
-        headers: {
-          Authorization: `Bearer ${cleanToken}`,
-          "Content-Type": "application/json",
-        },
-      }
-    );
+    const response = await apiClient.post("/messages/mark-read", { peerId });
 
     return response.data;
   } catch (error) {

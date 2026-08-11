@@ -715,7 +715,7 @@ const MentorProfile = () => {
     const statusMap = {
       pending: "pending",
       accepted: "active", // Backend uses "active" for confirmed bookings
-      declined: "cancelled", // Backend uses "cancelled" for declined bookings
+      declined: "rejected",
     };
 
     const targetStatus = statusMap[bookingFilter];
@@ -842,7 +842,7 @@ const MentorProfile = () => {
 
   const handleDeclineBooking = async (bookingId, reason = "") => {
     try {
-      const { response, error } = await bookingApi.cancelBooking(
+      const { response, error } = await bookingApi.declineBooking(
         bookingId,
         reason
       );
@@ -857,7 +857,7 @@ const MentorProfile = () => {
           booking.id === bookingId
             ? {
                 ...booking,
-                status: "cancelled", // Backend trả về "cancelled" cho declined booking
+                status: "rejected",
                 respondedAt: new Date().toISOString(),
               }
             : booking
@@ -1428,9 +1428,6 @@ const MentorProfile = () => {
     loadMentees();
   }, []);
 
-  // Load courses and reviews on component mount
-  // Không gọi API courses/reviews nữa, chỉ dùng dữ liệu mock
-
   // Filter and search logic
   const getFilteredAndSortedCourses = () => {
     let filtered = allCourses.filter(
@@ -1700,13 +1697,12 @@ const MentorProfile = () => {
   };
 
   return (
-    <div className="min-h-screen bg-white-100">
+    <div className="min-h-screen bg-[var(--ui-page)]">
       {/* Main Layout Container */}
-      <div className="flex max-w-7xl mx-auto pt-10 gap-8 px-8 min-h-screen">
+      <div className="mx-auto flex min-h-screen max-w-7xl flex-col gap-6 px-4 pt-6 sm:px-6 lg:flex-row lg:gap-8 lg:px-8 lg:pt-10">
         {/* Sidebar - Fixed width and height */}
         <div
-          style={{ width: 280, minWidth: 280 }}
-          className="bg-slate-50 rounded-2xl shadow-sm p-8 flex flex-col items-center sticky top-10 self-start"
+          className="ui-card flex w-full flex-col items-center self-start p-6 lg:sticky lg:top-24 lg:w-[280px] lg:min-w-[280px] lg:p-8"
         >
           {formData?.avatarUrl || profileImage ? (
             <img
@@ -1730,13 +1726,13 @@ const MentorProfile = () => {
                 )}`.trim()
               : "Name"}
           </h2>
-          <button className="bg-blue-600 text-white border-none rounded-lg px-6 py-1.5 mb-6 font-medium text-base">
+          <span className="mb-5 inline-flex h-7 items-center rounded-full bg-[var(--ui-accent-soft)] px-2.5 text-xs font-semibold text-[var(--ui-accent)]">
             Mentor
-          </button>
+          </span>
 
           {/* Navigation Menu */}
           <nav className="w-full mt-6">
-            <ul className="list-none p-0 m-0 flex flex-col gap-2">
+            <ul className="m-0 grid list-none grid-cols-2 gap-2 p-0 sm:grid-cols-3 lg:flex lg:flex-col">
               <li
                 className={`px-4 py-2.5 rounded-lg font-medium transition-all duration-200 cursor-pointer ${
                   activeTab === "profile"
@@ -2284,21 +2280,23 @@ const MentorProfile = () => {
                             );
                           }}
                         >
-                          <img
-                            src={
-                              course.thumbnail
-                                ? /cloudinary\.com|res\.cloudinary\.com/.test(
-                                    course.thumbnail
-                                  )
-                                  ? course.thumbnail
-                                  : course.thumbnail.startsWith("http")
-                                  ? course.thumbnail
-                                  : `http://localhost:4000/${course.thumbnail}`
-                                : "/placeholder-course.jpg"
-                            }
-                            alt={course.title}
-                            className="w-full h-48 object-cover"
-                          />
+                          <div className="relative flex h-48 items-center justify-center bg-[var(--ui-accent-soft)] font-bold text-[var(--ui-accent)]">
+                            <span>Course</span>
+                            {course.thumbnail && (
+                              <img
+                                src={
+                                  /cloudinary\.com|res\.cloudinary\.com/.test(course.thumbnail) || course.thumbnail.startsWith("http")
+                                    ? course.thumbnail
+                                    : `http://localhost:4000/${course.thumbnail}`
+                                }
+                                alt={course.title}
+                                className="absolute inset-0 h-full w-full object-cover"
+                                onError={(e) => {
+                                  e.currentTarget.style.display = "none";
+                                }}
+                              />
+                            )}
+                          </div>
                           {/* Đã bỏ phần ngăn cách lớn, chỉ giữ card nhỏ gọn */}
                           <div className="flex-1 flex flex-col p-4 pb-0">
                             <div
@@ -4221,18 +4219,19 @@ const MentorProfile = () => {
                         >
                           {/* Review Header */}
                           <div className="flex items-start gap-4 mb-4">
-                            <img
-                              src={
-                                review.author?.avatarUrl ||
-                                "/placeholder-avatar.jpg"
-                              }
-                              alt={
-                                review.author
-                                  ? `${review.author.firstName} ${review.author.lastName}`
-                                  : "User"
-                              }
-                              className="w-12 h-12 rounded-full object-cover"
-                            />
+                            <div className="relative flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[var(--ui-accent-soft)] font-bold text-[var(--ui-accent)]">
+                              <span>{(review.author?.firstName?.[0] || "A").toUpperCase()}</span>
+                              {review.author?.avatarUrl && (
+                                <img
+                                  src={review.author.avatarUrl}
+                                  alt={review.author ? `${review.author.firstName} ${review.author.lastName}` : "User"}
+                                  className="absolute inset-0 h-full w-full object-cover"
+                                  onError={(e) => {
+                                    e.currentTarget.style.display = "none";
+                                  }}
+                                />
+                              )}
+                            </div>
                             <div className="flex-1">
                               <div className="flex items-start justify-between mb-2">
                                 <div>
@@ -4666,19 +4665,19 @@ const MentorProfile = () => {
             <div className="px-6 py-6 animate-in slide-in-from-bottom-4 duration-400 delay-200">
               {/* Course Header */}
               <div className="flex items-start gap-4 mb-6">
-                <img
-                  src={
-                    selectedReviewCourse.thumbnail ||
-                    selectedReviewCourse.imageUrl ||
-                    "https://via.placeholder.com/100x75"
-                  }
-                  alt={selectedReviewCourse.title}
-                  className="w-24 h-18 object-cover rounded-xl shadow-md flex-shrink-0"
-                  onError={(e) => {
-                    e.currentTarget.src =
-                      "https://via.placeholder.com/100x75/f3f4f6/6b7280?text=Course";
-                  }}
-                />
+                <div className="relative flex h-[4.5rem] w-24 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[var(--ui-accent-soft)] text-xs font-bold text-[var(--ui-accent)] shadow-md">
+                  <span>Course</span>
+                  {(selectedReviewCourse.thumbnail || selectedReviewCourse.imageUrl) && (
+                    <img
+                      src={selectedReviewCourse.thumbnail || selectedReviewCourse.imageUrl}
+                      alt={selectedReviewCourse.title}
+                      className="absolute inset-0 h-full w-full object-cover"
+                      onError={(e) => {
+                        e.currentTarget.style.display = "none";
+                      }}
+                    />
+                  )}
+                </div>
                 <div className="flex-1 min-w-0">
                   <h4 className="font-bold text-gray-900 mb-2 text-xl leading-tight">
                     {selectedReviewCourse.title || "No Title"}

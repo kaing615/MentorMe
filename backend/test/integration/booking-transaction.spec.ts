@@ -17,6 +17,7 @@ describe("booking transactions", () => {
   let mentorId: string;
   let menteeAId: string;
   let mentorToken: string;
+  let pureMentorToken: string;
   let menteeAToken: string;
   let menteeBToken: string;
   let outsiderToken: string;
@@ -33,7 +34,7 @@ describe("booking transactions", () => {
     );
     bookings = app.get<Model<Booking>>(getModelToken(Booking.name));
     const jwt = app.get(JwtService);
-    const [mentor, menteeA, menteeB, outsider] = await users.create([
+    const [mentor, menteeA, menteeB, outsider, pureMentor] = await users.create([
       {
         email: "booking-mentor@example.com",
         userName: "booking_mentor",
@@ -66,11 +67,20 @@ describe("booking transactions", () => {
         role: "mentee",
         isVerified: true,
       },
+      {
+        email: "booking-pure-mentor@example.com",
+        userName: "booking_pure_mentor",
+        firstName: "Pure",
+        lastName: "Mentor",
+        role: "mentor",
+        isVerified: true,
+      },
     ]);
 
     mentorId = String(mentor!._id);
     menteeAId = String(menteeA!._id);
     mentorToken = await jwt.signAsync({ id: mentorId });
+    pureMentorToken = await jwt.signAsync({ id: String(pureMentor!._id) });
     menteeAToken = await jwt.signAsync({ id: menteeAId });
     menteeBToken = await jwt.signAsync({ id: String(menteeB!._id) });
     outsiderToken = await jwt.signAsync({ id: String(outsider!._id) });
@@ -142,6 +152,21 @@ describe("booking transactions", () => {
     expect(rawRelationship?.mentor).toBeInstanceOf(Types.ObjectId);
     expect(rawRelationship?.mentee).toBeInstanceOf(Types.ObjectId);
     expect(availability?.slots[0]?.bookedBy).toBeInstanceOf(Types.ObjectId);
+    expect(
+      await connection.collection("notifications").countDocuments({
+        recipient: new Types.ObjectId(mentorId),
+        type: "booking_created",
+      }),
+    ).toBe(1);
+  });
+
+  it("allows only mentees to create bookings", async () => {
+    await addSlot("09:30", "10:00");
+    await request(app.getHttpServer())
+      .post(`/api/v1/booking/mentor/${mentorId}`)
+      .set("Authorization", `Bearer ${pureMentorToken}`)
+      .send({ date, start: "09:30", end: "10:00" })
+      .expect(403);
   });
 
   it("lets only the booking mentor confirm or decline", async () => {
@@ -160,6 +185,12 @@ describe("booking transactions", () => {
       .post(`/api/v1/booking/confirm/${confirmedId}`)
       .set("Authorization", `Bearer ${mentorToken}`)
       .expect(200);
+    expect(
+      await connection.collection("notifications").countDocuments({
+        recipient: new Types.ObjectId(menteeAId),
+        type: "booking_confirmed",
+      }),
+    ).toBe(1);
 
     await addSlot("10:30", "11:00");
     const declinedId = await reserve(menteeBToken, "10:30", "11:00");
@@ -172,6 +203,11 @@ describe("booking transactions", () => {
       .set("Authorization", `Bearer ${mentorToken}`)
       .send({ reason: "Unavailable" })
       .expect(200);
+    expect(
+      await connection.collection("notifications").countDocuments({
+        type: "booking_declined",
+      }),
+    ).toBe(1);
   });
 
   it("lets booking participants cancel and rejects outsiders", async () => {
@@ -200,5 +236,57 @@ describe("booking transactions", () => {
       .post(`/api/v1/booking/cancel/${mentorCancellationId}`)
       .set("Authorization", `Bearer ${mentorToken}`)
       .expect(200);
+    expect(
+      await connection.collection("notifications").countDocuments({
+        type: "booking_cancelled",
+      }),
+    ).toBe(2);
+  });
+
+  it("finishes past active bookings when a participant lists them", async () => {
+    const past = new Date();
+    past.setUTCDate(past.getUTCDate() - 1);
+    const booking = await bookings.create({
+      relationship: new Types.ObjectId(),
+      mentor: mentorId,
+      mentee: menteeAId,
+      status: "active",
+      date: past,
+      start: "09:00",
+      end: "09:30",
+      slotId: new Types.ObjectId(),
+      availabilityId: new Types.ObjectId(),
+    });
+
+    const response = await request(app.getHttpServer())
+      .get("/api/v1/booking/mentee")
+      .set("Authorization", `Bearer ${menteeAToken}`)
+      .expect(200);
+
+    const items = response.body.data as Array<{ _id: string; status: string }>;
+    expect(
+      items.find(({ _id }) => _id === String(booking._id))?.status,
+    ).toBe("finished");
+  });
+
+  it("does not let a mentor confirm a session after its start time", async () => {
+    const past = new Date();
+    past.setUTCDate(past.getUTCDate() - 1);
+    const booking = await bookings.create({
+      relationship: new Types.ObjectId(),
+      mentor: mentorId,
+      mentee: menteeAId,
+      status: "pending",
+      date: past,
+      start: "09:00",
+      end: "09:30",
+      slotId: new Types.ObjectId(),
+      availabilityId: new Types.ObjectId(),
+    });
+
+    await request(app.getHttpServer())
+      .post(`/api/v1/booking/confirm/${String(booking._id)}`)
+      .set("Authorization", `Bearer ${mentorToken}`)
+      .expect(400);
   });
 });

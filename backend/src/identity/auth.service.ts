@@ -9,6 +9,7 @@ import bcrypt from "bcryptjs";
 import crypto from "node:crypto";
 import type { Model } from "mongoose";
 import type { ForgotPasswordDto } from "./dto/forgot-password.dto";
+import type { ApplyMentorDto } from "./dto/apply-mentor.dto";
 import type { ResendEmailDto } from "./dto/resend-email.dto";
 import type { ResetPasswordDto } from "./dto/reset-password.dto";
 import type { SignInDto } from "./dto/sign-in.dto";
@@ -56,6 +57,7 @@ export class AuthService {
       lastName: dto.lastName,
       password: await bcrypt.hash(dto.password, 10),
       role: "mentee",
+      roles: ["mentee"],
       isVerified: isTest,
       verifyKey: isTest ? "" : crypto.randomBytes(32).toString("hex"),
     };
@@ -191,6 +193,7 @@ export class AuthService {
       ...dto,
       password: await bcrypt.hash(dto.password, 10),
       role: "mentor",
+      roles: ["mentor"],
       isVerified: process.env.NODE_ENV === "test",
     });
     const uploaded = await this.files.uploadAvatar(file, String(user._id));
@@ -202,6 +205,53 @@ export class AuthService {
       token: await this.signToken(user),
       user: this.sanitize(user.toObject()),
       id: user._id,
+      avatarUrl: user.avatarUrl,
+    };
+  }
+
+  async applyAsMentor(
+    user: UserDocument,
+    dto: ApplyMentorDto,
+    file?: Express.Multer.File,
+  ) {
+    if (user.role !== "mentee") {
+      throw new BadRequestException("Chỉ mentee mới có thể đăng ký làm mentor.");
+    }
+    if (!file && !user.avatarUrl) {
+      throw new BadRequestException("Avatar là bắt buộc");
+    }
+    if (file) {
+      if (user.avatarPublicId) await this.files.delete(user.avatarPublicId);
+      const uploaded = await this.files.uploadAvatar(file, String(user._id));
+      user.avatarUrl = uploaded.url;
+      user.avatarPublicId = uploaded.publicId;
+    }
+    user.userName = dto.userName;
+    user.firstName = dto.firstName;
+    user.lastName = dto.lastName;
+    user.jobTitle = dto.jobTitle;
+    user.location = dto.location;
+    user.category = dto.category;
+    user.skills = dto.skills;
+    user.bio = dto.bio;
+    user.linkedinUrl = dto.linkedinUrl;
+    user.mentorReason = dto.mentorReason;
+    if (dto.introVideo !== undefined) user.introVideo = dto.introVideo;
+    if (dto.greatestAchievement !== undefined) {
+      user.greatestAchievement = dto.greatestAchievement;
+    }
+    user.roles = [
+      ...new Set([
+        ...(user.roles?.length ? user.roles : user.role ? [user.role] : []),
+        "mentor" as const,
+      ]),
+    ];
+    user.role = "mentor";
+    await user.save();
+    return {
+      message: "Đăng ký mentor thành công!",
+      token: await this.signToken(user),
+      user: this.sanitize(user.toObject()),
       avatarUrl: user.avatarUrl,
     };
   }
