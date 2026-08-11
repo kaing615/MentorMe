@@ -515,7 +515,7 @@ const HomeScreen = () => {
             <img
               src={MentoringHeroCutout}
               alt="A learner and mentor reviewing a practical learning plan"
-              className="absolute -bottom-4 -right-[8%] z-10 w-[135%] max-w-none sm:-bottom-8 sm:-right-[4%] sm:w-[92%] lg:-bottom-[3%] lg:-right-[3%] lg:h-[88%] lg:w-auto"
+              className="absolute -bottom-4 -right-[8%] z-10 w-[145%] max-w-none sm:-bottom-8 sm:-right-[4%] sm:w-full lg:-bottom-[3%] lg:-right-[3%] lg:h-[96%] lg:w-auto"
               fetchPriority="high"
             />
             <div className="absolute bottom-6 left-4 z-20 max-w-xs rounded-2xl border border-white/25 bg-blue-950/70 p-4 text-white shadow-[var(--ui-shadow-sm)] backdrop-blur-md sm:left-10 lg:bottom-8 lg:left-8">
