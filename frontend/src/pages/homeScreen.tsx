@@ -478,9 +478,9 @@ const HomeScreen = () => {
 
   return (
     <div ref={pageRef} className="flex min-h-[100dvh] flex-col overflow-hidden bg-[var(--ui-page)]">
-      <section className="ui-brand-hero relative mx-3 mt-3 overflow-hidden rounded-[2rem] border-2 border-blue-300/30 px-4 pb-14 pt-12 shadow-[var(--ui-shadow-lg)] sm:mx-5 sm:px-6 lg:px-8 lg:pb-20 lg:pt-16">
-        <div className="relative mx-auto grid max-w-7xl grid-cols-1 items-center gap-12 lg:grid-cols-[0.86fr_1.14fr] lg:gap-16">
-          <div data-hero-copy className="w-full max-w-3xl">
+      <section className="ui-brand-hero relative mx-3 mt-3 overflow-hidden rounded-[2rem] border-2 border-blue-300/30 px-4 pb-[22rem] pt-12 shadow-[var(--ui-shadow-lg)] sm:mx-5 sm:px-6 sm:pb-[27rem] lg:min-h-[39rem] lg:px-8 lg:pb-20 lg:pt-16">
+        <div className="mx-auto grid max-w-7xl grid-cols-1 items-center gap-12 lg:grid-cols-[0.86fr_1.14fr] lg:gap-16">
+          <div data-hero-copy className="relative z-20 w-full max-w-3xl">
             <p className="text-sm font-bold text-blue-100">Guidance that moves you forward</p>
             <h1 className="mt-5 max-w-[17ch] text-4xl font-[790] leading-[0.98] tracking-[-0.055em] text-white sm:text-5xl lg:text-6xl">
               Learn faster with the
@@ -510,15 +510,15 @@ const HomeScreen = () => {
             </div>
           </div>
 
-          <div data-hero-media data-scale-media className="relative min-h-[19rem] sm:min-h-[25rem] lg:min-h-[30rem] lg:pl-4">
-            <div className="absolute -bottom-3 left-3 z-0 h-32 w-32 rotate-6 rounded-[45%_55%_48%_52%] border-2 border-dashed border-yellow-300/65 lg:left-8" />
+          <div data-hero-media data-scale-media className="pointer-events-none absolute inset-x-0 bottom-0 h-[22rem] sm:h-[27rem] lg:inset-y-0 lg:left-auto lg:h-auto lg:w-[62%]">
+            <div className="absolute bottom-4 left-8 z-0 h-32 w-32 rotate-6 rounded-[45%_55%_48%_52%] border-2 border-dashed border-yellow-300/65 lg:bottom-8 lg:left-16" />
             <img
               src={MentoringHeroCutout}
               alt="A learner and mentor reviewing a practical learning plan"
-              className="absolute -bottom-14 right-[-8%] z-10 w-[112%] max-w-none sm:-bottom-14 sm:right-[-5%] lg:-bottom-20 lg:right-[-8%] lg:w-[122%]"
+              className="absolute -bottom-4 -right-[8%] z-10 w-[135%] max-w-none sm:-bottom-8 sm:-right-[4%] sm:w-[92%] lg:-bottom-[3%] lg:-right-[3%] lg:h-[88%] lg:w-auto"
               fetchPriority="high"
             />
-            <div className="absolute -bottom-8 left-4 z-20 max-w-xs rounded-2xl border border-white/25 bg-blue-950/70 p-4 text-white shadow-[var(--ui-shadow-sm)] backdrop-blur-md sm:left-8 lg:-bottom-12">
+            <div className="absolute bottom-6 left-4 z-20 max-w-xs rounded-2xl border border-white/25 bg-blue-950/70 p-4 text-white shadow-[var(--ui-shadow-sm)] backdrop-blur-md sm:left-10 lg:bottom-8 lg:left-8">
               <p className="text-sm font-bold text-white">Your next step</p>
               <p className="mt-1 text-sm font-semibold leading-5 text-blue-100">Turn a big goal into a practical plan you can follow.</p>
             </div>
