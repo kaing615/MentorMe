@@ -1,70 +1,48 @@
 import React from "react";
 import { ClipLoader } from "react-spinners";
+import BrandLogo from "./BrandLogo";
 
-// Component loading khi chuyển trang hoặc đang tải dữ liệu
 const LoadingPage = ({
-  loading = true, // Trạng thái loading
-  text = "Loading...", // Text hiển thị
-  fullscreen = true, // Hiển thị toàn màn hình
+  loading = true,
+  text = "Loading...",
+  fullscreen = true,
 }) => {
-  // Không hiển thị gì nếu loading = false
   if (!loading) return null;
 
   return (
     <div
+      role="status"
+      aria-live="polite"
+      aria-label={text}
       className={`${
         fullscreen ? "fixed inset-0 z-50" : "relative"
-      } flex flex-col items-center justify-center bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-800`}
+      } ui-brand-hero flex min-h-72 flex-col items-center justify-center px-6`}
     >
-      {/* Background Animation */}
-      <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute -top-10 -left-10 w-20 h-20 bg-white bg-opacity-10 rounded-full animate-ping"></div>
-        <div className="absolute top-1/4 right-10 w-16 h-16 bg-white bg-opacity-5 rounded-full animate-pulse"></div>
-        <div className="absolute bottom-20 left-1/4 w-12 h-12 bg-white bg-opacity-10 rounded-full animate-bounce"></div>
+      <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
+        <div className="absolute -left-16 top-16 h-44 w-44 rotate-6 rounded-[42%_58%_48%_52%] border-2 border-dashed border-yellow-300/45" />
+        <div className="absolute -right-20 bottom-10 h-56 w-56 -rotate-6 rounded-[58%_42%_55%_45%] border-2 border-dashed border-blue-200/35" />
       </div>
 
-      {/* Main Content */}
-      <div className="relative z-10 flex flex-col items-center space-y-8">
-        {/* Logo/Brand */}
-        <div className="text-center">
-          <h1 className="text-5xl md:text-6xl font-bold text-white mb-2">
-            Mentor<span className="text-yellow-300">Me</span>
-          </h1>
-          <p className="text-xl text-blue-100 font-medium">Moving...</p>
+      <div className="relative flex w-full max-w-sm flex-col items-center">
+        <div className="loading-brand scale-125 sm:scale-150">
+          <BrandLogo />
         </div>
+        <p className="mt-7 text-sm font-semibold tracking-wide text-blue-100">Moving your next step closer</p>
 
-        {/* Loading Spinner */}
-        <div className="flex flex-col items-center space-y-4">
+        <div className="mt-8 flex flex-col items-center gap-4">
           <ClipLoader
             color="#FBBF24"
             loading={loading}
-            size={60}
-            speedMultiplier={1.2}
+            size={46}
+            speedMultiplier={1.05}
           />
-          <p className="text-white text-lg font-medium animate-pulse">{text}</p>
+          <p className="text-base font-semibold text-white">{text}</p>
         </div>
 
-        {/* Progress Indicator */}
-        <div className="w-64 h-1 bg-white bg-opacity-20 rounded-full overflow-hidden">
-          <div className="h-full bg-yellow-300 rounded-full loading-progress"></div>
+        <div className="mt-7 h-1.5 w-full overflow-hidden rounded-full border border-white/20 bg-white/10">
+          <div className="ui-loading-progress h-full w-3/4 rounded-full bg-yellow-300" />
         </div>
       </div>
-
-      {/* Footer */}
-      <div className="absolute bottom-8 text-center">
-        <p className="text-blue-200 text-sm">Please wait a moment...</p>
-      </div>
-
-      <style>{`
-        @keyframes loadingProgress {
-          0% { width: 0%; }
-          50% { width: 70%; }
-          100% { width: 100%; }
-        }
-        .loading-progress {
-          animation: loadingProgress 2s ease-in-out infinite;
-        }
-      `}</style>
     </div>
   );
 };

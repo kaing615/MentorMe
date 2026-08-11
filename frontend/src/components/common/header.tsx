@@ -199,9 +199,9 @@ const Header = () => {
 
   return (
     <>
-      <header className="sticky top-0 z-40 w-full border-b border-[var(--ui-border)] bg-[color-mix(in_srgb,var(--ui-surface)_88%,transparent)] shadow-[var(--ui-shadow-sm)] backdrop-blur-xl">
-        <div className="mx-auto max-w-screen-2xl px-3 sm:px-5 lg:px-8">
-          <div className="flex h-[4.5rem] flex-nowrap items-center gap-2 md:gap-4 lg:gap-6">
+      <header className="sticky top-0 z-40 w-full px-2 pt-2 sm:px-4">
+        <div className="mx-auto max-w-screen-2xl rounded-2xl border-2 border-[var(--ui-border)] bg-[color-mix(in_srgb,var(--ui-surface)_90%,transparent)] px-3 shadow-[var(--ui-shadow-sm)] backdrop-blur-xl sm:px-5 lg:px-7">
+          <div className="flex h-[4.25rem] flex-nowrap items-center gap-2 md:gap-4 lg:gap-6">
             <button
               type="button"
               aria-label="Go to MentorMe home"
@@ -218,7 +218,7 @@ const Header = () => {
                   ) {
                     setShowCategories(true);
                     localStorage.setItem("mentorMode", "true");
-                    navigate("/mentor/home");
+                    navigate("/mentor/dashboard");
                   } else {
                     setShowCategories(false);
                     localStorage.setItem("mentorMode", "false");
@@ -253,7 +253,7 @@ const Header = () => {
             <button
               type="button"
               onClick={() => navigate("/auth/apply-as-men")}
-              className="hidden h-11 shrink-0 items-center whitespace-nowrap rounded-full bg-[var(--ui-surface-muted)] px-4 text-sm font-semibold text-[var(--ui-text)] transition-colors hover:bg-[var(--ui-accent-soft)] hover:text-[var(--ui-accent)] xl:flex"
+              className="ui-button-highlight hidden h-11 shrink-0 items-center whitespace-nowrap rounded-full px-4 text-sm font-bold transition-all xl:flex"
             >
               Mentor with MentorMe
             </button>
@@ -288,7 +288,7 @@ const Header = () => {
                       setShowCategories(false);
                       navigateToAuth("/auth/signup");
                     }}
-                    className="flex h-11 items-center whitespace-nowrap rounded-full bg-[var(--ui-accent-fill)] px-5 text-sm font-bold text-white shadow-[var(--ui-shadow-sm)] transition-colors hover:bg-[var(--ui-accent-fill-hover)]"
+                    className="ui-button-highlight flex h-11 items-center whitespace-nowrap rounded-full px-5 text-sm font-bold transition-all"
                   >
                     Sign Up
                   </button>
@@ -323,7 +323,7 @@ const Header = () => {
                     <button
                       type="button"
                       aria-label="Open account menu"
-                      className="inline-flex h-11 w-11 cursor-pointer select-none items-center justify-center rounded-full bg-[var(--ui-text)] text-base font-bold text-[var(--ui-surface)] transition-opacity hover:opacity-85"
+                      className="inline-flex h-11 w-11 cursor-pointer select-none items-center justify-center rounded-[46%_54%_48%_52%] border-2 border-[var(--ui-highlight)] bg-[var(--ui-accent-fill)] text-base font-bold text-white shadow-[3px_4px_0_var(--ui-highlight)] transition-all hover:-translate-y-0.5"
                       onClick={() => setShowAvatarDropdown((v) => !v)}
                       title="Account menu"
                     >
@@ -382,7 +382,7 @@ const Header = () => {
                                 setShowAvatarDropdown(false);
                                 setShowCategories(mentorMode);
                                 localStorage.setItem("mentorMode", String(mentorMode));
-                                navigate(mentorMode ? "/mentor/home" : "/home");
+                                navigate(mentorMode ? "/mentor/dashboard" : "/home");
                               }}
                             >
                               Chuyển sang {showCategories ? "Mentee" : "Mentor"}

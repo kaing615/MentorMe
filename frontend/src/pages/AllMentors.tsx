@@ -20,9 +20,7 @@ const AllMentors = () => {
   useEffect(() => {
     const token =
       localStorage.getItem("actkn") || localStorage.getItem("token");
-    const userStr =
-      localStorage.getItem("user") || localStorage.getItem("user");
-    console.log("Token:", token);
+    const userStr = localStorage.getItem("user");
     let user = null;
     if (!token) {
       navigate("/auth/signin");
@@ -206,7 +204,7 @@ const AllMentors = () => {
       index < Math.floor(rating) ? (
         <IconStarFilled key={index} aria-hidden="true" className="h-4 w-4 text-yellow-400" />
       ) : (
-        <IconStar key={index} aria-hidden="true" className="h-4 w-4 text-gray-300" stroke={1.6} />
+        <IconStar key={index} aria-hidden="true" className="h-4 w-4 text-[var(--ui-border-strong)]" stroke={1.6} />
       )
     ));
   };
@@ -250,22 +248,24 @@ const AllMentors = () => {
 
   return (
     <div className="min-h-[100dvh] bg-[var(--ui-page)]">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
 
-        <div className="mb-8">
+        <div className="ui-brand-hero relative mb-8 overflow-hidden p-6 sm:p-8">
+          <span aria-hidden="true" className="absolute -right-5 -top-8 h-32 w-32 rotate-6 rounded-[38%_62%_45%_55%] border-2 border-dashed border-yellow-300/60" />
           <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-              <h1 className="mb-2 text-3xl font-extrabold tracking-[-0.035em] text-[var(--ui-text)]">
-                Our Mentors
+            <div className="relative">
+              <p className="mb-2 text-xs font-black uppercase tracking-[0.18em] text-yellow-300">Find your guide</p>
+              <h1 className="text-3xl font-black tracking-[-0.04em] text-white sm:text-4xl">
+                Learn with a mentor who <span className="ui-marker text-blue-950">gets it</span>
               </h1>
-              <p className="text-gray-600">All mentors</p>
+              <p className="mt-3 max-w-2xl text-sm leading-6 text-blue-100">Filter by craft, role, and proven learner feedback.</p>
             </div>
-            <div className="grid grid-cols-1 gap-3 sm:flex sm:items-center sm:gap-4">
-              <p className="text-gray-600">
+            <div className="relative grid grid-cols-1 gap-3 sm:flex sm:items-center sm:gap-4">
+              <p className="font-semibold text-blue-100">
                 {serverTotal} mentors found
               </p>
               <div className="flex items-center gap-2">
-                <span className="text-sm text-gray-700">Sort by</span>
+                <span className="text-sm text-blue-100">Sort by</span>
                 <select
                   aria-label="Sort mentors"
                   value={sortBy}
@@ -273,7 +273,7 @@ const AllMentors = () => {
                     setSortBy(e.target.value);
                     setCurrentPage(1);
                   }}
-                  className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="rounded-xl border border-white/25 bg-white px-3 py-2 text-sm font-semibold text-blue-950 outline-none focus:ring-2 focus:ring-yellow-300"
                 >
                   <option value="relevance">Relevance</option>
                   <option value="rating">Rating</option>
@@ -301,14 +301,14 @@ const AllMentors = () => {
             id="mentor-filters"
             className={`${mobileFiltersOpen ? "block" : "hidden"} lg:block lg:w-1/4`}
           >
-            <div className="max-h-[70dvh] overflow-y-auto rounded-2xl border border-[var(--ui-border)] bg-[var(--ui-surface)] p-6 lg:sticky lg:top-20 lg:max-h-[calc(100dvh-6rem)]">
+            <div className="ui-card ui-card-yellow max-h-[70dvh] overflow-y-auto p-6 lg:sticky lg:top-20 lg:max-h-[calc(100dvh-6rem)]">
 
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-2">
-                  <button className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
+                  <div className="flex items-center gap-2 rounded-xl border-2 border-dashed border-[var(--ui-border)] px-4 py-2 text-[var(--ui-text)]">
                     <IconFilter aria-hidden="true" size={17} stroke={1.8} />
                     <span className="text-sm font-medium">Filter</span>
-                  </button>
+                  </div>
                   {getActiveFilterCount() > 0 && (
                     <span className="bg-blue-600 text-white text-xs font-medium px-2 py-1 rounded-full">
                       {getActiveFilterCount()}
@@ -326,7 +326,7 @@ const AllMentors = () => {
               </div>
 
               <div className="mb-6">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="mb-2 block text-sm font-medium text-[var(--ui-text)]">
                   Search Mentors
                 </label>
                 <div className="relative">
@@ -339,15 +339,15 @@ const AllMentors = () => {
                       setCurrentPage(1);
                     }}
                     placeholder="Search by name, title, skills..."
-                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full rounded-xl border border-[var(--ui-border)] bg-[var(--ui-surface)] py-2.5 pl-10 pr-4 text-[var(--ui-text)] outline-none focus:border-[var(--ui-accent)] focus:ring-2 focus:ring-[var(--ui-accent-soft)]"
                   />
-                  <IconSearch aria-hidden="true" className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" stroke={1.8} />
+                  <IconSearch aria-hidden="true" className="absolute left-3 top-3 h-5 w-5 text-[var(--ui-text-muted)]" stroke={1.8} />
                 </div>
               </div>
 
               <div className="mb-6">
                 <h3
-                  className="font-semibold text-gray-900 mb-3 flex items-center justify-between cursor-pointer"
+                  className="mb-3 flex cursor-pointer items-center justify-between font-semibold text-[var(--ui-text)]"
                   onClick={() => setIsRatingExpanded(!isRatingExpanded)}
                 >
                   <span>Rating</span>
@@ -370,7 +370,6 @@ const AllMentors = () => {
                         />
                         <div className="flex items-center">
                           {renderStars(rating)}
-                          <span className="ml-2 text-sm text-gray-600"></span>
                         </div>
                       </label>
                     ))}
@@ -380,7 +379,7 @@ const AllMentors = () => {
 
               <div className="mb-6">
                 <h3
-                  className="font-semibold text-gray-900 mb-3 flex items-center justify-between cursor-pointer"
+                  className="mb-3 flex cursor-pointer items-center justify-between font-semibold text-[var(--ui-text)]"
                   onClick={() => setIsSkillsExpanded(!isSkillsExpanded)}
                 >
                   <span>Skills</span>
@@ -396,7 +395,7 @@ const AllMentors = () => {
                           onChange={() => toggleSkillFilter(skill)}
                           className="mr-2"
                         />
-                        <span className="text-sm text-gray-700">{skill}</span>
+                        <span className="text-sm text-[var(--ui-text-muted)]">{skill}</span>
                       </label>
                     ))}
                   </div>
@@ -405,7 +404,7 @@ const AllMentors = () => {
 
               <div className="mb-6">
                 <h3
-                  className="font-semibold text-gray-900 mb-3 flex items-center justify-between cursor-pointer"
+                  className="mb-3 flex cursor-pointer items-center justify-between font-semibold text-[var(--ui-text)]"
                   onClick={() => setIsJobTitlesExpanded(!isJobTitlesExpanded)}
                 >
                   <span>Job Titles</span>
@@ -421,7 +420,7 @@ const AllMentors = () => {
                           onChange={() => toggleJobTitleFilter(jobTitle)}
                           className="mr-2"
                         />
-                        <span className="text-sm text-gray-700">
+                        <span className="text-sm text-[var(--ui-text-muted)]">
                           {jobTitle}
                         </span>
                       </label>
@@ -439,30 +438,30 @@ const AllMentors = () => {
                 {currentMentors.map((mentor) => (
                   <div
                     key={mentor.id}
-                    className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow"
+                    className="ui-card group overflow-hidden transition-transform hover:-translate-y-1"
                   >
 
-                    <div className="aspect-w-16 aspect-h-12 bg-gray-200">
+                    <div className="relative bg-[var(--ui-surface-muted)]">
                       {mentor.avatar ? (
                         <img
                           src={mentor.avatar}
                           alt={mentor.name}
-                          className="h-48 w-full object-cover"
+                          className="h-52 w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
                         />
                       ) : (
-                        <div className="flex h-48 w-full items-center justify-center bg-[var(--ui-accent-soft)] text-4xl font-extrabold text-[var(--ui-accent)]">
+                        <div className="flex h-52 w-full items-center justify-center bg-[var(--ui-accent-soft)] text-4xl font-extrabold text-[var(--ui-accent)]">
                           {mentor.name.charAt(0).toUpperCase()}
                         </div>
                       )}
                     </div>
 
                     <div className="p-4">
-                      <div className="flex items-start justify-between mb-2">
+                      <div className="mb-2 flex items-start justify-between">
                         <div>
-                          <h3 className="font-semibold text-gray-900 text-lg">
+                          <h3 className="text-lg font-bold text-[var(--ui-text)]">
                             {mentor.name}
                           </h3>
-                          <p className="text-gray-600 text-sm">
+                          <p className="text-sm text-[var(--ui-text-muted)]">
                             {mentor.title}
                           </p>
                         </div>
@@ -470,18 +469,18 @@ const AllMentors = () => {
 
                       <div className="flex items-center gap-1 mb-2">
                         {renderStars(mentor.rating)}
-                        <span className="text-sm text-gray-600 ml-1">
+                        <span className="ml-1 text-sm text-[var(--ui-text-muted)]">
                           {mentor.rating} ({mentor.reviewCount} reviews)
                         </span>
                       </div>
 
-                      <p className="text-sm text-gray-600 mb-3">
+                      <p className="mb-3 text-sm text-[var(--ui-text-muted)]">
                         {mentor.studentCount.toLocaleString()} Students
                       </p>
 
                       <button
                         onClick={() => handleViewProfile(mentor.id)}
-                        className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                        className="ui-button-highlight w-full px-4 py-2.5 font-black text-blue-950"
                       >
                         View Info
                       </button>
@@ -490,18 +489,18 @@ const AllMentors = () => {
                 ))}
               </div>
             ) : (
-              <div className="text-center py-12">
-                <IconSearchOff aria-hidden="true" className="mx-auto h-12 w-12 text-gray-400" stroke={1.5} />
-                <h3 className="mt-2 text-sm font-medium text-gray-900">
+              <div className="ui-card ui-card-blue py-12 text-center">
+                <IconSearchOff aria-hidden="true" className="mx-auto h-12 w-12 text-[var(--ui-accent)]" stroke={1.5} />
+                <h3 className="mt-2 text-sm font-medium text-[var(--ui-text)]">
                   No mentors found
                 </h3>
-                <p className="mt-1 text-sm text-gray-500">
+                <p className="mt-1 text-sm text-[var(--ui-text-muted)]">
                   Try adjusting your search criteria or clearing some filters.
                 </p>
                 {hasActiveFilters() && (
                   <button
                     onClick={clearAllFilters}
-                    className="mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700"
+                    className="ui-button-highlight mt-4 inline-flex items-center px-4 py-2 text-sm font-black text-blue-950"
                   >
                     Clear all filters
                   </button>
