@@ -1,10 +1,14 @@
 import {
   IsArray,
+  IsInt,
   IsOptional,
   IsString,
+  Max,
   MaxLength,
+  Min,
   MinLength,
 } from "class-validator";
+import { Type } from "class-transformer";
 
 export class UpdateMentorProfileDto {
   @IsString() @MinLength(3) @MaxLength(30) userName!: string;
@@ -22,4 +26,6 @@ export class UpdateMentorProfileDto {
   @IsOptional() @IsString() introVideo?: string;
   @IsOptional() @IsArray() @IsString({ each: true }) languages?: string[];
   @IsOptional() @IsString() timezone?: string;
+  @IsOptional() @Type(() => Number) @IsInt() @Min(0) @Max(100_000_000)
+  sessionPrice?: number;
 }

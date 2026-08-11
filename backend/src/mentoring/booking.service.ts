@@ -6,6 +6,7 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import { InjectConnection, InjectModel } from "@nestjs/mongoose";
+import crypto from "node:crypto";
 import type { ClientSession, Connection, Model } from "mongoose";
 import { Types } from "mongoose";
 import type { UserDocument } from "../identity/user.schema";
@@ -18,8 +19,18 @@ import { assertBookingTransition } from "./booking-state";
 import type { CreateBookingDto } from "./dto/create-booking.dto";
 import type { UpdateBookingDto } from "./dto/update-booking.dto";
 import { Relationship } from "./relationship.schema";
+import { Profile } from "./profile.schema";
+import { Order, type OrderDocument } from "../commerce/order.schema";
+import { MentorEarning } from "../commerce/mentor-earning.schema";
+import { assertOrderTransition } from "../commerce/order-state";
 
-type ActionResult = { message: string; booking: BookingDocument };
+type ActionResult = {
+  message: string;
+  booking: BookingDocument;
+  order?: OrderDocument | null;
+};
+
+const PLATFORM_FEE_PERCENT = 15;
 
 @Injectable()
 export class BookingService {
@@ -31,6 +42,10 @@ export class BookingService {
     @InjectModel(Booking.name) private readonly bookings: Model<Booking>,
     @InjectModel(Relationship.name)
     private readonly relationships: Model<Relationship>,
+    @InjectModel(Profile.name) private readonly profiles: Model<Profile>,
+    @InjectModel(Order.name) private readonly orders: Model<Order>,
+    @InjectModel(MentorEarning.name)
+    private readonly earnings: Model<MentorEarning>,
     private readonly notifications: NotificationService,
   ) {}
 
@@ -64,7 +79,7 @@ export class BookingService {
       throw new BadRequestException("Cannot book a past time slot");
     }
 
-    const booking = await this.connection.transaction(async (session) => {
+    const result = await this.connection.transaction(async (session) => {
       const overlap = await this.bookings.exists({
         mentee: menteeId,
         date,
@@ -125,6 +140,14 @@ export class BookingService {
       );
       if (!slot) throw new ConflictException("Selected time slot not found");
 
+      const profile = await this.profiles
+        .findOne({ user: new Types.ObjectId(mentorId) })
+        .session(session);
+      const price = Math.max(0, Math.round(profile?.sessionPrice ?? 0));
+      const platformFeeAmount = Math.round(
+        (price * PLATFORM_FEE_PERCENT) / 100,
+      );
+
       const created = new this.bookings({
         _id: bookingId,
         relationship: relationship._id,
@@ -137,8 +160,43 @@ export class BookingService {
         notes: dto.notes,
         slotId: slot._id,
         availabilityId: availability._id,
+        price,
+        currency: "VND",
+        platformFeePercent: PLATFORM_FEE_PERCENT,
+        platformFeeAmount,
+        mentorNetAmount: price - platformFeeAmount,
+        paymentStatus: price > 0 ? "unpaid" : "not_required",
       });
       await created.save({ session });
+      let order: OrderDocument | null = null;
+      if (price > 0) {
+        order = new this.orders({
+          orderNumber: `BOOK-${Date.now()}-${crypto.randomUUID().slice(0, 5).toUpperCase()}`,
+          mentee: menteeId,
+          userId: menteeId,
+          items: [],
+          courses: [],
+          booking: created._id,
+          type: "booking",
+          subtotalAmount: price,
+          discountAmount: 0,
+          amount: price,
+          totalAmount: price,
+          currency: "VND",
+          billingInfo: {
+            email: mentee.email,
+            firstName: mentee.firstName,
+            lastName: mentee.lastName,
+            country: "Vietnam",
+            address: "",
+          },
+          paymentInfo: { method: "pending", paymentGateway: "pending" },
+          paymentMethod: "pending",
+        });
+        await order.save({ session });
+        created.order = order._id;
+        await created.save({ session });
+      }
       await this.notifications.notify(
         {
           recipient: mentorId,
@@ -152,10 +210,10 @@ export class BookingService {
         },
         session,
       );
-      return created;
+      return { booking: created, order };
     });
 
-    return { message: "Booking created successfully", booking };
+    return { message: "Booking created successfully", ...result };
   }
 
   async listAll(user: UserDocument, query: Record<string, string | undefined>) {
@@ -223,8 +281,19 @@ export class BookingService {
     });
   }
 
-  confirm(user: UserDocument, id: string): Promise<ActionResult> {
-    return this.changeByMentor(user, id, "active", "Booking confirmed");
+  confirm(
+    user: UserDocument,
+    id: string,
+    meetingLink?: string,
+  ): Promise<ActionResult> {
+    return this.changeByMentor(
+      user,
+      id,
+      "active",
+      "Booking confirmed",
+      undefined,
+      meetingLink,
+    );
   }
 
   decline(
@@ -263,6 +332,30 @@ export class BookingService {
       }
 
       await this.releaseSlot(booking, session);
+      if (booking.paymentStatus === "paid") {
+        const isMentor = String(booking.mentor) === userId;
+        const hoursUntilStart =
+          (this.startAt(booking).getTime() - Date.now()) / 3_600_000;
+        const refundRate = isMentor || hoursUntilStart >= 24 ? 1 : 0.5;
+        booking.refundAmount = Math.round(booking.price * refundRate);
+        booking.paymentStatus = "refund_pending";
+        const retained = booking.price - booking.refundAmount;
+        const fee = Math.round(
+          (retained * booking.platformFeePercent) / 100,
+        );
+        await this.earnings.updateOne(
+          { booking: booking._id },
+          {
+            $set: {
+              grossAmount: retained,
+              platformFeeAmount: fee,
+              netAmount: retained - fee,
+              status: retained > 0 ? "pending" : "cancelled",
+            },
+          },
+          { session },
+        );
+      }
       booking.status = "cancelled";
       if (reason) booking.declineReason = reason;
       await booking.save({ session });
@@ -294,6 +387,7 @@ export class BookingService {
     to: "active" | "rejected",
     message: string,
     reason?: string,
+    meetingLink?: string,
   ): Promise<ActionResult> {
     this.assertId(id);
     return this.connection.transaction(async (session) => {
@@ -346,6 +440,9 @@ export class BookingService {
       }
 
       booking.status = to;
+      if (to === "active" && meetingLink !== undefined) {
+        booking.meetingLink = meetingLink;
+      }
       if (to === "rejected") booking.declineReason = reason ?? "";
       await booking.save({ session });
       await this.notifications.notify(
@@ -414,11 +511,78 @@ export class BookingService {
       field === "mentor"
         ? { path: "mentee", select: "firstName lastName email avatarUrl" }
         : { path: "mentor", select: "firstName lastName avatarUrl jobTitle" };
-    return this.bookings
+    const items = await this.bookings
       .find(filter)
       .sort({ createdAt: -1 })
       .limit(limit)
-      .populate(population);
+      .populate(population)
+      .populate("order", "orderNumber status totalAmount currency")
+      .lean();
+    if (field === "mentee") {
+      return items.map((item) => {
+        if (
+          item.paymentStatus === "paid" ||
+          item.paymentStatus === "not_required"
+        ) {
+          return item;
+        }
+        const { meetingLink, ...safe } = item;
+        void meetingLink;
+        return safe;
+      });
+    }
+    return items;
+  }
+
+  async processRefund(
+    user: UserDocument,
+    id: string,
+    refundReference: string,
+  ): Promise<ActionResult> {
+    if (user.role !== "admin") throw new ForbiddenException("Admin only");
+    this.assertId(id);
+    return this.connection.transaction(async (session) => {
+      const booking = await this.bookings.findById(id).session(session);
+      if (!booking) throw new NotFoundException("Booking not found");
+      if (booking.paymentStatus !== "refund_pending") {
+        throw new BadRequestException("Booking has no pending refund");
+      }
+      const order = await this.orders.findById(booking.order).session(session);
+      if (!order) throw new NotFoundException("Booking order not found");
+      assertOrderTransition(order.status, "refunded");
+      order.status = "refunded";
+      order.notes = `Refund ${refundReference}`;
+      booking.paymentStatus = "refunded";
+      booking.refundReference = refundReference;
+      await order.save({ session });
+      await booking.save({ session });
+      return { message: "Booking refund recorded", booking, order };
+    });
+  }
+
+  async finish(user: UserDocument, id: string): Promise<ActionResult> {
+    this.assertId(id);
+    return this.connection.transaction(async (session) => {
+      const booking = await this.bookings.findById(id).session(session);
+      if (!booking) throw new NotFoundException("Booking not found");
+      if (String(booking.mentor) !== String(user._id) && user.role !== "admin") {
+        throw new ForbiddenException("Only the booking mentor can finish it");
+      }
+      assertBookingTransition(booking.status, "finished");
+      if (this.endAt(booking) > new Date()) {
+        throw new BadRequestException("Cannot finish before session end");
+      }
+      booking.status = "finished";
+      await booking.save({ session });
+      if (booking.paymentStatus === "paid") {
+        await this.earnings.updateOne(
+          { booking: booking._id, status: "pending" },
+          { $set: { status: "eligible", eligibleAt: new Date() } },
+          { session },
+        );
+      }
+      return { message: "Booking finished", booking };
+    });
   }
 
   private async finishPast(
@@ -438,6 +602,10 @@ export class BookingService {
       await this.bookings.updateMany(
         { _id: { $in: ids }, status: "active" },
         { $set: { status: "finished" } },
+      );
+      await this.earnings.updateMany(
+        { booking: { $in: ids }, status: "pending" },
+        { $set: { status: "eligible", eligibleAt: now } },
       );
     }
   }

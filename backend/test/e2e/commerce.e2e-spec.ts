@@ -5,6 +5,7 @@ import type { Connection, Model } from "mongoose";
 import { Types } from "mongoose";
 import request from "supertest";
 import { Cart } from "../../src/commerce/cart.schema";
+import { MentorEarning } from "../../src/commerce/mentor-earning.schema";
 import { Discount } from "../../src/commerce/discount.schema";
 import { MomoProvider } from "../../src/commerce/providers/momo.provider";
 import type { PaymentProvider } from "../../src/commerce/payment-provider";
@@ -20,6 +21,7 @@ describe("commerce", () => {
   let carts: Model<Cart>;
   let courses: Model<Course>;
   let purchases: Model<PurchasedCourse>;
+  let earnings: Model<MentorEarning>;
   let courseId: string;
   let userToken: string;
   let mentorToken: string;
@@ -37,6 +39,7 @@ describe("commerce", () => {
     purchases = app.get<Model<PurchasedCourse>>(
       getModelToken(PurchasedCourse.name),
     );
+    earnings = app.get<Model<MentorEarning>>(getModelToken(MentorEarning.name));
     const users = app.get<Model<User>>(getModelToken(User.name));
     courses = app.get<Model<Course>>(getModelToken(Course.name));
     const jwt = app.get(JwtService);
@@ -249,6 +252,23 @@ describe("commerce", () => {
       .send({ orderNumber: paidOrder, transactionId: "MANUAL-1" })
       .expect(200);
     expect(await purchases.countDocuments()).toBe(1);
+    const earning = await earnings.findOne({ sourceType: "course" });
+    expect(earning?.grossAmount).toBe(125000);
+    expect(earning?.platformFeeAmount).toBe(18750);
+    expect(earning?.netAmount).toBe(106250);
+    expect(earning?.status).toBe("eligible");
+    if (!earning) throw new Error("Expected mentor earning");
+    const mentorEarnings = await request(app.getHttpServer())
+      .get("/api/v1/mentor-earnings")
+      .set("Authorization", `Bearer ${mentorToken}`)
+      .expect(200);
+    expect(mentorEarnings.body.data.total).toBe(1);
+    await request(app.getHttpServer())
+      .patch(`/api/v1/mentor-earnings/admin/${String(earning._id)}/paid`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({ payoutReference: "BANK-TRANSFER-1" })
+      .expect(200);
+    expect((await earnings.findById(earning._id))?.status).toBe("paid");
     expect(await carts.countDocuments()).toBe(0);
     expect(
       await connection.collection("notifications").countDocuments({

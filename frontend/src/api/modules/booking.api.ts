@@ -14,7 +14,7 @@ const bookingEndpoints = {
 };
 
 const bookingApi: any = {
-  // Mentee tạo booking mới với mentor
+
   createBooking: async (mentorId, data) => {
     try {
       const response = await apiClient.post(
@@ -27,7 +27,6 @@ const bookingApi: any = {
     }
   },
 
-  // Lấy tất cả bookings (Admin only)
   getAllBookings: async (params = {}) => {
     try {
       const response = await apiClient.get(bookingEndpoints.getAll, {
@@ -39,7 +38,6 @@ const bookingApi: any = {
     }
   },
 
-  // Lấy bookings của mentor hiện tại
   getMentorBookings: async (params = {}) => {
     try {
       const response = await apiClient.get(bookingEndpoints.getMentorBookings, {
@@ -51,7 +49,6 @@ const bookingApi: any = {
     }
   },
 
-  // Lấy bookings của mentee hiện tại
   getMenteeBookings: async (params = {}) => {
     try {
       const response = await apiClient.get(bookingEndpoints.getMenteeBookings, {
@@ -63,10 +60,11 @@ const bookingApi: any = {
     }
   },
 
-  // Mentor confirm booking
-  confirmBooking: async (bookingId) => {
+  confirmBooking: async (bookingId, meetingLink = "") => {
     try {
-      const response = await apiClient.post(bookingEndpoints.confirm(bookingId));
+      const response = await apiClient.post(bookingEndpoints.confirm(bookingId), {
+        ...(meetingLink ? { meetingLink } : {}),
+      });
       return { response: response.data };
     } catch (err) {
       return { error: err.response?.data || err };
@@ -93,7 +91,6 @@ const bookingApi: any = {
     }
   },
 
-  // Cancel booking (mentor hoặc mentee)
   cancelBooking: async (bookingId, reason = "") => {
     try {
       const response = await apiClient.post(bookingEndpoints.cancel(bookingId), {
@@ -105,7 +102,6 @@ const bookingApi: any = {
     }
   },
 
-  // Cập nhật booking (notes, etc)
   updateBooking: async (bookingId, data) => {
     try {
       const response = await apiClient.patch(
@@ -118,7 +114,6 @@ const bookingApi: any = {
     }
   },
 
-  // Xóa booking (Admin only)
   deleteBooking: async (bookingId) => {
     try {
       const response = await apiClient.delete(bookingEndpoints.delete(bookingId));

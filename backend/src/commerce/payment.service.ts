@@ -5,14 +5,16 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import { InjectConnection, InjectModel } from "@nestjs/mongoose";
-import type { Connection, Model } from "mongoose";
+import type { ClientSession, Connection, Model } from "mongoose";
 import { hasUserRole } from "../common/auth/user-role";
 import type { UserDocument } from "../identity/user.schema";
 import { NotificationService } from "../engagement/notification.service";
 import { EnrolmentService } from "../learning/enrolment.service";
 import { Course } from "../learning/course.schema";
+import { Booking } from "../mentoring/booking.schema";
 import { Cart } from "./cart.schema";
-import { Order } from "./order.schema";
+import { Order, type OrderDocument } from "./order.schema";
+import { MentorEarning } from "./mentor-earning.schema";
 import { assertOrderTransition } from "./order-state";
 import { PaymentEvent } from "./payment-event.schema";
 import type {
@@ -33,6 +35,9 @@ export class PaymentService {
     private readonly events: Model<PaymentEvent>,
     @InjectModel(Cart.name) private readonly carts: Model<Cart>,
     @InjectModel(Course.name) private readonly courses: Model<Course>,
+    @InjectModel(Booking.name) private readonly bookings: Model<Booking>,
+    @InjectModel(MentorEarning.name)
+    private readonly earnings: Model<MentorEarning>,
     private readonly enrolments: EnrolmentService,
     private readonly notifications: NotificationService,
   ) {}
@@ -93,23 +98,12 @@ export class PaymentService {
         .session(session);
       if (!order) throw new NotFoundException("Không tìm thấy đơn hàng!");
       assertOrderTransition(order.status, "paid");
-      for (const item of order.items) {
-        await this.enrolments.grantCourseAccess({
-          menteeId: String(order.mentee),
-          courseId: String(item.courseId),
-          orderId: String(order._id),
-          price: item.price,
-          session,
-        });
-      }
-      await this.removePaidCoursesFromCart(
-        order.mentee,
-        order.items.map(({ courseId }) => courseId),
-        session,
-      );
+      await this.settleOrder(order, transactionId, session);
       order.status = "paid";
-      order.coursesGranted = true;
-      order.grantedAt = new Date();
+      if (order.type === "course") {
+        order.coursesGranted = true;
+        order.grantedAt = new Date();
+      }
       order.transactionId = transactionId;
       order.paymentInfo = {
         ...(order.paymentInfo ?? {}),
@@ -126,8 +120,14 @@ export class PaymentService {
           recipient: order.mentee,
           type: "payment_paid",
           title: "Payment successful",
-          body: "Your payment was confirmed and your courses are ready.",
-          link: "/profile?tab=orders",
+          body:
+            order.type === "booking"
+              ? "Your mentoring session payment was confirmed."
+              : "Your payment was confirmed and your courses are ready.",
+          link:
+            order.type === "booking"
+              ? "/profile?tab=mybookings"
+              : "/profile?tab=orders",
           metadata: { orderNumber: order.orderNumber },
           eventKey: `payment:paid:${String(order._id)}`,
         },
@@ -182,23 +182,12 @@ export class PaymentService {
 
         if (payment.status === "paid") {
           assertOrderTransition(order.status, "paid");
-          for (const item of order.items) {
-            await this.enrolments.grantCourseAccess({
-              menteeId: String(order.mentee),
-              courseId: String(item.courseId),
-              orderId: String(order._id),
-              price: item.price,
-              session,
-            });
-          }
-          await this.removePaidCoursesFromCart(
-            order.mentee,
-            order.items.map(({ courseId }) => courseId),
-            session,
-          );
+          await this.settleOrder(order, payment.transactionId, session);
           order.status = "paid";
-          order.coursesGranted = true;
-          order.grantedAt = new Date();
+          if (order.type === "course") {
+            order.coursesGranted = true;
+            order.grantedAt = new Date();
+          }
           order.transactionId = payment.transactionId;
           order.paymentInfo = {
             ...(order.paymentInfo ?? {}),
@@ -223,9 +212,14 @@ export class PaymentService {
                 : "Payment failed",
             body:
               payment.status === "paid"
-                ? "Your payment was confirmed and your courses are ready."
+                ? order.type === "booking"
+                  ? "Your mentoring session payment was confirmed."
+                  : "Your payment was confirmed and your courses are ready."
                 : "Your payment could not be completed.",
-            link: "/profile?tab=orders",
+            link:
+              order.type === "booking"
+                ? "/profile?tab=mybookings"
+                : "/profile?tab=orders",
             metadata: { orderNumber: order.orderNumber },
             eventKey: `payment:${payment.status}:${String(order._id)}`,
           },
@@ -246,6 +240,78 @@ export class PaymentService {
         typeof error === "object" &&
         "code" in error &&
         error.code === 11000,
+    );
+  }
+
+  private async settleOrder(
+    order: OrderDocument,
+    transactionId: string,
+    session: ClientSession,
+  ): Promise<void> {
+    if (order.type === "booking") {
+      const booking = await this.bookings.findById(order.booking).session(session);
+      if (!booking) throw new NotFoundException("Booking not found");
+      booking.paymentStatus = "paid";
+      booking.paymentTransactionId = transactionId;
+      await booking.save({ session });
+      await this.earnings.updateOne(
+        { sourceKey: `booking:${String(booking._id)}` },
+        {
+          $setOnInsert: {
+            sourceKey: `booking:${String(booking._id)}`,
+            sourceType: "booking",
+            mentor: booking.mentor,
+            mentee: booking.mentee,
+            order: order._id,
+            booking: booking._id,
+            grossAmount: booking.price,
+            platformFeeAmount: booking.platformFeeAmount,
+            netAmount: booking.mentorNetAmount,
+            currency: "VND",
+            status: "pending",
+          },
+        },
+        { upsert: true, session },
+      );
+      return;
+    }
+
+    for (const item of order.items) {
+      await this.enrolments.grantCourseAccess({
+        menteeId: String(order.mentee),
+        courseId: String(item.courseId),
+        orderId: String(order._id),
+        price: item.price,
+        session,
+      });
+      const course = await this.courses.findById(item.courseId).session(session);
+      if (!course) throw new NotFoundException("Course not found");
+      const platformFeeAmount = Math.round(item.price * 0.15);
+      await this.earnings.updateOne(
+        { sourceKey: `course:${String(order._id)}:${String(item.courseId)}` },
+        {
+          $setOnInsert: {
+            sourceKey: `course:${String(order._id)}:${String(item.courseId)}`,
+            sourceType: "course",
+            mentor: course.mentor,
+            mentee: order.mentee,
+            order: order._id,
+            course: item.courseId,
+            grossAmount: item.price,
+            platformFeeAmount,
+            netAmount: item.price - platformFeeAmount,
+            currency: "VND",
+            status: "eligible",
+            eligibleAt: new Date(),
+          },
+        },
+        { upsert: true, session },
+      );
+    }
+    await this.removePaidCoursesFromCart(
+      order.mentee,
+      order.items.map(({ courseId }) => courseId),
+      session,
     );
   }
 

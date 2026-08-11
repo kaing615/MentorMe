@@ -5,6 +5,7 @@ import type { Connection, Model } from "mongoose";
 import request from "supertest";
 import { EmailService } from "../../src/infrastructure/email/email.service";
 import { CloudinaryService } from "../../src/infrastructure/files/cloudinary.service";
+import { MentorApplication } from "../../src/identity/mentor-application.schema";
 import { User } from "../../src/identity/user.schema";
 import { createApplication } from "../../src/main";
 
@@ -12,12 +13,16 @@ describe("identity", () => {
   let app: INestApplication;
   let connection: Connection;
   let users: Model<User>;
+  let mentorApplications: Model<MentorApplication>;
 
   beforeAll(async () => {
     app = await createApplication();
     connection = app.get<Connection>(getConnectionToken());
     await connection.dropDatabase();
     users = app.get<Model<User>>(getModelToken(User.name));
+    mentorApplications = app.get<Model<MentorApplication>>(
+      getModelToken(MentorApplication.name),
+    );
     jest
       .spyOn(app.get(EmailService), "sendVerification")
       .mockResolvedValue(undefined);
@@ -186,7 +191,7 @@ describe("identity", () => {
       .expect(200);
   });
 
-  it("signs up a mentor with an uploaded avatar", async () => {
+  it("creates a pending mentor application instead of granting the mentor role", async () => {
     const response = await request(app.getHttpServer())
       .post("/api/v1/user/signupMentor")
       .field("userName", "new_mentor")
@@ -217,11 +222,18 @@ describe("identity", () => {
     expect(response.body.data.avatarUrl).toBe(
       "https://cdn.example.com/avatar.png",
     );
-    expect(response.body.data.user.role).toBe("mentor");
-    expect(response.body.data.user.roles).toEqual(["mentor"]);
+    expect(response.body.data.user.role).toBe("mentee");
+    expect(response.body.data.user.roles).toEqual(["mentee"]);
+    expect(response.body.data.application.status).toBe("pending");
+    expect(
+      await mentorApplications.exists({
+        user: response.body.data.user._id,
+        status: "pending",
+      }),
+    ).toBeTruthy();
   });
 
-  it("upgrades the authenticated mentee instead of creating a duplicate user", async () => {
+  it("keeps an authenticated mentee pending instead of upgrading immediately", async () => {
     const signin = await request(app.getHttpServer())
       .post("/api/v1/user/signin")
       .send({ email: "new-mentee@example.com", password: "secret123" })
@@ -252,9 +264,43 @@ describe("identity", () => {
       })
       .expect(201);
 
-    expect(response.body.data.user.role).toBe("mentor");
-    expect(response.body.data.user.roles).toEqual(["mentee", "mentor"]);
+    expect(response.body.data.user.role).toBe("mentee");
+    expect(response.body.data.user.roles).toEqual(["mentee"]);
+    expect(response.body.data.application.status).toBe("pending");
     expect(response.body.data.user.email).toBe("new-mentee@example.com");
     expect(await users.countDocuments({ email: "new-mentee@example.com" })).toBe(1);
+  });
+
+  it("grants the mentor role only after an admin approves the application", async () => {
+    await users.create({
+      email: "admin@example.com",
+      userName: "admin_user",
+      firstName: "Admin",
+      lastName: "User",
+      password: await bcrypt.hash("secret123", 10),
+      role: "admin",
+      roles: ["admin"],
+      isVerified: true,
+    });
+    const adminSignin = await request(app.getHttpServer())
+      .post("/api/v1/user/signin")
+      .send({ email: "admin@example.com", password: "secret123" })
+      .expect(200);
+    const application = await mentorApplications.findOne({
+      user: (await users.findOne({ email: "new-mentee@example.com" }))?._id,
+    });
+    if (!application) throw new Error("Expected mentor application");
+
+    const response = await request(app.getHttpServer())
+      .patch(
+        `/api/v1/user/admin/mentor-applications/${String(application._id)}`,
+      )
+      .set("Authorization", `Bearer ${adminSignin.body.data.token}`)
+      .send({ status: "approved" })
+      .expect(200);
+
+    expect(response.body.data.application.status).toBe("approved");
+    expect(response.body.data.user.role).toBe("mentor");
+    expect(response.body.data.user.roles).toEqual(["mentee", "mentor"]);
   });
 });

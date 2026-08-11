@@ -36,6 +36,7 @@ export const ADMIN_PATH = {
 };
 
 export const MENTOR_PATH = {
+  DASHBOARD: "dashboard",
   HOME: "home",
   PROFILE: "profile",
   HOMEPAGE: "homepage",
@@ -47,7 +48,7 @@ export const MENTOR_PATH = {
 };
 
 export const getRoleHomePath = (role?: string): string => {
-  if (role === "mentor") return `${PATH.MENTOR}/${MENTOR_PATH.HOME}`;
+  if (role === "mentor") return `${PATH.MENTOR}/${MENTOR_PATH.DASHBOARD}`;
   if (role === "admin") return PATH.ADMIN;
   if (role === "mentee") return `${PATH.MENTEE}${MENTEE_PATH.HOME}`;
   return PATH.LOGIN;

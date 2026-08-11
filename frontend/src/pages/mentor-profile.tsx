@@ -18,8 +18,8 @@ import { AiFillYoutube } from "react-icons/ai";
 import { IoStar, IoStarOutline } from "react-icons/io5";
 import courseApi from "../api/modules/course.api";
 import MentorMenteeChat from "../components/MentorMenteeChat.jsx";
+import earningsApi from "../api/modules/earnings.api";
 
-// Stars render function
 const renderStars = (rating) => {
   const stars = [];
   const r = Number(rating) || 0;
@@ -53,13 +53,13 @@ const renderStars = (rating) => {
 };
 
 const MentorProfile = () => {
-  // State lưu thông tin profile
-  const navigate = useNavigate(); // Hook to navigate between routes
+
+  const navigate = useNavigate();
   const location = useLocation();
-  const dispatch = useDispatch(); // Hook for Redux actions
-  // --- AUTH & ROLE CHECK ---
+  const dispatch = useDispatch();
+
   useEffect(() => {
-    // Check token
+
     const token =
       localStorage.getItem("actkn") || localStorage.getItem("token");
     const userStr =
@@ -69,7 +69,7 @@ const MentorProfile = () => {
       navigate("/auth/signin");
       return;
     }
-    // Check user object
+
     try {
       user = userStr ? JSON.parse(userStr) : null;
     } catch (e) {
@@ -79,7 +79,7 @@ const MentorProfile = () => {
       navigate("/auth/signin");
       return;
     }
-    // Check role
+
     if (user.role === "mentor") {
       return;
     }
@@ -87,30 +87,24 @@ const MentorProfile = () => {
       navigate("/home");
       return;
     }
-    // if (user.role === "admin") {
-    //   navigate("/admin/profile");
-    //   return;
-    // }
   }, [navigate]);
 
-  // Hide loading when component mounts
   useEffect(() => {
     dispatch(hideLoading());
   }, [dispatch]);
 
-  // Save profilepl
   const handleUpdateProfile = async () => {
     setLoading(true);
     setError(null);
     try {
-      // Gom dữ liệu từ formData và avatar
+
       const payload = { ...formData };
       if (profileImage) {
         payload.avatar = profileImage;
       }
       const response = await profileApi.updateMentorProfile(payload);
       if (response && response.data) {
-        setProfileImage(null); // Reset local image preview để sidebar lấy avatar từ backend
+        setProfileImage(null);
         toast.success("Cập nhật profile thành công!", {
           position: "top-right",
           autoClose: 3000,
@@ -126,82 +120,6 @@ const MentorProfile = () => {
     setLoading(false);
   };
 
-  // const handleGetProfileDetail = async () => {
-  //   setLoading(true);
-  //   setError(null);
-  //   const { response, error } = await profileApi.getProfileDetail();
-  //   if (error) {
-  //     setError("Không thể tải chi tiết profile");
-  //   }
-  //   setLoading(false);
-  // };
-
-  // CRUD API integration for Course
-  // const handleCreateCourse = async (courseData) => {
-  //   setLoading(true);
-  //   setError(null);
-  //   try {
-  //     const formData = courseApi.createCourseFormData(courseData);
-  //     const { response, error } = await courseApi.createCourse(formData);
-  //     if (error) {
-  //       setError("Tạo khóa học thất bại");
-  //     } else if (response && response.data) {
-  //       // Sau khi tạo thành công, reload lại danh sách courses
-  //       if (formData?._id) {
-  //         const mentorId = formData._id;
-  //         if (!mentorId) {
-  //           setError("Mentor ID không hợp lệ!");
-  //           setAllCourses([]);
-  //         } else {
-  //           const courses = await courseApi.getCoursesByMentor(mentorId);
-  //           setAllCourses(courses);
-  //         }
-  //       }
-  //       alert("Tạo khóa học thành công!");
-  //     }
-  //   } catch (err) {
-  //     setError("Tạo khóa học thất bại");
-  //   }
-  //   setLoading(false);
-  // };
-
-  // const handleUpdateCourse = async (courseId, updatedData) => {
-  //   setLoading(true);
-  //   setError(null);
-  //   const { response, error } = await courseApi.updateCourse(
-  //     courseId,
-  //     updatedData
-  //   );
-  //   if (error) {
-  //     setError("Cập nhật khóa học thất bại");
-  //   } else if (response && response.data) {
-  //     setAllCourses((prev) =>
-  //       prev.map((c) => (c._id === courseId ? response.data : c))
-  //     );
-  //     alert("Cập nhật khóa học thành công!");
-  //   }
-  //   setLoading(false);
-  // };
-
-  // const handleGetCourseDetail = async (courseId) => {
-  //   setLoading(true);
-  //   setError(null);
-  //   if (!courseId) {
-  //     setError("Course ID không hợp lệ!");
-  //     setLoading(false);
-  //     return;
-  //   }
-  //   const { response, error } = await courseApi.getDetail({ courseId });
-  //   if (error) {
-  //     setError("Không thể tải chi tiết khóa học");
-  //   } else if (response && response.data) {
-  //     // You can set a state for selected course detail if needed
-  //     alert("Đã tải chi tiết khóa học");
-  //   }
-  //   setLoading(false);
-  // };
-
-  // Replace mock delete with API delete
   const handleDeleteCourse = async (course) => {
     const courseId = course._id || course.id;
     if (!courseId) {
@@ -240,19 +158,15 @@ const MentorProfile = () => {
     }
   };
 
-  // ...existing code...
-  // Tab logic: luôn vào tab 'profile' khi vào mentor/profile lần đầu, reload thì giữ tab hiện tại
   const [activeTab, setActiveTab] = useState<any>(() => {
-    // Nếu có tab lưu trong localStorage thì lấy, không thì mặc định là 'profile'
+
     return localStorage.getItem("mentorProfileTab") || "profile";
   });
 
-  // Khi activeTab thay đổi, lưu vào localStorage
   useEffect(() => {
     localStorage.setItem("mentorProfileTab", activeTab);
   }, [activeTab]);
 
-  // Khi vào mentor/profile lần đầu (mount), luôn về tab 'profile'
   useEffect(() => {
     if (!localStorage.getItem("mentorProfileTab")) {
       setActiveTab("profile");
@@ -260,7 +174,6 @@ const MentorProfile = () => {
     }
   }, []);
 
-  // Lấy thông tin profile khi mount
   useEffect(() => {
     const fetchProfileAndCourses = async () => {
       setLoading(true);
@@ -290,7 +203,7 @@ const MentorProfile = () => {
           setProfileImage(null);
           setAllCourses([]);
         } else {
-          // ...existing code...
+
           setFormData({
             userName: profileData?.user?.userName || "",
             firstName: profileData?.user?.firstName || "",
@@ -332,9 +245,10 @@ const MentorProfile = () => {
             youtube: profileData?.links?.youtube || "",
             facebook: profileData?.links?.facebook || "",
             avatarUrl: profileData?.user?.avatarUrl || "",
+            sessionPrice: profileData?.profile?.sessionPrice || profileData?.sessionPrice || 0,
           });
           setProfileImage(profileData?.user?.avatarUrl || null);
-          // Lấy đúng danh sách khóa học của mentor
+
           if (profileData?.user?._id) {
             const mentorId = profileData.user._id;
             if (!mentorId) {
@@ -348,7 +262,7 @@ const MentorProfile = () => {
         }
       } catch (error) {
         setError("Không thể tải thông tin profile hoặc courses");
-        // ...existing code...
+
         setAllCourses([]);
       }
       setLoading(false);
@@ -371,66 +285,56 @@ const MentorProfile = () => {
     linkedin: "",
     youtube: "",
     facebook: "",
+    sessionPrice: 0,
   });
 
-  // Sửa trong mentor-profile.jsx
   const [profileImage, setProfileImage] = useState<any>(null);
 
-  // Đổi avatar khi upload ảnh mới
   const handleChangeAvatar = async (file) => {
     try {
       const res = await profileApi.changeAvatar(file);
       if (res && res.avatarUrl) {
         setProfileImage(res.avatarUrl);
-        // ...existing code...
       }
     } catch (err) {
       alert("Đổi avatar thất bại!");
     }
   };
 
-  // Course management state
   const [searchTerm, setSearchTerm] = useState<any>("");
   const [sortBy, setSortBy] = useState<any>("latest");
   const [filterBy, setFilterBy] = useState<any>("relevance");
   const [currentPage, setCurrentPage] = useState<any>(1);
   const coursesPerPage = 9;
 
-  // Mentee management state
   const [menteeSearchTerm, setMenteeSearchTerm] = useState<any>("");
   const [menteeSortBy, setMenteeSortBy] = useState<any>("latest");
   const [menteeCurrentPage, setMenteeCurrentPage] = useState<any>(1);
   const menteesPerPage = 8;
 
-  // Reviews management state
   const [reviewSortBy, setReviewSortBy] = useState<any>("latest");
   const [reviewCurrentPage, setReviewCurrentPage] = useState<any>(1);
   const reviewsPerPage = 6;
 
-  // Schedule pagination state
   const [scheduleCurrentPage, setScheduleCurrentPage] = useState<any>(1);
   const schedulesPerPage = 4;
 
-  // Response pagination state
   const [responseCurrentPage, setResponseCurrentPage] = useState<any>(1);
   const responsesPerPage = 6;
 
-  // Schedule management state
-  const [scheduleMode, setScheduleMode] = useState<any>("list"); // 'list' | 'builder' | 'review'
+  const [scheduleMode, setScheduleMode] = useState<any>("list");
   const [schedules, setSchedules] = useState<any[]>([]);
   const [selectedSchedule, setSelectedSchedule] = useState<any>(null);
-  const [editingSchedule, setEditingSchedule] = useState<any>(null); // Schedule being edited
+  const [editingSchedule, setEditingSchedule] = useState<any>(null);
   const [availabilityOverview, setAvailabilityOverview] = useState<any>(null);
   const [availabilityLoading, setAvailabilityLoading] = useState<any>(false);
   const [mySchedules, setMySchedules] = useState<any>(null);
   const [mySchedulesLoading, setMySchedulesLoading] = useState<any>(false);
 
-  // States for expandable UI elements
-  const [expandedTags, setExpandedTags] = useState<any>({}); // Track expanded tags per course
-  const [expandedLanguages, setExpandedLanguages] = useState<any>({}); // Track expanded languages per course
-  const [expandedSlots, setExpandedSlots] = useState<any>({}); // Track expanded slots per schedule
+  const [expandedTags, setExpandedTags] = useState<any>({});
+  const [expandedLanguages, setExpandedLanguages] = useState<any>({});
+  const [expandedSlots, setExpandedSlots] = useState<any>({});
 
-  // Load availability overview when component mounts or tab changes to schedule
   useEffect(() => {
     if (activeTab === "schedule") {
       loadAvailabilityOverview();
@@ -472,12 +376,11 @@ const MentorProfile = () => {
     }
   };
 
-  // Function to handle editing a schedule
   const handleEditSchedule = (schedule) => {
-    // Transform schedule data to format expected by MentorAvailabilityBuilder
+
     const availability = {};
     if (schedule.date && schedule.slots) {
-      // Convert slots to time strings array
+
       const timeSlots = schedule.slots.map((slot) => slot.start).sort();
       availability[schedule.date] = timeSlots;
     }
@@ -499,7 +402,6 @@ const MentorProfile = () => {
     setEditingSchedule(editingData);
     setScheduleMode("builder");
 
-    // Scroll to top to show the edit form
     setTimeout(() => {
       window.scrollTo({
         top: 0,
@@ -508,7 +410,6 @@ const MentorProfile = () => {
     }, 100);
   };
 
-  // Helper function to calculate end time
   const calculateEndTime = (startTime, durationMinutes) => {
     const [hours, minutes] = startTime.split(":").map(Number);
     const endMinutes = minutes + durationMinutes;
@@ -520,25 +421,22 @@ const MentorProfile = () => {
       .padStart(2, "0")}`;
   };
 
-  // Function to save edited schedule with booking protection
   const handleSaveEditedSchedule = async (scheduleData) => {
     try {
-      // Transform scheduleData.slots to backend format with booking protection
+
       const availabilityPromises = Object.entries(scheduleData.slots as Record<string, string[]>).map(
         async ([date, times]) => {
-          // First, get existing schedule for this date to check for bookings
 
           const existingSchedule = mySchedules?.schedulesByMonth
             ?.flatMap((month) => month.schedules)
             ?.find((schedule) => {
-              const normalizedScheduleDate = schedule.date.split("T")[0]; // Remove time part
-              const normalizedTargetDate = date.split("T")[0]; // Remove time part
+              const normalizedScheduleDate = schedule.date.split("T")[0];
+              const normalizedTargetDate = date.split("T")[0];
               return normalizedScheduleDate === normalizedTargetDate;
             });
 
           const newSlots = [];
 
-          // Convert new times to 30-minute slots
           times.forEach((time) => {
             const [hours, minutes] = time.split(":").map(Number);
             const startTime = `${hours.toString().padStart(2, "0")}:${minutes
@@ -554,21 +452,15 @@ const MentorProfile = () => {
               .toString()
               .padStart(2, "0")}`;
 
-            // Always add the slot - backend will handle preservation of booking status
             newSlots.push({
               start: startTime,
               end: endTime,
-              status: "open", // Always send as 'open' - backend will preserve booked status
+              status: "open",
             });
           });
 
-          // Note: Backend will automatically preserve booked/held slots
-          // and delete pending/canceled bookings for removed slots
-
-          // Sort slots by start time and log final payload
           newSlots.sort((a, b) => a.start.localeCompare(b.start));
 
-          // Call API to create/update availability
           const payload = {
             date,
             slots: newSlots,
@@ -598,74 +490,64 @@ const MentorProfile = () => {
       setScheduleMode("list");
       setEditingSchedule(null);
 
-      // Reload all data to refresh UI
       await loadAvailabilityOverview();
       await loadMySchedules();
-      await loadMentorBookings(); // Refresh bookings - deleted bookings should disappear
+      await loadMentorBookings();
     } catch (error) {
       toast.error(error.message || "Lỗi khi cập nhật lịch");
     }
   };
 
-  // Auto-cleanup expired schedules
   useEffect(() => {
     const cleanupExpiredSchedules = () => {
       const today = todayKey();
       setSchedules((prevSchedules) => {
         const activeSchedules = prevSchedules.filter((schedule) => {
-          // Check if schedule has any future dates
+
           const futureDates = Object.keys(schedule.availability).filter(
             (date) => !isPast(date)
           );
           return futureDates.length > 0;
         });
 
-        // Log if any schedules were removed
         const removedCount = prevSchedules.length - activeSchedules.length;
 
         return activeSchedules;
       });
     };
 
-    // Run cleanup on component mount and every minute
     cleanupExpiredSchedules();
-    const interval = setInterval(cleanupExpiredSchedules, 60000); // Check every minute
+    const interval = setInterval(cleanupExpiredSchedules, 60000);
 
     return () => clearInterval(interval);
   }, []);
 
-  // Response/Booking management state
   const [bookings, setBookings] = useState<any[]>([]);
   const [bookingsLoading, setBookingsLoading] = useState<any>(false);
 
-  // Booking filter state
-  const [bookingFilter, setBookingFilter] = useState<any>("all"); // 'all', 'pending', 'accepted', 'declined'
+  const [bookingFilter, setBookingFilter] = useState<any>("all");
 
-  // Delete confirmation popup state
   const [deleteConfirmModal, setDeleteConfirmModal] = useState<any>({
     isOpen: false,
     scheduleId: null,
     scheduleName: null,
   });
 
-  // Decline booking confirmation popup state
   const [declineConfirmModal, setDeclineConfirmModal] = useState<any>({
     isOpen: false,
     bookingId: null,
     bookingInfo: null,
   });
 
-  // Decline reason state
   const [declineReason, setDeclineReason] = useState<any>("");
+  const [meetingLinks, setMeetingLinks] = useState<Record<string, string>>({});
 
-  // Load bookings when component mounts or tab changes to response
   useEffect(() => {
     if (activeTab === "response") {
       loadMentorBookings();
     }
   }, [activeTab]);
 
-  // Reset response pagination when filter changes
   useEffect(() => {
     setResponseCurrentPage(1);
   }, [bookingFilter]);
@@ -678,7 +560,7 @@ const MentorProfile = () => {
         toast.error("Không thể tải danh sách booking");
         setBookings([]);
       } else if (response && response.data) {
-        // Transform backend data to match frontend format
+
         const transformedBookings = (
           Array.isArray(response.data) ? response.data : []
         ).map((booking) => ({
@@ -696,6 +578,10 @@ const MentorProfile = () => {
           status: booking.status,
           message: booking.notes || "",
           createdAt: booking.createdAt,
+          paymentStatus: booking.paymentStatus,
+          price: booking.price,
+          order: booking.order,
+          meetingLink: booking.meetingLink,
         }));
         setBookings(transformedBookings);
       }
@@ -707,14 +593,12 @@ const MentorProfile = () => {
     }
   };
 
-  // Function to filter bookings based on current filter
   const getFilteredBookings = () => {
     if (bookingFilter === "all") return bookings;
 
-    // Map frontend filter to backend status
     const statusMap = {
       pending: "pending",
-      accepted: "active", // Backend uses "active" for confirmed bookings
+      accepted: "active",
       declined: "rejected",
     };
 
@@ -722,12 +606,14 @@ const MentorProfile = () => {
     return bookings.filter((booking) => booking.status === targetStatus);
   };
 
-  // Booking response handlers
   const handleAcceptBooking = async (bookingId) => {
     try {
-      const { response, error } = await bookingApi.confirmBooking(bookingId);
+      const { response, error } = await bookingApi.confirmBooking(
+        bookingId,
+        meetingLinks[bookingId] || "",
+      );
       if (error) {
-        // Extract error message from various error formats
+
         let errorMessage = "";
         if (error.response?.data?.message) {
           errorMessage = error.response.data.message;
@@ -741,7 +627,6 @@ const MentorProfile = () => {
           errorMessage = "Không thể chấp nhận booking";
         }
 
-        // Check if error is related to expired booking
         if (
           errorMessage.toLowerCase().includes("expired") ||
           errorMessage.toLowerCase().includes("past session")
@@ -760,20 +645,18 @@ const MentorProfile = () => {
         return;
       }
 
-      // Update bookings state
       setBookings((prev) =>
         prev.map((booking) =>
           booking.id === bookingId
             ? {
                 ...booking,
-                status: "active", // Backend trả về "active" cho confirmed booking
+                status: "active",
                 respondedAt: new Date().toISOString(),
               }
             : booking
         )
       );
 
-      // Update mySchedules slots color immediately for better UX
       const acceptedBooking = bookings.find((b) => b.id === bookingId);
 
       if (acceptedBooking) {
@@ -785,7 +668,7 @@ const MentorProfile = () => {
             schedulesByMonth: prev.schedulesByMonth.map((monthGroup) => ({
               ...monthGroup,
               schedules: monthGroup.schedules.map((schedule) => {
-                // Normalize dates to YYYY-MM-DD format for comparison
+
                 const scheduleDate = schedule.date.split("T")[0];
                 const bookingDate = acceptedBooking.date.split("T")[0];
                 if (scheduleDate === bookingDate) {
@@ -806,14 +689,13 @@ const MentorProfile = () => {
         });
       }
 
-      // Refresh availability data with slight delay to ensure backend update completes
       setTimeout(async () => {
         await Promise.all([loadAvailabilityOverview(), loadMySchedules()]);
-      }, 1000); // Wait 1 second for backend to complete slot update
+      }, 1000);
 
       toast.success("Đã chấp nhận booking thành công!");
     } catch (err) {
-      // Check if error is related to expired booking
+
       let errorMessage = "Lỗi khi chấp nhận booking";
       if (err.response?.data?.message) {
         const backendMessage = err.response.data.message;
@@ -851,7 +733,6 @@ const MentorProfile = () => {
         return;
       }
 
-      // Update bookings state
       setBookings((prev) =>
         prev.map((booking) =>
           booking.id === bookingId
@@ -864,7 +745,6 @@ const MentorProfile = () => {
         )
       );
 
-      // Update mySchedules slots color immediately for better UX
       const declinedBooking = bookings.find((b) => b.id === bookingId);
 
       if (declinedBooking) {
@@ -876,7 +756,7 @@ const MentorProfile = () => {
             schedulesByMonth: prev.schedulesByMonth.map((monthGroup) => ({
               ...monthGroup,
               schedules: monthGroup.schedules.map((schedule) => {
-                // Normalize dates to YYYY-MM-DD format for comparison
+
                 const scheduleDate = schedule.date.split("T")[0];
                 const bookingDate = declinedBooking.date.split("T")[0];
                 if (scheduleDate === bookingDate) {
@@ -897,10 +777,9 @@ const MentorProfile = () => {
         });
       }
 
-      // Refresh availability data để slot trở lại trạng thái available
       setTimeout(async () => {
         await Promise.all([loadAvailabilityOverview(), loadMySchedules()]);
-      }, 1000); // Wait 1 second for backend to complete slot update
+      }, 1000);
 
       toast.success("Declined booking successfully!");
     } catch (err) {
@@ -918,7 +797,6 @@ const MentorProfile = () => {
         return;
       }
 
-      // Update local state - remove from mySchedules
       setMySchedules((prev) => {
         if (!prev || !prev.schedulesByMonth) return prev;
 
@@ -929,20 +807,18 @@ const MentorProfile = () => {
               (schedule) => schedule._id !== scheduleId
             ),
           }))
-          .filter((monthGroup) => monthGroup.schedules.length > 0); // Remove empty months
+          .filter((monthGroup) => monthGroup.schedules.length > 0);
 
         return {
           ...prev,
           schedulesByMonth: updatedSchedulesByMonth,
-          // Update totals
+
           totalSchedules: prev.totalSchedules - 1,
         };
       });
 
-      // Refresh availability overview data (chỉ refresh overview, không cần refresh mySchedules vì đã update local state)
       loadAvailabilityOverview();
 
-      // Fallback: nếu UI không update, refresh lại data sau 500ms
       setTimeout(() => {
         loadMySchedules();
       }, 500);
@@ -953,9 +829,8 @@ const MentorProfile = () => {
     }
   };
 
-  // Open delete confirmation modal
   const openDeleteConfirmModal = (schedule) => {
-    // Double check if schedule can be deleted
+
     if (!canDeleteSchedule(schedule)) {
       if (isPast(schedule.date)) {
         toast.error("Cannot delete past schedules");
@@ -988,7 +863,6 @@ const MentorProfile = () => {
     });
   };
 
-  // Close delete confirmation modal
   const closeDeleteConfirmModal = () => {
     setDeleteConfirmModal({
       isOpen: false,
@@ -997,7 +871,6 @@ const MentorProfile = () => {
     });
   };
 
-  // Confirm delete
   const confirmDeleteSchedule = async () => {
     if (deleteConfirmModal.scheduleId) {
       await handleDeleteSchedule(deleteConfirmModal.scheduleId);
@@ -1005,7 +878,6 @@ const MentorProfile = () => {
     }
   };
 
-  // Open decline booking confirmation modal
   const openDeclineConfirmModal = (booking) => {
     setDeclineConfirmModal({
       isOpen: true,
@@ -1023,17 +895,15 @@ const MentorProfile = () => {
     });
   };
 
-  // Close decline booking confirmation modal
   const closeDeclineConfirmModal = () => {
     setDeclineConfirmModal({
       isOpen: false,
       bookingId: null,
       bookingInfo: null,
     });
-    setDeclineReason(""); // Reset decline reason
+    setDeclineReason("");
   };
 
-  // Confirm decline booking
   const confirmDeclineBooking = async () => {
     if (declineConfirmModal.bookingId) {
       await handleDeclineBooking(declineConfirmModal.bookingId, declineReason);
@@ -1041,41 +911,42 @@ const MentorProfile = () => {
     }
   };
 
-  // Real courses data from MongoDB API
-  // No mock data, empty courses array
   const [allCourses, setAllCourses] = useState<any[]>([]);
 
-  // Real mentees data from API
   const [allMentees, setAllMentees] = useState<any[]>([]);
   const [menteesLoading, setMenteesLoading] = useState<any>(false);
   const [menteesError, setMenteesError] = useState<any>(null);
 
-  // Real conversations data - TODO: Replace with API data
   const [conversations] = useState<any[]>([]);
 
-  // Real reviews data from MongoDB API
-  // No mock data, empty reviews array
   const [allReviews, setAllReviews] = useState<any[]>([]);
   const [mentorReviews, setMentorReviews] = useState<any[]>([]);
   const [reviewsLoading, setReviewsLoading] = useState<any>(false);
   const [reviewsError, setReviewsError] = useState<any>(null);
 
-  // Course detail popup states
   const [isCourseDetailPopupOpen, setIsCourseDetailPopupOpen] = useState<any>(false);
   const [selectedReviewCourse, setSelectedReviewCourse] = useState<any>(null);
 
-  // Booking detail popup states
   const [isBookingDetailPopupOpen, setIsBookingDetailPopupOpen] =
     useState<any>(false);
   const [selectedReviewBooking, setSelectedReviewBooking] = useState<any>(null);
 
-  // Cache mentor bookings for performance
   const [mentorBookings, setMentorBookings] = useState<any[]>([]);
+  const [earnings, setEarnings] = useState<any>({ items: [], summary: {} });
+  const [earningsLoading, setEarningsLoading] = useState(false);
 
-  // Review tabs state
-  const [activeReviewTab, setActiveReviewTab] = useState<any>("all"); // "all", "course", "consultation", "mentor"
+  useEffect(() => {
+    if (activeTab !== "earnings") return;
+    setEarningsLoading(true);
+    earningsApi
+      .mine()
+      .then((response) => setEarnings(response.data?.data || { items: [], summary: {} }))
+      .catch(() => toast.error("Không thể tải earnings"))
+      .finally(() => setEarningsLoading(false));
+  }, [activeTab]);
 
-  // Load courses from MongoDB
+  const [activeReviewTab, setActiveReviewTab] = useState<any>("all");
+
   const loadCourses = async () => {
     try {
       setLoading(true);
@@ -1103,13 +974,11 @@ const MentorProfile = () => {
     }
   };
 
-  // Load reviews from MongoDB
   const loadReviews = async () => {
     try {
       setReviewsLoading(true);
       setReviewsError(null);
 
-      // Get current user info to get mentor ID
       const userStr = localStorage.getItem("user");
       let mentorId = null;
       try {
@@ -1129,25 +998,20 @@ const MentorProfile = () => {
         return;
       }
 
-      // Test: Try to get courses first
       const testCourses = await courseApi.getCoursesByMentor(mentorId);
 
-      // Get reviews from two sources: courses and bookings
       const courseReviewsResult = await reviewApi.getMentorCourseReviews(
         mentorId
       );
 
-      // Use the new getBookingReviews API to get all booking reviews for this mentor
       const bookingReviewsResult = await reviewApi.getBookingReviews(mentorId);
 
       let allReviewsData = [];
 
-      // Process course reviews
       if (courseReviewsResult.response?.data?.items) {
         allReviewsData = [...courseReviewsResult.response.data.items];
       }
 
-      // Process booking reviews
       if (bookingReviewsResult.response?.data?.items) {
         allReviewsData = [
           ...allReviewsData,
@@ -1155,14 +1019,12 @@ const MentorProfile = () => {
         ];
       }
 
-      // Get direct mentor reviews using the new API
       const mentorReviewsResult = await reviewApi.getMentorReviews(mentorId);
 
-      // Process direct mentor reviews
       if (mentorReviewsResult.response?.data?.items) {
-        // Set separate state for mentor reviews
+
         setMentorReviews(mentorReviewsResult.response.data.items);
-        // Also add to combined reviews data
+
         allReviewsData = [
           ...allReviewsData,
           ...mentorReviewsResult.response.data.items,
@@ -1171,7 +1033,6 @@ const MentorProfile = () => {
         setMentorReviews([]);
       }
 
-      // Still get mentor bookings for caching (needed for booking detail popup)
       const mentorBookingsResult = await bookingApi.getMentorBookings();
       if (mentorBookingsResult.response?.data) {
         setMentorBookings(mentorBookingsResult.response.data);
@@ -1179,7 +1040,7 @@ const MentorProfile = () => {
 
       if (courseReviewsResult.error) {
         setReviewsError("Failed to load course reviews");
-        setAllReviews(allReviewsData); // Still set booking reviews if any
+        setAllReviews(allReviewsData);
       } else {
         setAllReviews(allReviewsData);
         setReviewsError(null);
@@ -1192,7 +1053,6 @@ const MentorProfile = () => {
     }
   };
 
-  // Load mentees from MongoDB
   const loadMentees = async () => {
     console.log("=== LOADING MENTEES ===");
     try {
@@ -1231,7 +1091,6 @@ const MentorProfile = () => {
     }
   };
 
-  // Course detail popup functions
   const openCourseDetailPopup = (course) => {
     setSelectedReviewCourse(course);
     setIsCourseDetailPopupOpen(true);
@@ -1242,7 +1101,6 @@ const MentorProfile = () => {
     setSelectedReviewCourse(null);
   };
 
-  // Helper function để format DateTime từ UTC sang múi giờ Việt Nam
   const formatDateTimeUTCToVN = (utcDateString) => {
     if (!utcDateString) return null;
 
@@ -1264,11 +1122,9 @@ const MentorProfile = () => {
     }
   };
 
-  // Booking detail popup functions
   const openBookingDetailPopup = async (bookingId) => {
     const asId = (v) => (v == null ? "" : String(v));
 
-    // Gom alias field về 1 shape thống nhất cho UI
     const normalizeBooking = (raw) => {
       if (!raw) return null;
       const mentee =
@@ -1293,7 +1149,6 @@ const MentorProfile = () => {
       };
     };
 
-    // Nếu chỉ có review (không có booking thật), hiển thị review-only
     const openReviewOnly = (reviewLike) => {
       const relatedReview =
         reviewLike ??
@@ -1331,19 +1186,17 @@ const MentorProfile = () => {
     try {
       console.debug("Opening booking detail popup for bookingId:", bookingId);
 
-      // 1) Tìm trong cache mentorBookings (ép id về string để so sánh)
       let bookingDetail =
         Array.isArray(mentorBookings) &&
         mentorBookings.find((b) => asId(b?._id) === asId(bookingId));
 
-      // 2) Nếu không có, thử cache transformed "bookings"
       if (!bookingDetail && Array.isArray(bookings)) {
         const tb = bookings.find((b) => asId(b?.id) === asId(bookingId));
         if (tb) {
           bookingDetail = normalizeBooking({
             _id: tb.id,
             date: tb.date,
-            start: tb.time, // field của bạn
+            start: tb.time,
             end: tb.endTime,
             status: tb.status,
             notes: tb.message,
@@ -1360,20 +1213,18 @@ const MentorProfile = () => {
         }
       }
 
-      // 3) Nếu vẫn chưa có, fetch mới
       if (!bookingDetail) {
         console.debug("📡 Not in cache → fetching mentor bookings...");
         const mentorBookingsResult = await bookingApi.getMentorBookings();
         const list = mentorBookingsResult?.response?.data;
 
         if (Array.isArray(list)) {
-          setMentorBookings(list); // cập nhật cache
+          setMentorBookings(list);
           const hit = list.find((b) => asId(b?._id) === asId(bookingId));
           if (hit) bookingDetail = normalizeBooking(hit);
         }
       }
 
-      // 4) Nếu vẫn chưa có, thử gọi API chi tiết theo id (nếu backend có)
       if (!bookingDetail && bookingApi.getBookingById) {
         try {
           console.debug("🔎 Fetching single booking by id...");
@@ -1386,7 +1237,6 @@ const MentorProfile = () => {
         }
       }
 
-      // 5) Quyết định mở popup
       if (bookingDetail) {
         setSelectedReviewBooking(bookingDetail);
         setIsBookingDetailPopupOpen(true);
@@ -1394,10 +1244,9 @@ const MentorProfile = () => {
         return;
       }
 
-      // 6) Không tìm thấy booking thực sự → fallback review-only (nhưng có kiểm soát)
       openReviewOnly(null);
     } catch (err) {
-      // Fallback an toàn
+
       openReviewOnly(null);
     }
   };
@@ -1407,28 +1256,25 @@ const MentorProfile = () => {
     setSelectedReviewBooking(null);
   };
 
-  // Load data when specific tabs are active
   useEffect(() => {
     console.log("Tab changed to:", activeTab);
     if (activeTab === "reviews") {
       console.log("Loading reviews...");
       loadReviews();
-      // Also load bookings cache to ensure booking details are available
+
       loadMentorBookings();
     }
     if (activeTab === "mentees") {
       console.log("Loading mentees...");
-      loadMentees(); // Reload mentees when switching to mentees tab
+      loadMentees();
     }
   }, [activeTab]);
 
-  // Load reviews and mentees on component mount
   useEffect(() => {
     loadReviews();
     loadMentees();
   }, []);
 
-  // Filter and search logic
   const getFilteredAndSortedCourses = () => {
     let filtered = allCourses.filter(
       (course) =>
@@ -1438,7 +1284,6 @@ const MentorProfile = () => {
           course.description.toLowerCase().includes(searchTerm.toLowerCase()))
     );
 
-    // Sort courses
     switch (sortBy) {
       case "latest":
         filtered = filtered.sort(
@@ -1459,7 +1304,6 @@ const MentorProfile = () => {
         break;
     }
 
-    // Filter by price/rating
     switch (filterBy) {
       case "price-low":
         filtered = filtered.sort((a, b) => a.price - b.price);
@@ -1477,7 +1321,6 @@ const MentorProfile = () => {
     return filtered;
   };
 
-  // Pagination logic
   const filteredCourses = getFilteredAndSortedCourses();
   const totalPages = Math.ceil(filteredCourses.length / coursesPerPage);
   const startIndex = (currentPage - 1) * coursesPerPage;
@@ -1486,7 +1329,6 @@ const MentorProfile = () => {
     startIndex + coursesPerPage
   );
 
-  // Mentee filter and search logic
   const getFilteredAndSortedMentees = () => {
     let filtered = allMentees.filter((mentee) => {
       const fullName = `${mentee.firstName} ${mentee.lastName}`.toLowerCase();
@@ -1498,7 +1340,6 @@ const MentorProfile = () => {
       );
     });
 
-    // Sort mentees
     switch (menteeSortBy) {
       case "latest":
         filtered = filtered.sort(
@@ -1535,7 +1376,6 @@ const MentorProfile = () => {
     return filtered;
   };
 
-  // Mentee pagination logic
   const filteredMentees = getFilteredAndSortedMentees();
   const totalMenteePages = Math.ceil(filteredMentees.length / menteesPerPage);
   const menteeStartIndex = (menteeCurrentPage - 1) * menteesPerPage;
@@ -1546,7 +1386,7 @@ const MentorProfile = () => {
 
   const handleMenteePageChange = (page) => {
     setMenteeCurrentPage(page);
-    // Scroll to top when changing mentee pages
+
     scrollToTop();
   };
 
@@ -1575,41 +1415,44 @@ const MentorProfile = () => {
   };
 
   const handleSaveImage = () => {
-    // TODO: Implement save image functionality
   };
 
   const handleSendMessageToMentee = (menteeId) => {
-    // TODO: Implement opening chat with specific mentee
-    // For now, just switch to messages tab
+    const mentee = allMentees.find((item) => String(item._id) === String(menteeId));
+    localStorage.setItem(
+      "chatWithMentor",
+      JSON.stringify({
+        mentorId: String(menteeId),
+        mentorName: mentee
+          ? `${mentee.firstName || ""} ${mentee.lastName || ""}`.trim()
+          : "Mentee",
+        mentorAvatar: mentee?.avatarUrl || "",
+      }),
+    );
     handleMessageTabChange();
   };
 
-  // Reviews filter and search logic
   const getFilteredAndSortedReviews = () => {
     let filtered = allReviews;
 
-    // Filter by tab
     switch (activeReviewTab) {
       case "course":
-        // Check multiple possible ways to identify course reviews
+
         filtered = allReviews.filter((review) => {
-          // Method 1: Check targetType
+
           if (review.targetType === "course") return true;
 
-          // Method 2: Check if review has course property (from our API)
           if (review.course && review.course._id) return true;
 
-          // Method 3: Check if target is a course (from review API)
           if (review.target && !review.targetType) return true;
 
-          // Method 4: Default to course if no targetType specified
           if (!review.targetType && !review.target) return true;
 
           return false;
         });
         break;
       case "consultation":
-        // Include both consultation and booking reviews
+
         filtered = allReviews.filter(
           (review) =>
             review.targetType === "consultation" ||
@@ -1617,18 +1460,17 @@ const MentorProfile = () => {
         );
         break;
       case "mentor":
-        // Filter mentor reviews
+
         filtered = allReviews.filter(
           (review) => review.targetType === "Mentor"
         );
         break;
       case "all":
       default:
-        filtered = allReviews; // Show all reviews
+        filtered = allReviews;
         break;
     }
 
-    // Sort reviews (keeping the sorting logic)
     switch (reviewSortBy) {
       case "latest":
         return filtered.sort(
@@ -1651,7 +1493,6 @@ const MentorProfile = () => {
     }
   };
 
-  // Reviews pagination logic
   const filteredReviews = getFilteredAndSortedReviews();
   const totalReviewPages = Math.ceil(filteredReviews.length / reviewsPerPage);
   const reviewStartIndex = (reviewCurrentPage - 1) * reviewsPerPage;
@@ -1662,45 +1503,40 @@ const MentorProfile = () => {
 
   const handleReviewPageChange = (page) => {
     setReviewCurrentPage(page);
-    // Scroll to top when changing review pages
+
     scrollToTop();
   };
 
   const handleSchedulePageChange = (page) => {
     setScheduleCurrentPage(page);
-    // Không cần cuộn lên vì đang xem phần lịch ở dưới
   };
 
   const handleResponsePageChange = (page) => {
     setResponseCurrentPage(page);
-    // Scroll to top when changing response pages
+
     scrollToTop();
   };
 
-  // Scroll lên đầu trang (bao gồm cả header) khi chuyển tab
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  // Tab handler: set tab, lưu localStorage, cuộn lên đầu
   const handleTabChange = (tab) => {
     setActiveTab(tab);
     localStorage.setItem("mentorProfileTab", tab);
     scrollToTop();
   };
 
-  // Tab handler riêng cho messages - không cuộn lên đầu
   const handleMessageTabChange = () => {
     setActiveTab("messages");
     localStorage.setItem("mentorProfileTab", "messages");
-    // Không gọi scrollToTop() để giữ nguyên vị trí scroll
   };
 
   return (
     <div className="min-h-screen bg-[var(--ui-page)]">
-      {/* Main Layout Container */}
+
       <div className="mx-auto flex min-h-screen max-w-7xl flex-col gap-6 px-4 pt-6 sm:px-6 lg:flex-row lg:gap-8 lg:px-8 lg:pt-10">
-        {/* Sidebar - Fixed width and height */}
+
         <div
           className="ui-card flex w-full flex-col items-center self-start p-6 lg:sticky lg:top-24 lg:w-[280px] lg:min-w-[280px] lg:p-8"
         >
@@ -1730,7 +1566,6 @@ const MentorProfile = () => {
             Mentor
           </span>
 
-          {/* Navigation Menu */}
           <nav className="w-full mt-6">
             <ul className="m-0 grid list-none grid-cols-2 gap-2 p-0 sm:grid-cols-3 lg:flex lg:flex-col">
               <li
@@ -1803,15 +1638,24 @@ const MentorProfile = () => {
               >
                 Response
               </li>
+              <li
+                className={`px-4 py-2.5 rounded-lg font-medium transition-all duration-200 cursor-pointer ${
+                  activeTab === "earnings"
+                    ? "bg-[var(--ui-accent-soft)] text-[var(--ui-accent)]"
+                    : "hover:bg-blue-50 hover:text-blue-600 hover:shadow-sm hover:scale-105"
+                }`}
+                onClick={() => handleTabChange("earnings")}
+              >
+                Earnings
+              </li>
             </ul>
           </nav>
         </div>
 
-        {/* Main Content */}
         <div className="flex-1 min-w-0">
           {activeTab === "profile" && (
             <form className="space-y-6">
-              {/* Personal Information Section */}
+
               <div className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100">
                 <h3 className="text-lg font-semibold text-gray-900 mb-6">
                   Personal Information
@@ -1845,7 +1689,22 @@ const MentorProfile = () => {
                   </div>
                 </div>
 
-                {/* Job Title & Category row */}
+                <div className="mb-4">
+                  <label className="mb-1 block text-sm font-medium text-gray-700">
+                    Consultation price (VND)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="10000"
+                    name="sessionPrice"
+                    value={formData.sessionPrice || 0}
+                    onChange={handleInputChange}
+                    className="w-full rounded border border-gray-300 px-3 py-2 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                  />
+                  <p className="mt-1 text-xs text-gray-500">MentorMe retains a 15% platform fee from paid sessions.</p>
+                </div>
+
                 <div className="grid grid-cols-2 gap-4 mb-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -1873,7 +1732,6 @@ const MentorProfile = () => {
                   </div>
                 </div>
 
-                {/* Skills, Experience, Mentor Reason, Greatest Achievement */}
                 <div className="grid grid-cols-2 gap-4 mb-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -1992,7 +1850,6 @@ const MentorProfile = () => {
                 </div>
               </div>
 
-              {/* Image Upload Section - Chỉ còn ô preview, click để upload */}
               <div className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100">
                 <h3 className="text-lg font-semibold text-gray-900 mb-6">
                   Profile Image
@@ -2041,7 +1898,6 @@ const MentorProfile = () => {
                 </div>
               </div>
 
-              {/* Links Section */}
               <div className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100">
                 <h3 className="text-lg font-semibold text-gray-900 mb-6">
                   Social Links
@@ -2119,7 +1975,7 @@ const MentorProfile = () => {
                   </div>
                 </div>
               </div>
-              {/* Nút lưu profile ở cuối form */}
+
               <button
                 type="button"
                 className={`bg-blue-600 text-white px-6 py-2 rounded-lg font-semibold mt-8 float-right transition-all duration-200 ${
@@ -2137,9 +1993,9 @@ const MentorProfile = () => {
 
           {activeTab === "mycourses" && (
             <div className="space-y-6">
-              {/* Courses Section - TODO: Connect to real API for fetching mentor's courses */}
+
               <div className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100">
-                {/* Header with course count and search/filter */}
+
                 <div className="flex justify-between items-center mb-6">
                   <div className="flex items-center gap-4">
                     <h3 className="text-lg font-semibold text-gray-900">
@@ -2147,10 +2003,9 @@ const MentorProfile = () => {
                     </h3>
                     <button
                       onClick={() => {
-                        // Show loading page
+
                         dispatch(showLoading());
 
-                        // Navigate with a slight delay to show loading
                         setTimeout(() => {
                           navigate(
                             `${PATH.MENTOR}/${MENTOR_PATH.CREATECOURSE}`
@@ -2164,7 +2019,6 @@ const MentorProfile = () => {
                   </div>
                 </div>
 
-                {/* Search and Filter Bar */}
                 <div className="flex gap-4 mb-6">
                   <div className="flex-1 relative">
                     <input
@@ -2173,7 +2027,7 @@ const MentorProfile = () => {
                       value={searchTerm}
                       onChange={(e) => {
                         setSearchTerm(e.target.value);
-                        setCurrentPage(1); // Reset to page 1 when searching
+                        setCurrentPage(1);
                       }}
                       className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                     />
@@ -2244,7 +2098,6 @@ const MentorProfile = () => {
                   </div>
                 </div>
 
-                {/* Course Grid - Dynamic rendering based on filtered data */}
                 {loading ? (
                   <div className="flex justify-center items-center py-12">
                     <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
@@ -2297,7 +2150,7 @@ const MentorProfile = () => {
                               />
                             )}
                           </div>
-                          {/* Đã bỏ phần ngăn cách lớn, chỉ giữ card nhỏ gọn */}
+
                           <div className="flex-1 flex flex-col p-4 pb-0">
                             <div
                               className="flex flex-col"
@@ -2350,7 +2203,6 @@ const MentorProfile = () => {
                                 {course.category}
                               </p>
 
-                              {/* Hiển thị tags (Programming Languages) */}
                               {course.tags && course.tags.length > 0 && (
                                 <div className="mb-2">
                                   <div className="flex flex-wrap gap-1">
@@ -2384,7 +2236,6 @@ const MentorProfile = () => {
                                 </div>
                               )}
 
-                              {/* Hiển thị languages */}
                               {course.language &&
                                 course.language.length > 0 && (
                                   <div className="mb-2">
@@ -2424,8 +2275,6 @@ const MentorProfile = () => {
                                   </div>
                                 )}
 
-                              {/* Đã bỏ hiển thị course overview và key learning objectives */}
-                              {/* Hiển thị level nếu có */}
                               {course.level && (
                                 <p className="text-green-500 text-xs mb-2">
                                   <b>Level:</b> {course.level}
@@ -2454,10 +2303,8 @@ const MentorProfile = () => {
                               onClick={(e) => {
                                 e.stopPropagation();
 
-                                // Show loading page
                                 dispatch(showLoading());
 
-                                // Navigate with a slight delay to show loading
                                 setTimeout(() => {
                                   navigate(
                                     `/mentor/edit-course/${
@@ -2494,7 +2341,6 @@ const MentorProfile = () => {
                   </div>
                 )}
 
-                {/* Pagination - Dynamic based on filtered results */}
                 {totalPages > 1 && (
                   <div className="flex justify-center items-center gap-2 mt-6 pt-4 border-t border-gray-100">
                     <button
@@ -2561,9 +2407,9 @@ const MentorProfile = () => {
 
           {activeTab === "mentees" && (
             <div className="space-y-6">
-              {/* Mentees Section - TODO: Connect to real API for fetching mentor's mentees */}
+
               <div className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100">
-                {/* Header with mentee count and search */}
+
                 <div className="flex justify-between items-center mb-6">
                   <div className="flex items-center gap-4">
                     <h3 className="text-lg font-semibold text-gray-900">
@@ -2572,7 +2418,6 @@ const MentorProfile = () => {
                   </div>
                 </div>
 
-                {/* Search and Filter Bar */}
                 <div className="flex gap-4 mb-6">
                   <div className="flex-1 relative">
                     <input
@@ -2581,7 +2426,7 @@ const MentorProfile = () => {
                       value={menteeSearchTerm}
                       onChange={(e) => {
                         setMenteeSearchTerm(e.target.value);
-                        setMenteeCurrentPage(1); // Reset to page 1 when searching
+                        setMenteeCurrentPage(1);
                       }}
                       className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                     />
@@ -2639,7 +2484,6 @@ const MentorProfile = () => {
                   </div>
                 </div>
 
-                {/* Mentees Grid - Dynamic rendering based on filtered data */}
                 {menteesLoading ? (
                   <div className="col-span-full text-center py-12">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
@@ -2659,7 +2503,7 @@ const MentorProfile = () => {
                   >
                     {currentMentees.length > 0 ? (
                       currentMentees.map((mentee) => {
-                        // ✅ Chuẩn hoá cờ hoạt động: chấp nhận boolean / count / array
+
                         const hasCourse =
                           Boolean(mentee.hasCoursePurchase) ||
                           (typeof mentee.courseCount === "number" &&
@@ -2715,7 +2559,6 @@ const MentorProfile = () => {
                               </div>
                             </div>
 
-                            {/* Service status badges */}
                             <div className="mb-4">
                               <div className="flex flex-wrap gap-2">
                                 {hasCourse && (
@@ -2736,7 +2579,6 @@ const MentorProfile = () => {
                               </div>
                             </div>
 
-                            {/* Action buttons */}
                             <div className="flex gap-2">
                               <button
                                 onClick={() =>
@@ -2777,7 +2619,6 @@ const MentorProfile = () => {
                   </div>
                 )}
 
-                {/* Pagination - Dynamic based on filtered results */}
                 {totalMenteePages > 1 && (
                   <div className="flex justify-center items-center gap-2 mt-8 pt-6 border-t border-gray-200">
                     <button
@@ -2848,7 +2689,7 @@ const MentorProfile = () => {
 
           {activeTab === "messages" && (
             <div className="space-y-6">
-              {/* Sử dụng component MentorMenteeChat mới với API integration */}
+
               <MentorMenteeChat userRole="mentor" />
             </div>
           )}
@@ -2857,7 +2698,7 @@ const MentorProfile = () => {
             <div className="space-y-6">
               {scheduleMode === "list" && (
                 <div className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100">
-                  {/* Header with create schedule button */}
+
                   <div className="flex justify-between items-center mb-6">
                     <h3 className="text-2xl font-bold text-gray-900 mb-4 flex items-center gap-2">
                       My Schedules
@@ -2883,7 +2724,6 @@ const MentorProfile = () => {
                     </button>
                   </div>
 
-                  {/* Availability Overview */}
                   {availabilityLoading ? (
                     <div className="flex justify-center items-center py-12">
                       <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
@@ -2893,7 +2733,7 @@ const MentorProfile = () => {
                     </div>
                   ) : availabilityOverview ? (
                     <div className="space-y-4">
-                      {/* Summary Stats */}
+
                       <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-6 shadow-lg">
                         <h4 className="text-xl font-bold text-blue-900 mb-6 flex items-center gap-2">
                           <span className="text-blue-600">📊</span> Availability
@@ -2929,7 +2769,6 @@ const MentorProfile = () => {
                         </div>
                       </div>
 
-                      {/* Daily Overview */}
                       <div className="space-y-4">
                         {availabilityOverview.overview?.map((day, index) => (
                           <div
@@ -3083,7 +2922,6 @@ const MentorProfile = () => {
                     </div>
                   )}
 
-                  {/* My Schedules List */}
                   <div className="mt-8">
                     {mySchedulesLoading ? (
                       <div className="flex justify-center items-center py-12">
@@ -3096,7 +2934,7 @@ const MentorProfile = () => {
                       mySchedules.schedulesByMonth &&
                       mySchedules.schedulesByMonth.length > 0 ? (
                       <div className="bg-white rounded-2xl shadow-lg p-8 border border-gray-100 overflow-hidden">
-                        {/* Header with gradient background */}
+
                         <div className="bg-gradient-to-r from-blue-50 to-indigo-50 -m-8 mb-6 p-8 border-b border-gray-100">
                           <div>
                             <h3 className="text-2xl font-bold text-gray-900 mb-4 flex items-center gap-2">
@@ -3139,8 +2977,6 @@ const MentorProfile = () => {
                           </div>
                         </div>
 
-                        {/* Debug logging */}
-                        {/* Time Slots Legend */}
                         <div className="mb-6 p-4 bg-gray-50 rounded-lg border">
                           <h4 className="text-sm font-semibold text-gray-700 mb-3">
                             Time Slots Status Legend
@@ -3173,10 +3009,9 @@ const MentorProfile = () => {
                           </div>
                         </div>
 
-                        {/* Schedules by Month */}
                         <div className="space-y-8">
                           {(() => {
-                            // Flatten all schedules with month info
+
                             const allSchedules =
                               mySchedules.schedulesByMonth.flatMap(
                                 (monthGroup) =>
@@ -3187,7 +3022,6 @@ const MentorProfile = () => {
                                   }))
                               );
 
-                            // Calculate pagination
                             const scheduleStartIndex =
                               (scheduleCurrentPage - 1) * schedulesPerPage;
                             const paginatedSchedules = allSchedules.slice(
@@ -3195,7 +3029,6 @@ const MentorProfile = () => {
                               scheduleStartIndex + schedulesPerPage
                             );
 
-                            // Create array of 4 items (fill empty slots to maintain layout)
                             const displaySchedules = Array.from(
                               { length: schedulesPerPage },
                               (_, index) => paginatedSchedules[index] || null
@@ -3216,14 +3049,13 @@ const MentorProfile = () => {
                                             : "border-blue-200 bg-gradient-to-br from-blue-50/50 to-indigo-50/30 hover:border-blue-300 hover:shadow-blue-100"
                                         }`}
                                       >
-                                        {/* Month Badge */}
+
                                         <div className="absolute top-4 left-4">
                                           <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded-full text-xs font-medium">
                                             {schedule.monthName}
                                           </span>
                                         </div>
 
-                                        {/* Status Badge */}
                                         <div className="absolute top-4 right-4">
                                           <span
                                             className={`px-3 py-1 rounded-full text-xs font-bold ${
@@ -3238,7 +3070,6 @@ const MentorProfile = () => {
                                           </span>
                                         </div>
 
-                                        {/* Schedule Header */}
                                         <div className="mb-4 mt-8">
                                           <h5 className="text-lg font-bold text-gray-900 mb-2 flex items-center gap-1">
                                             <span className="text-blue-600 text-sm">
@@ -3261,7 +3092,6 @@ const MentorProfile = () => {
                                           </p>
                                         </div>
 
-                                        {/* Slots Summary */}
                                         <div className="mb-4">
                                           <div className="grid grid-cols-3 gap-4">
                                             <div className="text-center p-3 bg-white rounded-lg shadow-sm border">
@@ -3291,7 +3121,6 @@ const MentorProfile = () => {
                                           </div>
                                         </div>
 
-                                        {/* Action Buttons */}
                                         {canEditSchedule(schedule) && (
                                           <div className="flex gap-3 mb-4">
                                             <button
@@ -3341,7 +3170,6 @@ const MentorProfile = () => {
                                           </div>
                                         )}
 
-                                        {/* Show message for past schedules */}
                                         {!canEditSchedule(schedule) && (
                                           <div className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-500 bg-gray-50 rounded-lg mb-4">
                                             <span className="text-xs">⏰</span>
@@ -3351,7 +3179,6 @@ const MentorProfile = () => {
                                           </div>
                                         )}
 
-                                        {/* Time Slots Preview */}
                                         <div className="p-4 bg-gray-50 rounded-lg">
                                           <h6 className="text-sm font-semibold text-gray-700 mb-3">
                                             Time Slots Preview
@@ -3398,7 +3225,7 @@ const MentorProfile = () => {
                                         </div>
                                       </div>
                                     ) : (
-                                      // Empty placeholder to maintain grid layout
+
                                       <div className="relative border-2 border-dashed border-gray-200 rounded-xl p-6 bg-gray-50/30 min-h-[400px] flex items-center justify-center">
                                         <div className="text-gray-400 text-center">
                                           <div className="text-3xl mb-2">
@@ -3415,7 +3242,6 @@ const MentorProfile = () => {
                           })()}
                         </div>
 
-                        {/* Schedule Pagination */}
                         {(() => {
                           const allSchedules =
                             mySchedules.schedulesByMonth.flatMap((monthGroup) =>
@@ -3651,7 +3477,7 @@ const MentorProfile = () => {
 
           {activeTab === "response" && (
             <div className="space-y-6">
-              {/* Booking Response Section */}
+
               <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-8">
                 <div className="space-y-6">
                   <div className="bg-gradient-to-r from-indigo-50 to-purple-50 -m-8 mb-6 p-8 border-b border-gray-100">
@@ -3694,7 +3520,6 @@ const MentorProfile = () => {
                     </div>
                   </div>
 
-                  {/* Filters */}
                   <div className="flex items-center justify-between gap-3 border-b border-gray-200 pb-6">
                     <div className="flex gap-3">
                       <button
@@ -3750,7 +3575,6 @@ const MentorProfile = () => {
                       </button>
                     </div>
 
-                    {/* Refresh Button */}
                     <button
                       onClick={loadMentorBookings}
                       disabled={bookingsLoading}
@@ -3782,12 +3606,10 @@ const MentorProfile = () => {
                     </button>
                   </div>
 
-                  {/* Booking List */}
                   <div className="space-y-4">
                     {(() => {
                       const filteredBookings = getFilteredBookings();
 
-                      // Calculate pagination for responses
                       const responseStartIndex =
                         (responseCurrentPage - 1) * responsesPerPage;
                       const paginatedBookings = filteredBookings.slice(
@@ -3813,7 +3635,7 @@ const MentorProfile = () => {
                         </div>
                       ) : (
                         <>
-                          {/* Booking Cards */}
+
                           {paginatedBookings.map((booking) => (
                             <div
                               key={booking.id}
@@ -3825,7 +3647,7 @@ const MentorProfile = () => {
                                   : "border-red-200 bg-gradient-to-br from-red-50/50 to-pink-50/30 hover:border-red-300"
                               }`}
                             >
-                              {/* Status Badge */}
+
                               <div className="flex justify-between items-start mb-4">
                                 <span
                                   className={`px-3 py-1 rounded-full text-sm font-bold ${
@@ -3942,9 +3764,21 @@ const MentorProfile = () => {
                                 </div>
                               </div>
 
-                              {/* Action Buttons */}
                               {booking.status === "pending" && (
-                                <div className="flex justify-center gap-3 pt-4 border-t border-gray-200">
+                                <div className="space-y-3 border-t border-gray-200 pt-4">
+                                  <input
+                                    type="url"
+                                    value={meetingLinks[booking.id] || ""}
+                                    onChange={(event) =>
+                                      setMeetingLinks((current) => ({
+                                        ...current,
+                                        [booking.id]: event.target.value,
+                                      }))
+                                    }
+                                    placeholder="Private Google Meet or Zoom link"
+                                    className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100"
+                                  />
+                                  <div className="flex justify-center gap-3">
                                   <button
                                     onClick={() =>
                                       handleAcceptBooking(booking.id)
@@ -3961,12 +3795,12 @@ const MentorProfile = () => {
                                   >
                                     Decline
                                   </button>
+                                  </div>
                                 </div>
                               )}
                             </div>
                           ))}
 
-                          {/* Response Pagination */}
                           {(() => {
                             const totalResponsePages = Math.ceil(
                               filteredBookings.length / responsesPerPage
@@ -4036,7 +3870,6 @@ const MentorProfile = () => {
                     })()}
                   </div>
 
-                  {/* Information */}
                   <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                     <div className="flex items-start gap-3">
                       <svg
@@ -4081,11 +3914,50 @@ const MentorProfile = () => {
             </div>
           )}
 
+          {activeTab === "earnings" && (
+            <div className="space-y-6">
+              <div className="ui-card p-6">
+                <p className="text-xs font-bold uppercase tracking-[0.16em] text-[var(--ui-accent)]">Payout ledger</p>
+                <h3 className="mt-1 text-2xl font-black text-[var(--ui-text)]">Your earnings</h3>
+                <div className="mt-6 grid gap-4 sm:grid-cols-3">
+                  {[
+                    ["Pending completion", earnings.summary?.pending],
+                    ["Available payout", earnings.summary?.eligible],
+                    ["Paid", earnings.summary?.paid],
+                  ].map(([label, amount]) => (
+                    <div key={String(label)} className="rounded-2xl bg-[var(--ui-surface-muted)] p-5">
+                      <p className="text-sm text-[var(--ui-text-muted)]">{label}</p>
+                      <p className="mt-2 text-2xl font-black text-[var(--ui-text)]">
+                        {Number(amount || 0).toLocaleString("vi-VN")} ₫
+                      </p>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-6 space-y-3">
+                  {earningsLoading && <p className="text-sm text-[var(--ui-text-muted)]">Loading earnings…</p>}
+                  {!earningsLoading && !earnings.items?.length && <p className="rounded-2xl border border-dashed border-[var(--ui-border)] p-8 text-center text-sm text-[var(--ui-text-muted)]">Completed paid sessions and course sales will appear here.</p>}
+                  {earnings.items?.map((earning) => (
+                    <div key={earning._id} className="flex flex-col justify-between gap-3 rounded-2xl border border-[var(--ui-border)] p-4 sm:flex-row sm:items-center">
+                      <div>
+                        <p className="font-semibold text-[var(--ui-text)]">{earning.sourceType === "booking" ? "Mentoring session" : earning.course?.title || "Course sale"}</p>
+                        <p className="mt-1 text-sm text-[var(--ui-text-muted)]">Gross {Number(earning.grossAmount).toLocaleString("vi-VN")} ₫ · Fee {Number(earning.platformFeeAmount).toLocaleString("vi-VN")} ₫</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-bold text-[var(--ui-text)]">{Number(earning.netAmount).toLocaleString("vi-VN")} ₫</p>
+                        <span className="text-xs font-bold uppercase text-[var(--ui-accent)]">{earning.status}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
           {activeTab === "reviews" && (
             <div className="space-y-6">
-              {/* Reviews Section - TODO: Connect to real API for fetching mentor's reviews */}
+
               <div className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100">
-                {/* Header with review count */}
+
                 <div className="flex justify-between items-center mb-6">
                   <div className="flex items-center gap-4">
                     <h3 className="text-lg font-semibold text-gray-900">
@@ -4099,7 +3971,6 @@ const MentorProfile = () => {
                   </div>
                 </div>
 
-                {/* Review Tabs */}
                 <div className="flex border-b border-gray-200 mb-6">
                   <button
                     onClick={() => setActiveReviewTab("all")}
@@ -4122,7 +3993,7 @@ const MentorProfile = () => {
                     Course Reviews (
                     {
                       allReviews.filter((review) => {
-                        // Same logic as in getFilteredAndSortedReviews
+
                         if (review.targetType === "course") return true;
                         if (review.course && review.course._id) return true;
                         if (review.target && !review.targetType) return true;
@@ -4168,7 +4039,6 @@ const MentorProfile = () => {
                   </button>
                 </div>
 
-                {/* Reviews Grid - Dynamic rendering based on filtered data */}
                 {reviewsLoading ? (
                   <div className="flex justify-center items-center py-20">
                     <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
@@ -4217,7 +4087,7 @@ const MentorProfile = () => {
                           key={review._id || review.id}
                           className="border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow overflow-hidden"
                         >
-                          {/* Review Header */}
+
                           <div className="flex items-start gap-4 mb-4">
                             <div className="relative flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[var(--ui-accent-soft)] font-bold text-[var(--ui-accent)]">
                               <span>{(review.author?.firstName?.[0] || "A").toUpperCase()}</span>
@@ -4242,7 +4112,7 @@ const MentorProfile = () => {
                                         }`.trim() || review.author.userName
                                       : "Unknown User"}
                                   </h4>
-                                  {/* Show different info based on review type */}
+
                                   {review.targetType === "Booking" ? (
                                     <button
                                       onClick={() =>
@@ -4293,7 +4163,6 @@ const MentorProfile = () => {
                             </div>
                           </div>
 
-                          {/* Review Content */}
                           <div className="mb-4 overflow-hidden">
                             <p
                               className="text-gray-700 text-sm leading-relaxed break-words overflow-wrap-break-word word-break-break-all max-w-full"
@@ -4315,7 +4184,6 @@ const MentorProfile = () => {
                             </p>
                           </div>
 
-                          {/* Review Footer */}
                           <div className="flex items-center justify-between text-sm">
                             <div className="flex gap-2">
                               <button className="text-blue-600 hover:text-blue-700 transition text-sm font-medium">
@@ -4360,7 +4228,6 @@ const MentorProfile = () => {
                   </div>
                 )}
 
-                {/* Pagination - Dynamic based on filtered results */}
                 {totalReviewPages > 1 && (
                   <div className="flex justify-center items-center gap-2 mt-8 pt-6 border-t border-gray-200">
                     <button
@@ -4431,7 +4298,6 @@ const MentorProfile = () => {
         </div>
       </div>
 
-      {/* Delete Confirmation Modal */}
       {deleteConfirmModal.isOpen && (
         <div
           className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-300"
@@ -4444,7 +4310,7 @@ const MentorProfile = () => {
               animation: "modalAppear 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)",
             }}
           >
-            {/* Modal Header */}
+
             <div className="border-b border-gray-100 p-6 animate-in slide-in-from-top-4 duration-400 delay-100">
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center transform hover:scale-110 transition-all duration-300">
@@ -4461,7 +4327,6 @@ const MentorProfile = () => {
               </div>
             </div>
 
-            {/* Modal Body */}
             <div className="p-6 animate-in slide-in-from-bottom-4 duration-400 delay-200">
               <div className="mb-4">
                 <p className="text-gray-700 mb-2 transform transition-all duration-300">
@@ -4475,7 +4340,6 @@ const MentorProfile = () => {
               </div>
             </div>
 
-            {/* Modal Footer */}
             <div className="border-t border-gray-100 p-6 flex gap-3 animate-in slide-in-from-bottom-4 duration-400 delay-300">
               <button
                 onClick={closeDeleteConfirmModal}
@@ -4494,7 +4358,6 @@ const MentorProfile = () => {
         </div>
       )}
 
-      {/* Decline Booking Confirmation Modal */}
       {declineConfirmModal.isOpen && (
         <div
           className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-300"
@@ -4507,7 +4370,7 @@ const MentorProfile = () => {
               animation: "modalAppear 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)",
             }}
           >
-            {/* Modal Header */}
+
             <div className="border-b border-gray-100 p-6 animate-in slide-in-from-top-4 duration-400 delay-100">
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center transform hover:scale-110 transition-all duration-300">
@@ -4524,7 +4387,6 @@ const MentorProfile = () => {
               </div>
             </div>
 
-            {/* Modal Body */}
             <div className="p-6 animate-in slide-in-from-bottom-4 duration-400 delay-200">
               <div className="mb-4">
                 <p className="text-gray-700 mb-3 transform transition-all duration-300">
@@ -4545,7 +4407,6 @@ const MentorProfile = () => {
                 </div>
               </div>
 
-              {/* Decline Reason Input */}
               <div className="mb-4 animate-in slide-in-from-bottom-4 duration-400 delay-300">
                 <label className="block text-sm font-medium text-gray-700 mb-2 transform transition-all duration-300">
                   Decline Reason (Optional)
@@ -4565,7 +4426,6 @@ const MentorProfile = () => {
               </div>
             </div>
 
-            {/* Modal Footer */}
             <div className="border-t border-gray-100 p-6 flex gap-3 animate-in slide-in-from-bottom-4 duration-400 delay-400">
               <button
                 onClick={closeDeclineConfirmModal}
@@ -4584,7 +4444,6 @@ const MentorProfile = () => {
         </div>
       )}
 
-      {/* Custom Animations */}
       <style>{`
         @keyframes modalAppear {
           0% {
@@ -4617,7 +4476,6 @@ const MentorProfile = () => {
         }
       `}</style>
 
-      {/* Course Detail Popup */}
       {isCourseDetailPopupOpen && selectedReviewCourse && (
         <div
           className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-300"
@@ -4634,7 +4492,7 @@ const MentorProfile = () => {
               animation: "modalAppear 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)",
             }}
           >
-            {/* Header */}
+
             <div className="px-6 py-4 border-b border-gray-100 animate-in slide-in-from-top-4 duration-300 delay-100">
               <div className="flex items-center justify-between">
                 <h3 className="text-xl font-bold text-gray-900">
@@ -4661,9 +4519,8 @@ const MentorProfile = () => {
               </div>
             </div>
 
-            {/* Content */}
             <div className="px-6 py-6 animate-in slide-in-from-bottom-4 duration-400 delay-200">
-              {/* Course Header */}
+
               <div className="flex items-start gap-4 mb-6">
                 <div className="relative flex h-[4.5rem] w-24 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[var(--ui-accent-soft)] text-xs font-bold text-[var(--ui-accent)] shadow-md">
                   <span>Course</span>
@@ -4705,7 +4562,6 @@ const MentorProfile = () => {
                 </div>
               </div>
 
-              {/* Description */}
               {(selectedReviewCourse.description ||
                 selectedReviewCourse.shortDescription) && (
                 <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200 overflow-hidden">
@@ -4727,12 +4583,11 @@ const MentorProfile = () => {
                         selectedReviewCourse.shortDescription ||
                         "";
 
-                      // Check if description contains weird characters
                       const hasWeirdChars =
                         /[^\p{ASCII}]/u.test(desc) || desc.includes("�");
 
                       if (hasWeirdChars || desc.length > 200) {
-                        // If description seems corrupted or too long, show a fallback
+
                         return (
                           <div>
                             <div className="bg-gray-100 p-2 rounded text-xs font-mono break-words overflow-wrap-break-word">
@@ -4742,9 +4597,8 @@ const MentorProfile = () => {
                         );
                       }
 
-                      // Clean up minor encoding issues
                       const cleanDesc = desc
-                        .replace(/\s+/g, " ") // Replace multiple spaces
+                        .replace(/\s+/g, " ")
                         .trim();
 
                       return cleanDesc || "No description available";
@@ -4753,7 +4607,6 @@ const MentorProfile = () => {
                 </div>
               )}
 
-              {/* Course Stats */}
               <div className="mb-6 grid grid-cols-2 md:grid-cols-4 gap-4">
                 {selectedReviewCourse.price !== undefined &&
                   selectedReviewCourse.price !== null && (
@@ -4798,9 +4651,8 @@ const MentorProfile = () => {
                 )}
               </div>
 
-              {/* Languages & Tags */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                {/* Languages */}
+
                 {selectedReviewCourse.language &&
                   selectedReviewCourse.language.length > 0 && (
                     <div className="p-4 bg-indigo-50 rounded-lg border border-indigo-200">
@@ -4820,7 +4672,6 @@ const MentorProfile = () => {
                     </div>
                   )}
 
-                {/* Tags */}
                 {selectedReviewCourse.tags &&
                   selectedReviewCourse.tags.length > 0 && (
                     <div className="p-4 bg-yellow-50 rounded-lg border border-yellow-200">
@@ -4841,7 +4692,6 @@ const MentorProfile = () => {
                   )}
               </div>
 
-              {/* Key Learning Objectives */}
               {selectedReviewCourse.keyLearningObjectives && (
                 <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
                   <h5 className="text-sm font-semibold text-blue-800 mb-3 flex items-center">
@@ -4852,9 +4702,8 @@ const MentorProfile = () => {
                       const objectives =
                         selectedReviewCourse.keyLearningObjectives || "";
 
-                      // Handle different data types
                       if (Array.isArray(objectives)) {
-                        // If it's an array, join with bullet points
+
                         return (
                           <ul className="list-disc list-inside space-y-1">
                             {objectives.map((obj, index) => (
@@ -4864,7 +4713,6 @@ const MentorProfile = () => {
                         );
                       }
 
-                      // Try to parse if it looks like JSON array
                       if (
                         typeof objectives === "string" &&
                         objectives.startsWith("[") &&
@@ -4882,13 +4730,12 @@ const MentorProfile = () => {
                             );
                           }
                         } catch (e) {
-                          // Failed to parse objectives
+
                         }
                       }
 
-                      // Handle string with weird characters - try to extract meaningful content
                       if (typeof objectives === "string") {
-                        // Check if it contains quotes and brackets (corrupted JSON)
+
                         const bracketPattern = /\["([^"]+)"[,\]]/g;
                         const matches = [];
                         let match;
@@ -4909,7 +4756,6 @@ const MentorProfile = () => {
                           );
                         }
 
-                        // If still has weird chars, show fallback
                         const hasWeirdChars =
                           /[^\p{ASCII}]/u.test(objectives) ||
                           objectives.includes("�");
@@ -4932,7 +4778,6 @@ const MentorProfile = () => {
                           );
                         }
 
-                        // Clean up and return as text
                         return objectives.replace(/\s+/g, " ").trim();
                       }
 
@@ -4942,7 +4787,6 @@ const MentorProfile = () => {
                 </div>
               )}
 
-              {/* Short Description */}
               {selectedReviewCourse.shortDescription &&
                 selectedReviewCourse.shortDescription !==
                   selectedReviewCourse.description && (
@@ -4957,7 +4801,6 @@ const MentorProfile = () => {
                 )}
             </div>
 
-            {/* Footer */}
             <div className="px-6 py-4 border-t border-gray-100 bg-gray-50 rounded-b-2xl">
               <button
                 onClick={closeCourseDetailPopup}
@@ -4970,11 +4813,10 @@ const MentorProfile = () => {
         </div>
       )}
 
-      {/* Booking Detail Popup */}
       {isBookingDetailPopupOpen &&
         selectedReviewBooking &&
         (() => {
-          // ---- Helpers ----
+
           const TZ = "Asia/Ho_Chi_Minh";
 
           const normalizeBooking = (raw) => {
@@ -4999,7 +4841,7 @@ const MentorProfile = () => {
 
           const toHhMm = (t) => {
             if (!t) return null;
-            // "9:00 AM", "09:00", "9:0", "0900"
+
             const ampm = t.match(/^(\d{1,2})(?::?(\d{2}))?\s*(AM|PM)$/i);
             if (ampm) {
               let hh = parseInt(ampm[1], 10);
@@ -5013,24 +4855,24 @@ const MentorProfile = () => {
                 "0"
               )}`;
             }
-            // "0900" -> "09:00"
+
             const compact = t.match(/^(\d{2})(\d{2})$/);
             if (compact) return `${compact[1]}:${compact[2]}`;
-            // "9:0" -> "09:00"
+
             const colon = t.match(/^(\d{1,2}):(\d{1,2})$/);
             if (colon) {
               const hh = String(colon[1]).padStart(2, "0");
               const mm = String(colon[2]).padStart(2, "0");
               return `${hh}:${mm}`;
             }
-            // Already "HH:MM"?
+
             if (/^\d{1,2}:\d{2}$/.test(t)) return t;
             return null;
           };
 
           const dateOnly = (d) => {
             if (!d) return null;
-            // Prefer "YYYY-MM-DD" from raw, else derive from Date
+
             if (/^\d{4}-\d{2}-\d{2}/.test(d)) return d.slice(0, 10);
             const dd = new Date(d);
             if (Number.isNaN(dd.getTime())) return null;
@@ -5040,11 +4882,11 @@ const MentorProfile = () => {
             return `${y}-${m}-${day}`;
           };
 
-          const parseLocalDateTime = (d, t /* HH:MM */) => {
+          const parseLocalDateTime = (d, t ) => {
             const day = dateOnly(d);
             const time = toHhMm(t) ?? "00:00";
             if (!day) return null;
-            // new Date("YYYY-MM-DDTHH:MM:SS") -> local time
+
             const dt = new Date(`${day}T${time}:00`);
             return Number.isNaN(dt.getTime()) ? null : dt;
           };
@@ -5074,16 +4916,11 @@ const MentorProfile = () => {
             return eTxt ? `${sTxt} - ${eTxt}` : sTxt;
           };
 
-          // ---- Normalize & derive ----
           const b = normalizeBooking(selectedReviewBooking);
           const startDT = parseLocalDateTime(b?.date, b?.start);
           const endDT = parseLocalDateTime(b?.date, b?.end);
           const now = new Date();
 
-          // Status logic:
-          // - finished if end < now
-          // - else if start < now < end -> active
-          // - else if start > now -> upcoming/active
           let statusText = "Completed";
           let statusColor = "bg-gray-100 text-gray-800";
 
@@ -5101,7 +4938,7 @@ const MentorProfile = () => {
               statusText = "Active";
               statusColor = "bg-blue-100 text-blue-800";
             } else if (b?.status) {
-              // Fallback to server status naming
+
               const map = {
                 finished: ["Finished", "bg-green-100 text-green-800"],
                 active: ["Active", "bg-blue-100 text-blue-800"],
@@ -5124,7 +4961,6 @@ const MentorProfile = () => {
                   .join(" ")
               : "";
 
-          // Sử dụng helper function để format thời gian tạo booking từ UTC sang VN
           const createdText = formatDateTimeUTCToVN(b?.createdAt);
 
           return (
@@ -5142,7 +4978,7 @@ const MentorProfile = () => {
                     "modalAppear 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)",
                 }}
               >
-                {/* Header */}
+
                 <div className="px-6 py-4 border-b border-gray-100 animate-in slide-in-from-top-4 duration-300 delay-100">
                   <div className="flex items-center justify-between">
                     <h3 className="text-xl font-bold text-gray-900">
@@ -5169,9 +5005,8 @@ const MentorProfile = () => {
                   </div>
                 </div>
 
-                {/* Content */}
                 <div className="px-6 py-6 animate-in slide-in-from-bottom-4 duration-400 delay-200">
-                  {/* Booking Header */}
+
                   <div className="flex items-start gap-4 mb-6">
                     <div className="w-24 h-20 bg-orange-100 rounded-xl shadow-md flex-shrink-0 flex items-center justify-center">
                       <svg
@@ -5237,7 +5072,6 @@ const MentorProfile = () => {
                     </div>
                   </div>
 
-                  {/* Booking Details */}
                   <div className="space-y-4">
                     <div className="p-4 bg-gray-50 rounded-xl">
                       <h5 className="font-semibold text-gray-900 mb-2">
@@ -5270,7 +5104,6 @@ const MentorProfile = () => {
                   </div>
                 </div>
 
-                {/* Footer */}
                 <div className="px-6 py-4 border-t border-gray-100 animate-in slide-in-from-bottom-4 duration-300 delay-300">
                   <button
                     onClick={closeBookingDetailPopup}
@@ -5287,7 +5120,6 @@ const MentorProfile = () => {
   );
 };
 
-// Capitalize initials of each word
 function capitalizeWords(str) {
   if (!str) return "";
   return str
@@ -5296,7 +5128,6 @@ function capitalizeWords(str) {
     .join(" ");
 }
 
-// --- Schedule Builder Helpers ---------------------------------------------------------------
 function toMinutes(hhmm) {
   const [h, m] = hhmm.split(":").map(Number);
   return h * 60 + (m || 0);
@@ -5326,21 +5157,17 @@ function isPast(dateStr) {
   return d < today;
 }
 
-// Helper function to check if a schedule can be edited
-// Allow editing for today and future dates (can add future time slots)
 function canEditSchedule(schedule) {
   const scheduleDate = new Date(schedule.date + "T00:00:00");
   const today = new Date(todayKey() + "T00:00:00");
-  // Allow editing if schedule date is today or in the future
+
   return scheduleDate >= today;
 }
 
-// Helper function to check if a schedule can be deleted
-// Allow deletion for today (if no bookings) and future dates
 function canDeleteSchedule(schedule) {
   const scheduleDate = new Date(schedule.date + "T00:00:00");
   const today = new Date(todayKey() + "T00:00:00");
-  const isNotPastDate = scheduleDate >= today; // Today or future
+  const isNotPastDate = scheduleDate >= today;
   const hasNoBookings = (schedule.bookedSlots || 0) === 0;
   return isNotPastDate && hasNoBookings;
 }
@@ -5363,10 +5190,9 @@ function formatHuman(dateStr) {
   }
 }
 
-// Helper function to check if time is in the past for today
 function isTimeInPast(timeStr, dateStr) {
   const today = todayKey();
-  if (dateStr !== today) return false; // Not today, so time is not in past
+  if (dateStr !== today) return false;
 
   const now = new Date();
   const currentMinutes = now.getHours() * 60 + now.getMinutes();
@@ -5375,48 +5201,41 @@ function isTimeInPast(timeStr, dateStr) {
   return timeMinutes <= currentMinutes;
 }
 
-// Helper function to filter out past times for today
 function getAvailableTimes(dateStr) {
   const allTimes = generateTimes(8, 22, 30);
   const today = todayKey();
 
-  if (dateStr !== today) return allTimes; // Not today, return all times
+  if (dateStr !== today) return allTimes;
 
-  // For today, filter out past times
   return allTimes.filter((time) => !isTimeInPast(time, dateStr));
 }
 
-// --- Schedule Builder Component ---------------------------------------------------------------
 function MentorAvailabilityBuilder({
   onBack,
   onSave,
   editingSchedule,
   existingSchedules,
 }) {
-  const [mode, setMode] = useState<any>("builder"); // 'builder' | 'review'
+  const [mode, setMode] = useState<any>("builder");
   const [selectedDate, setSelectedDate] = useState<any>("");
   const [error, setError] = useState<any>("");
-  const [pickedForDay, setPickedForDay] = useState<any>(new Set()); // working selection
-  const [availability, setAvailability] = useState<any>({}); // committed while editing
-  const [savedSnapshot, setSavedSnapshot] = useState<any>(null); // what we "persisted"
-  const [bookedSlots, setBookedSlots] = useState<any>({}); // Track booked slots by date
+  const [pickedForDay, setPickedForDay] = useState<any>(new Set());
+  const [availability, setAvailability] = useState<any>({});
+  const [savedSnapshot, setSavedSnapshot] = useState<any>(null);
+  const [bookedSlots, setBookedSlots] = useState<any>({});
 
-  // Load editing data when component mounts or editingSchedule changes
   useEffect(() => {
     if (editingSchedule) {
       setAvailability(editingSchedule.availability || {});
 
-      // Auto-select the date being edited
       if (editingSchedule.date) {
         setSelectedDate(editingSchedule.date);
 
-        // Pre-populate the picked times for the selected date
         const existingTimes =
           editingSchedule.availability?.[editingSchedule.date] || [];
         setPickedForDay(new Set(existingTimes));
       }
 
-      // Extract booked slots info if editing
       if (editingSchedule.slots) {
         const booked = {};
         const dateKey = editingSchedule.date;
@@ -5452,24 +5271,22 @@ function MentorAvailabilityBuilder({
     setSelectedDate(v);
     setError(validateDate(v));
 
-    // First check if there's an existing schedule for this date
     let existingTimeSlotsForDate = [];
     let existingBookedSlots = [];
 
     if (existingSchedules?.schedulesByMonth) {
-      // Find existing schedule for the selected date
+
       for (const monthGroup of existingSchedules.schedulesByMonth) {
         const existingSchedule = monthGroup.schedules.find(
           (schedule) => schedule.date === v
         );
 
         if (existingSchedule) {
-          // Extract time slots from existing schedule
+
           existingTimeSlotsForDate = existingSchedule.slots.map(
             (slot) => slot.start
           );
 
-          // Extract booked slots
           existingBookedSlots = existingSchedule.slots
             .filter((slot) => slot.status === "booked")
             .map((slot) => ({
@@ -5478,7 +5295,6 @@ function MentorAvailabilityBuilder({
               bookedBy: slot.bookedBy,
             }));
 
-          // Update booked slots state
           setBookedSlots((prev) => ({
             ...prev,
             [v]: existingBookedSlots,
@@ -5489,25 +5305,20 @@ function MentorAvailabilityBuilder({
       }
     }
 
-    // Get saved times from current availability state
     const saved = availability[v] || [];
 
-    // Combine existing schedule times with saved times, prioritizing existing schedule
     const combinedTimes =
       existingTimeSlotsForDate.length > 0 ? existingTimeSlotsForDate : saved;
 
-    // Filter out past times if it's today
     const validSavedTimes = combinedTimes.filter(
       (time) => !isTimeInPast(time, v)
     );
 
-    // Auto-include booked slots for this date (they cannot be unselected)
     const bookedTimes = existingBookedSlots.map((slot) => slot.time);
     const allSelectedTimes = [...new Set([...validSavedTimes, ...bookedTimes])];
 
     setPickedForDay(new Set(allSelectedTimes));
 
-    // Update availability state with the found times
     if (existingTimeSlotsForDate.length > 0) {
       setAvailability((prev) => ({
         ...prev,
@@ -5517,10 +5328,10 @@ function MentorAvailabilityBuilder({
   }
 
   function toggleTime(t) {
-    // Check if this time slot is booked (cannot be toggled off)
+
     const isBooked = bookedSlots[selectedDate]?.find((slot) => slot.time === t);
     if (isBooked) {
-      return; // Do nothing for booked slots
+      return;
     }
 
     const next = new Set(pickedForDay);
@@ -5554,12 +5365,12 @@ function MentorAvailabilityBuilder({
   }
 
   async function saveAll() {
-    // Guard: must have at least 1 submitted day before saving
+
     if (Object.keys(availability).length === 0) {
       alert("Please submit at least one day before saving.");
       return;
     }
-    // In a real app, call your API here then navigate to a separate page.
+
     const payload = {
       slots: availability,
       createdAt: new Date().toISOString(),
@@ -5680,7 +5491,6 @@ function MentorAvailabilityBuilder({
     );
   }
 
-  // --- Builder view -------------------------------------------------------
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
       <div className="flex items-center gap-3 mb-6">
@@ -5737,7 +5547,6 @@ function MentorAvailabilityBuilder({
                 )}
             </header>
 
-            {/* Date */}
             <section className="space-y-3">
               <label className="flex items-center gap-2 text-sm font-semibold text-blue-900">
                 <div className="p-1.5 bg-blue-100 rounded-lg">
@@ -5787,7 +5596,6 @@ function MentorAvailabilityBuilder({
               )}
             </section>
 
-            {/* Time grid */}
             <section className="space-y-4">
               <div className="flex items-center justify-between">
                 <label className="flex items-center gap-2 text-sm font-semibold text-blue-900">
@@ -5898,7 +5706,6 @@ function MentorAvailabilityBuilder({
           </div>
         </div>
 
-        {/* Right: committed list */}
         <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
           <div className="p-6 space-y-6">
             <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-5 shadow-sm">

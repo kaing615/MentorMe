@@ -15,6 +15,13 @@ import { PaymentEvent, PaymentEventSchema } from "./payment-event.schema";
 import { PaymentService } from "./payment.service";
 import { VnpayProvider } from "./providers/vnpay.provider";
 import { MomoProvider } from "./providers/momo.provider";
+import { MentorEarningController } from "./mentor-earning.controller";
+import { MentorEarningService } from "./mentor-earning.service";
+import { Booking, BookingSchema } from "../mentoring/booking.schema";
+import {
+  MentorEarning,
+  MentorEarningSchema,
+} from "./mentor-earning.schema";
 
 @Module({
   imports: [
@@ -26,15 +33,23 @@ import { MomoProvider } from "./providers/momo.provider";
       { name: Discount.name, schema: DiscountSchema },
       { name: Order.name, schema: OrderSchema },
       { name: PaymentEvent.name, schema: PaymentEventSchema },
+      { name: Booking.name, schema: BookingSchema },
+      { name: MentorEarning.name, schema: MentorEarningSchema },
     ]),
   ],
-  controllers: [CartController, OrderController, PaymentController],
+  controllers: [
+    CartController,
+    OrderController,
+    PaymentController,
+    MentorEarningController,
+  ],
   providers: [
     CartService,
     MomoProvider,
     OrderService,
     PaymentService,
     VnpayProvider,
+    MentorEarningService,
   ],
   exports: [PaymentService, MongooseModule],
 })

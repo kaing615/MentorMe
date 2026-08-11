@@ -8,6 +8,7 @@ export type MentorListItem = {
   rating: number;
   reviewCount: number;
   studentCount: number;
+  sessionPrice: number;
 };
 
 export const filterMentors = (mentors: any[], query: string) => {
@@ -45,5 +46,6 @@ export const mapMentorListResponse = (response: any): MentorListItem[] => {
     rating: Number(mentor.averageRating) || 0,
     reviewCount: Number(mentor.totalReviews) || 0,
     studentCount: Number(mentor.totalStudents) || 0,
+    sessionPrice: Number(mentor.sessionPrice) || 0,
   }));
 };

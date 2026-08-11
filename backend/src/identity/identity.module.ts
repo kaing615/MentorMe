@@ -4,12 +4,19 @@ import { JwtModule } from "@nestjs/jwt";
 import { MongooseModule } from "@nestjs/mongoose";
 import { JwtAuthGuard } from "../common/auth/jwt-auth.guard";
 import { AuthService } from "./auth.service";
+import {
+  MentorApplication,
+  MentorApplicationSchema,
+} from "./mentor-application.schema";
 import { User, UserSchema } from "./user.schema";
 import { UserController } from "./user.controller";
 
 @Module({
   imports: [
-    MongooseModule.forFeature([{ name: User.name, schema: UserSchema }]),
+    MongooseModule.forFeature([
+      { name: User.name, schema: UserSchema },
+      { name: MentorApplication.name, schema: MentorApplicationSchema },
+    ]),
     JwtModule.registerAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({

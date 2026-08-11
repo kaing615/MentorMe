@@ -104,6 +104,40 @@ describe("profiles", () => {
     expect(response.body.data.mentors[0].skills).toEqual([]);
   });
 
+  it("filters and paginates mentors on the server", async () => {
+    const users = app.get<Model<User>>(getModelToken(User.name));
+    const dataMentor = await users.create({
+      email: "data-mentor@example.com",
+      userName: "data_mentor",
+      firstName: "Data",
+      lastName: "Mentor",
+      jobTitle: "Data Scientist",
+      role: "mentor",
+      roles: ["mentor"],
+      isVerified: true,
+    });
+    await connection.collection("profiles").insertOne({
+      user: dataMentor._id,
+      jobTitle: "Data Scientist",
+      category: "Data",
+      bio: "Machine learning mentor",
+      skills: ["Python", "Machine Learning"],
+      rate: 4.8,
+      sessionPrice: 600000,
+    });
+
+    const response = await request(app.getHttpServer())
+      .get(
+        "/api/v1/profile/mentors?search=data&skills=Python&minRating=4&sort=rating&page=1&limit=10",
+      )
+      .expect(200);
+
+    expect(response.body.data.total).toBe(1);
+    expect(response.body.data.mentors[0]._id).toBe(String(dataMentor._id));
+    expect(response.body.data.mentors[0].sessionPrice).toBe(600000);
+    expect(response.body.data.facets.skills).toContain("Python");
+  });
+
   it("updates a mentee profile", async () => {
     const response = await request(app.getHttpServer())
       .put("/api/v1/profile/mentee")
@@ -151,11 +185,13 @@ describe("profiles", () => {
         mentorReason: "I want to share production lessons with growing engineers.",
         experience: "Ten years building production services.",
         skills: ["TypeScript", "NestJS"],
+        sessionPrice: 500000,
       })
       .expect(200);
 
     expect(response.body.data.profile.jobTitle).toBe("Staff Engineer");
     expect(response.body.data.profile.skills).toEqual(["TypeScript", "NestJS"]);
+    expect(response.body.data.profile.sessionPrice).toBe(500000);
   });
 
   it("changes the current user's avatar", async () => {

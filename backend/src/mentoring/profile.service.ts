@@ -61,10 +61,111 @@ export class ProfileService {
           averageRating: profile.rate || 0,
           totalReviews: profile.reviews?.length || 0,
           totalStudents: await this.totalMentees(user._id),
+          sessionPrice: profile.sessionPrice || 0,
         };
       }),
     );
     return { mentors, total: mentors.length };
+  }
+
+  async getMentors(query: Record<string, string | undefined>) {
+    const page = Math.max(Number(query.page) || 1, 1);
+    const limit = Math.min(Math.max(Number(query.limit) || 12, 1), 50);
+    const users = await this.users.find({ role: "mentor", isVerified: true });
+    const profiles = await this.profiles.find({
+      user: { $in: users.map(({ _id }) => _id) },
+    });
+    const profileByUser = new Map(
+      profiles.map((profile) => [String(profile.user), profile]),
+    );
+
+    let mentors = await Promise.all(
+      users.map(async (user) => {
+        const profile = profileByUser.get(String(user._id));
+        const skills = profile?.skills?.length ? profile.skills : user.skills || [];
+        return {
+          _id: user._id,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          fullName: `${user.firstName} ${user.lastName}`.trim(),
+          jobTitle: profile?.jobTitle || user.jobTitle || "",
+          category: profile?.category || user.category || "",
+          avatarUrl: user.avatarUrl || "",
+          bio: profile?.bio || user.bio || "",
+          skills,
+          averageRating: profile?.rate || 0,
+          totalReviews: profile?.reviews?.length || 0,
+          totalStudents: await this.totalMentees(user._id),
+          sessionPrice: profile?.sessionPrice || 0,
+        };
+      }),
+    );
+
+    const search = query.search?.trim().toLowerCase();
+    if (search) {
+      mentors = mentors.filter((mentor) =>
+        [
+          mentor.fullName,
+          mentor.jobTitle,
+          mentor.category,
+          mentor.bio,
+          ...mentor.skills,
+        ]
+          .join(" ")
+          .toLowerCase()
+          .includes(search),
+      );
+    }
+    const selectedSkills = query.skills
+      ?.split(",")
+      .map((value) => value.trim().toLowerCase())
+      .filter(Boolean);
+    if (selectedSkills?.length) {
+      mentors = mentors.filter((mentor) =>
+        selectedSkills.some((selected) =>
+          mentor.skills.some((skill) => skill.toLowerCase() === selected),
+        ),
+      );
+    }
+    const jobTitles = query.jobTitles
+      ?.split(",")
+      .map((value) => value.trim().toLowerCase())
+      .filter(Boolean);
+    if (jobTitles?.length) {
+      mentors = mentors.filter((mentor) =>
+        jobTitles.some((title) => mentor.jobTitle.toLowerCase().includes(title)),
+      );
+    }
+    const minRating = Number(query.minRating);
+    if (Number.isFinite(minRating) && minRating > 0) {
+      mentors = mentors.filter(({ averageRating }) => averageRating >= minRating);
+    }
+    if (query.category) {
+      const category = query.category.toLowerCase();
+      mentors = mentors.filter((mentor) =>
+        mentor.category.toLowerCase().includes(category),
+      );
+    }
+    if (query.sort === "rating") {
+      mentors.sort((left, right) => right.averageRating - left.averageRating);
+    } else if (query.sort === "students") {
+      mentors.sort((left, right) => right.totalStudents - left.totalStudents);
+    }
+
+    const facets = {
+      skills: [...new Set(mentors.flatMap(({ skills }) => skills))].sort(),
+      jobTitles: [...new Set(mentors.map(({ jobTitle }) => jobTitle).filter(Boolean))].sort(),
+    };
+    const total = mentors.length;
+    const start = (page - 1) * limit;
+    return {
+      mentors: mentors.slice(start, start + limit),
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+      facets,
+    };
   }
 
   async updateMentee(user: UserDocument, dto: UpdateMenteeProfileDto) {
@@ -147,6 +248,7 @@ export class ProfileService {
     if (dto.introVideo !== undefined) profile.introVideo = dto.introVideo;
     if (dto.languages !== undefined) profile.languages = dto.languages;
     if (dto.timezone !== undefined) profile.timezone = dto.timezone;
+    if (dto.sessionPrice !== undefined) profile.sessionPrice = dto.sessionPrice;
     await profile.save();
 
     return {
@@ -221,6 +323,7 @@ export class ProfileService {
         links: profile.links,
         reviews: profile.reviews,
         rate: profile.rate,
+        sessionPrice: profile.sessionPrice,
         createdAt: profile.createdAt,
         updatedAt: profile.updatedAt,
       },
