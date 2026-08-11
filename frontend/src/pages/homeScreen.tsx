@@ -21,6 +21,7 @@ import { useGSAP } from "@gsap/react";
 
 import BecomeMentor from "../assets/become-an-mentor.jpg";
 import MentoringHero from "../assets/mentoring-hero.jpg";
+import MentoringHeroCutout from "../assets/mentoring-hero-cutout.png";
 
 import { showLoading, hideLoading } from "../redux/features/loading.slice";
 import courseApi from "../api/modules/course.api.js";
@@ -477,7 +478,7 @@ const HomeScreen = () => {
 
   return (
     <div ref={pageRef} className="flex min-h-[100dvh] flex-col overflow-hidden bg-[var(--ui-page)]">
-      <section className="ui-brand-hero relative mx-3 mt-3 rounded-[2rem] border-2 border-blue-300/30 px-4 pb-14 pt-12 shadow-[var(--ui-shadow-lg)] sm:mx-5 sm:px-6 lg:px-8 lg:pb-20 lg:pt-16">
+      <section className="ui-brand-hero relative mx-3 mt-3 overflow-hidden rounded-[2rem] border-2 border-blue-300/30 px-4 pb-14 pt-12 shadow-[var(--ui-shadow-lg)] sm:mx-5 sm:px-6 lg:px-8 lg:pb-20 lg:pt-16">
         <div className="relative mx-auto grid max-w-7xl grid-cols-1 items-center gap-12 lg:grid-cols-[0.86fr_1.14fr] lg:gap-16">
           <div data-hero-copy className="w-full max-w-3xl">
             <p className="text-sm font-bold text-blue-100">Guidance that moves you forward</p>
@@ -509,19 +510,17 @@ const HomeScreen = () => {
             </div>
           </div>
 
-          <div data-hero-media data-scale-media className="relative lg:pl-4">
-            <div className="absolute -bottom-6 -left-3 h-32 w-32 rotate-6 rounded-[45%_55%_48%_52%] border-2 border-dashed border-yellow-300/65" />
-            <div className="ui-image-frame relative rotate-[0.45deg] overflow-hidden rounded-[2rem] border-2 !border-yellow-300/70 shadow-[var(--ui-shadow-lg)]">
-              <img
-                src={MentoringHero}
-                alt="A learner and mentor reviewing a practical learning plan"
-                className="aspect-[4/3] h-full w-full object-cover"
-                fetchPriority="high"
-              />
-              <div className="absolute inset-x-5 bottom-5 rounded-2xl border border-white/25 bg-blue-950/70 p-4 text-white shadow-[var(--ui-shadow-sm)] backdrop-blur-md sm:max-w-xs">
-                <p className="text-sm font-bold text-white">Your next step</p>
-                <p className="mt-1 text-sm font-semibold leading-5 text-blue-100">Turn a big goal into a practical plan you can follow.</p>
-              </div>
+          <div data-hero-media data-scale-media className="relative min-h-[19rem] sm:min-h-[25rem] lg:min-h-[30rem] lg:pl-4">
+            <div className="absolute -bottom-3 left-3 z-0 h-32 w-32 rotate-6 rounded-[45%_55%_48%_52%] border-2 border-dashed border-yellow-300/65 lg:left-8" />
+            <img
+              src={MentoringHeroCutout}
+              alt="A learner and mentor reviewing a practical learning plan"
+              className="absolute -bottom-14 right-[-8%] z-10 w-[112%] max-w-none sm:-bottom-14 sm:right-[-5%] lg:-bottom-20 lg:right-[-8%] lg:w-[122%]"
+              fetchPriority="high"
+            />
+            <div className="absolute -bottom-8 left-4 z-20 max-w-xs rounded-2xl border border-white/25 bg-blue-950/70 p-4 text-white shadow-[var(--ui-shadow-sm)] backdrop-blur-md sm:left-8 lg:-bottom-12">
+              <p className="text-sm font-bold text-white">Your next step</p>
+              <p className="mt-1 text-sm font-semibold leading-5 text-blue-100">Turn a big goal into a practical plan you can follow.</p>
             </div>
           </div>
         </div>
