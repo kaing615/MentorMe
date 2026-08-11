@@ -14,3 +14,11 @@ export const paymentReturnOrderNumber = (
 
 export const isSuccessfulOrderStatus = (status?: string): boolean =>
   status === "paid" || status === "completed";
+
+export const paymentReturnPath = (
+  orderNumber: string,
+  bookingReturn: boolean,
+): string =>
+  bookingReturn
+    ? "/profile"
+    : `/order-detail?orderId=${encodeURIComponent(orderNumber)}`;

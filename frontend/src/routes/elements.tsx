@@ -8,21 +8,18 @@ import ProtectedRoute from "../components/common/ProtectedRoute";
 import AllPagesLayout from "../components/layout/AllPagesLayout";
 import SignUp_SignIn_layout from "../components/layout/SignUp_SignIn_layout";
 
-// Mentee pages
 import MenteeProfile from "../pages/mentee-profile";
 import AllCoursePage from "../pages/AllCoursepage";
 import AllMentors from "../pages/AllMentors";
 import OrderCompleteCourse from "../pages/order-complete-course";
 import SearchPage from "../pages/SearchPage";
 
-// Mentor pages (nếu các file này còn tồn tại trong repo)
 import MentorProfile from "../pages/mentor-profile";
 import MentorPage from "../pages/mentor-page";
 import CreateCoursePage from "../pages/CreateCoursePage";
 import CourseDetail from "../pages/CourseDetail";
 import EditCoursePage from "../pages/EditCoursePage";
 
-// Auth pages
 import SignUp from "../pages/SignUp";
 import Login from "../pages/Login";
 import ApplyAsMentor from "../pages/ApplyAsMentor";
@@ -33,6 +30,8 @@ import ShoppingCart from "../pages/shoppingcart";
 import PaymentReturnPage from "../pages/PaymentReturnPage";
 import FavoritesPage from "../pages/FavoritesPage";
 import NotificationsPage from "../pages/NotificationsPage";
+import MentorDashboard from "../pages/MentorDashboard";
+import AdminDashboard from "../pages/AdminDashboard";
 
 const useRouterElements = () => {
   const elements = useRoutes([
@@ -148,6 +147,10 @@ const useRouterElements = () => {
       ),
       children: [
         {
+          path: MENTOR_PATH.DASHBOARD,
+          element: <MentorDashboard />,
+        },
+        {
           path: MENTOR_PATH.HOME,
           element: <HomeScreen />,
         },
@@ -180,6 +183,16 @@ const useRouterElements = () => {
           element: <AllMentors />,
         },
       ],
+    },
+
+    {
+      path: PATH.ADMIN,
+      element: (
+        <ProtectedRoute requiredRole="admin">
+          <AllPagesLayout />
+        </ProtectedRoute>
+      ),
+      children: [{ index: true, element: <AdminDashboard /> }],
     },
 
     {

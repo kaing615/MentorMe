@@ -26,11 +26,10 @@ import { getAuthTransitionPlan } from "../../utils/auth-transition";
 gsap.registerPlugin(useGSAP);
 
 const Header = () => {
-  // Dropdown state for avatar
+
   const [showAvatarDropdown, setShowAvatarDropdown] = useState<any>(false);
   const [theme, setTheme] = useState<Theme>(getInitialTheme);
 
-  // Đóng dropdown khi click ra ngoài
   useEffect(() => {
     if (!showAvatarDropdown) return;
     const handleClick = (e) => {
@@ -106,7 +105,6 @@ const Header = () => {
     { dependencies: [location.pathname], scope: authRouteRef },
   );
 
-  // Get user data from Redux store
   const user = useSelector((state: any) => state.user);
   const localLoggedIn = localStorage.getItem("isLoggedIn") === "true";
   const localUser = localStorage.getItem("user");
@@ -120,12 +118,10 @@ const Header = () => {
     }
   })();
 
-  // Improved authentication check - persistent across tabs and sessions
   const isLoggedIn =
     (user?.isLoggedIn && localLoggedIn && localUser && localToken) ||
     (localLoggedIn && localUser && localToken && !user?.isLoggedIn);
 
-  // Khởi tạo trạng thái header từ localStorage khi component mount
   useEffect(() => {
     const savedMentorMode = localStorage.getItem("mentorMode");
     if (savedMentorMode !== null) {
@@ -136,7 +132,7 @@ const Header = () => {
   useEffect(() => {
     if (isLoggedIn) {
       const savedMentorMode = localStorage.getItem("mentorMode");
-      // Nếu đã đăng nhập, set dựa trên role của user
+
       let userRole = null;
       let userData = user;
       try {
@@ -155,11 +151,9 @@ const Header = () => {
         setShowCategories(shouldShowCategories);
         localStorage.setItem("mentorMode", shouldShowCategories.toString());
 
-        // NOTE: Removed cross-user localStorage cleanup for production safety
-        // Instead, each user should have their own storage keys or use sessionStorage
       }
     } else {
-      // Nếu chưa đăng nhập, set dựa trên current path
+
       const currentPath = location.pathname;
       const shouldShowCategories =
         currentPath.includes("/auth/signin") ||
@@ -170,7 +164,7 @@ const Header = () => {
 
     const handleStorageChange = (e) => {
       if (e.key === "mentorMode" && !isLoggedIn) {
-        // Chỉ cập nhật khi chưa đăng nhập
+
         setShowCategories(e.newValue === "true");
       }
     };
@@ -188,12 +182,11 @@ const Header = () => {
   };
 
   const handleLogout = () => {
-    // Clear user data using Redux action (will also clear localStorage)
+
     dispatch(clearUser());
     navigate("/");
   };
 
-  // Handle mentor button click
   const handleMentorClick = () => {
     navigate("/all-mentors");
   };
@@ -325,7 +318,7 @@ const Header = () => {
                     </>
                   )}
                   <NotificationPopover />
-                  {/* Avatar: mở dropdown khi click */}
+
                   <div className="relative header-avatar-dropdown">
                     <button
                       type="button"
@@ -350,7 +343,7 @@ const Header = () => {
                               userRole === "mentor" &&
                               !(hasUserRole(userData, "mentee") && !showCategories)
                             ) {
-                              navigate("/mentor/profile");
+                              navigate("/mentor/dashboard");
                             } else {
                               navigate("/profile");
                             }

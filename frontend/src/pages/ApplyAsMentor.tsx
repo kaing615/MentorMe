@@ -21,10 +21,9 @@ const ApplyAsMentor = () => {
     existingUser?.role === "mentee" &&
     Boolean(localStorage.getItem("actkn") || localStorage.getItem("token"));
 
-  // Check if user is already authenticated
   useEffect(() => {
     if (existingUser?.role === "mentor") {
-      navigate(`${PATH.MENTOR}/${MENTOR_PATH.HOME}`);
+      navigate(`${PATH.MENTOR}/${MENTOR_PATH.DASHBOARD}`);
     } else if (existingUser?.role === "admin") {
       navigate(PATH.ADMIN);
     }
@@ -84,7 +83,6 @@ const ApplyAsMentor = () => {
       .catch(() => toast.error("Không thể tải thông tin hiện tại."));
   }, [existingUser, isMenteeUpgrade]);
 
-  // Validate step 1 fields
   const validateStep1 = (validatePhoto = false) => {
     const newErrors: any = {};
     if (!formData.firstName.trim()) newErrors.firstName = "Input first name";
@@ -111,7 +109,6 @@ const ApplyAsMentor = () => {
     return newErrors;
   };
 
-  // Validate step 2 fields
   const validateStep2 = () => {
     const newErrors: any = {};
     if (!formData.category.trim()) newErrors.category = "Category is required";
@@ -122,10 +119,9 @@ const ApplyAsMentor = () => {
     return newErrors;
   };
 
-  // Validate step 3 fields
   const validateStep3 = () => {
     const newErrors: any = {};
-    // reason và achievement không bắt buộc
+
     if (formData.reason.trim() && formData.reason.trim().length < 50) {
       newErrors.reason = "Reason must be at least 50 characters if provided";
     }
@@ -135,7 +131,7 @@ const ApplyAsMentor = () => {
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
-    // Nếu đã touched thì validate lại trường đó
+
     if (touched[name]) {
       let fieldError = {};
       if (currentStep === 1) {
@@ -163,7 +159,6 @@ const ApplyAsMentor = () => {
     setErrors((prev) => ({ ...prev, [name]: fieldError[name] }));
   };
 
-  // Xử lý khi chọn ảnh
   const handleImageUpload = (event) => {
     const file = event.target.files[0];
     if (file) {
@@ -176,7 +171,6 @@ const ApplyAsMentor = () => {
     }
   };
 
-  // Xử lý chuyển bước tiếp theo
   const handleNextStep = () => {
     let stepErrors = {};
     if (currentStep === 1) {
@@ -189,7 +183,7 @@ const ApplyAsMentor = () => {
 
     if (Object.keys(stepErrors).length > 0) {
       setErrors(stepErrors);
-      // Đánh dấu tất cả field lỗi là touched để hiển thị lỗi
+
       const touchedFields = {};
       Object.keys(stepErrors).forEach((key) => {
         touchedFields[key] = true;
@@ -199,30 +193,26 @@ const ApplyAsMentor = () => {
     }
     setErrors({});
     if (currentStep < 3) {
-      // Mark current step as completed
+
       setCompletedSteps((prev) => [...prev, currentStep]);
 
-      // Move to next step
       setCurrentStep((prev) => prev + 1);
     }
   };
 
-  // Xử lý quay lại bước trước
   const handlePreviousStep = () => {
     if (currentStep > 1) {
-      // Remove current step from completed steps
+
       setCompletedSteps((prev) =>
         prev.filter((step) => step !== currentStep - 1)
       );
 
-      // Move to previous step
       setCurrentStep((prev) => prev - 1);
     }
   };
 
-  // Xử lý submit form
   const handleSubmit = async () => {
-    // Validate all steps
+
     const step1Errors = validateStep1(true);
     const step2Errors = validateStep2();
     const step3Errors = validateStep3();
@@ -241,10 +231,9 @@ const ApplyAsMentor = () => {
     }
 
     try {
-      // Prepare form data for submission
+
       const formDataToSend = new FormData();
 
-      // Basic info
       formDataToSend.append("firstName", formData.firstName);
       formDataToSend.append("lastName", formData.lastName);
       formDataToSend.append("userName", formData.username);
@@ -256,17 +245,15 @@ const ApplyAsMentor = () => {
       formDataToSend.append("jobTitle", formData.jobTitle);
       formDataToSend.append("location", formData.location);
 
-      // Profile info
       formDataToSend.append("category", formData.category);
-      formDataToSend.append("skills", formData.skills); // Backend sẽ parse string thành array
+      formDataToSend.append("skills", formData.skills);
       formDataToSend.append("bio", formData.bio);
       formDataToSend.append("linkedinUrl", formData.linkedin);
 
-      // Experience info
       if (formData.introVideo.trim()) {
         formDataToSend.append("introVideo", formData.introVideo);
       }
-      // Gửi reason và achievement, nếu trống thì gửi dữ liệu mặc định để tránh lỗi validation backend
+
       formDataToSend.append(
         "mentorReason",
         formData.reason.trim() ||
@@ -278,7 +265,6 @@ const ApplyAsMentor = () => {
           "Continuous learning and professional development"
       );
 
-      // Profile image
       if (profileImageFile) {
         formDataToSend.append("avatar", profileImageFile);
       }
@@ -288,21 +274,14 @@ const ApplyAsMentor = () => {
         : await authApi.signupMentor(formDataToSend);
 
       if (isMenteeUpgrade) {
-        const result = response?.data;
-        localStorage.setItem(
-          "user",
-          JSON.stringify({ ...result.user, isLoggedIn: true }),
-        );
-        localStorage.setItem("actkn", result.token);
-        localStorage.setItem("mentorMode", "true");
-        toast.success("Tài khoản của bạn đã chuyển sang mentor.");
-        navigate(`${PATH.MENTOR}/${MENTOR_PATH.PROFILE}`);
+        toast.success("Hồ sơ mentor đã được gửi và đang chờ admin xét duyệt.");
+        navigate("/home");
         return;
       }
 
-      toast.success("Đăng ký mentor thành công!");
+      toast.success("Hồ sơ mentor đã được gửi. Bạn có thể đăng nhập với tài khoản mentee trong khi chờ duyệt.");
+      navigate("/auth/signin");
 
-      // Reset form or redirect
       setFormData({
         firstName: "",
         lastName: "",
@@ -343,7 +322,6 @@ const ApplyAsMentor = () => {
     }
   };
 
-  // Lấy class CSS cho vòng tròn step
   const getStepCircleClass = (stepId) => {
     if (completedSteps.includes(stepId)) {
       return "mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-[var(--ui-accent)] text-sm font-bold text-white transition-colors";
@@ -356,7 +334,6 @@ const ApplyAsMentor = () => {
     return "mb-3 flex h-10 w-10 items-center justify-center rounded-full border border-[var(--ui-border)] bg-[var(--ui-surface)] text-sm font-bold text-[var(--ui-text-muted)] transition-colors";
   };
 
-  // Lấy class CSS cho text step
   const getStepTextClass = (stepId) => {
     if (completedSteps.includes(stepId)) {
       return "text-[var(--ui-accent)] font-semibold text-sm text-center transition-colors";
@@ -369,7 +346,6 @@ const ApplyAsMentor = () => {
     return "text-[var(--ui-text-muted)] font-medium text-sm text-center transition-colors";
   };
 
-  // Lấy class CSS cho đường nối
   const getConnectionLineClass = (fromStep) => {
     if (completedSteps.includes(fromStep)) {
       return "mx-2 mb-7 h-px w-10 bg-[var(--ui-accent)] transition-colors sm:mx-4 sm:w-24 md:w-40";
@@ -378,7 +354,6 @@ const ApplyAsMentor = () => {
     return "mx-2 mb-7 h-px w-10 bg-[var(--ui-border)] transition-colors sm:mx-4 sm:w-24 md:w-40";
   };
 
-  // Lấy nội dung hiển thị trong vòng tròn
   const getStepContent = (stepId) => {
     if (completedSteps.includes(stepId)) {
       return <IconCheck aria-hidden="true" size={18} stroke={2.2} />;
@@ -398,32 +373,27 @@ const ApplyAsMentor = () => {
         title="ActionProcess"
         className="mx-auto mb-8 mt-10 flex w-full max-w-3xl items-center justify-center px-4"
       >
-        {/* Step 1: About you */}
+
         <div className="flex flex-col items-center">
           <div className={getStepCircleClass(1)}>{getStepContent(1)}</div>
           <span className={getStepTextClass(1)}>About you</span>
         </div>
 
-        {/* Line 1 */}
         <div className={getConnectionLineClass(1)}></div>
 
-        {/* Step 2: Profile */}
         <div className="flex flex-col items-center">
           <div className={getStepCircleClass(2)}>{getStepContent(2)}</div>
           <span className={getStepTextClass(2)}>Profile</span>
         </div>
 
-        {/* Line 2 */}
         <div className={getConnectionLineClass(2)}></div>
 
-        {/* Step 3: Experience */}
         <div className="flex flex-col items-center">
           <div className={getStepCircleClass(3)}>{getStepContent(3)}</div>
           <span className={getStepTextClass(3)}>Experience</span>
         </div>
       </div>
 
-      {/* Conditional Form Rendering */}
       {currentStep === 1 && (
         <div title="About Form" className="flex flex-col">
           <div
@@ -434,7 +404,7 @@ const ApplyAsMentor = () => {
               Photo <span className="text-red-500">*</span>
             </label>
             <div className="flex items-center justify-center md:justify-start max-w-3xl mx-auto px-4 md:px-0 gap-4 sm:gap-6 relative w-full">
-              {/* Profile Picture Circle */}
+
               <div className="relative">
                 <div
                   title="Profile Picture"
@@ -452,7 +422,6 @@ const ApplyAsMentor = () => {
                 </div>
               </div>
 
-              {/* Upload Button và lỗi ảnh */}
               <div className="mb-4 flex flex-col">
                 <input
                   type="file"

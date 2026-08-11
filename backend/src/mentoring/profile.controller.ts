@@ -42,6 +42,11 @@ export class ProfileController {
     return this.profiles.getTopMentors(limit);
   }
 
+  @Get("mentors")
+  getMentors(@Query() query: Record<string, string | undefined>) {
+    return this.profiles.getMentors(query);
+  }
+
   @Put("mentee")
   @UseGuards(JwtAuthGuard)
   updateMentee(

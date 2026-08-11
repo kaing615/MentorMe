@@ -39,6 +39,7 @@ export class Profile {
   @Prop({ type: [Types.ObjectId], ref: "Review", default: [] })
   reviews!: Types.ObjectId[];
   @Prop({ default: 0 }) rate!: number;
+  @Prop({ default: 0, min: 0 }) sessionPrice!: number;
   createdAt!: Date;
   updatedAt!: Date;
 }

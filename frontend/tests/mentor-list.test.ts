@@ -21,6 +21,7 @@ test("mentor list maps only backend mentors and preserves an empty result", () =
             averageRating: 4.8,
             totalReviews: 9,
             totalStudents: 12,
+            sessionPrice: 500000,
           },
         ],
       },
@@ -36,6 +37,7 @@ test("mentor list maps only backend mentors and preserves an empty result", () =
         rating: 4.8,
         reviewCount: 9,
         studentCount: 12,
+        sessionPrice: 500000,
       },
     ],
   );

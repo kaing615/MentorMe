@@ -11,13 +11,13 @@ import { IoStar, IoStarOutline } from "react-icons/io5";
 import profileApi from "../api/modules/profile.api";
 import purchasedCourseApi from "../api/modules/purchasedCourse.api";
 import bookingApi from "../api/modules/booking.api";
+import checkoutApi from "../api/modules/checkout.api";
 import reviewApi from "../api/modules/review.api";
 import authUtils from "../utils/auth.utils";
 import { hasUserRole } from "../utils/user-role";
 import courseApi from "../api/modules/course.api";
 import MentorMenteeChat from "../components/MentorMenteeChat";
 
-// Stars render function
 const renderStars = (rating) => {
   const stars = [];
   const r = Number(rating) || 0;
@@ -52,7 +52,7 @@ const renderStars = (rating) => {
 
 const MenteeProfile = () => {
   const navigate = useNavigate();
-  // --- AUTH & ROLE CHECK ---
+
   useEffect(() => {
     const token =
       localStorage.getItem("actkn") || localStorage.getItem("token");
@@ -63,7 +63,7 @@ const MenteeProfile = () => {
       navigate("/auth/signin");
       return;
     }
-    // Check user object
+
     try {
       user = userStr ? JSON.parse(userStr) : null;
     } catch (e) {
@@ -73,7 +73,7 @@ const MenteeProfile = () => {
       navigate("/auth/signin");
       return;
     }
-    // Check role
+
     if (hasUserRole(user, "mentee")) {
       return;
     }
@@ -97,10 +97,8 @@ const MenteeProfile = () => {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, []);
 
-  // State lưu thông tin profile
   const [profile, setProfile] = useState<any>(null);
 
-  // State cho sidebar (chỉ cập nhật khi save thành công)
   const [sidebarData, setSidebarData] = useState<any>({
     userName: "",
     firstName: "",
@@ -108,7 +106,6 @@ const MenteeProfile = () => {
     avatarUrl: "",
   });
 
-  // State cho form (thay đổi real-time khi user nhập)
   const [formData, setFormData] = useState<any>({
     userName: "",
     firstName: "",
@@ -123,18 +120,17 @@ const MenteeProfile = () => {
     linkedin: "",
     facebook: "",
   });
-  const [profileImage, setProfileImage] = useState<any>(null); // preview
-  const [profileImageFile, setProfileImageFile] = useState<any>(null); // file gốc
+  const [profileImage, setProfileImage] = useState<any>(null);
+  const [profileImageFile, setProfileImageFile] = useState<any>(null);
   const [loading, setLoading] = useState<any>(false);
   const [error, setError] = useState<any>(null);
 
-  // Booking states
   const [bookings, setBookings] = useState<any[]>([]);
   const [bookingsLoading, setBookingsLoading] = useState<any>(false);
   const [bookingsError, setBookingsError] = useState<any>(null);
   const [bookingFilterBy, setBookingFilterBy] = useState<any>("all");
+  const [payingBooking, setPayingBooking] = useState("");
 
-  // Review popup states
   const [isReviewPopupOpen, setIsReviewPopupOpen] = useState<any>(false);
   const [reviewCourse, setReviewCourse] = useState<any>(null);
   const [reviewRating, setReviewRating] = useState<any>(0);
@@ -142,7 +138,6 @@ const MenteeProfile = () => {
   const [reviewComment, setReviewComment] = useState<any>("");
   const [isSubmittingReview, setIsSubmittingReview] = useState<any>(false);
 
-  // Booking review popup states
   const [isBookingReviewPopupOpen, setIsBookingReviewPopupOpen] =
     useState<any>(false);
   const [reviewBooking, setReviewBooking] = useState<any>(null);
@@ -152,7 +147,6 @@ const MenteeProfile = () => {
   const [isSubmittingBookingReview, setIsSubmittingBookingReview] =
     useState<any>(false);
 
-  // Mentor rating states
   const [isMentorRatingPopupOpen, setIsMentorRatingPopupOpen] = useState<any>(false);
   const [selectedMentor, setSelectedMentor] = useState<any>(null);
   const [mentorRating, setMentorRating] = useState<any>(0);
@@ -161,17 +155,15 @@ const MenteeProfile = () => {
   const [isSubmittingMentorRating, setIsSubmittingMentorRating] =
     useState<any>(false);
 
-  // Chat/Message states
   const [selectedMentorForChat, setSelectedMentorForChat] = useState<any>(null);
 
-  // Đổi avatar khi upload ảnh mới
   const handleImageUpload = (e) => {
     const file = e.target.files[0];
     if (file) {
-      setProfileImageFile(file); // lưu file gốc để gửi API
+      setProfileImageFile(file);
       const reader = new FileReader();
       reader.onload = (ev) => {
-        setProfileImage(ev.target.result); // preview
+        setProfileImage(ev.target.result);
       };
       reader.readAsDataURL(file);
     }
@@ -197,7 +189,6 @@ const MenteeProfile = () => {
     } catch (err) {
       console.error("[DEBUG] Lỗi khi change avatar:", err);
 
-      // Handle authentication errors using auth utils
       if (authUtils.isAuthError(err)) {
         authUtils.handleAuthFailure(
           navigate,
@@ -210,7 +201,6 @@ const MenteeProfile = () => {
     }
   };
 
-  // Lấy thông tin profile khi mount
   useEffect(() => {
     const fetchProfile = async () => {
       setLoading(true);
@@ -252,7 +242,6 @@ const MenteeProfile = () => {
           const profile = profileData.profile || {};
           const links = profile.links || {};
 
-          // Set form data (có thể thay đổi khi user nhập)
           setFormData({
             userName: user?.userName || "",
             firstName: user?.firstName || "",
@@ -271,7 +260,6 @@ const MenteeProfile = () => {
             role: user?.role || "",
           });
 
-          // Set sidebar data (chỉ cập nhật khi save thành công)
           setSidebarData({
             userName: user?.userName || "",
             firstName: user?.firstName || "",
@@ -291,7 +279,6 @@ const MenteeProfile = () => {
     fetchProfile();
   }, []);
 
-  // Fetch mentee's bookings
   const fetchBookings = async () => {
     setBookingsLoading(true);
     setBookingsError(null);
@@ -313,30 +300,55 @@ const MenteeProfile = () => {
     }
   };
 
-  // Fetch bookings when component mounts and when "mybookings" tab is active
+  const handleBookingPayment = async (booking, provider) => {
+    const orderNumber = booking.order?.orderNumber;
+    if (!orderNumber) {
+      toast.error("Payment order is unavailable. Please refresh and try again.");
+      return;
+    }
+
+    setPayingBooking(`${booking._id}:${provider}`);
+    try {
+      const { response, error } = await checkoutApi.createPayment({
+        provider,
+        orderNumber,
+      });
+      if (error) {
+        throw new Error(
+          error?.data?.message || error?.message || "Unable to start payment",
+        );
+      }
+      const paymentUrl = response?.data?.paymentUrl;
+      if (!paymentUrl) throw new Error("Payment provider returned no URL");
+      sessionStorage.setItem("paymentReturnTarget", "booking");
+      window.location.assign(paymentUrl);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Unable to start payment");
+      setPayingBooking("");
+    }
+  };
+
   useEffect(() => {
     if (activeTab === "mybookings") {
       fetchBookings();
     }
   }, [activeTab]);
 
-  // Fetch mentee's reviews
   const fetchMenteeReviews = async () => {
     setReviewsLoading(true);
     setReviewsError(null);
     try {
-      // Fetch reviews for the authenticated user
+
       const { response, error } = await reviewApi.getMyReviews({
-        limit: 50, // Get more reviews at once
+        limit: 50,
       });
 
       if (response) {
         const reviews = response.data?.items || response.data || [];
 
-        // Transform reviews to the format expected by the UI
         const transformedReviews = reviews.map((review) => ({
           id: review._id,
-          type: getReviewType(review.targetType), // Map backend targetType to UI type
+          type: getReviewType(review.targetType),
           targetTitle: review.targetInfo?.title || "Unknown",
           targetImage: review.targetInfo?.thumbnail || "",
           instructor: review.targetInfo?.instructor || null,
@@ -348,7 +360,7 @@ const MenteeProfile = () => {
           mentorReply: review.mentorReply,
           mentorAvatar: review.mentorAvatar,
           mentorName: review.mentorName,
-          // Add consultation details for booking reviews
+
           consultationDate:
             review.targetType === "Booking" &&
             review.targetInfo?.consultationDate
@@ -378,7 +390,6 @@ const MenteeProfile = () => {
     }
   };
 
-  // Helper function to map backend targetType to frontend type
   const getReviewType = (targetType) => {
     switch (targetType) {
       case "Course":
@@ -392,47 +403,6 @@ const MenteeProfile = () => {
     }
   };
 
-  // // Helper functions to extract information from review objects
-  // const getTargetTitle = (review) => {
-  //   if (review.course?.title) return review.course.title;
-  //   if (review.mentor?.firstName && review.mentor?.lastName) {
-  //     return `${review.mentor.firstName} ${review.mentor.lastName}`;
-  //   }
-  //   if (review.booking?.mentor?.firstName && review.booking?.mentor?.lastName) {
-  //     return `${review.booking.mentor.firstName} ${review.booking.mentor.lastName}`;
-  //   }
-  //   return "Unknown";
-  // };
-
-  // const getTargetImage = (review) => {
-  //   if (review.course?.thumbnail) return review.course.thumbnail;
-  //   if (review.mentor?.avatarUrl) return review.mentor.avatarUrl;
-  //   if (review.booking?.mentor?.avatarUrl)
-  //     return review.booking.mentor.avatarUrl;
-  //   return minatoImg; // fallback
-  // };
-
-  // const getInstructor = (review) => {
-  //   if (review.course?.mentor?.firstName && review.course?.mentor?.lastName) {
-  //     return `${review.course.mentor.firstName} ${review.course.mentor.lastName}`;
-  //   }
-  //   return null;
-  // };
-
-  // const getMentorSpecialty = (review) => {
-  //   if (review.mentor?.skills && review.mentor.skills.length > 0) {
-  //     return review.mentor.skills.join(", ");
-  //   }
-  //   if (
-  //     review.booking?.mentor?.skills &&
-  //     review.booking.mentor.skills.length > 0
-  //   ) {
-  //     return review.booking.mentor.skills.join(", ");
-  //   }
-  //   return "Tư vấn";
-  // };
-
-  // Fetch reviews when component mounts and when "reviews" tab is active
   useEffect(() => {
     if (activeTab === "reviews") {
       fetchMenteeReviews();
@@ -444,7 +414,7 @@ const MenteeProfile = () => {
   useEffect(() => {
     async function fetchPurchasedCourses() {
       try {
-        // Get current user ID for user-specific localStorage
+
         const userStr = localStorage.getItem("user");
         let currentUserId = null;
         try {
@@ -460,7 +430,6 @@ const MenteeProfile = () => {
         if (error) {
           console.error("Purchased courses fetch error:", error);
 
-          // Handle authentication errors using auth utils
           if (authUtils.isAuthError(error)) {
             authUtils.handleAuthFailure(
               navigate,
@@ -469,13 +438,11 @@ const MenteeProfile = () => {
             return;
           }
 
-          // Handle 404 or no purchased courses - this is normal for new users
           if (error.status === 404 || error.response?.status === 404) {
             setPurchasedCourses([]);
             return;
           }
 
-          // Don't show error toast for other errors, just use empty array
           setPurchasedCourses([]);
           return;
         }
@@ -490,7 +457,6 @@ const MenteeProfile = () => {
       } catch (err) {
         console.error("Purchased courses fetch error:", err);
 
-        // Handle authentication errors using auth utils
         if (authUtils.isAuthError(err)) {
           authUtils.handleAuthFailure(
             navigate,
@@ -499,29 +465,20 @@ const MenteeProfile = () => {
           return;
         }
 
-        // Handle 404 or no purchased courses - this is normal for new users
-        if (err.response?.status === 404 || err.status === 404) {
-          // No action needed
-        }
-
-        // Don't show error toast for other errors, just use empty array
         setPurchasedCourses([]);
       }
     }
     fetchPurchasedCourses();
   }, []);
 
-  // Function to fetch detailed mentor statistics (rating and student count) based on mentor-page.jsx logic
   const fetchMentorDetailedStats = async (mentorId) => {
     try {
-      // Fetch mentor course reviews
+
       const { response: courseReviewsResponse } =
         await reviewApi.getMentorCourseReviews(mentorId);
 
-      // Fetch mentor courses to get student count
       const mentorCourses = await courseApi.getCoursesByMentor(mentorId);
 
-      // Calculate student count from courses
       let estimatedMentees = 0;
       const courseMenteeIds = new Set();
 
@@ -529,7 +486,7 @@ const MenteeProfile = () => {
         mentorCourses.forEach((course) => {
           if (course.mentees && Array.isArray(course.mentees)) {
             course.mentees.forEach((menteeId) => {
-              // Handle both ObjectId string and populated object
+
               const id =
                 typeof menteeId === "string"
                   ? menteeId
@@ -544,7 +501,6 @@ const MenteeProfile = () => {
 
       estimatedMentees = courseMenteeIds.size;
 
-      // Calculate rating from reviews
       let allReviews = [];
       let courseReviews = [];
 
@@ -553,7 +509,6 @@ const MenteeProfile = () => {
         allReviews = [...courseReviews];
       }
 
-      // Fetch consultation/booking reviews
       let consultationReviews = [];
       try {
         const { response: bookingReviewsResponse } =
@@ -563,10 +518,9 @@ const MenteeProfile = () => {
           allReviews = [...allReviews, ...consultationReviews];
         }
       } catch (error) {
-        // Ignore booking reviews error
+
       }
 
-      // Calculate statistics
       const totalReviews = allReviews.length;
       const averageRating =
         totalReviews > 0
@@ -575,7 +529,7 @@ const MenteeProfile = () => {
           : 0;
 
       return {
-        averageRating: Math.round(averageRating * 10) / 10, // Round to 1 decimal
+        averageRating: Math.round(averageRating * 10) / 10,
         totalReviews,
         studentCount: estimatedMentees,
         courseReviews: courseReviews.length,
@@ -596,11 +550,10 @@ const MenteeProfile = () => {
   const extractMentorsFromData = async () => {
     setMentorsLoading(true);
 
-    // Map<mentorId, mentorInfo>
     const mentorMap = new Map();
 
     try {
-      // ===== 1) TỪ KHÓA ĐÃ MUA =====
+
       if (Array.isArray(purchasedCourses) && purchasedCourses.length > 0) {
         purchasedCourses.forEach((p) => {
           const course = p?.course || p?.courseInfo;
@@ -627,7 +580,6 @@ const MenteeProfile = () => {
         });
       }
 
-      // ===== 2) TỪ BOOKING TƯ VẤN =====
       if (Array.isArray(bookings) && bookings.length > 0) {
         bookings.forEach((b) => {
           const mentor = b?.mentor;
@@ -653,7 +605,6 @@ const MenteeProfile = () => {
         });
       }
 
-      // ===== 3) LẤY THỐNG KÊ CHI TIẾT CHO TỪNG MENTOR =====
       const mentorIds = Array.from(mentorMap.keys());
       const statsPromises = mentorIds.map(async (mentorId) => {
         const mentor = mentorMap.get(mentorId);
@@ -671,7 +622,6 @@ const MenteeProfile = () => {
 
       const mentorsWithStats = await Promise.allSettled(statsPromises);
 
-      // ===== 4) XUẤT MẢNG KẾT QUẢ =====
       const mentorsArray = mentorsWithStats
         .filter((result) => result.status === "fulfilled")
         .map((result) => {
@@ -696,7 +646,6 @@ const MenteeProfile = () => {
           };
         });
 
-      // Sắp xếp theo rating giảm dần
       mentorsArray.sort(
         (a, b) => (b.averageRating || 0) - (a.averageRating || 0)
       );
@@ -710,23 +659,19 @@ const MenteeProfile = () => {
     }
   };
 
-  // Extract mentors when purchased courses or bookings change
   useEffect(() => {
-    // Always call extractMentorsFromData when the tab is active, even if arrays are empty
-    // This ensures the loading state is properly handled and empty state is shown
+
     if (activeTab === "mentors") {
       extractMentorsFromData();
     }
   }, [purchasedCourses, bookings, activeTab]);
 
-  // Fetch bookings when mentors tab is active
   useEffect(() => {
     if (activeTab === "mentors") {
       fetchBookings();
     }
   }, [activeTab]);
 
-  // Review functions
   const openReviewPopup = (course) => {
     setReviewCourse(course);
     setReviewRating(0);
@@ -772,8 +717,6 @@ const MenteeProfile = () => {
       toast.success("Đánh giá của bạn đã được gửi thành công!");
       closeReviewPopup();
 
-      // Có thể cập nhật lại danh sách courses nếu cần
-      // fetchPurchasedCourses();
     } catch (error) {
       console.error("Error submitting review:", error);
       toast.error(error.message || "Có lỗi xảy ra khi gửi đánh giá");
@@ -782,7 +725,6 @@ const MenteeProfile = () => {
     }
   };
 
-  // Booking review functions
   const openBookingReviewPopup = (booking) => {
     setReviewBooking(booking);
     setBookingReviewRating(0);
@@ -809,7 +751,6 @@ const MenteeProfile = () => {
       return;
     }
 
-    // Check if booking is past consultation time
     let bookingDateTime;
     try {
       if (reviewBooking.date && reviewBooking.start) {
@@ -831,7 +772,6 @@ const MenteeProfile = () => {
 
     const isPastConsultation = bookingDateTime < new Date();
 
-    // Consider booking as finished if it's past consultation time
     const isEffectivelyFinished =
       reviewBooking.status === "finished" ||
       (reviewBooking.status === "active" && isPastConsultation);
@@ -853,7 +793,6 @@ const MenteeProfile = () => {
         content: bookingReviewComment.trim(),
       };
 
-      // Check user token
       const token =
         localStorage.getItem("actkn") || localStorage.getItem("token");
       const userStr = localStorage.getItem("user");
@@ -863,7 +802,6 @@ const MenteeProfile = () => {
       if (error) {
         console.error("API Error details:", error);
 
-        // Check for duplicate review error patterns
         const errorMessage = error.message || "";
         const errorString = JSON.stringify(error).toLowerCase();
 
@@ -877,7 +815,7 @@ const MenteeProfile = () => {
           errorString.includes("already") ||
           error.status === 409
         ) {
-          // Conflict status often used for duplicates
+
           toast.warning("This consultation has already been reviewed");
           closeBookingReviewPopup();
           return;
@@ -898,12 +836,9 @@ const MenteeProfile = () => {
       toast.success("Đánh giá tư vấn của bạn đã được gửi thành công!");
       closeBookingReviewPopup();
 
-      // Optionally refresh bookings to update the UI
-      // fetchBookings();
     } catch (error) {
       console.error("Error submitting booking review:", error);
 
-      // Check for specific duplicate error patterns in catch block
       const errorMessage = error.message || "";
       if (
         errorMessage.includes("duplicate") ||
@@ -922,10 +857,9 @@ const MenteeProfile = () => {
     }
   };
 
-  // Mentor rating functions
   const checkMentorReviewPermission = async (mentorId) => {
     try {
-      // Check 1: Booking permission
+
       const { response: bookingResponse } =
         await bookingApi.getMenteeBookings();
       let hasBookingPermission = false;
@@ -940,42 +874,34 @@ const MenteeProfile = () => {
         hasBookingPermission = bookingsWithMentor.length > 0;
       }
 
-      // If has booking permission, return true immediately
       if (hasBookingPermission) {
         return true;
       }
 
-      // Check 2: Course purchase permission
       const { response: courseResponse } =
         await purchasedCourseApi.getPurchasedCourses(null);
       let hasCoursePermission = false;
 
-      // API trả về {data: {courses: [...], ...}} thay vì {data: [...]}
       const purchasedCourses = courseResponse?.data?.courses;
 
       if (purchasedCourses && Array.isArray(purchasedCourses)) {
         const coursesFromMentor = purchasedCourses.filter((purchasedCourse) => {
-          // Handle different data structures:
-          // 1. purchasedCourse.course.mentor (nested structure)
-          // 2. purchasedCourse.courseID.mentor (courseID field)
-          // 3. purchasedCourse.courseInfo.mentor (courseInfo field)
-          // 4. purchasedCourse.mentor (direct mentor field)
+
           const course =
             purchasedCourse.course ||
             purchasedCourse.courseID ||
             purchasedCourse.courseInfo ||
             purchasedCourse;
 
-          // Check various mentor field formats
           const courseHasMentor =
             course?.mentor?._id === mentorId ||
             course?.mentor?.id === mentorId ||
             course?.mentor === mentorId ||
-            // Check if courseID has mentor info
+
             purchasedCourse.courseID?.mentor?._id === mentorId ||
             purchasedCourse.courseID?.mentor?.id === mentorId ||
             purchasedCourse.courseID?.mentor === mentorId ||
-            // Check if courseInfo has mentor info
+
             purchasedCourse.courseInfo?.mentor?._id === mentorId ||
             purchasedCourse.courseInfo?.mentor?.id === mentorId ||
             purchasedCourse.courseInfo?.mentor === mentorId;
@@ -983,14 +909,10 @@ const MenteeProfile = () => {
           return courseHasMentor;
         });
         hasCoursePermission = coursesFromMentor.length > 0;
-      } else {
-        // No purchased courses array found
       }
 
       const finalPermission = hasBookingPermission || hasCoursePermission;
 
-      // Backup check: If no direct permission found, check if this mentor appears in the mentors tab
-      // This means mentee has some relationship with this mentor
       if (!finalPermission) {
         const mentorInList = allMentors.some(
           (mentor) =>
@@ -1012,7 +934,7 @@ const MenteeProfile = () => {
   };
 
   const openMentorRatingPopup = async (mentor) => {
-    // Check if user has permission to review this mentor
+
     const hasPermission = await checkMentorReviewPermission(mentor._id);
 
     if (!hasPermission) {
@@ -1046,7 +968,7 @@ const MenteeProfile = () => {
     setIsSubmittingMentorRating(true);
 
     try {
-      // Debug: Check if user has permission to review this mentor
+
       const hasPermission = await checkMentorReviewPermission(
         selectedMentor._id
       );
@@ -1063,7 +985,6 @@ const MenteeProfile = () => {
       if (error) {
         console.error("API Error details:", error);
 
-        // Handle specific error cases
         if (
           error.status === 400 &&
           error.message?.includes("already reviewed")
@@ -1084,12 +1005,10 @@ const MenteeProfile = () => {
       toast.success("Your mentor review has been submitted successfully!");
       closeMentorRatingPopup();
 
-      // Refresh mentor data to update stats
       extractMentorsFromData();
     } catch (error) {
       console.error("Error submitting mentor review:", error);
 
-      // Handle duplicate review error patterns
       const errorMessage = error.message || "";
       if (
         errorMessage.includes("duplicate") ||
@@ -1109,17 +1028,13 @@ const MenteeProfile = () => {
     }
   };
 
-  // Handle opening chat with mentor
   const handleOpenChatWithMentor = (mentor) => {
     console.log("Opening chat with mentor:", mentor);
 
-    // Set the selected mentor for chat context
     setSelectedMentorForChat(mentor);
 
-    // Switch to messages tab
     setActiveTab("messages");
 
-    // Store mentor info for chat component to access
     localStorage.setItem(
       "chatWithMentor",
       JSON.stringify({
@@ -1132,20 +1047,17 @@ const MenteeProfile = () => {
     toast.success(`Opening chat with ${mentor.displayName}`);
   };
 
-  // Course management state
   const [searchTerm, setSearchTerm] = useState<any>("");
   const [currentPage, setCurrentPage] = useState<any>(1);
   const coursesPerPage = 6;
 
-  // Mentor states - extract mentors from purchased courses and bookings
   const [allMentors, setAllMentors] = useState<any[]>([]);
   const [mentorsLoading, setMentorsLoading] = useState<any>(false);
 
-  // Review states
   const [allReviews, setAllReviews] = useState<any[]>([]);
   const [reviewsLoading, setReviewsLoading] = useState<any>(false);
   const [reviewsError, setReviewsError] = useState<any>(null);
-  // Các state khác giữ nguyên
+
   const [mentorSearchTerm, setMentorSearchTerm] = useState<any>("");
   const [mentorFilterBy, setMentorFilterBy] = useState<any>("all");
   const [mentorCurrentPage, setMentorCurrentPage] = useState<any>(1);
@@ -1157,11 +1069,9 @@ const MenteeProfile = () => {
   const [reviewCurrentPage, setReviewCurrentPage] = useState<any>(1);
   const reviewsPerPage = 6;
 
-  // Filter logic for bookings
   const getFilteredBookings = () => {
     let filtered = bookings;
 
-    // Apply filter based on status
     switch (bookingFilterBy) {
       case "pending":
         filtered = filtered.filter((booking) => booking.status === "pending");
@@ -1176,17 +1086,15 @@ const MenteeProfile = () => {
         break;
       case "all":
       default:
-        // Show all bookings
+
         break;
     }
 
-    // Sort by creation time (newest first) to show most recent bookings at the top
     return filtered.sort(
       (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     );
   };
 
-  // Filter and search logic for mentors
   const getFilteredMentors = () => {
     let filtered = allMentors.filter(
       (mentor) =>
@@ -1211,14 +1119,13 @@ const MenteeProfile = () => {
         break;
       case "all":
       default:
-        // Show all mentors
+
         break;
     }
 
     return filtered.sort((a, b) => b.averageRating - a.averageRating);
   };
 
-  // Pagination logic for mentors
   const filteredMentors = useMemo(() => {
     return getFilteredMentors();
   }, [allMentors, mentorSearchTerm, mentorFilterBy]);
@@ -1243,7 +1150,6 @@ const MenteeProfile = () => {
     setChatMessages([]);
   };
 
-  // Filter reviews by type
   const getFilteredReviews = () => {
     switch (reviewFilter) {
       case "course":
@@ -1259,7 +1165,6 @@ const MenteeProfile = () => {
 
   const filteredReviews = getFilteredReviews();
 
-  // Calculate pagination for reviews
   const totalReviewPages = Math.ceil(filteredReviews.length / reviewsPerPage);
   const reviewStartIndex = (reviewCurrentPage - 1) * reviewsPerPage;
   const reviewEndIndex = reviewStartIndex + reviewsPerPage;
@@ -1268,18 +1173,15 @@ const MenteeProfile = () => {
     reviewEndIndex
   );
 
-  // Handle review page change
   const handleReviewPageChange = (page) => {
     setReviewCurrentPage(page);
   };
 
-  // Reset reviews when filter changes
   const handleReviewFilterChange = (newFilter) => {
     setReviewFilter(newFilter);
-    setReviewCurrentPage(1); // Reset to first page when filter changes
+    setReviewCurrentPage(1);
   };
 
-  // Filter and search logic for courses
   const getFilteredCourses = () => {
     const filtered = purchasedCourses.filter(
       (item) =>
@@ -1298,7 +1200,6 @@ const MenteeProfile = () => {
     return filtered;
   };
 
-  // Pagination logic for courses
   const filteredCourses = getFilteredCourses();
   const totalPages = Math.ceil(filteredCourses.length / coursesPerPage);
   const startIndex = (currentPage - 1) * coursesPerPage;
@@ -1318,12 +1219,12 @@ const MenteeProfile = () => {
       [name]: value,
     }));
   };
-  // Hàm lưu profile vào DB khi bấm nút Save Profile
+
   const handleUpdateProfile = async () => {
     setLoading(true);
     setError(null);
     try {
-      // Gom dữ liệu từ formData và avatar
+
       const payload = { ...formData };
       if (profileImageFile) {
         payload.avatar = profileImageFile;
@@ -1332,9 +1233,8 @@ const MenteeProfile = () => {
       const response = await profileApi.updateMenteeProfile(payload);
       if (response && response.data) {
         setProfile(response.data);
-        setProfileImageFile(null); // Reset file gốc
+        setProfileImageFile(null);
 
-        // Cập nhật đầy đủ formData từ response để đảm bảo sync với DB
         const updatedUser = response.data.user;
         const updatedProfile = response.data.profile;
         const updatedLinks = updatedProfile?.links || {};
@@ -1357,7 +1257,6 @@ const MenteeProfile = () => {
           role: updatedUser?.role || "",
         });
 
-        // Cập nhật sidebar data (chỉ khi save thành công)
         setSidebarData({
           userName: updatedUser?.userName || "",
           firstName: updatedUser?.firstName || "",
@@ -1365,7 +1264,6 @@ const MenteeProfile = () => {
           avatarUrl: updatedUser?.avatarUrl || "",
         });
 
-        // Cập nhật avatar hiển thị từ response
         if (updatedUser && updatedUser.avatarUrl) {
           setProfileImage(updatedUser.avatarUrl);
         } else {
@@ -1377,7 +1275,6 @@ const MenteeProfile = () => {
           autoClose: 3000,
         });
 
-        // Cuộn lên đầu trang sau khi save thành công
         window.scrollTo({ top: 0, behavior: "smooth" });
       }
     } catch (error) {
@@ -1392,9 +1289,9 @@ const MenteeProfile = () => {
   return (
     <>
       <div className="min-h-screen bg-[var(--ui-page)]">
-        {/* Main Layout Container */}
+
         <div className="mx-auto flex min-h-screen max-w-7xl flex-col gap-6 px-4 pt-6 sm:px-6 lg:flex-row lg:gap-8 lg:px-8 lg:pt-10">
-          {/* Sidebar - Fixed width and height */}
+
           <div
             className="ui-card flex w-full flex-col items-center self-start p-6 lg:sticky lg:top-24 lg:w-[280px] lg:min-w-[280px] lg:p-8"
           >
@@ -1519,7 +1416,6 @@ const MenteeProfile = () => {
             </nav>
           </div>
 
-          {/* Main Content */}
           <div className="flex-1 min-w-0">
             {activeTab === "profile" && (
               <form
@@ -1529,7 +1425,7 @@ const MenteeProfile = () => {
                   void handleUpdateProfile();
                 }}
               >
-                {/* Personal Information Section */}
+
                 <div className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100">
                   <h3 className="text-lg font-semibold text-gray-900 mb-6">
                     Personal Information
@@ -1653,7 +1549,6 @@ const MenteeProfile = () => {
                   </div>
                 </div>
 
-                {/* Image Upload Section - mentor style */}
                 <div className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100">
                   <h3 className="text-lg font-semibold text-gray-900 mb-6">
                     Profile Image
@@ -1700,7 +1595,6 @@ const MenteeProfile = () => {
                   </div>
                 </div>
 
-                {/* Links Section - mentor style */}
                 <div className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100">
                   <h3 className="text-lg font-semibold text-gray-900 mb-6">
                     Social Links
@@ -1764,7 +1658,7 @@ const MenteeProfile = () => {
                     </div>
                   </div>
                 </div>
-                {/* Nút lưu profile ở cuối form */}
+
                 <button
                   type="submit"
                   className={`bg-blue-600 text-white px-6 py-2 rounded-lg font-semibold mt-8 float-right transition-all duration-200 ${
@@ -1781,9 +1675,9 @@ const MenteeProfile = () => {
 
             {activeTab === "mycourses" && (
               <div className="space-y-6">
-                {/* My Courses Section */}
+
                 <div className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100">
-                  {/* Header with course count and stats */}
+
                   <div className="flex justify-between items-center mb-6">
                     <div className="flex items-center gap-6">
                       <h3 className="text-lg font-semibold text-gray-900">
@@ -1792,7 +1686,6 @@ const MenteeProfile = () => {
                     </div>
                   </div>
 
-                  {/* Search and Filter Bar */}
                   <div className="flex gap-4 mb-6">
                     <div className="flex-1 relative">
                       <input
@@ -1845,7 +1738,6 @@ const MenteeProfile = () => {
                     </div>
                   </div>
 
-                  {/* Course Grid */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {currentCourses.length > 0 ? (
                       currentCourses.map((item) => {
@@ -1856,7 +1748,7 @@ const MenteeProfile = () => {
                             key={item.courseId}
                             className="border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow bg-white"
                           >
-                            {/* Course Image */}
+
                             <div className="relative flex h-48 items-center justify-center bg-[var(--ui-accent-soft)] font-bold text-[var(--ui-accent)]">
                               <span>Course</span>
                               {(course.thumbnail || course.imageUrl || course.image) && (
@@ -1872,12 +1764,11 @@ const MenteeProfile = () => {
                             </div>
 
                             <div className="p-4">
-                              {/* Course Title */}
+
                               <h4 className="font-semibold text-gray-900 mb-2 text-lg line-clamp-2">
                                 {course.title}
                               </h4>
 
-                              {/* Mentor Info */}
                               <div className="flex items-center gap-3 mb-3">
                                 <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-200 flex-shrink-0">
                                   {mentor?.avatarUrl ? (
@@ -1907,7 +1798,6 @@ const MenteeProfile = () => {
                                 </div>
                               </div>
 
-                              {/* Rating */}
                               <div className="flex items-center gap-2 mb-3">
                                 <div className="flex text-yellow-400 text-sm">
                                   {[...Array(5)].map((_, i) => (
@@ -1926,7 +1816,6 @@ const MenteeProfile = () => {
                                 </span>
                               </div>
 
-                              {/* Course Stats */}
                               <div className="flex items-center gap-4 mb-3 text-sm text-gray-600">
                                 <span className="flex items-center gap-1">
                                   🕒 {course.duration || "N/A"}
@@ -1936,18 +1825,16 @@ const MenteeProfile = () => {
                                 </span>
                               </div>
 
-                              {/* Category */}
                               <div className="mb-4">
                                 <span className="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full">
                                   {course.category || "General"}
                                 </span>
                               </div>
 
-                              {/* Action Buttons */}
                               <div className="flex gap-2">
                                 <button
                                   onClick={() => {
-                                    // Navigate directly to course using courseId
+
                                     navigate(
                                       `/order-complete-course/${course._id}`,
                                       {
@@ -1971,7 +1858,6 @@ const MenteeProfile = () => {
                                 </button>
                               </div>
 
-                              {/* Purchase Date */}
                               <div className="mt-3 pt-3 border-t border-gray-100">
                                 <p className="text-xs text-gray-500">
                                   Purchased on{" "}
@@ -2007,7 +1893,6 @@ const MenteeProfile = () => {
                     )}
                   </div>
 
-                  {/* Pagination */}
                   {totalPages > 1 && (
                     <div className="flex justify-center items-center gap-2 mt-8">
                       <button
@@ -2074,9 +1959,9 @@ const MenteeProfile = () => {
 
             {activeTab === "mybookings" && (
               <div className="space-y-6">
-                {/* My Booking Sessions Section */}
+
                 <div className="bg-gray-50 rounded-2xl p-6">
-                  {/* Header */}
+
                   <div className="flex items-center justify-between mb-6">
                     <div className="flex items-center gap-4">
                       <div className="bg-blue-100 p-3 rounded-xl">
@@ -2092,7 +1977,6 @@ const MenteeProfile = () => {
                       </div>
                     </div>
 
-                    {/* Summary Cards */}
                     <div className="flex gap-3">
                       <div className="bg-white rounded-xl px-4 py-3 border border-gray-200 text-center min-w-[80px]">
                         <div className="text-2xl font-bold text-orange-600">
@@ -2116,7 +2000,6 @@ const MenteeProfile = () => {
                     </div>
                   </div>
 
-                  {/* Filter Tabs */}
                   <div className="flex justify-between items-center mb-6">
                     <div className="flex gap-2">
                       <button
@@ -2199,7 +2082,6 @@ const MenteeProfile = () => {
                     </button>
                   </div>
 
-                  {/* Loading State */}
                   {bookingsLoading && (
                     <div className="flex items-center justify-center py-12">
                       <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
@@ -2209,7 +2091,6 @@ const MenteeProfile = () => {
                     </div>
                   )}
 
-                  {/* Error State */}
                   {bookingsError && (
                     <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
                       <div className="flex items-center">
@@ -2240,7 +2121,6 @@ const MenteeProfile = () => {
                     </div>
                   )}
 
-                  {/* Empty State - No bookings at all */}
                   {!bookingsLoading &&
                     !bookingsError &&
                     bookings.length === 0 && (
@@ -2264,7 +2144,6 @@ const MenteeProfile = () => {
                       </div>
                     )}
 
-                  {/* Empty State - No results after filtering */}
                   {!bookingsLoading &&
                     !bookingsError &&
                     bookings.length > 0 &&
@@ -2289,7 +2168,6 @@ const MenteeProfile = () => {
                       </div>
                     )}
 
-                  {/* Info Box */}
                   {!bookingsLoading &&
                     !bookingsError &&
                     bookings.length === 0 && (
@@ -2335,7 +2213,6 @@ const MenteeProfile = () => {
                       </div>
                     )}
 
-                  {/* Session Cards */}
                   {!bookingsLoading &&
                     !bookingsError &&
                     getFilteredBookings().length > 0 && (
@@ -2344,7 +2221,6 @@ const MenteeProfile = () => {
                           const bookingDate = new Date(booking.date);
                           const isUpcoming = bookingDate > new Date();
 
-                          // Status styling
                           const getStatusStyle = (status) => {
                             const styles = {
                               pending: {
@@ -2393,7 +2269,7 @@ const MenteeProfile = () => {
                               key={booking._id}
                               className={`${statusStyle.bg} ${statusStyle.border} border-2 rounded-2xl p-6 relative`}
                             >
-                              {/* Top Right Section - Date and Status */}
+
                               <div className="absolute top-4 right-4 flex items-center gap-4">
                                 <div className="text-sm text-gray-500 font-medium">
                                   {bookingDate.toLocaleDateString("en-US", {
@@ -2409,9 +2285,8 @@ const MenteeProfile = () => {
                                 </span>
                               </div>
 
-                              {/* Mentor Info */}
                               <div className="flex items-start gap-4">
-                                {/* Avatar */}
+
                                 <div className="flex-shrink-0">
                                   {booking.mentor?.avatarUrl ? (
                                     <img
@@ -2427,7 +2302,6 @@ const MenteeProfile = () => {
                                   )}
                                 </div>
 
-                                {/* Details */}
                                 <div className="flex-1">
                                   <h3 className="font-bold text-xl text-gray-900 mb-1">
                                     {booking.mentor?.firstName}{" "}
@@ -2439,7 +2313,6 @@ const MenteeProfile = () => {
                                     </p>
                                   )}
 
-                                  {/* Date, Time and Review Button */}
                                   <div className="grid grid-cols-3 gap-6">
                                     <div>
                                       <div className="flex items-center gap-2 mb-1">
@@ -2485,15 +2358,14 @@ const MenteeProfile = () => {
                                       </p>
                                     </div>
 
-                                    {/* Review Button Column */}
                                     <div>
                                       {(() => {
-                                        // Better date/time parsing
+
                                         let bookingDateTime;
                                         try {
-                                          // Handle different date/time formats
+
                                           if (booking.date && booking.start) {
-                                            // Try combining date and time
+
                                             const dateStr = new Date(
                                               booking.date
                                             )
@@ -2504,7 +2376,6 @@ const MenteeProfile = () => {
                                               `${dateStr}T${timeStr}:00`
                                             );
 
-                                            // If invalid, try alternative parsing
                                             if (
                                               isNaN(bookingDateTime.getTime())
                                             ) {
@@ -2530,18 +2401,16 @@ const MenteeProfile = () => {
                                         const isPastConsultation =
                                           bookingDateTime < new Date();
 
-                                        // If booking is past consultation time, consider it finished
                                         const isFinished =
                                           booking.status === "finished" ||
                                           (booking.status === "active" &&
                                             isPastConsultation);
 
-                                        // Only show review button for finished bookings
                                         const canReview = isFinished;
 
                                         return (
                                           <>
-                                            {/* Show review button for finished or past active/accepted bookings */}
+
                                             {canReview && (
                                               <div>
                                                 <div className="flex items-center gap-2 mb-1">
@@ -2584,7 +2453,6 @@ const MenteeProfile = () => {
                                     </div>
                                   </div>
 
-                                  {/* Notes */}
                                   {booking.notes && (
                                     <div className="mt-4 p-3 bg-white/70 rounded-lg border border-gray-200">
                                       <p className="text-sm text-gray-700">
@@ -2593,7 +2461,85 @@ const MenteeProfile = () => {
                                     </div>
                                   )}
 
-                                  {/* Decline Reason - chỉ hiển thị cho booking bị declined */}
+                                  {Number(booking.price || 0) > 0 && (
+                                    <div className="mt-4 rounded-xl border border-cyan-200 bg-white/80 p-4">
+                                      <div className="flex flex-wrap items-center justify-between gap-3">
+                                        <div>
+                                          <p className="text-xs font-bold uppercase tracking-[0.14em] text-cyan-700">
+                                            Session payment
+                                          </p>
+                                          <p className="mt-1 text-lg font-black text-gray-900">
+                                            {new Intl.NumberFormat("vi-VN", {
+                                              style: "currency",
+                                              currency: booking.currency || "VND",
+                                              maximumFractionDigits: 0,
+                                            }).format(Number(booking.price))}
+                                          </p>
+                                        </div>
+                                        <span className="rounded-full bg-cyan-50 px-3 py-1 text-xs font-bold uppercase text-cyan-800">
+                                          {String(booking.paymentStatus || "unpaid").replaceAll("_", " ")}
+                                        </span>
+                                      </div>
+
+                                      {booking.status === "active" &&
+                                        booking.paymentStatus === "unpaid" && (
+                                          <div className="mt-4 flex flex-wrap gap-2">
+                                            {[
+                                              ["vnpay", "Pay with VNPay"],
+                                              ["momo", "Pay with MoMo"],
+                                            ].map(([provider, label]) => {
+                                              const paymentKey = `${booking._id}:${provider}`;
+                                              return (
+                                                <button
+                                                  key={provider}
+                                                  type="button"
+                                                  disabled={Boolean(payingBooking)}
+                                                  onClick={() =>
+                                                    handleBookingPayment(booking, provider)
+                                                  }
+                                                  className="rounded-lg bg-cyan-600 px-4 py-2 text-sm font-bold text-white transition hover:bg-cyan-700 disabled:cursor-not-allowed disabled:opacity-50"
+                                                >
+                                                  {payingBooking === paymentKey
+                                                    ? "Opening payment…"
+                                                    : label}
+                                                </button>
+                                              );
+                                            })}
+                                          </div>
+                                        )}
+
+                                      {booking.status === "pending" &&
+                                        booking.paymentStatus === "unpaid" && (
+                                          <p className="mt-3 text-sm text-gray-600">
+                                            Payment opens after the mentor accepts your request.
+                                          </p>
+                                        )}
+
+                                      {booking.paymentStatus === "refund_pending" && (
+                                        <p className="mt-3 text-sm font-medium text-amber-700">
+                                          Your refund is being processed by the platform.
+                                        </p>
+                                      )}
+
+                                      {booking.paymentStatus === "refunded" && (
+                                        <p className="mt-3 text-sm font-medium text-emerald-700">
+                                          This session payment has been refunded.
+                                        </p>
+                                      )}
+                                    </div>
+                                  )}
+
+                                  {booking.meetingLink && (
+                                    <a
+                                      href={booking.meetingLink}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="mt-4 inline-flex items-center rounded-lg bg-emerald-600 px-4 py-2 text-sm font-bold text-white transition hover:bg-emerald-700"
+                                    >
+                                      Join mentoring session
+                                    </a>
+                                  )}
+
                                   {booking.status === "cancelled" &&
                                     booking.declineReason && (
                                       <div className="mt-4 p-3 bg-red-50 rounded-lg border border-red-200">
@@ -2633,9 +2579,9 @@ const MenteeProfile = () => {
 
             {activeTab === "mentors" && (
               <div className="space-y-6">
-                {/* Mentors Section */}
+
                 <div className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100">
-                  {/* Header with mentor count */}
+
                   <div className="flex justify-between items-center mb-6">
                     <div className="flex items-center gap-6">
                       <h3 className="text-lg font-semibold text-gray-900">
@@ -2644,7 +2590,6 @@ const MenteeProfile = () => {
                     </div>
                   </div>
 
-                  {/* Search and Filter Bar */}
                   <div className="flex gap-4 mb-6">
                     <div className="flex-1 relative">
                       <input
@@ -2711,7 +2656,6 @@ const MenteeProfile = () => {
                     </div>
                   </div>
 
-                  {/* Mentors Grid */}
                   <div
                     className="grid grid-cols-1 md:grid-cols-2 gap-6 content-start"
                     style={{
@@ -2731,7 +2675,7 @@ const MenteeProfile = () => {
                           key={mentor._id}
                           className="border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow bg-white"
                         >
-                          {/* Mentor Header */}
+
                           <div className="flex items-start gap-4 mb-4">
                             <div className="relative">
                               <div className="relative flex h-16 w-16 items-center justify-center overflow-hidden rounded-full border-2 border-[var(--ui-border)] bg-[var(--ui-accent-soft)] text-lg font-bold text-[var(--ui-accent)]">
@@ -2770,7 +2714,6 @@ const MenteeProfile = () => {
                             </div>
                           </div>
 
-                          {/* Relationship badges */}
                           <div className="flex gap-2 mb-4">
                             {mentor.hasCoursePurchase && (
                               <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full">
@@ -2784,7 +2727,6 @@ const MenteeProfile = () => {
                             )}
                           </div>
 
-                          {/* Action Buttons */}
                           <div className="grid grid-cols-2 gap-2 mb-2">
                             <button
                               onClick={() => navigate(`/mentor/${mentor._id}`)}
@@ -2841,7 +2783,6 @@ const MenteeProfile = () => {
                     )}
                   </div>
 
-                  {/* Pagination */}
                   {totalMentorPages > 1 && (
                     <div className="flex justify-center items-center gap-2 mt-12 pt-6 border-t border-gray-100">
                       <button
@@ -2912,14 +2853,14 @@ const MenteeProfile = () => {
 
             {activeTab === "messages" && (
               <div className="space-y-6">
-                {/* Messages Section - Using MentorMenteeChat Component */}
+
                 <MentorMenteeChat userRole="mentee" />
               </div>
             )}
 
             {activeTab === "reviews" && (
               <div className="space-y-6">
-                {/* Loading State */}
+
                 {reviewsLoading && (
                   <div className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100">
                     <div className="flex items-center justify-center py-12">
@@ -2931,7 +2872,6 @@ const MenteeProfile = () => {
                   </div>
                 )}
 
-                {/* Error State */}
                 {reviewsError && !reviewsLoading && (
                   <div className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100">
                     <div className="text-center py-12">
@@ -2964,16 +2904,15 @@ const MenteeProfile = () => {
                   </div>
                 )}
 
-                {/* My Reviews Section */}
                 {!reviewsLoading && !reviewsError && (
                   <div className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100">
-                    {/* Header */}
+
                     <div className="mb-6">
                       <h3 className="text-lg font-semibold text-gray-900">
                         My Reviews ({allReviews.length})
                       </h3>
                     </div>
-                    {/* Filter tabs */}
+
                     <div className="flex gap-1 mb-6 bg-gray-100 p-1 rounded-lg w-fit">
                       <button
                         onClick={() => handleReviewFilterChange("all")}
@@ -3023,7 +2962,7 @@ const MenteeProfile = () => {
                         {allReviews.filter((r) => r.type === "mentor").length})
                       </button>
                     </div>
-                    {/* Reviews List */}
+
                     <div className="space-y-6">
                       {currentPageReviews.length > 0 ? (
                         currentPageReviews.map((review) => (
@@ -3032,7 +2971,7 @@ const MenteeProfile = () => {
                             className="border border-gray-200 rounded-lg p-6"
                           >
                             <div className="flex items-start gap-4">
-                              {/* Avatar/Image */}
+
                               <div
                                 className={`relative flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden bg-[var(--ui-accent-soft)] font-bold text-[var(--ui-accent)] ${
                                   review.type === "course"
@@ -3056,14 +2995,13 @@ const MenteeProfile = () => {
                               <div className="flex-1">
                                 <div className="flex items-start justify-between mb-3">
                                   <div>
-                                    {/* Title based on review type */}
+
                                     <h4 className="font-semibold text-gray-900 mb-1">
                                       {review.type === "course"
                                         ? review.targetTitle
                                         : review.targetTitle}
                                     </h4>
 
-                                    {/* Course mentor information */}
                                     {review.type === "course" &&
                                       review.instructor && (
                                         <div className="text-sm text-gray-600 mb-2 bg-blue-50 px-2 py-1 rounded">
@@ -3091,7 +3029,6 @@ const MenteeProfile = () => {
                                         </div>
                                       )}
 
-                                    {/* Consultation details for consulting reviews */}
                                     {review.type === "consulting" &&
                                       (review.consultationDate ||
                                         review.consultationTime) && (
@@ -3127,7 +3064,6 @@ const MenteeProfile = () => {
                                         </div>
                                       )}
 
-                                    {/* Rating and Date */}
                                     <div className="flex items-center gap-2 mt-1">
                                       <div className="flex text-yellow-400 text-sm">
                                         {"★".repeat(review.rating)}
@@ -3139,7 +3075,6 @@ const MenteeProfile = () => {
                                     </div>
                                   </div>
 
-                                  {/* Type Badge */}
                                   <span
                                     className={`px-2 py-1 rounded-full text-xs font-medium ${
                                       review.type === "course"
@@ -3157,7 +3092,6 @@ const MenteeProfile = () => {
                                   </span>
                                 </div>
 
-                                {/* Comment */}
                                 {review.comment && (
                                   <p className="text-gray-700 mb-4 leading-relaxed">
                                     {review.comment}
@@ -3210,7 +3144,6 @@ const MenteeProfile = () => {
                       )}
                     </div>
 
-                    {/* Pagination */}
                     {totalReviewPages > 1 && (
                       <div className="flex justify-center items-center gap-2 mt-6 pt-4 border-t border-gray-200">
                         <button
@@ -3285,7 +3218,6 @@ const MenteeProfile = () => {
         </div>
       </div>
 
-      {/* Review Popup */}
       {isReviewPopupOpen && (
         <div
           className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-300"
@@ -3302,7 +3234,7 @@ const MenteeProfile = () => {
               animation: "modalAppear 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)",
             }}
           >
-            {/* Header */}
+
             <div className="px-6 py-4 border-b border-gray-100 animate-in slide-in-from-top-4 duration-300 delay-100">
               <div className="flex items-center justify-between">
                 <h3 className="text-xl font-bold text-gray-900">Rate Course</h3>
@@ -3328,9 +3260,8 @@ const MenteeProfile = () => {
               </div>
             </div>
 
-            {/* Content */}
             <div className="px-6 py-6 animate-in slide-in-from-bottom-4 duration-400 delay-200">
-              {/* Course Info */}
+
               {reviewCourse && (
                 <div className="flex items-start gap-4 mb-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-100 transform transition-all duration-300 hover:shadow-md">
                   <div className="relative flex h-12 w-16 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-[var(--ui-accent-soft)] text-xs font-bold text-[var(--ui-accent)] shadow-sm">
@@ -3363,7 +3294,6 @@ const MenteeProfile = () => {
                 </div>
               )}
 
-              {/* Star Rating */}
               <div className="mb-6 animate-in slide-in-from-bottom-4 duration-400 delay-300">
                 <label className="block text-sm font-medium text-gray-700 mb-3 transform transition-all duration-300">
                   Your Rating <span className="text-red-500">*</span>
@@ -3424,7 +3354,6 @@ const MenteeProfile = () => {
                 )}
               </div>
 
-              {/* Comment */}
               <div className="mb-6 animate-in slide-in-from-bottom-4 duration-400 delay-400">
                 <label
                   htmlFor="review-comment"
@@ -3455,7 +3384,6 @@ const MenteeProfile = () => {
               </div>
             </div>
 
-            {/* Footer */}
             <div className="px-6 py-4 border-t border-gray-100 bg-gray-50 rounded-b-2xl animate-in slide-in-from-bottom-4 duration-400 delay-500">
               <div className="flex gap-3">
                 <button
@@ -3518,7 +3446,6 @@ const MenteeProfile = () => {
         </div>
       )}
 
-      {/* Booking Review Popup */}
       {isBookingReviewPopupOpen && (
         <div
           className="fixed inset-0 booking-review-backdrop backdrop-fade-in z-50 flex items-center justify-center p-4"
@@ -3535,7 +3462,7 @@ const MenteeProfile = () => {
               animation: "modalAppear 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)",
             }}
           >
-            {/* Header */}
+
             <div className="px-6 py-4 border-b border-gray-100 animate-in slide-in-from-top-4 duration-300 delay-100">
               <div className="flex items-center justify-between">
                 <h3 className="text-xl font-bold text-gray-900">
@@ -3563,9 +3490,8 @@ const MenteeProfile = () => {
               </div>
             </div>
 
-            {/* Content */}
             <div className="px-6 py-6 animate-in slide-in-from-bottom-4 duration-400 delay-200">
-              {/* Booking Info */}
+
               {reviewBooking && (
                 <div className="flex items-start gap-4 mb-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-100 transform transition-all duration-300 hover:shadow-md">
                   <div className="flex-shrink-0">
@@ -3609,7 +3535,6 @@ const MenteeProfile = () => {
                 </div>
               )}
 
-              {/* Star Rating */}
               <div className="mb-6 animate-in slide-in-from-bottom-4 duration-400 delay-300">
                 <label className="block text-sm font-medium text-gray-700 mb-3 transform transition-all duration-300">
                   Your Rating <span className="text-red-500">*</span>
@@ -3672,7 +3597,6 @@ const MenteeProfile = () => {
                 )}
               </div>
 
-              {/* Comment */}
               <div className="mb-6 animate-in slide-in-from-bottom-4 duration-400 delay-400">
                 <label
                   htmlFor="booking-review-comment"
@@ -3703,7 +3627,6 @@ const MenteeProfile = () => {
               </div>
             </div>
 
-            {/* Footer */}
             <div className="px-6 py-4 border-t border-gray-100 bg-gray-50 rounded-b-2xl animate-in slide-in-from-bottom-4 duration-400 delay-500">
               <div className="flex gap-3">
                 <button
@@ -3768,7 +3691,6 @@ const MenteeProfile = () => {
         </div>
       )}
 
-      {/* Mentor Rating Popup */}
       {isMentorRatingPopupOpen && (
         <div
           className="fixed inset-0 mentor-rating-backdrop backdrop-fade-in z-50 flex items-center justify-center p-4"
@@ -3785,7 +3707,7 @@ const MenteeProfile = () => {
               animation: "modalAppear 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)",
             }}
           >
-            {/* Header */}
+
             <div className="px-6 py-4 border-b border-gray-100 animate-in slide-in-from-top-4 duration-300 delay-100">
               <div className="flex items-center justify-between">
                 <h3 className="text-xl font-bold text-gray-900">Rate Mentor</h3>
@@ -3836,9 +3758,8 @@ const MenteeProfile = () => {
               )}
             </div>
 
-            {/* Content */}
             <div className="px-6 py-6 animate-in fade-in duration-300 delay-200">
-              {/* Star Rating */}
+
               <div className="mb-6">
                 <label className="block text-sm font-medium text-gray-700 mb-3">
                   How would you rate this mentor?
@@ -3875,7 +3796,6 @@ const MenteeProfile = () => {
                 </p>
               </div>
 
-              {/* Comment */}
               <div className="mb-6">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Share your experience (optional)
@@ -3895,7 +3815,6 @@ const MenteeProfile = () => {
               </div>
             </div>
 
-            {/* Footer */}
             <div className="px-6 py-4 border-t border-gray-100 flex gap-3 animate-in slide-in-from-bottom-4 duration-300 delay-300">
               <button
                 onClick={closeMentorRatingPopup}
@@ -3923,7 +3842,6 @@ const MenteeProfile = () => {
         </div>
       )}
 
-      {/* Custom Animations */}
       <style>{`
         @keyframes modalAppear {
           0% {
@@ -3955,14 +3873,12 @@ const MenteeProfile = () => {
           animation: modalDisappear 0.2s ease-in forwards;
         }
 
-        /* Enhanced backdrop blur for booking review popup */
         .booking-review-backdrop {
           background: rgba(0, 0, 0, 0.75);
           backdrop-filter: blur(8px);
           -webkit-backdrop-filter: blur(8px);
         }
 
-        /* Smooth fade-in animation for backdrop */
         @keyframes backdropFadeIn {
           0% {
             opacity: 0;

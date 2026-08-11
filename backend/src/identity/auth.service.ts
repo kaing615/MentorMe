@@ -1,6 +1,8 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
+  NotFoundException,
   UnauthorizedException,
 } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
@@ -8,10 +10,12 @@ import { InjectModel } from "@nestjs/mongoose";
 import bcrypt from "bcryptjs";
 import crypto from "node:crypto";
 import type { Model } from "mongoose";
+import { Types } from "mongoose";
 import type { ForgotPasswordDto } from "./dto/forgot-password.dto";
 import type { ApplyMentorDto } from "./dto/apply-mentor.dto";
 import type { ResendEmailDto } from "./dto/resend-email.dto";
 import type { ResetPasswordDto } from "./dto/reset-password.dto";
+import type { ReviewMentorApplicationDto } from "./dto/review-mentor-application.dto";
 import type { SignInDto } from "./dto/sign-in.dto";
 import type { SignUpMentorDto } from "./dto/sign-up-mentor.dto";
 import type { SignUpDto } from "./dto/sign-up.dto";
@@ -20,6 +24,10 @@ import { EmailService } from "../infrastructure/email/email.service";
 import { CloudinaryService } from "../infrastructure/files/cloudinary.service";
 import { User } from "./user.schema";
 import type { UserDocument } from "./user.schema";
+import {
+  MentorApplication,
+  type MentorApplicationStatus,
+} from "./mentor-application.schema";
 
 const genericResetMessage =
   "Nếu email này tồn tại, đã gửi liên kết đặt lại mật khẩu.";
@@ -34,6 +42,8 @@ type LegacyJwtPayload = {
 export class AuthService {
   constructor(
     @InjectModel(User.name) private readonly users: Model<User>,
+    @InjectModel(MentorApplication.name)
+    private readonly mentorApplications: Model<MentorApplication>,
     private readonly jwt: JwtService,
     private readonly email: EmailService,
     private readonly files: CloudinaryService,
@@ -192,18 +202,20 @@ export class AuthService {
     const user = new this.users({
       ...dto,
       password: await bcrypt.hash(dto.password, 10),
-      role: "mentor",
-      roles: ["mentor"],
+      role: "mentee",
+      roles: ["mentee"],
       isVerified: process.env.NODE_ENV === "test",
     });
     const uploaded = await this.files.uploadAvatar(file, String(user._id));
     user.avatarUrl = uploaded.url;
     user.avatarPublicId = uploaded.publicId;
     await user.save();
+    const application = await this.submitMentorApplication(user);
     return {
-      message: "Đăng ký mentor thành công!",
+      message: "Hồ sơ mentor đã được gửi để xét duyệt.",
       token: await this.signToken(user),
       user: this.sanitize(user.toObject()),
+      application,
       id: user._id,
       avatarUrl: user.avatarUrl,
     };
@@ -240,20 +252,101 @@ export class AuthService {
     if (dto.greatestAchievement !== undefined) {
       user.greatestAchievement = dto.greatestAchievement;
     }
-    user.roles = [
-      ...new Set([
-        ...(user.roles?.length ? user.roles : user.role ? [user.role] : []),
-        "mentor" as const,
-      ]),
-    ];
-    user.role = "mentor";
     await user.save();
+    const application = await this.submitMentorApplication(user);
     return {
-      message: "Đăng ký mentor thành công!",
+      message: "Hồ sơ mentor đã được gửi để xét duyệt.",
       token: await this.signToken(user),
       user: this.sanitize(user.toObject()),
+      application,
       avatarUrl: user.avatarUrl,
     };
+  }
+
+  async getMentorApplication(user: UserDocument) {
+    return {
+      application: await this.mentorApplications.findOne({ user: user._id }),
+    };
+  }
+
+  async listMentorApplications(
+    user: UserDocument,
+    status?: MentorApplicationStatus,
+  ) {
+    this.requireAdmin(user);
+    const filter = status ? { status } : {};
+    const applications = await this.mentorApplications
+      .find(filter)
+      .sort({ createdAt: -1 })
+      .populate(
+        "user",
+        "firstName lastName userName email avatarUrl jobTitle location category skills bio linkedinUrl mentorReason greatestAchievement introVideo role roles",
+      );
+    return { applications, total: applications.length };
+  }
+
+  async reviewMentorApplication(
+    admin: UserDocument,
+    id: string,
+    dto: ReviewMentorApplicationDto,
+  ) {
+    this.requireAdmin(admin);
+    if (!Types.ObjectId.isValid(id)) {
+      throw new BadRequestException("Invalid mentor application ID");
+    }
+    const application = await this.mentorApplications.findById(id);
+    if (!application) throw new NotFoundException("Mentor application not found");
+    if (application.status !== "pending") {
+      throw new BadRequestException("Mentor application has already been reviewed");
+    }
+    const applicant = await this.users.findById(application.user);
+    if (!applicant) throw new NotFoundException("Applicant not found");
+
+    application.status = dto.status;
+    application.reviewReason = dto.reason?.trim() ?? "";
+    application.reviewedAt = new Date();
+    application.reviewedBy = admin._id;
+    if (dto.status === "approved") {
+      applicant.roles = [
+        ...new Set([
+          ...(applicant.roles?.length
+            ? applicant.roles
+            : applicant.role
+              ? [applicant.role]
+              : []),
+          "mentor" as const,
+        ]),
+      ];
+      applicant.role = "mentor";
+      await applicant.save();
+    }
+    await application.save();
+    return {
+      application,
+      user: this.sanitize(applicant.toObject()),
+    };
+  }
+
+  private async submitMentorApplication(user: UserDocument) {
+    const existing = await this.mentorApplications.findOne({ user: user._id });
+    if (existing?.status === "pending") {
+      throw new BadRequestException("Hồ sơ mentor đang chờ xét duyệt.");
+    }
+    if (existing?.status === "approved") {
+      throw new BadRequestException("Tài khoản đã được duyệt làm mentor.");
+    }
+    return this.mentorApplications.findOneAndUpdate(
+      { user: user._id },
+      {
+        $set: { status: "pending", reviewReason: "" },
+        $unset: { reviewedAt: "", reviewedBy: "" },
+      },
+      { new: true, upsert: true, setDefaultsOnInsert: true },
+    );
+  }
+
+  private requireAdmin(user: UserDocument): void {
+    if (user.role !== "admin") throw new ForbiddenException("Admin only");
   }
 
   async changeAvatar(user: UserDocument, file: Express.Multer.File) {

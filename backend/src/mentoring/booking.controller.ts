@@ -16,6 +16,8 @@ import type { UserDocument } from "../identity/user.schema";
 import { BookingService } from "./booking.service";
 import { CreateBookingDto } from "./dto/create-booking.dto";
 import { UpdateBookingDto } from "./dto/update-booking.dto";
+import { ConfirmBookingDto } from "./dto/confirm-booking.dto";
+import { ProcessBookingRefundDto } from "./dto/process-booking-refund.dto";
 
 @Controller("booking")
 @UseGuards(JwtAuthGuard)
@@ -58,8 +60,12 @@ export class BookingController {
 
   @Post("confirm/:id")
   @HttpCode(200)
-  confirm(@CurrentUser() user: UserDocument, @Param("id") id: string) {
-    return this.bookings.confirm(user, id);
+  confirm(
+    @CurrentUser() user: UserDocument,
+    @Param("id") id: string,
+    @Body() dto: ConfirmBookingDto,
+  ) {
+    return this.bookings.confirm(user, id, dto.meetingLink);
   }
 
   @Post("decline/:id")
@@ -82,6 +88,12 @@ export class BookingController {
     return this.bookings.cancel(user, id, reason);
   }
 
+  @Post("finish/:id")
+  @HttpCode(200)
+  finish(@CurrentUser() user: UserDocument, @Param("id") id: string) {
+    return this.bookings.finish(user, id);
+  }
+
   @Patch(":id")
   update(
     @CurrentUser() user: UserDocument,
@@ -94,5 +106,14 @@ export class BookingController {
   @Delete(":id")
   remove(@CurrentUser() user: UserDocument, @Param("id") id: string) {
     return this.bookings.remove(user, id);
+  }
+
+  @Patch("admin/:id/refund")
+  processRefund(
+    @CurrentUser() user: UserDocument,
+    @Param("id") id: string,
+    @Body() dto: ProcessBookingRefundDto,
+  ) {
+    return this.bookings.processRefund(user, id, dto.refundReference);
   }
 }

@@ -2,22 +2,22 @@ import createPrivateClient from "../clients/private.client.js";
 
 const privateClient = createPrivateClient();
 
-// Lấy profile hiện tại (mentor hoặc mentee, tự động phân loại)
 export const getProfile = async () => {
   return privateClient.get("/profile");
 };
 
-// Lấy thông tin mentor theo ID (public API, không cần token)
 export const getMentorById = async (mentorId) => {
   return privateClient.get(`/profile/mentor/${mentorId}`);
 };
 
-// Lấy danh sách top mentors (public API, không cần token)
 export const getTopMentors = async (limit = 6) => {
   return privateClient.get("/profile/top-mentors", { params: { limit } });
-}; // Cập nhật profile mentor
+};
+export const searchMentors = async (params = {}) => {
+  return privateClient.get("/profile/mentors", { params });
+};
 export const updateMentorProfile = async (data) => {
-  // Kiểm tra các trường bắt buộc (cho phép để trống các trường link, video intro, social)
+
   const requiredFields = [
     "userName",
     "firstName",
@@ -32,8 +32,7 @@ export const updateMentorProfile = async (data) => {
       throw new Error(`Thiếu trường bắt buộc: ${field}`);
     }
   }
-  // Các trường sau có thể để trống: introVideo, website, twitter, linkedin, youtube, facebook
-  // Không kiểm tra bắt buộc các trường này
+
   if (data.bio && data.bio.length < 50) {
     throw new Error("Bio phải từ 50 ký tự trở lên.");
   }
@@ -42,7 +41,7 @@ export const updateMentorProfile = async (data) => {
   }
   try {
     let response;
-    // Nếu có avatar (ảnh base64 hoặc file), dùng multipart/form-data
+
     if (data.avatar) {
       const formData = new FormData();
       Object.entries(data).forEach(([key, value]) => {
@@ -66,13 +65,11 @@ export const updateMentorProfile = async (data) => {
   }
 };
 
-// Cập nhật profile mentee
 export const updateMenteeProfile = async (data) => {
   try {
-    // Chuẩn bị dữ liệu gửi lên server
+
     const payload = { ...data };
 
-    // Tạo object links từ các trường social media riêng lẻ
     payload.links = {
       website: data.website || "",
       twitter: data.twitter || "",
@@ -88,15 +85,13 @@ export const updateMenteeProfile = async (data) => {
     if (data.avatar) {
       const formData = new FormData();
 
-      // Append avatar file first
       if (data.avatar instanceof File) {
         formData.append("avatar", data.avatar);
       }
 
-      // Append other fields
       Object.entries(payload).forEach(([key, value]) => {
         if (key === "avatar") {
-          // Skip avatar as it's already appended above
+
           return;
         } else if (key === "links" && typeof value === "object") {
           formData.append(key, JSON.stringify(value));
@@ -109,7 +104,7 @@ export const updateMenteeProfile = async (data) => {
         headers: { "Content-Type": "multipart/form-data" },
       });
     } else {
-      // Remove avatar field from payload if not uploading
+
       delete payload.avatar;
       response = await privateClient.put("/profile/mentee", payload);
     }
@@ -121,7 +116,6 @@ export const updateMenteeProfile = async (data) => {
   }
 };
 
-// Đổi avatar cho user (mentor hoặc mentee)
 export const changeAvatar = async (avatarFile) => {
   const formData = new FormData();
   formData.append("avatar", avatarFile);
@@ -130,7 +124,6 @@ export const changeAvatar = async (avatarFile) => {
   });
 };
 
-// Lấy danh sách khóa học của mentor
 export const getMentorCourses = async (mentorId) => {
   return privateClient.get(`/course/mentor/${mentorId}`);
 };
@@ -139,6 +132,7 @@ const profileApi: any = {
   getProfile,
   getMentorById,
   getTopMentors,
+  searchMentors,
   updateMentorProfile,
   updateMenteeProfile,
   changeAvatar,

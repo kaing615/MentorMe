@@ -17,7 +17,6 @@ import {
 const AllMentors = () => {
   const navigate = useNavigate();
 
-  // --- AUTH CHECK (mentor và mentee đều được xem) ---
   useEffect(() => {
     const token =
       localStorage.getItem("actkn") || localStorage.getItem("token");
@@ -29,7 +28,7 @@ const AllMentors = () => {
       navigate("/auth/signin");
       return;
     }
-    // Check user object
+
     try {
       user = userStr ? JSON.parse(userStr) : null;
     } catch (e) {
@@ -39,37 +38,35 @@ const AllMentors = () => {
       navigate("/auth/signin");
       return;
     }
-    // Check role - chỉ mentor và mentee được phép vào
+
     if (hasUserRole(user, "mentor") || hasUserRole(user, "mentee")) {
       return;
     }
-    // Nếu không phải mentor hoặc mentee, redirect về signin
+
     navigate("/auth/signin");
     return;
   }, [navigate]);
 
-  // State management
   const [mentors, setMentors] = useState<any[]>([]);
-  const [filteredMentors, setFilteredMentors] = useState<any[]>([]);
   const [loading, setLoading] = useState<any>(true);
   const [error, setError] = useState<any>(null);
 
-  // Filter states
   const [selectedRating, setSelectedRating] = useState<any>("");
   const [selectedSkills, setSelectedSkills] = useState<any[]>([]);
   const [selectedJobTitles, setSelectedJobTitles] = useState<any[]>([]);
   const [sortBy, setSortBy] = useState<any>("relevance");
   const [searchTerm, setSearchTerm] = useState<any>("");
 
-  // Filter collapse states
   const [isRatingExpanded, setIsRatingExpanded] = useState<any>(true);
   const [isSkillsExpanded, setIsSkillsExpanded] = useState<any>(true);
   const [isJobTitlesExpanded, setIsJobTitlesExpanded] = useState<any>(true);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState<any>(false);
 
-  // Pagination
   const [currentPage, setCurrentPage] = useState<any>(1);
   const [mentorsPerPage] = useState<any>(6);
+  const [serverTotalPages, setServerTotalPages] = useState(1);
+  const [serverTotal, setServerTotal] = useState(0);
+  const [facets, setFacets] = useState<any>({ skills: [], jobTitles: [] });
 
   useEffect(() => {
     const fetchMentors = async () => {
@@ -77,25 +74,42 @@ const AllMentors = () => {
         setLoading(true);
         setError(null);
 
-        const response = await profileApi.getTopMentors(50);
+        const response = await profileApi.searchMentors({
+          search: searchTerm || undefined,
+          minRating: selectedRating || undefined,
+          skills: selectedSkills.join(",") || undefined,
+          jobTitles: selectedJobTitles.join(",") || undefined,
+          sort: sortBy === "relevance" ? undefined : sortBy,
+          page: currentPage,
+          limit: mentorsPerPage,
+        });
         const realMentors = mapMentorListResponse(response);
         setMentors(realMentors);
-        setFilteredMentors(realMentors);
+        setServerTotalPages(response?.data?.totalPages || 1);
+        setServerTotal(response?.data?.total || 0);
+        setFacets(response?.data?.facets || { skills: [], jobTitles: [] });
       } catch (err) {
         console.error("Error fetching mentors:", err);
         setError("Failed to load mentors");
         setMentors([]);
-        setFilteredMentors([]);
+        setServerTotal(0);
       } finally {
         setLoading(false);
       }
     };
 
     fetchMentors();
-  }, []);
+  }, [
+    currentPage,
+    mentorsPerPage,
+    searchTerm,
+    selectedRating,
+    selectedSkills,
+    selectedJobTitles,
+    sortBy,
+  ]);
 
-  // Filter options
-  const skillOptions = [
+  const fallbackSkillOptions = [
     "React",
     "Vue.js",
     "Angular",
@@ -122,7 +136,7 @@ const AllMentors = () => {
     "Docker",
   ];
 
-  const jobTitleOptions = [
+  const fallbackJobTitleOptions = [
     "Frontend Developer",
     "Backend Developer",
     "Full Stack",
@@ -136,22 +150,24 @@ const AllMentors = () => {
     "Digital Marketing",
     "Game Developer",
   ];
+  const skillOptions = facets.skills.length ? facets.skills : fallbackSkillOptions;
+  const jobTitleOptions = facets.jobTitles.length
+    ? facets.jobTitles
+    : fallbackJobTitleOptions;
 
-  // Clear all filters
   const clearAllFilters = () => {
     setSelectedRating("");
     setSelectedSkills([]);
     setSelectedJobTitles([]);
     setSortBy("relevance");
     setSearchTerm("");
+    setCurrentPage(1);
   };
 
-  // Check if any filters are active
   const hasActiveFilters = () => {
     return getActiveFilterCount() > 0;
   };
 
-  // Get active filter count
   const getActiveFilterCount = () => {
     let count = 0;
     if (selectedRating) count++;
@@ -161,101 +177,23 @@ const AllMentors = () => {
     return count;
   };
 
-  // TODO: Implement filtering logic when API is ready
-  const applyFilters = () => {
-    let filtered = [...mentors];
-
-    // Filter by search term
-    if (searchTerm) {
-      filtered = filtered.filter(
-        (mentor) =>
-          mentor.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          mentor.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          mentor.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          mentor.skills.some((skill) =>
-            skill.toLowerCase().includes(searchTerm.toLowerCase())
-          )
-      );
-    }
-
-    // Filter by rating
-    if (selectedRating) {
-      const minRating = parseFloat(selectedRating);
-      filtered = filtered.filter((mentor) => mentor.rating >= minRating);
-    }
-
-    // Filter by skills
-    if (selectedSkills.length > 0) {
-      filtered = filtered.filter((mentor) =>
-        selectedSkills.some((skill) => mentor.skills.includes(skill))
-      );
-    }
-
-    // Filter by job titles - improved matching
-    if (selectedJobTitles.length > 0) {
-      filtered = filtered.filter((mentor) =>
-        selectedJobTitles.some((jobTitle) => {
-          // Check for exact match or partial match
-          return (
-            mentor.title === jobTitle ||
-            mentor.title.toLowerCase().includes(jobTitle.toLowerCase()) ||
-            jobTitle.toLowerCase().includes(mentor.title.toLowerCase())
-          );
-        })
-      );
-    }
-
-    // Sort mentors
-    switch (sortBy) {
-      case "rating":
-        filtered.sort((a, b) => b.rating - a.rating);
-        break;
-      case "students":
-        filtered.sort((a, b) => b.studentCount - a.studentCount);
-        break;
-      default:
-        // relevance - keep original order
-        break;
-    }
-
-    setFilteredMentors(filtered);
-    setCurrentPage(1);
-  };
-
-  useEffect(() => {
-    applyFilters();
-  }, [
-    selectedRating,
-    selectedSkills,
-    selectedJobTitles,
-    sortBy,
-    searchTerm,
-    mentors,
-  ]);
-
-  // Pagination logic
-  const indexOfLastMentor = currentPage * mentorsPerPage;
-  const indexOfFirstMentor = indexOfLastMentor - mentorsPerPage;
-  const currentMentors = filteredMentors.slice(
-    indexOfFirstMentor,
-    indexOfLastMentor
-  );
-  const totalPages = Math.ceil(filteredMentors.length / mentorsPerPage);
+  const currentMentors = mentors;
+  const totalPages = serverTotalPages;
 
   const handleViewProfile = (mentorId) => {
     navigate(`/mentor/${mentorId}`);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  // TODO: Implement skill filter toggle
   const toggleSkillFilter = (skill) => {
+    setCurrentPage(1);
     setSelectedSkills((prev) =>
       prev.includes(skill) ? prev.filter((s) => s !== skill) : [...prev, skill]
     );
   };
 
-  // TODO: Implement job title filter toggle
   const toggleJobTitleFilter = (jobTitle) => {
+    setCurrentPage(1);
     setSelectedJobTitles((prev) =>
       prev.includes(jobTitle)
         ? prev.filter((jt) => jt !== jobTitle)
@@ -263,7 +201,6 @@ const AllMentors = () => {
     );
   };
 
-  // Render star rating
   const renderStars = (rating) => {
     return [...Array(5)].map((_, index) => (
       index < Math.floor(rating) ? (
@@ -314,7 +251,7 @@ const AllMentors = () => {
   return (
     <div className="min-h-[100dvh] bg-[var(--ui-page)]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header */}
+
         <div className="mb-8">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
             <div>
@@ -325,14 +262,17 @@ const AllMentors = () => {
             </div>
             <div className="grid grid-cols-1 gap-3 sm:flex sm:items-center sm:gap-4">
               <p className="text-gray-600">
-                {filteredMentors.length} mentors found
+                {serverTotal} mentors found
               </p>
               <div className="flex items-center gap-2">
                 <span className="text-sm text-gray-700">Sort by</span>
                 <select
                   aria-label="Sort mentors"
                   value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value)}
+                  onChange={(e) => {
+                    setSortBy(e.target.value);
+                    setCurrentPage(1);
+                  }}
                   className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="relevance">Relevance</option>
@@ -356,13 +296,13 @@ const AllMentors = () => {
         </button>
 
         <div className="flex flex-col lg:flex-row gap-8">
-          {/* Left Sidebar - Filters */}
+
           <div
             id="mentor-filters"
             className={`${mobileFiltersOpen ? "block" : "hidden"} lg:block lg:w-1/4`}
           >
             <div className="max-h-[70dvh] overflow-y-auto rounded-2xl border border-[var(--ui-border)] bg-[var(--ui-surface)] p-6 lg:sticky lg:top-20 lg:max-h-[calc(100dvh-6rem)]">
-              {/* Filter Button */}
+
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-2">
                   <button className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
@@ -385,7 +325,6 @@ const AllMentors = () => {
                 )}
               </div>
 
-              {/* Search Input */}
               <div className="mb-6">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Search Mentors
@@ -395,7 +334,10 @@ const AllMentors = () => {
                     aria-label="Search mentors"
                     type="text"
                     value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
+                    onChange={(e) => {
+                      setSearchTerm(e.target.value);
+                      setCurrentPage(1);
+                    }}
                     placeholder="Search by name, title, skills..."
                     className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
@@ -403,7 +345,6 @@ const AllMentors = () => {
                 </div>
               </div>
 
-              {/* Rating Filter */}
               <div className="mb-6">
                 <h3
                   className="font-semibold text-gray-900 mb-3 flex items-center justify-between cursor-pointer"
@@ -421,7 +362,10 @@ const AllMentors = () => {
                           name="rating"
                           value={rating}
                           checked={selectedRating === rating.toString()}
-                          onChange={(e) => setSelectedRating(e.target.value)}
+                          onChange={(e) => {
+                            setSelectedRating(e.target.value);
+                            setCurrentPage(1);
+                          }}
                           className="mr-2"
                         />
                         <div className="flex items-center">
@@ -434,7 +378,6 @@ const AllMentors = () => {
                 )}
               </div>
 
-              {/* Skills Filter */}
               <div className="mb-6">
                 <h3
                   className="font-semibold text-gray-900 mb-3 flex items-center justify-between cursor-pointer"
@@ -460,7 +403,6 @@ const AllMentors = () => {
                 )}
               </div>
 
-              {/* Job Titles Filter */}
               <div className="mb-6">
                 <h3
                   className="font-semibold text-gray-900 mb-3 flex items-center justify-between cursor-pointer"
@@ -490,9 +432,8 @@ const AllMentors = () => {
             </div>
           </div>
 
-          {/* Right Content Area */}
           <div className="min-w-0 lg:w-3/4">
-            {/* Mentors Grid */}
+
             {currentMentors.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 mb-8">
                 {currentMentors.map((mentor) => (
@@ -500,7 +441,7 @@ const AllMentors = () => {
                     key={mentor.id}
                     className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow"
                   >
-                    {/* Mentor Avatar */}
+
                     <div className="aspect-w-16 aspect-h-12 bg-gray-200">
                       {mentor.avatar ? (
                         <img
@@ -515,7 +456,6 @@ const AllMentors = () => {
                       )}
                     </div>
 
-                    {/* Mentor Info */}
                     <div className="p-4">
                       <div className="flex items-start justify-between mb-2">
                         <div>
@@ -528,7 +468,6 @@ const AllMentors = () => {
                         </div>
                       </div>
 
-                      {/* Rating */}
                       <div className="flex items-center gap-1 mb-2">
                         {renderStars(mentor.rating)}
                         <span className="text-sm text-gray-600 ml-1">
@@ -536,12 +475,10 @@ const AllMentors = () => {
                         </span>
                       </div>
 
-                      {/* Student Count */}
                       <p className="text-sm text-gray-600 mb-3">
                         {mentor.studentCount.toLocaleString()} Students
                       </p>
 
-                      {/* View Profile Button */}
                       <button
                         onClick={() => handleViewProfile(mentor.id)}
                         className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors font-medium"
@@ -572,7 +509,6 @@ const AllMentors = () => {
               </div>
             )}
 
-            {/* Pagination */}
             {totalPages > 1 && (
               <div className="flex items-center justify-center gap-1 mt-8">
                 <button
@@ -586,22 +522,19 @@ const AllMentors = () => {
                   <IconChevronLeft aria-hidden="true" size={20} stroke={1.8} />
                 </button>
 
-                {/* Show pagination numbers intelligently */}
                 {(() => {
                   const pages = [];
-                  const showPages = 5; // Show 5 page numbers at most
+                  const showPages = 5;
                   let startPage = Math.max(
                     1,
                     currentPage - Math.floor(showPages / 2)
                   );
                   const endPage = Math.min(totalPages, startPage + showPages - 1);
 
-                  // Adjust start if we're near the end
                   if (endPage - startPage < showPages - 1) {
                     startPage = Math.max(1, endPage - showPages + 1);
                   }
 
-                  // Show first page if not visible
                   if (startPage > 1) {
                     pages.push(
                       <button
@@ -624,7 +557,6 @@ const AllMentors = () => {
                     }
                   }
 
-                  // Show page numbers
                   for (let i = startPage; i <= endPage; i++) {
                     pages.push(
                       <button
@@ -641,7 +573,6 @@ const AllMentors = () => {
                     );
                   }
 
-                  // Show last page if not visible
                   if (endPage < totalPages) {
                     if (endPage < totalPages - 1) {
                       pages.push(

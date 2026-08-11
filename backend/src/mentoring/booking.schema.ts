@@ -37,6 +37,36 @@ export class Booking {
   @Prop()
   declineReason?: string;
 
+  @Prop({ default: 0, min: 0 }) price!: number;
+  @Prop({ enum: ["VND"], default: "VND" }) currency!: "VND";
+  @Prop({ default: 15, min: 0, max: 100 }) platformFeePercent!: number;
+  @Prop({ default: 0, min: 0 }) platformFeeAmount!: number;
+  @Prop({ default: 0, min: 0 }) mentorNetAmount!: number;
+  @Prop({
+    enum: [
+      "not_required",
+      "unpaid",
+      "paid",
+      "refund_pending",
+      "refunded",
+      "failed",
+    ],
+    default: "not_required",
+  })
+  paymentStatus!:
+    | "not_required"
+    | "unpaid"
+    | "paid"
+    | "refund_pending"
+    | "refunded"
+    | "failed";
+  @Prop({ default: 0, min: 0 }) refundAmount!: number;
+  @Prop({ default: "" }) refundReference!: string;
+  @Prop({ default: "" }) meetingLink!: string;
+  @Prop({ type: MongooseSchema.Types.ObjectId, ref: "Order" })
+  order?: Types.ObjectId;
+  @Prop({ default: "" }) paymentTransactionId!: string;
+
   @Prop({ type: MongooseSchema.Types.ObjectId })
   slotId!: Types.ObjectId;
 

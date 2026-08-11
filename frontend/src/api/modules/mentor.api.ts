@@ -1,5 +1,4 @@
 import publicClient from "../clients/public.client.js";
-import { filterMentors } from "../../utils/mentor-list";
 
 type MentorSearch = {
   name?: string;
@@ -25,26 +24,16 @@ const searchMentors = async ({
   page = 1,
   limit = 20,
 }: MentorSearch = {}) => {
-  const response = await publicClient.get("/profile/top-mentors", {
-    params: { limit: 100 },
-  });
-  const allMentors = Array.isArray(response.data?.mentors)
-    ? response.data.mentors
-    : [];
-  const query = [name, category, skills, location].filter(Boolean).join(" ");
-  const filtered = filterMentors(allMentors, query);
-  const start = (page - 1) * limit;
-
-  return {
-    response: {
-      ...response,
-      data: {
-        ...response.data,
-        mentors: filtered.slice(start, start + limit),
-        total: filtered.length,
-      },
+  const response = await publicClient.get("/profile/mentors", {
+    params: {
+      search: name || location,
+      category,
+      skills,
+      page,
+      limit,
     },
-  };
+  });
+  return { response };
 };
 
 const getMentorById = async (mentorId: string) => {

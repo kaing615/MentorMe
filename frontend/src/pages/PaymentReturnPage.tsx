@@ -5,6 +5,7 @@ import publicClient from "../api/clients/public.client";
 import {
   isSuccessfulOrderStatus,
   paymentReturnOrderNumber,
+  paymentReturnPath,
   type PaymentProvider,
 } from "../utils/payment-flow";
 
@@ -14,6 +15,8 @@ const PaymentReturnPage = ({ provider }: { provider: PaymentProvider }) => {
 
   useEffect(() => {
     const finish = async () => {
+      const bookingReturn = sessionStorage.getItem("paymentReturnTarget") === "booking";
+      sessionStorage.removeItem("paymentReturnTarget");
       let orderNumber = paymentReturnOrderNumber(provider, searchParams);
       try {
         if (provider === "vnpay") {
@@ -29,12 +32,18 @@ const PaymentReturnPage = ({ provider }: { provider: PaymentProvider }) => {
           }
         }
         if (!orderNumber) throw new Error("Không tìm thấy mã đơn hàng");
-        navigate(`/order-detail?orderId=${encodeURIComponent(orderNumber)}`, {
-          replace: true,
-        });
+        if (bookingReturn) {
+          localStorage.setItem("menteeProfileTab", "mybookings");
+        }
+        navigate(paymentReturnPath(orderNumber, bookingReturn), { replace: true });
       } catch (error) {
         toast.error(error instanceof Error ? error.message : "Không thể xác minh thanh toán");
-        navigate("/shoppingcart", { replace: true });
+        if (bookingReturn) {
+          localStorage.setItem("menteeProfileTab", "mybookings");
+          navigate("/profile", { replace: true });
+        } else {
+          navigate("/shoppingcart", { replace: true });
+        }
       }
     };
     void finish();

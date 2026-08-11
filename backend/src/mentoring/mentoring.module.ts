@@ -13,6 +13,11 @@ import { ReviewController } from "./review.controller";
 import { Review, ReviewSchema } from "./review.schema";
 import { ReviewService } from "./review.service";
 import { Profile, ProfileSchema } from "./profile.schema";
+import { Order, OrderSchema } from "../commerce/order.schema";
+import {
+  MentorEarning,
+  MentorEarningSchema,
+} from "../commerce/mentor-earning.schema";
 
 @Module({
   imports: [
@@ -24,6 +29,8 @@ import { Profile, ProfileSchema } from "./profile.schema";
       { name: Relationship.name, schema: RelationshipSchema },
       { name: Review.name, schema: ReviewSchema },
       { name: Profile.name, schema: ProfileSchema },
+      { name: Order.name, schema: OrderSchema },
+      { name: MentorEarning.name, schema: MentorEarningSchema },
     ]),
   ],
   controllers: [AvailabilityController, BookingController, ReviewController],
