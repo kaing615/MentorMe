@@ -1,240 +1,248 @@
 <div align="center">
-  <img src="frontend/public/favicon.svg" alt="MentorMe logo" width="72" height="72">
 
 # MentorMe
 
-### Guidance that moves you forward.
+### Find the right mentor. Build momentum. Grow with confidence.
 
-A full-stack mentoring platform for discovering mentors, booking consultations, learning through courses, and communicating in real time.
+A full-stack mentoring platform for mentor discovery, consultation booking, learning, and real-time communication.
+
+<p>
+  <strong>English</strong>
+  ·
+  <a href="README-VI.md">Tiếng Việt</a>
+</p>
 
 <p>
   <img alt="React 19" src="https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react&logoColor=111827">
-  <img alt="NestJS 11" src="https://img.shields.io/badge/NestJS-11-E0234E?style=flat-square&logo=nestjs&logoColor=white">
   <img alt="Node.js 22" src="https://img.shields.io/badge/Node.js-22-339933?style=flat-square&logo=nodedotjs&logoColor=white">
-  <img alt="MongoDB 8" src="https://img.shields.io/badge/MongoDB-8-47A248?style=flat-square&logo=mongodb&logoColor=white">
-  <img alt="Docker" src="https://img.shields.io/badge/Docker-Compose-2496ED?style=flat-square&logo=docker&logoColor=white">
+  <img alt="Express 5" src="https://img.shields.io/badge/Express-5-111827?style=flat-square&logo=express&logoColor=white">
+  <img alt="MongoDB" src="https://img.shields.io/badge/MongoDB-47A248?style=flat-square&logo=mongodb&logoColor=white">
+  <img alt="Socket.IO" src="https://img.shields.io/badge/Socket.IO-010101?style=flat-square&logo=socketdotio&logoColor=white">
+  <img alt="Docker" src="https://img.shields.io/badge/Docker-2496ED?style=flat-square&logo=docker&logoColor=white">
 </p>
 
 <p>
   <a href="https://github.com/kaing615/MentorMe/actions/workflows/backend.yml"><img alt="Backend CI" src="https://github.com/kaing615/MentorMe/actions/workflows/backend.yml/badge.svg"></a>
   <a href="https://github.com/kaing615/MentorMe/actions/workflows/frontend.yml"><img alt="Frontend CI" src="https://github.com/kaing615/MentorMe/actions/workflows/frontend.yml/badge.svg"></a>
 </p>
+
+[Product](#product-features) · [Architecture](#system-architecture) · [Technology](#technology-stack) · [Getting started](#quick-start) · [Documentation](#documentation)
+
 </div>
 
-## Current product
+---
 
-### Mentees
+## Overview
 
-- Sign up, verify an email address, and authenticate with JWT.
-- Maintain a personal profile and apply to become a mentor using existing profile data.
-- Discover backend-powered mentors and courses and save favorites.
-- Book consultations from a mentor's published availability.
-- Manage a cart, orders, and access to purchased courses.
-- Exchange messages, receive notifications, and review eligible interactions.
+MentorMe brings the most important parts of the mentoring journey together in one cohesive product. Learners can discover mentors, request consultations, purchase courses, exchange messages, and leave reviews. Mentors can present their expertise, manage availability, respond to bookings, publish learning content, and communicate with mentees.
 
-### Mentors
+Beyond its product features, the repository also demonstrates the practical evolution of a collaborative application into a production-oriented system, with explicit decisions around consistency, scalability, security, reliability, observability, and delivery.
 
-- Manage a professional profile, availability, and courses.
-- Accept, reject, complete, and track bookings.
-- See mentees who purchased a course or completed a consultation.
-- Exchange messages, receive notifications, and manage reviews.
-- Use a role-aware header that hides mentee-only commerce actions.
+> **Project status:** the application and production automation workflow have been implemented and verified locally. The project deliberately makes no claim of a public production deployment or specific load results until the external infrastructure tests have been completed.
 
-### Platform
+## Product features
 
-- RBAC redirects users from login using the active `role` returned by the backend; users do not select a role on the login screen.
-- Favorites and notifications use real backend data without mock fallbacks.
-- Notifications open in a popover with a dedicated “See all” page.
-- Responsive light/dark themes and the Mimo quick-help assistant.
-- Optional VNPay and MoMo payment providers, disabled by default.
+| Discovery and connection | Consultation booking |
+| --- | --- |
+| Create a mentor or mentee profile<br>Find mentors by expertise<br>View detailed mentor information<br>Apply to become a mentor | Publish timezone-aware availability<br>Request an available time slot<br>Confirm, reject, or cancel bookings<br>Track consultation history |
+| **Learning and payments** | **Communication and support** |
+| Browse courses and detailed content<br>Manage cart and wishlist<br>Create orders and supported checkout flows<br>Review courses and consultations | Send authenticated real-time messages<br>Track sent and read states<br>Receive in-app notifications<br>Submit and manage support requests |
 
-## Architecture
+## System architecture
 
-MentorMe currently runs as a **modular monolith**:
+MentorMe uses a **scaled modular monolith** architecture. Business logic remains in a unified API codebase, while stateless replicas, shared infrastructure, and background workers provide a practical scaling path without introducing microservices prematurely.
+
+<p align="center">
+  <img src="docs/diagrams/exports/mentorme-c4.svg" alt="MentorMe C4 system architecture" width="920">
+</p>
 
 ```text
-React 19 + Vite 6
-        │ REST / Socket.IO
-        ▼
-NestJS 11 API ───── Background worker
-        │
-        ▼
-MongoDB 8 replica set
+Browser
+  │
+  ▼
+Cloudflare Pages / CDN
+  │
+  ▼
+Nginx API gateway and load balancer
+  ├── Express API slot A ─┐
+  └── Express API slot B ─┼── MongoDB Atlas
+                          ├── Redis
+                          └── Transactional outbox → RabbitMQ → Worker
 ```
+
+The complete design documentation includes editable Draw.io sources, C4 and UML diagrams, architectural decision records, consistency and security analyses, quality attributes, a testing strategy, operational runbooks, and implementation traceability.
+
+## Technical highlights
+
+| Attribute | Implementation |
+| --- | --- |
+| **Consistency** | MongoDB transactions, guarded booking/payment state machines, durable idempotency, and a transactional outbox |
+| **Scalability** | Two stateless API slots, Nginx load balancing, Redis cache versioning, distributed rate limits/locks, and Socket.IO fan-out |
+| **Reliability** | Publisher confirms, consumer deduplication, bounded retries, dead-letter routing, health gates, graceful shutdown, and rollback automation |
+| **Security** | Short-lived access JWTs, rotating opaque refresh tokens, token-family revocation on reuse detection, secure cookies, NoSQL operator blocking, and upload limits |
+| **Observability** | Structured logs, request IDs, W3C trace propagation, Prometheus metrics, health endpoints, and reproducible k6 profiles |
+| **Delivery** | GitHub Actions, immutable Git SHA images, protected production approval, two-slot rolling updates, smoke tests, and SHA-based rollback |
+
+## Technology stack
 
 | Layer | Technology |
 | --- | --- |
-| Frontend | React 19, Vite 6, React Router, Redux Toolkit, TanStack Query, Tailwind CSS, MUI, Ant Design |
-| Backend | NestJS 11, TypeScript, Mongoose 8, REST, Swagger |
-| Realtime | Socket.IO authenticated with JWT |
-| Database | MongoDB 8 replica set; transactions protect booking, payment, and review flows |
-| Integrations | Cloudinary, Nodemailer/SMTP, VNPay, MoMo |
-| Operations | Docker Compose, GitHub Actions, health checks, and production deployment assets under `deploy/` |
+| **Web application** | React 19, Vite 6, React Router, Redux Toolkit, TanStack Query, MUI, Ant Design, Tailwind CSS |
+| **API** | Node.js 22, Express 5, Mongoose 8, REST, Swagger/OpenAPI |
+| **Realtime** | Socket.IO, Redis adapter, authenticated WebSocket connections |
+| **Data and events** | MongoDB, Redis, RabbitMQ |
+| **Infrastructure** | Docker, Docker Compose, Nginx, Cloudflare Pages/CDN, MongoDB Atlas |
+| **Quality and operations** | Node test runner, Pino, Prometheus client, k6, actionlint, GitHub Actions, GHCR |
 
-## Quick start with Docker
+## Quick start
 
 ### Requirements
 
-- Docker Desktop with Docker Compose.
-- Ports `3000`, `4000`, and `27017` available locally.
+- Node.js 22 and npm
+- Local MongoDB or a MongoDB connection string
+- Docker and Docker Compose when using the container workflow
 
-### 1. Clone and create environment files
+Redis and RabbitMQ are optional for local development and disabled by default in the example environment file.
 
-```powershell
-git clone https://github.com/kaing615/MentorMe.git
-cd MentorMe
-Copy-Item backend/.env.example backend/.env
-Copy-Item frontend/.env.example frontend/.env
+### Run locally
+
+1. Clone the repository.
+
+   ```bash
+   git clone https://github.com/kaing615/MentorMe.git
+   cd MentorMe
+   ```
+
+2. Configure and start the API.
+
+   ```bash
+   cd backend
+   cp .env.example .env
+   npm ci
+   npm run dev
+   ```
+
+3. Open another terminal, then configure and start the web application.
+
+   ```bash
+   cd frontend
+   cp .env.example .env
+   npm ci
+   npm run dev
+   ```
+
+Replace the example JWT and metrics secrets in `backend/.env` before starting the API. Email, media, and payment credentials are only required when using the corresponding integrations.
+
+### Docker Compose
+
+```bash
+cp backend/.env.example backend/.env
+docker compose up --build
 ```
 
-On macOS or Linux, replace `Copy-Item` with `cp`.
-
-### 2. Configure the application
-
-Replace `JWT_SECRET` in `backend/.env` with a long, random value. Docker Compose overrides `MONGO_URL` so the API can reach the Mongo container.
-
-> The repository does not seed mock accounts. Mentee registration requires `MAIL_HOST`, `MAIL_USER`, and `MAIL_PASS` so the user can receive a verification link. Create a mentor account through **Become a mentor** after signing in.
-
-### 3. Start the stack
-
-```powershell
-docker compose up -d --build
-docker compose ps
-```
-
-| Service | Address |
+| Service | Local address |
 | --- | --- |
-| Web app | http://localhost:3000 |
-| REST API | http://localhost:4000/api/v1 |
-| Swagger UI | http://localhost:4000/api-docs |
-| Liveness probe | http://localhost:4000/health/live |
-| Readiness probe | http://localhost:4000/health/ready |
-
-Inspect logs or stop the stack:
-
-```powershell
-docker compose logs -f backend frontend
-docker compose down
-```
-
-## Run without Docker
-
-This mode requires Node.js 22 and a MongoDB replica set reachable through `MONGO_URL`. A standalone MongoDB server cannot run the transactions used by the application.
-
-```powershell
-cd backend
-Copy-Item .env.example .env
-npm ci
-npm run dev
-```
-
-In another terminal:
-
-```powershell
-cd frontend
-Copy-Item .env.example .env
-npm ci
-npm run dev
-```
-
-The Vite development server runs at `http://localhost:5173`. If ports or origins change, update `CORS_ORIGINS`, `FRONTEND_URL`, and `VITE_API_URL` accordingly.
-
-## Environment variables
-
-Complete templates are available at [`backend/.env.example`](backend/.env.example) and [`frontend/.env.example`](frontend/.env.example).
-
-| Group | Main variables | Notes |
-| --- | --- | --- |
-| Required | `MONGO_URL`, `JWT_SECRET`, `CORS_ORIGINS` | The backend rejects missing values at startup |
-| Frontend | `VITE_API_URL` | Defaults locally to `http://localhost:4000/api/v1` |
-| Email | `MAIL_HOST`, `MAIL_PORT`, `MAIL_USER`, `MAIL_PASS` | Required for email verification and password resets |
-| Media | `CLOUDINARY_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` | Required for avatar and thumbnail uploads |
-| VNPay | `VNPAY_ENABLED` and `VNPAY_*` credentials | Credentials are required only when `VNPAY_ENABLED=true` |
-| MoMo | `MOMO_ENABLED` and `MOMO_*` credentials | Credentials are required only when `MOMO_ENABLED=true` |
-
-Never commit `.env` files or real credentials.
-
-## Verification
-
-### Backend
-
-Backend tests use a dedicated MongoDB replica set on port `27018`:
-
-```powershell
-cd backend
-docker compose -f docker-compose.test.yml up -d --wait
-npm ci
-npm run typecheck
-npm run lint
-npm test
-npm run build
-docker compose -f docker-compose.test.yml down
-```
-
-### Frontend
-
-```powershell
-cd frontend
-npm ci
-npm test
-npm run typecheck
-npm run lint -- --quiet
-npm run build
-```
+| Web application | `http://localhost:5173` — local / `http://localhost:3000` — Docker |
+| REST API | `http://localhost:4000` |
+| Swagger UI | `http://localhost:4000/api-docs` |
+| Liveness probe | `http://localhost:4000/health/live` |
 
 ## Repository structure
 
 ```text
 MentorMe/
-├── backend/               NestJS API, worker, and tests
-│   └── src/
-│       ├── identity/      Authentication and users
-│       ├── mentoring/     Profiles, availability, bookings, and reviews
-│       ├── learning/      Courses, lessons, and enrolments
-│       ├── commerce/      Cart, orders, and payments
-│       ├── messaging/     Realtime messaging
-│       ├── engagement/    Favorites and notifications
-│       └── support/       Help requests
-├── frontend/              React application and frontend tests
-├── deploy/                Production deployment assets
-├── docs/                  System design, diagrams, and runbooks
-├── .github/workflows/     Backend, frontend, and delivery CI
-└── docker-compose.yml     Local development stack
+├── backend/                 Express API, domain modules, worker, and tests
+├── frontend/                React application and frontend tests
+├── deploy/                  Production Compose, Nginx, telemetry, and scripts
+├── docs/
+│   ├── adr/                 Architectural decision records
+│   ├── diagrams/            Draw.io files and SVG exports
+│   └── system-design/       Architecture, security, testing, and runbooks
+├── load-tests/              k6 HTTP and WebSocket profiles
+├── scripts/                 Documentation and diagram checks
+├── tests/deploy/            Deployment topology and behavior tests
+├── .github/workflows/       CI and production delivery pipelines
+└── docker-compose.yml       Local development stack
 ```
 
-## Common local issues
+## Quality and testing
 
-- **`Email đã được sử dụng`**: the user already exists in MongoDB; sign in with that account or reset the local database.
-- **Mongo transaction or replica-set errors**: use a MongoDB replica set; Docker Compose configures one automatically.
-- **Port already in use**: stop the service occupying `3000`, `4000`, or `27017` before starting Compose.
-- **Payment unavailable**: this is expected when a provider is disabled or missing credentials.
+Run the main CI checks locally:
 
-Delete all local Docker data — this cannot be undone:
+```bash
+cd backend
+npm test
 
-```powershell
-docker compose down -v
-docker compose up -d --build
+cd ../frontend
+npm test
+npm run lint:ci
+npm run build
+
+cd ..
+node scripts/verify-docs.mjs
+node scripts/validate-drawio.mjs
+node tests/deploy/compose.test.mjs
+node tests/deploy/deploy-script.test.mjs
 ```
 
-## Contributing
+`lint:ci` applies the committed technical-debt threshold. This prevents new lint regressions while the remaining frontend lint debt is addressed incrementally.
 
-1. Create a `feat/...`, `fix/...`, or `docs/...` branch from `main`.
-2. Use Conventional Commits.
-3. Run the relevant tests, type checks, lint, and build.
-4. Push the branch and open a pull request into `main`; do not push directly to `main`.
+## Production deployment
+
+Production assets live in [`deploy/`](deploy). The delivery workflow builds an immutable backend image tagged with the full Git SHA, publishes it to GHCR, deploys each API slot in sequence, waits for readiness, validates and reloads Nginx, runs smoke tests, and then restores the previous SHA if the health gate fails.
+
+Follow the [operations runbook](docs/system-design/operations-runbook.md) to configure the host, protected GitHub Environment, deployment secrets, rollback process, and recovery procedures.
+
+> MentorMe makes no claim of a public production deployment or specific throughput until the infrastructure tests in the [portfolio evidence](docs/system-design/portfolio-evidence.md) have been performed against an immutable release.
+
+## Documentation
+
+| Topic | Reference |
+| --- | --- |
+| Architecture overview | [System design overview](docs/system-design/README.md) |
+| Production architecture | [Approved production design](docs/system-design/production-system-design.md) |
+| Consistency and events | [Event architecture](docs/system-design/consistency-and-events.md) |
+| Security | [Security model](docs/system-design/security.md) |
+| Testing | [Testing strategy](docs/system-design/testing-strategy.md) |
+| Operations | [Production runbook](docs/system-design/operations-runbook.md) |
+| Verified claims | [Portfolio evidence](docs/system-design/portfolio-evidence.md) |
+| Remaining work | [Known technical debt](docs/system-design/known-debt.md) |
+
+## Contribution workflow
 
 ```text
+feature/* → stage → main
+```
+
+1. Create a dedicated branch for a specific feature or fix.
+2. Use Conventional Commits for each logical change.
+3. Open a pull request into `stage` for integration testing and review.
+4. Once verified, promote `stage` to `main` through a reviewed pull request.
+5. Do not push directly to `main`.
+
+```text
+<type>(<scope>): <short description>
+
 feat(booking): add consultation availability workflow
-fix(auth): derive post-login route from backend role
-docs(readme): refresh local setup guide
+fix(auth): reject refresh token family reuse
+docs(architecture): document outbox delivery guarantees
+test(payment): cover idempotent checkout retries
 ```
 
 ## Contributors
 
-- **Nguyễn Đình Tâm** — Team lead · DevOps · Backend
-- Văn Công Khoa — Backend · Frontend
-- Trần Minh Quang — Frontend
-- Nguyễn Phước Quý Bảo — Backend · Frontend
-- Đỗ Đăng Khoa — Backend · Frontend
-- Phạm Đăng Khoa — Frontend
-- Huỳnh Lê Đại Thắng — DevOps · Backend
+| Name | Role |
+| --- | --- |
+| **Nguyễn Đình Tâm** | Team Lead · DevOps · Backend |
+| Văn Công Khoa | Backend · Frontend |
+| Trần Minh Quang | Frontend |
+| Nguyễn Phước Quý Bảo | Backend · Frontend |
+| Đỗ Đăng Khoa | Backend · Frontend |
+| Phạm Đăng Khoa | Frontend |
+| Huỳnh Lê Đại Thắng | DevOps · Backend |
+
+---
+
+<p align="center">
+  A collaborative product focused on practical delivery and production-oriented system design.
+</p>
