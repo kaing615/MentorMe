@@ -46,6 +46,13 @@ export const MENTOR_PATH = {
   ALLMENTORS: "all-mentors",
 };
 
+export const getRoleHomePath = (role?: string): string => {
+  if (role === "mentor") return `${PATH.MENTOR}/${MENTOR_PATH.HOME}`;
+  if (role === "admin") return PATH.ADMIN;
+  if (role === "mentee") return `${PATH.MENTEE}${MENTEE_PATH.HOME}`;
+  return PATH.LOGIN;
+};
+
 export const PLATFORM_PATH = {
 	HOMESCREEN: "homescreen",
 	HELP_REQUEST: "help-request",

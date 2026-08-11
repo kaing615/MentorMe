@@ -4,7 +4,7 @@ import authApi from "../api/modules/auth.api";
 import { useNavigate } from "react-router-dom";
 import { IconArrowRight } from "@tabler/icons-react";
 import { toast } from "react-toastify";
-import { MENTEE_PATH, MENTOR_PATH, PATH } from "../routes/path";
+import { getRoleHomePath } from "../routes/path";
 
 const SignUp = () => {
   const navigate = useNavigate();
@@ -35,12 +35,7 @@ const SignUp = () => {
           const userData = JSON.parse(user);
 
           if (token.split(".").length === 3) {
-            // Redirect based on user role or stored userType
-            if (userData.role === "mentor" || userData.userType === "mentor") {
-              navigate(`${PATH.MENTOR}/${MENTOR_PATH.HOME}`, { replace: true });
-            } else {
-              navigate(`${PATH.MENTEE}${MENTEE_PATH.HOME}`, { replace: true });
-            }
+            navigate(getRoleHomePath(userData.role), { replace: true });
 
             toast.info("You are already logged in!");
           } else {

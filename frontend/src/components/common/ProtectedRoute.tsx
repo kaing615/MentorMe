@@ -3,6 +3,7 @@ import { Navigate } from "react-router-dom";
 import { useSelector } from "react-redux";
 import { toast } from "react-toastify";
 import { hasUserRole, type UserRole } from "../../utils/user-role";
+import { getRoleHomePath } from "../../routes/path";
 
 const ProtectedRoute = ({ children, requiredRole }: { children: React.ReactNode; requiredRole?: UserRole }) => {
   const { isAuthenticated, status, user } = useSelector((state: any) => state.auth);
@@ -50,7 +51,7 @@ const ProtectedRoute = ({ children, requiredRole }: { children: React.ReactNode;
   }
 
   if (requiredRole && !hasUserRole(currentUser, requiredRole)) {
-    return <Navigate to={currentUser?.role === "mentor" ? "/mentor/home" : "/home"} replace />;
+    return <Navigate to={getRoleHomePath(currentUser?.role)} replace />;
   }
 
   // Render protected content if authenticated
