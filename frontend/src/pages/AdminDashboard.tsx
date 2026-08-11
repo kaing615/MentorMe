@@ -9,20 +9,30 @@ const AdminDashboard = () => {
   const [refunds, setRefunds] = useState<any[]>([]);
   const [payouts, setPayouts] = useState<any[]>([]);
   const [busy, setBusy] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   const load = useCallback(async () => {
-    const [applicationResponse, refundResponse, payoutResponse] = await Promise.all([
-      adminApi.mentorApplications(),
-      adminApi.refunds(),
-      earningsApi.admin({ status: "eligible" }),
-    ]);
-    setApplications(applicationResponse.data?.data?.applications || []);
-    setRefunds(
-      (refundResponse.data?.data?.items || []).filter(
-        (booking: any) => booking.paymentStatus === "refund_pending",
-      ),
-    );
-    setPayouts(payoutResponse.data?.data?.items || []);
+    setLoading(true);
+    setError("");
+    try {
+      const [applicationResponse, refundResponse, payoutResponse] = await Promise.all([
+        adminApi.mentorApplications(),
+        adminApi.refunds(),
+        earningsApi.admin({ status: "eligible" }),
+      ]);
+      setApplications(applicationResponse.data?.data?.applications || []);
+      setRefunds(
+        (refundResponse.data?.data?.items || []).filter(
+          (booking: any) => booking.paymentStatus === "refund_pending",
+        ),
+      );
+      setPayouts(payoutResponse.data?.data?.items || []);
+    } catch {
+      setError("We couldn't load the operations queue. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => {
@@ -60,21 +70,28 @@ const AdminDashboard = () => {
   return (
     <main className="min-h-[100dvh] bg-[var(--ui-page)] px-4 py-8 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-7xl space-y-6">
-        <header className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
-          <div>
-            <p className="text-xs font-bold uppercase tracking-[0.18em] text-[var(--ui-accent)]">Trust operations</p>
-            <h1 className="mt-2 text-3xl font-black tracking-[-0.04em] text-[var(--ui-text)]">Admin dashboard</h1>
+        <header className="ui-brand-hero relative overflow-hidden p-6 sm:p-8">
+          <span aria-hidden="true" className="absolute -right-6 -top-7 h-28 w-28 rounded-full border-2 border-dashed border-white/35" />
+          <div className="relative flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.18em] text-yellow-300">Trust operations</p>
+              <h1 className="mt-2 text-3xl font-black tracking-[-0.04em] text-white sm:text-4xl">Admin dashboard</h1>
+              <p className="mt-2 max-w-xl text-sm leading-6 text-blue-100">Review people and money movement from one clear queue.</p>
+            </div>
+            <button onClick={() => void load()} disabled={loading} className="ui-button-highlight inline-flex items-center justify-center gap-2 self-start px-4 py-2.5 text-sm font-black text-blue-950 disabled:opacity-60 sm:self-auto">
+              <IconRefresh className={loading ? "animate-spin" : ""} size={17} /> Refresh
+            </button>
           </div>
-          <button onClick={() => void load()} className="inline-flex items-center gap-2 rounded-full bg-[var(--ui-accent-soft)] px-4 py-2 text-sm font-bold text-[var(--ui-accent)]">
-            <IconRefresh size={17} /> Refresh
-          </button>
         </header>
 
-        <section className="ui-card p-5 sm:p-6">
-          <h2 className="flex items-center gap-2 text-lg font-bold text-[var(--ui-text)]"><IconShieldCheck className="text-cyan-500" /> Mentor applications ({applications.length})</h2>
+        {error && <div className="ui-sketch-note border-red-400 bg-red-50 text-red-800 dark:bg-red-950/40 dark:text-red-200" role="alert">{error}</div>}
+
+        <section className="ui-card ui-card-yellow p-5 sm:p-6">
+          <h2 className="flex items-center gap-2 text-lg font-bold text-[var(--ui-text)]"><IconShieldCheck className="text-[var(--ui-accent)]" /> Mentor applications ({applications.length})</h2>
           <div className="mt-5 grid gap-4 lg:grid-cols-2">
+            {loading && [0, 1].map((item) => <div key={item} className="h-44 animate-pulse rounded-2xl bg-[var(--ui-surface-muted)]" />)}
             {applications.map((application) => (
-              <article key={application._id} className="rounded-2xl border border-[var(--ui-border)] p-5">
+              <article key={application._id} className="rounded-2xl border-2 border-dashed border-[var(--ui-border)] bg-[var(--ui-surface)] p-5 transition-transform hover:-translate-y-0.5">
                 <div className="flex items-start gap-4">
                   <img src={application.user?.avatarUrl || "/favicon.svg"} alt="" className="h-12 w-12 rounded-2xl object-cover" />
                   <div className="min-w-0 flex-1">
@@ -84,39 +101,41 @@ const AdminDashboard = () => {
                   </div>
                 </div>
                 <div className="mt-5 flex gap-2">
-                  <button disabled={busy === application._id} onClick={() => void review(application._id, "approved")} className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-cyan-500 px-4 py-2.5 text-sm font-bold text-cyan-950"><IconCheck size={17} /> Approve</button>
+                  <button disabled={busy === application._id} onClick={() => void review(application._id, "approved")} className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-[var(--ui-accent)] px-4 py-2.5 text-sm font-bold text-white disabled:opacity-60"><IconCheck size={17} /> Approve</button>
                   <button disabled={busy === application._id} onClick={() => void review(application._id, "rejected")} className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-[var(--ui-surface-muted)] px-4 py-2.5 text-sm font-bold text-[var(--ui-text)]"><IconX size={17} /> Reject</button>
                 </div>
               </article>
             ))}
-            {!applications.length && <p className="text-sm text-[var(--ui-text-muted)]">No applications waiting.</p>}
+            {!loading && !applications.length && <p className="text-sm text-[var(--ui-text-muted)]">No applications waiting.</p>}
           </div>
         </section>
 
         <div className="grid gap-6 lg:grid-cols-2">
-          <section className="ui-card p-5 sm:p-6">
+          <section className="ui-card ui-card-blue p-5 sm:p-6">
             <h2 className="text-lg font-bold text-[var(--ui-text)]">Refund queue ({refunds.length})</h2>
             <div className="mt-4 space-y-3">
               {refunds.map((booking) => (
-                <button key={booking._id} onClick={() => void processRefund(booking._id)} className="flex w-full items-center justify-between rounded-2xl border border-[var(--ui-border)] p-4 text-left hover:border-cyan-300">
+                <button key={booking._id} onClick={() => void processRefund(booking._id)} className="flex w-full items-center justify-between rounded-2xl border-2 border-dashed border-[var(--ui-border)] bg-[var(--ui-surface)] p-4 text-left transition-transform hover:-translate-y-0.5 hover:border-[var(--ui-accent)]">
                   <span><strong className="block text-[var(--ui-text)]">{booking.refundAmount?.toLocaleString("vi-VN")} ₫</strong><small className="text-[var(--ui-text-muted)]">Booking {booking._id}</small></span>
                   <span className="text-sm font-bold text-[var(--ui-accent)]">Record refund</span>
                 </button>
               ))}
-              {!refunds.length && <p className="text-sm text-[var(--ui-text-muted)]">No pending refunds.</p>}
+              {loading && <div className="h-20 animate-pulse rounded-2xl bg-[var(--ui-surface-muted)]" />}
+              {!loading && !refunds.length && <p className="text-sm text-[var(--ui-text-muted)]">No pending refunds.</p>}
             </div>
           </section>
 
-          <section className="ui-card p-5 sm:p-6">
+          <section className="ui-card ui-card-yellow p-5 sm:p-6">
             <h2 className="text-lg font-bold text-[var(--ui-text)]">Payout queue ({payouts.length})</h2>
             <div className="mt-4 space-y-3">
               {payouts.map((earning) => (
-                <button key={earning._id} onClick={() => void markPaid(earning._id)} className="flex w-full items-center justify-between rounded-2xl border border-[var(--ui-border)] p-4 text-left hover:border-cyan-300">
+                <button key={earning._id} onClick={() => void markPaid(earning._id)} className="flex w-full items-center justify-between rounded-2xl border-2 border-dashed border-[var(--ui-border)] bg-[var(--ui-surface)] p-4 text-left transition-transform hover:-translate-y-0.5 hover:border-[var(--ui-accent)]">
                   <span><strong className="block text-[var(--ui-text)]">{earning.netAmount?.toLocaleString("vi-VN")} ₫</strong><small className="text-[var(--ui-text-muted)]">{earning.mentor?.firstName} {earning.mentor?.lastName}</small></span>
                   <span className="text-sm font-bold text-[var(--ui-accent)]">Mark paid</span>
                 </button>
               ))}
-              {!payouts.length && <p className="text-sm text-[var(--ui-text-muted)]">No eligible payouts.</p>}
+              {loading && <div className="h-20 animate-pulse rounded-2xl bg-[var(--ui-surface-muted)]" />}
+              {!loading && !payouts.length && <p className="text-sm text-[var(--ui-text-muted)]">No eligible payouts.</p>}
             </div>
           </section>
         </div>

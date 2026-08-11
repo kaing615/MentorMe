@@ -193,26 +193,21 @@ const ApplyAsMentor = () => {
     }
     setErrors({});
     if (currentStep < 3) {
-
       setCompletedSteps((prev) => [...prev, currentStep]);
-
       setCurrentStep((prev) => prev + 1);
     }
   };
 
   const handlePreviousStep = () => {
     if (currentStep > 1) {
-
       setCompletedSteps((prev) =>
         prev.filter((step) => step !== currentStep - 1)
       );
-
       setCurrentStep((prev) => prev - 1);
     }
   };
 
   const handleSubmit = async () => {
-
     const step1Errors = validateStep1(true);
     const step2Errors = validateStep2();
     const step3Errors = validateStep3();
@@ -231,7 +226,6 @@ const ApplyAsMentor = () => {
     }
 
     try {
-
       const formDataToSend = new FormData();
 
       formDataToSend.append("firstName", formData.firstName);
@@ -306,8 +300,6 @@ const ApplyAsMentor = () => {
       setErrors({});
       setTouched({});
     } catch (error) {
-      console.error("Submit error:", error);
-      console.error("Error details:", error.response);
       if (error?.data?.message) {
         toast.error(error.data.message);
       } else if (error.response?.data?.data?.message) {
@@ -328,7 +320,7 @@ const ApplyAsMentor = () => {
     }
 
     if (stepId === currentStep) {
-      return "mb-3 flex h-10 w-10 items-center justify-center rounded-full border-2 border-[var(--ui-accent)] bg-[var(--ui-surface)] text-sm font-bold text-[var(--ui-accent)] transition-colors";
+      return "mb-3 flex h-10 w-10 rotate-[-3deg] items-center justify-center rounded-[42%_58%_48%_52%] border-2 border-[var(--ui-highlight)] bg-[var(--ui-highlight-soft)] text-sm font-black text-[var(--ui-highlight-strong)] shadow-[3px_3px_0_var(--ui-accent)] transition-colors";
     }
 
     return "mb-3 flex h-10 w-10 items-center justify-center rounded-full border border-[var(--ui-border)] bg-[var(--ui-surface)] text-sm font-bold text-[var(--ui-text-muted)] transition-colors";
@@ -348,10 +340,10 @@ const ApplyAsMentor = () => {
 
   const getConnectionLineClass = (fromStep) => {
     if (completedSteps.includes(fromStep)) {
-      return "mx-2 mb-7 h-px w-10 bg-[var(--ui-accent)] transition-colors sm:mx-4 sm:w-24 md:w-40";
+      return "mx-2 mb-7 w-10 border-t-2 border-dashed border-[var(--ui-accent)] transition-colors sm:mx-4 sm:w-24 md:w-40";
     }
 
-    return "mx-2 mb-7 h-px w-10 bg-[var(--ui-border)] transition-colors sm:mx-4 sm:w-24 md:w-40";
+    return "mx-2 mb-7 w-10 border-t-2 border-dashed border-[var(--ui-border)] transition-colors sm:mx-4 sm:w-24 md:w-40";
   };
 
   const getStepContent = (stepId) => {
@@ -363,10 +355,12 @@ const ApplyAsMentor = () => {
   };
 
   return (
-    <div className="flex min-h-[calc(100dvh-4rem)] flex-col bg-[var(--ui-page)] pb-16">
-      <div title="Apply as a Mentor" className="mx-auto w-full max-w-3xl px-4 pt-10 md:pt-14">
-        <h1 className="text-4xl font-extrabold tracking-[-0.04em] text-[var(--ui-text)]">Apply as a mentor</h1>
-        <p className="mt-3 text-[var(--ui-text-muted)]">Tell learners what you can help them achieve.</p>
+    <div className="mentor-application-form flex min-h-[calc(100dvh-4rem)] flex-col bg-[var(--ui-page)] pb-16">
+      <div title="Apply as a Mentor" className="ui-brand-hero relative mx-auto mt-8 w-[calc(100%-2rem)] max-w-3xl overflow-hidden p-6 sm:p-8 md:mt-12">
+        <span aria-hidden="true" className="absolute -right-5 -top-8 h-28 w-28 rounded-full border-2 border-dashed border-yellow-300/60" />
+        <p className="text-xs font-black uppercase tracking-[0.18em] text-yellow-300">Your next chapter</p>
+        <h1 className="mt-2 text-4xl font-black tracking-[-0.04em] text-white">Apply as a <span className="ui-marker text-blue-950">mentor</span></h1>
+        <p className="mt-3 max-w-xl text-blue-100">Tell learners what you can help them achieve. Your application will be reviewed before the mentor role is activated.</p>
       </div>
 
       <div
@@ -395,7 +389,7 @@ const ApplyAsMentor = () => {
       </div>
 
       {currentStep === 1 && (
-        <div title="About Form" className="flex flex-col">
+        <div title="About Form" className="ui-card mx-auto flex w-[calc(100%-2rem)] max-w-3xl flex-col p-5 sm:p-8">
           <div
             title="Upload your profile picture"
             className="flex flex-col mt-[-5px]"
@@ -408,7 +402,7 @@ const ApplyAsMentor = () => {
               <div className="relative">
                 <div
                   title="Profile Picture"
-                  className="flex items-center justify-center w-40 h-40 rounded-full border-2 border-gray-300 mb-4 overflow-hidden bg-gray-50"
+                  className="mb-4 flex h-40 w-40 rotate-[-1deg] items-center justify-center overflow-hidden rounded-[46%_54%_48%_52%] border-2 border-dashed border-[var(--ui-accent)] bg-[var(--ui-surface-muted)] shadow-[5px_6px_0_var(--ui-highlight)]"
                 >
                   {profileImage ? (
                     <img
@@ -417,7 +411,7 @@ const ApplyAsMentor = () => {
                       className="w-full h-full object-cover rounded-full"
                     />
                   ) : (
-                    <span className="text-gray-400 text-sm">No Image</span>
+                    <span className="text-sm text-[var(--ui-text-muted)]">No Image</span>
                   )}
                 </div>
               </div>
@@ -432,7 +426,7 @@ const ApplyAsMentor = () => {
                 />
                 <label
                   htmlFor="photoUpload"
-                  className="flex cursor-pointer items-center gap-2 rounded-xl bg-[var(--ui-accent)] px-4 py-2 font-semibold text-white transition-colors hover:bg-[var(--ui-accent-strong)]"
+                  className="ui-button-highlight flex cursor-pointer items-center gap-2 px-4 py-2.5 font-black text-blue-950"
                 >
                   <IconCloudUpload aria-hidden="true" size={20} stroke={1.8} />
                   <span className="font-medium">Upload a photo</span>
@@ -660,8 +654,8 @@ const ApplyAsMentor = () => {
                 disabled={currentStep >= 3}
                 className={`flex items-center text-left py-3 px-6 mb-3.5 gap-2 rounded-lg border-0 cursor-pointer transition-colors duration-200 ${
                   currentStep >= 3 || Object.keys(validateStep1()).length > 0
-                    ? "bg-gray-400 text-white cursor-not-allowed"
-                    : "bg-slate-950 text-white hover:bg-slate-800"
+                    ? "bg-[var(--ui-surface-muted)] text-[var(--ui-text-muted)] cursor-not-allowed"
+                    : "bg-[var(--ui-accent-fill)] text-white hover:bg-[var(--ui-accent-fill-hover)] shadow-[3px_4px_0_var(--ui-highlight)]"
                 }`}
               >
                 <span className="font-bold">
@@ -677,7 +671,7 @@ const ApplyAsMentor = () => {
       {currentStep === 2 && (
         <div
           title="Profile Form"
-          className="flex flex-col w-full max-w-3xl mx-auto px-4 md:px-0 transition-all duration-500 ease-in-out"
+          className="ui-card mx-auto flex w-[calc(100%-2rem)] max-w-3xl flex-col p-5 transition-all duration-500 ease-in-out sm:p-8"
         >
           <div>
             <label className="block mb-1 text-lg font-medium text-left">
@@ -694,7 +688,7 @@ const ApplyAsMentor = () => {
                   errors.category && touched.category
                     ? "border-red-500"
                     : "border-gray-300"
-                } ${formData.category ? "text-black" : "text-slate-500"}`}
+                } ${formData.category ? "text-[var(--ui-text)]" : "text-[var(--ui-text-muted)]"}`}
               >
                 <option value="">Select your expertise</option>
                 <option value="web-development">Web Development</option>
@@ -801,8 +795,8 @@ const ApplyAsMentor = () => {
                 disabled={currentStep <= 1}
                 className={`flex items-center text-left py-3 px-6 mb-3.5 gap-2 rounded-lg border-0 cursor-pointer transition-colors duration-200 ${
                   currentStep <= 1
-                    ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-                    : "bg-slate-950 text-white hover:bg-slate-800"
+                    ? "bg-[var(--ui-surface-muted)] text-[var(--ui-text-muted)] cursor-not-allowed"
+                    : "border-2 border-dashed border-[var(--ui-border-strong)] bg-[var(--ui-surface)] text-[var(--ui-text)] hover:border-[var(--ui-accent)]"
                 }`}
               >
                 <span className="font-bold">Previous Step</span>
@@ -814,8 +808,8 @@ const ApplyAsMentor = () => {
                 disabled={currentStep >= 3}
                   className={`flex items-center text-left py-3 px-6 sm:ml-auto mb-3.5 gap-2 rounded-lg border-0 cursor-pointer transition-colors duration-200 ${
                   currentStep >= 3 || Object.keys(validateStep2()).length > 0
-                    ? "bg-gray-400 text-white cursor-not-allowed"
-                    : "bg-slate-950 text-white hover:bg-slate-800"
+                    ? "bg-[var(--ui-surface-muted)] text-[var(--ui-text-muted)] cursor-not-allowed"
+                    : "bg-[var(--ui-accent-fill)] text-white hover:bg-[var(--ui-accent-fill-hover)] shadow-[3px_4px_0_var(--ui-highlight)]"
                 }`}
               >
                 <span className="font-bold">
@@ -831,7 +825,7 @@ const ApplyAsMentor = () => {
       {currentStep === 3 && (
         <div
           title="Experience Form"
-          className="flex flex-col w-full max-w-3xl mx-auto px-4 md:px-0 transition-all duration-500 ease-in-out"
+          className="ui-card mx-auto flex w-[calc(100%-2rem)] max-w-3xl flex-col p-5 transition-all duration-500 ease-in-out sm:p-8"
         >
           <div>
             <label className="block mt-2 text-lg font-medium text-left">
@@ -914,8 +908,8 @@ const ApplyAsMentor = () => {
                 disabled={currentStep <= 1}
                 className={`flex items-center text-left py-3 px-6 mb-3.5 gap-2 rounded-lg border-0 cursor-pointer transition-colors duration-200 ${
                   currentStep <= 1
-                    ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-                    : "bg-slate-950 text-white hover:bg-slate-800"
+                    ? "bg-[var(--ui-surface-muted)] text-[var(--ui-text-muted)] cursor-not-allowed"
+                    : "border-2 border-dashed border-[var(--ui-border-strong)] bg-[var(--ui-surface)] text-[var(--ui-text)] hover:border-[var(--ui-accent)]"
                 }`}
               >
                 <span className="font-bold">Previous Step</span>
@@ -924,7 +918,7 @@ const ApplyAsMentor = () => {
 
               <button
                 onClick={handleSubmit}
-                className="flex items-center sm:ml-auto bg-green-600 text-white text-left py-3 px-6 mb-3.5 gap-2 rounded-lg border-0 cursor-pointer hover:bg-green-700 transition-colors duration-200"
+                className="ui-button-highlight mb-3.5 flex items-center gap-2 px-6 py-3 text-left font-black text-blue-950 sm:ml-auto"
               >
                 <span className="font-bold">Submit Application</span>
                 <IconCheck aria-hidden="true" size={19} stroke={2} />

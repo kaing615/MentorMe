@@ -1,4 +1,3 @@
-// screens/HomeScreen.jsx
 import React, { useRef, useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import {
@@ -10,6 +9,7 @@ import {
   IconPalette,
   IconSearch,
   IconSpeakerphone,
+  IconStar,
   IconStarFilled,
   IconTrendingUp,
   IconUsers,
@@ -21,6 +21,7 @@ import { useGSAP } from "@gsap/react";
 
 import BecomeMentor from "../assets/become-an-mentor.jpg";
 import MentoringHero from "../assets/mentoring-hero.jpg";
+import MentoringHeroCutout from "../assets/mentoring-hero-cutout.png";
 
 import { showLoading, hideLoading } from "../redux/features/loading.slice";
 import courseApi from "../api/modules/course.api.js";
@@ -37,11 +38,11 @@ const categories = [
   { icon: IconPalette, name: "Design", description: "Create thoughtful digital experiences" },
   { icon: IconBriefcase, name: "Business", description: "Turn ideas into sustainable growth" },
   { icon: IconSpeakerphone, name: "Marketing", description: "Reach the right audience with clarity" },
+  { icon: IconSearch, name: "All skills", description: "Browse every course and find your direction", all: true },
 ];
 
 gsap.registerPlugin(ScrollTrigger, useGSAP);
 
-// Native horizontal scroll blocker (optional hook)
 const useHorizontalScrollBlockSwipe = () => {
   const ref = useRef<any>(null);
   useEffect(() => {
@@ -62,7 +63,6 @@ const HomeScreen = () => {
   const user = useSelector((state: any) => state.user);
   const pageRef = useRef<any>(null);
 
-  // --- AUTH CHECK (mentor và mentee đều được xem) ---
   useEffect(() => {
     const token =
       localStorage.getItem("actkn") || localStorage.getItem("token");
@@ -73,7 +73,6 @@ const HomeScreen = () => {
       navigate("/auth/signin");
       return;
     }
-    // Check user object
     try {
       user = userStr ? JSON.parse(userStr) : null;
     } catch (e) {
@@ -83,11 +82,9 @@ const HomeScreen = () => {
       navigate("/auth/signin");
       return;
     }
-    // Check role - chỉ mentor và mentee được phép vào
     if (hasUserRole(user, "mentor") || hasUserRole(user, "mentee")) {
       return;
     }
-    // Nếu không phải mentor hoặc mentee, redirect về signin
     navigate("/auth/signin");
     return;
   }, [navigate]);
@@ -98,7 +95,6 @@ const HomeScreen = () => {
   const [topMentors, setTopMentors] = useState<any[]>([]);
   const [mentorsLoading, setMentorsLoading] = useState<any>(false);
   const [mentorsError, setMentorsError] = useState<any>(false);
-  // State để lưu purchased courses status
   const [purchasedCoursesMap, setPurchasedCoursesMap] = useState<any>(new Map());
 
   const coursesRef = useRef<any>(null);
@@ -139,6 +135,41 @@ const HomeScreen = () => {
               ),
           });
         });
+
+        gsap.utils.toArray<HTMLElement>("[data-scale-media]").forEach((mediaNode) => {
+          gsap.fromTo(
+            mediaNode,
+            { scale: 0.9, opacity: 0.55 },
+            {
+              scale: 1,
+              opacity: 1,
+              ease: "none",
+              scrollTrigger: {
+                trigger: mediaNode,
+                start: "top 92%",
+                end: "center 58%",
+                scrub: 0.8,
+              },
+            },
+          );
+        });
+      });
+
+      media.add("(min-width: 1024px) and (prefers-reduced-motion: no-preference)", () => {
+        const cards = gsap.utils.toArray<HTMLElement>("[data-stack-card]");
+        cards.slice(0, -1).forEach((card, index) => {
+          gsap.to(card, {
+            scale: 0.94,
+            opacity: 0.56,
+            ease: "none",
+            scrollTrigger: {
+              trigger: cards[index + 1],
+              start: "top 78%",
+              end: "top 24%",
+              scrub: true,
+            },
+          });
+        });
       });
       return () => media.revert();
     },
@@ -146,7 +177,6 @@ const HomeScreen = () => {
   );
 
   const computeMentorStats = async (mentorId) => {
-    // 1) Lấy toàn bộ khóa học của mentor để suy ra mentee (unique)
     const menteeSet = new Set();
     try {
       const coursesRes = await courseApi.getCoursesByMentor(mentorId);
@@ -161,7 +191,6 @@ const HomeScreen = () => {
       });
     } catch (_) {}
 
-    // 2) Lấy reviews (course + booking) rồi tính trung bình
     let allReviews = [];
     try {
       const { response: cr } = await reviewApi.getMentorCourseReviews(mentorId);
@@ -182,47 +211,49 @@ const HomeScreen = () => {
             10
         ) / 10
       : 0;
+    const featuredReview = allReviews.find((review) => {
+      const text = review?.comment || review?.content || review?.review;
+      return typeof text === "string" && text.trim();
+    });
 
     return {
       totalMentees: menteeSet.size,
       totalReviews,
       averageRating,
+      featuredReview:
+        featuredReview?.comment ||
+        featuredReview?.content ||
+        featuredReview?.review ||
+        "",
     };
   };
 
-  // Helper function to check if course is already purchased
   const isCourseAlreadyPurchased = (courseId) => {
-    // Check from API-based purchasedCoursesMap (Course.mentees array check)
     return (
       purchasedCoursesMap.has(courseId) && purchasedCoursesMap.get(courseId)
     );
   };
 
-  // Helper function to get purchased course ID if it exists
   const getPurchasedCourseId = (courseId) => {
     return purchasedCoursesMap.get(courseId);
   };
 
-  // Smart navigation function for View Course button
   const handleSmartViewCourse = (e, course) => {
     e.stopPropagation();
     const courseId = course._id || course.id;
     const purchasedCourseId = getPurchasedCourseId(courseId);
 
     if (purchasedCourseId) {
-      // Navigate with purchasedCourseId for new purchased courses
       navigate(`/order-complete-course/${purchasedCourseId}`, {
         state: { purchasedCourseId, courseInfo: course },
       });
     } else {
-      // Fallback to courseId for legacy courses
       navigate(`/order-complete-course/${courseId}`, {
         state: { courseId, courseInfo: course },
       });
     }
   };
 
-  // Add to Cart function
   const handleAddToCart = async (e, course) => {
     e.stopPropagation();
 
@@ -239,7 +270,6 @@ const HomeScreen = () => {
 
     const courseId = course._id || course.id || course.courseId;
 
-    // Check if course is already purchased
     if (isCourseAlreadyPurchased(courseId)) {
       toast.info(
         "You have already purchased this course! Check 'My Courses' in your profile."
@@ -263,7 +293,6 @@ const HomeScreen = () => {
     }
   };
 
-  // Buy Now function
   const handleBuyNow = async (e, course) => {
     e.stopPropagation();
 
@@ -280,7 +309,6 @@ const HomeScreen = () => {
 
     const courseId = course._id || course.id || course.courseId;
 
-    // Check if course is already purchased
     if (isCourseAlreadyPurchased(courseId)) {
       toast.info(
         "You have already purchased this course! Check 'My Courses' in your profile."
@@ -302,7 +330,6 @@ const HomeScreen = () => {
       return;
     }
 
-    // Chuyển tới giỏ hàng và cuộn lên đầu trang
     navigate("/shoppingcart");
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
@@ -322,7 +349,6 @@ const HomeScreen = () => {
     }
   };
   const handleSeeAllMentors = () => {
-    // Lưu tab "mentors" vào localStorage trước khi navigate
     localStorage.setItem("searchPageActiveTab", "mentors");
     navigate(`/platform/search`);
   };
@@ -332,30 +358,11 @@ const HomeScreen = () => {
     navigate(`/mentor/${mentorId}`);
   };
 
-  useEffect(() => {
-    // block horizontal-only wheel in testimonials
-    const carousel = document.getElementById("testimonial-carousel");
-    if (!carousel) return;
-    const blockHorizontalWheel = (e) => {
-      if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) e.preventDefault();
-    };
-    carousel.addEventListener("wheel", blockHorizontalWheel, {
-      passive: false,
-    });
-    carousel.addEventListener("touchmove", blockHorizontalWheel, {
-      passive: false,
-    });
-    return () => {
-      carousel.removeEventListener("wheel", blockHorizontalWheel);
-      carousel.removeEventListener("touchmove", blockHorizontalWheel);
-    };
-  }, []);
-
   const scrollCarouselBy = (ref, direction, itemSelector = "button") => {
     const container = ref.current;
     if (!container) return;
     const card = container.querySelector(itemSelector);
-    let cardWidth = 320; // fallback
+    let cardWidth = 320;
     let gap = 32;
     if (card) {
       const track = container.firstElementChild;
@@ -397,7 +404,6 @@ const HomeScreen = () => {
     fetchTopCourses();
   }, []);
 
-  // Fetch top mentors from API
   useEffect(() => {
     const fetchTopMentors = async () => {
       setMentorsLoading(true);
@@ -407,7 +413,6 @@ const HomeScreen = () => {
         const raw = Array.isArray(response?.data?.mentors)
           ? response.data.mentors
           : [];
-        // Enrich mỗi mentor với stats
         const enriched = await Promise.all(
           raw.map(async (m) => {
             const mentorId = m?._id || m?.id || m?.user?._id || m?.user?.id;
@@ -434,12 +439,10 @@ const HomeScreen = () => {
     fetchTopMentors();
   }, []);
 
-  // Fetch purchased courses for smart navigation
   useEffect(() => {
     const fetchPurchasedCourses = async () => {
       if (!hasUserRole(user, "mentee")) return;
 
-      // Check purchase status for displayed courses
       if (topCourses.length > 0) {
         const statusMap = new Map();
 
@@ -471,108 +474,171 @@ const HomeScreen = () => {
     };
 
     fetchPurchasedCourses();
-  }, [user, topCourses]); // Depend on topCourses to check when courses are loaded
+  }, [user, topCourses]);
 
   return (
     <div ref={pageRef} className="flex min-h-[100dvh] flex-col overflow-hidden bg-[var(--ui-page)]">
-      {/* Hero */}
-      <section className="ui-hero-surface relative bg-[var(--ui-surface)] px-4 pb-16 pt-12 sm:px-6 lg:px-8 lg:pb-24 lg:pt-20">
-        <div className="pointer-events-none absolute -right-36 -top-44 h-[32rem] w-[32rem] rounded-full bg-[var(--ui-accent-soft)] opacity-70 blur-3xl" />
-        <div className="relative mx-auto grid max-w-7xl grid-cols-1 items-center gap-12 lg:grid-cols-[0.86fr_1.14fr] lg:gap-16">
-          <div data-hero-copy className="w-full max-w-2xl">
-            <span className="ui-eyebrow ui-eyebrow-plain">Guidance that moves you forward</span>
-            <h1 className="mt-6 max-w-[15ch] text-4xl font-[780] leading-[0.98] tracking-[-0.06em] text-[var(--ui-text)] sm:text-6xl">
-              Learn faster with the right mentor.
+      <section className="ui-brand-hero relative mx-3 mt-3 overflow-hidden rounded-[2rem] border-2 border-blue-300/30 px-4 pb-[22rem] pt-12 shadow-[var(--ui-shadow-lg)] sm:mx-5 sm:px-6 sm:pb-[27rem] lg:min-h-[39rem] lg:px-8 lg:pb-20 lg:pt-16">
+        <div className="mx-auto grid max-w-7xl grid-cols-1 items-center gap-12 lg:grid-cols-[0.86fr_1.14fr] lg:gap-16">
+          <div data-hero-copy className="relative z-20 w-full max-w-3xl">
+            <p className="text-sm font-bold text-blue-100">Guidance that moves you forward</p>
+            <h1 className="mt-5 max-w-[17ch] text-4xl font-[790] leading-[0.98] tracking-[-0.055em] text-white sm:text-5xl lg:text-6xl">
+              Learn faster with the
+              <span
+                aria-hidden="true"
+                className="ui-inline-image"
+                style={{ backgroundImage: `url(${MentoringHero})` }}
+              />
+              <span className="ui-marker">right mentor.</span>
             </h1>
-            <p className="mt-6 max-w-[42ch] text-base leading-7 text-[var(--ui-text-muted)] sm:text-lg">
+            <p className="mt-6 max-w-[42ch] text-base leading-7 text-blue-100 sm:text-lg">
               Find focused guidance, practical courses, and a clearer path to your next goal.
             </p>
             <div className="mt-9 flex flex-wrap gap-3">
               <button
                 onClick={() => navigate("/all-mentors")}
-                className="min-h-12 whitespace-nowrap rounded-full bg-[var(--ui-accent-fill)] px-6 py-3 font-bold text-white shadow-[var(--ui-shadow-sm)] transition-all hover:-translate-y-0.5 hover:bg-[var(--ui-accent-fill-hover)]"
+                className="ui-button-highlight min-h-12 whitespace-nowrap rounded-full px-6 py-3 font-bold transition-all"
               >
                 Find your mentor
               </button>
               <button
                 onClick={handleSeeAllCourses}
-                className="min-h-12 whitespace-nowrap rounded-full bg-[var(--ui-surface-muted)] px-6 py-3 font-bold text-[var(--ui-text)] transition-colors hover:bg-[var(--ui-accent-soft)]"
+                className="min-h-12 whitespace-nowrap rounded-full border border-white/35 bg-white/12 px-6 py-3 font-bold text-white backdrop-blur-md transition-all hover:-translate-y-0.5 hover:bg-white hover:text-blue-800"
               >
                 Explore courses
               </button>
             </div>
           </div>
 
-          <div data-hero-media className="relative lg:pl-4">
-            <div className="absolute -bottom-5 -left-5 h-32 w-32 rounded-[2rem] bg-[var(--ui-accent-soft)]" />
-            <div className="ui-image-frame relative overflow-hidden rounded-[2rem] border border-[var(--ui-border)] shadow-[var(--ui-shadow-lg)]">
-              <img
-                src={MentoringHero}
-                alt="A learner and mentor reviewing a practical learning plan"
-                className="aspect-[4/3] h-full w-full object-cover"
-                fetchPriority="high"
-              />
-              <div className="absolute inset-x-5 bottom-5 rounded-2xl bg-[color-mix(in_srgb,var(--ui-surface)_88%,transparent)] p-4 shadow-[var(--ui-shadow-sm)] backdrop-blur-md sm:max-w-xs">
-                <p className="text-xs font-bold uppercase tracking-[0.14em] text-[var(--ui-accent)]">Your next step</p>
-                <p className="mt-1 text-sm font-semibold leading-5 text-[var(--ui-text)]">Turn a big goal into a practical plan you can follow.</p>
-              </div>
+          <div data-hero-media data-scale-media className="pointer-events-none absolute inset-x-0 bottom-0 h-[22rem] sm:h-[27rem] lg:inset-y-0 lg:left-auto lg:h-auto lg:w-[62%]">
+            <div className="absolute bottom-4 left-8 z-0 h-32 w-32 rotate-6 rounded-[45%_55%_48%_52%] border-2 border-dashed border-yellow-300/65 lg:bottom-8 lg:left-16" />
+            <img
+              src={MentoringHeroCutout}
+              alt="A learner and mentor reviewing a practical learning plan"
+              className="absolute -bottom-4 -right-[8%] z-10 w-[145%] max-w-none sm:-bottom-8 sm:-right-[4%] sm:w-full lg:-bottom-[3%] lg:-right-[3%] lg:h-[96%] lg:w-auto"
+              fetchPriority="high"
+            />
+            <div className="absolute bottom-6 left-4 z-20 max-w-xs rounded-2xl border border-white/25 bg-blue-950/70 p-4 text-white shadow-[var(--ui-shadow-sm)] backdrop-blur-md sm:left-10 lg:bottom-8 lg:left-8">
+              <p className="text-sm font-bold text-white">Your next step</p>
+              <p className="mt-1 text-sm font-semibold leading-5 text-blue-100">Turn a big goal into a practical plan you can follow.</p>
             </div>
           </div>
         </div>
       </section>
 
-      <section data-reveal className="w-full bg-[var(--ui-surface)] px-4 pb-16 sm:px-6 lg:px-8 lg:pb-24">
-        <div className="mx-auto grid max-w-7xl gap-px overflow-hidden rounded-[1.75rem] border border-[var(--ui-border)] bg-[var(--ui-border)] md:grid-cols-3">
-          {[
-            { icon: IconSearch, step: "01", title: "Discover", copy: "Explore mentors and courses shaped around your goal." },
-            { icon: IconMessageCircle, step: "02", title: "Connect", copy: "Choose a mentor, then agree on focus and format." },
-            { icon: IconTrendingUp, step: "03", title: "Move forward", copy: "Apply the plan, ask better questions, and keep momentum." },
-          ].map(({ icon: StepIcon, step, title, copy }) => (
-            <div key={step} className="bg-[var(--ui-surface-muted)] p-6 sm:p-8">
-              <div className="flex items-center justify-between">
-                <StepIcon aria-hidden="true" className="text-[var(--ui-accent)]" size={26} stroke={1.7} />
-                <span className="text-xs font-extrabold tracking-[0.18em] text-[var(--ui-text-muted)]">{step}</span>
-              </div>
-              <h2 className="mt-8 text-xl font-extrabold tracking-[-0.03em] text-[var(--ui-text)]">{title}</h2>
-              <p className="mt-2 max-w-[32ch] text-sm leading-6 text-[var(--ui-text-muted)]">{copy}</p>
+      <section aria-label="Browse learning directions" className="mt-5 overflow-hidden border-y-2 border-[var(--ui-border)] bg-[var(--ui-highlight-soft)] py-4">
+        <div className="ui-marquee">
+          {[0, 1].map((cycle) => (
+            <div key={cycle} className="flex w-max min-w-screen shrink-0 items-center justify-around gap-3 px-3" aria-hidden={cycle === 1}>
+              {categories.map((category) => {
+                const CategoryIcon = category.icon;
+                return (
+                  <button
+                    key={`${cycle}-${category.name}`}
+                    type="button"
+                    tabIndex={cycle === 1 ? -1 : 0}
+                    onClick={() => {
+                      localStorage.setItem("searchPageActiveTab", "courses");
+                      navigate(
+                        category.all
+                          ? "/platform/search"
+                          : `/platform/search?category=${encodeURIComponent(category.name)}`,
+                      );
+                    }}
+                    className="inline-flex h-11 items-center gap-2 whitespace-nowrap rounded-full border-2 border-blue-200 bg-white px-5 text-sm font-bold text-blue-800 shadow-[3px_3px_0_var(--ui-highlight)] transition-transform hover:-translate-y-0.5"
+                  >
+                    <CategoryIcon aria-hidden="true" size={18} stroke={1.8} />
+                    {category.name}
+                  </button>
+                );
+              })}
             </div>
           ))}
         </div>
       </section>
 
-      {/* Top Categories */}
-      <section data-reveal className="w-full bg-[var(--ui-page)] px-4 py-20 sm:px-6 lg:px-8 lg:py-24">
+      <section data-reveal className="w-full px-4 py-20 sm:px-6 lg:px-8 lg:py-28">
+        <div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-[0.72fr_1.28fr] lg:gap-16">
+          <div className="h-fit lg:sticky lg:top-28">
+            <p className="text-sm font-bold text-[var(--ui-accent)]">A simple path, kept visible</p>
+            <h2 className="mt-3 max-w-[12ch] text-3xl font-black tracking-[-0.05em] text-[var(--ui-text)] sm:text-5xl">
+              From a question to real progress.
+            </h2>
+            <p className="mt-5 max-w-[40ch] text-base leading-7 text-[var(--ui-text-muted)]">
+              Discover the right person, agree on a plan, and keep moving with focused support.
+            </p>
+          </div>
+          <div className="space-y-6 lg:space-y-10 lg:pb-12">
+          {[
+            { icon: IconSearch, title: "Discover your direction", copy: "Explore mentors and courses shaped around the outcome you want." },
+            { icon: IconMessageCircle, title: "Build the plan together", copy: "Choose a mentor, share the context, and agree on a focused format." },
+            { icon: IconTrendingUp, title: "Keep momentum visible", copy: "Apply the plan, ask better questions, and turn each session into action." },
+          ].map(({ icon: StepIcon, title, copy }, index) => (
+            <article
+              key={title}
+              data-stack-card
+              style={{ zIndex: index + 1 }}
+              className={`ui-card relative min-h-64 p-7 sm:p-10 lg:sticky lg:top-28 ${
+                index === 1
+                  ? "ui-card-blue"
+                  : index === 2
+                    ? "ui-card-yellow"
+                    : ""
+              }`}
+            >
+              <div className="flex h-14 w-14 items-center justify-center rounded-[44%_56%_48%_52%] border-2 border-[var(--ui-accent)] bg-[var(--ui-surface-raised)] text-[var(--ui-accent)] shadow-[3px_4px_0_var(--ui-highlight)]">
+                <StepIcon aria-hidden="true" size={27} stroke={1.8} />
+              </div>
+              <h3 className="mt-12 max-w-[18ch] text-2xl font-black tracking-[-0.04em] text-[var(--ui-text)] sm:text-3xl">{title}</h3>
+              <p className="mt-4 max-w-[44ch] text-base leading-7 text-[var(--ui-text-muted)]">{copy}</p>
+            </article>
+          ))}
+          </div>
+        </div>
+      </section>
+
+      <section data-reveal className="w-full bg-[var(--ui-surface)] px-4 py-20 sm:px-6 lg:px-8 lg:py-28">
         <div className="mx-auto w-full max-w-7xl">
           <div className="mb-9 max-w-2xl">
-            <span className="text-xs font-extrabold uppercase tracking-[0.16em] text-[var(--ui-accent)]">Explore by direction</span>
+            <p className="text-sm font-bold text-[var(--ui-accent)]">Explore by direction</p>
             <h2 className="mt-3 text-3xl font-extrabold tracking-[-0.045em] text-[var(--ui-text)] sm:text-4xl">
               Start with what you want to build.
             </h2>
             <p className="mt-3 text-base leading-7 text-[var(--ui-text-muted)]">Choose a category to see real courses currently available.</p>
           </div>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-4">
-            {categories.map((cat) => {
+          <div className="grid grid-flow-dense grid-cols-1 gap-4 md:grid-cols-12">
+            {categories.map((cat, index) => {
               const CategoryIcon = cat.icon;
+              const spanClass = index === 0 ? "md:col-span-7" : index === 1 ? "md:col-span-5" : "md:col-span-4";
+              const toneClass = index === 0
+                ? "ui-brand-hero border-blue-300/30 text-white"
+                : index === 1
+                  ? "ui-card ui-card-yellow"
+                  : "ui-card";
               return (
               <button
                 type="button"
                 key={cat.name}
                 onClick={() => {
                   localStorage.setItem("searchPageActiveTab", "courses");
-                  navigate(`/platform/search?category=${encodeURIComponent(cat.name)}`);
+                  navigate(
+                    cat.all
+                      ? "/platform/search"
+                      : `/platform/search?category=${encodeURIComponent(cat.name)}`,
+                  );
                 }}
-                className="ui-card ui-card-interactive flex min-h-56 flex-col gap-4 px-5 py-6 text-left"
+                className={`ui-card-interactive ${spanClass} ${toneClass} flex min-h-64 flex-col gap-4 rounded-[var(--ui-radius-lg)] border-2 px-6 py-7 text-left sm:p-8`}
               >
-                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[var(--ui-accent-soft)] text-[var(--ui-accent)]">
+                <div className={`flex h-12 w-12 items-center justify-center rounded-[44%_56%_48%_52%] border-2 ${index === 0 ? "border-yellow-300 bg-white/12 text-yellow-300" : "border-[var(--ui-accent)] bg-[var(--ui-accent-soft)] text-[var(--ui-accent)]"}`}>
                   <CategoryIcon aria-hidden="true" size={25} stroke={1.7} />
                 </div>
-                <span className="text-lg font-extrabold text-[var(--ui-text)]">
+                <span className={`text-xl font-extrabold ${index === 0 ? "text-white" : "text-[var(--ui-text)]"}`}>
                   {cat.name}
                 </span>
-                <span className="text-sm leading-6 text-[var(--ui-text-muted)]">
+                <span className={`max-w-[34ch] text-sm leading-6 ${index === 0 ? "text-blue-100" : "text-[var(--ui-text-muted)]"}`}>
                   {cat.description}
                 </span>
-                <span className="mt-auto inline-flex items-center gap-1 text-sm font-bold text-[var(--ui-accent)]">
+                <span className={`mt-auto inline-flex items-center gap-1 text-sm font-bold ${index === 0 ? "text-yellow-300" : "text-[var(--ui-accent)]"}`}>
                   View courses <IconArrowRight aria-hidden="true" size={17} stroke={1.8} />
                 </span>
               </button>
@@ -582,12 +648,11 @@ const HomeScreen = () => {
         </div>
       </section>
 
-      {/* Top Courses */}
       <section data-reveal className="w-full bg-[var(--ui-surface)] px-4 py-20 sm:px-6 lg:px-8 lg:py-24">
         <div className="max-w-7xl mx-auto w-full">
           <div className="mb-9 flex items-end justify-between gap-6 px-2">
             <div className="max-w-2xl">
-              <span className="text-xs font-extrabold uppercase tracking-[0.16em] text-[var(--ui-accent)]">Learn by doing</span>
+              <p className="text-sm font-bold text-[var(--ui-accent)]">Learn by doing</p>
               <h2 className="mt-3 text-3xl font-extrabold tracking-[-0.045em] text-[var(--ui-text)] sm:text-4xl">Courses built for practical progress.</h2>
             </div>
             <button
@@ -603,7 +668,6 @@ const HomeScreen = () => {
             onMouseEnter={() => setHoveredCarousel("courses")}
             onMouseLeave={() => setHoveredCarousel(null)}
           >
-            {/* Left button */}
             <button
               type="button"
               aria-label="Scroll left"
@@ -616,7 +680,6 @@ const HomeScreen = () => {
             >
               <IconArrowLeft aria-hidden="true" size={28} stroke={1.8} />
             </button>
-            {/* Right button */}
             <button
               type="button"
               aria-label="Scroll right"
@@ -748,9 +811,14 @@ const HomeScreen = () => {
                                   })()}
                                 </p>
                                 <div className="flex items-center gap-2 mb-2">
-                                  <div className="flex text-yellow-400 text-sm">
-                                    {"★".repeat(Math.floor(rate || 0))}
-                                    {(rate || 0) % 1 !== 0 && "☆"}
+                                  <div className="flex gap-0.5 text-yellow-500" aria-label={`${Number(rate || 0).toFixed(1)} out of 5 stars`}>
+                                    {[0, 1, 2, 3, 4].map((starIndex) =>
+                                      starIndex < Math.floor(rate || 0) ? (
+                                        <IconStarFilled key={starIndex} aria-hidden="true" size={15} />
+                                      ) : (
+                                        <IconStar key={starIndex} aria-hidden="true" size={15} stroke={1.8} />
+                                      ),
+                                    )}
                                   </div>
                                   <span className="text-sm text-[var(--ui-text-muted)]">
                                     ({course.numberOfRatings || 0} Ratings)
@@ -763,7 +831,6 @@ const HomeScreen = () => {
                                   {course.category || "General"}
                                 </div>
 
-                                {/* Hiển thị tags (Programming Languages) */}
                                 {course.tags && course.tags.length > 0 && (
                                   <div className="mb-2">
                                     <div className="flex flex-wrap gap-1">
@@ -786,7 +853,6 @@ const HomeScreen = () => {
                                   </div>
                                 )}
 
-                                {/* Hiển thị languages */}
                                 {course.language &&
                                   course.language.length > 0 && (
                                     <div className="mb-2">
@@ -813,7 +879,6 @@ const HomeScreen = () => {
                                     </div>
                                   )}
 
-                                {/* Hiển thị level nếu có */}
                                 {course.level && (
                                   <p className="text-green-500 text-xs mb-2">
                                     <b>Level:</b> {course.level}
@@ -824,7 +889,6 @@ const HomeScreen = () => {
                                 {formatVnd(Number(price) || 0)}
                               </p>
 
-                              {/* Add to Cart and Buy Now buttons for mentees */}
                               {hasUserRole(user, "mentee") && (
                                 <div className="flex flex-col gap-2 mt-2 mb-4">
                                   {isCourseAlreadyPurchased(courseId) ? (
@@ -872,12 +936,11 @@ const HomeScreen = () => {
         </div>
       </section>
 
-      {/* Top Mentors */}
       <section data-reveal className="w-full bg-[var(--ui-page)] px-4 py-20 sm:px-6 lg:px-8 lg:py-24">
         <div className="mx-auto w-full max-w-7xl">
           <div className="mb-9 flex items-end justify-between gap-6 px-2">
             <div className="max-w-2xl">
-              <span className="text-xs font-extrabold uppercase tracking-[0.16em] text-[var(--ui-accent)]">Learn with someone who knows the path</span>
+              <p className="text-sm font-bold text-[var(--ui-accent)]">Learn with someone who knows the path</p>
               <h2 className="mt-3 text-3xl font-extrabold tracking-[-0.045em] text-[var(--ui-text)] sm:text-4xl">Meet mentors available now.</h2>
             </div>
             <button
@@ -893,7 +956,6 @@ const HomeScreen = () => {
             onMouseEnter={() => setHoveredCarousel("mentors")}
             onMouseLeave={() => setHoveredCarousel(null)}
           >
-            {/* Left */}
             <button
               type="button"
               aria-label="Scroll left"
@@ -906,7 +968,6 @@ const HomeScreen = () => {
             >
               <IconArrowLeft aria-hidden="true" size={28} stroke={1.8} />
             </button>
-            {/* Right */}
             <button
               type="button"
               aria-label="Scroll right"
@@ -932,21 +993,21 @@ const HomeScreen = () => {
             >
               <div className="inline-flex gap-8" ref={dragMentors}>
                 {mentorsLoading
-                  ? // Loading state
-                    Array.from({ length: 6 }).map((_, idx) => (
+                  ? Array.from({ length: 4 }).map((_, idx) => (
                       <div
                         key={`loading-${idx}`}
-                        className="bg-white rounded-[18px] border border-[#D6E3F3] shadow-sm flex flex-col items-center p-6 min-w-[260px] max-w-[300px] w-full animate-pulse"
+                        className="ui-card flex min-h-72 w-full min-w-[320px] max-w-[390px] animate-pulse flex-col p-6"
                         style={{ scrollSnapAlign: "start" }}
                       >
-                        <div className="w-28 h-28 bg-gray-200 rounded-[14px] mb-4"></div>
-                        <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
-                        <div className="h-3 bg-gray-200 rounded w-1/2 mb-4"></div>
-                        <div className="flex items-center justify-center gap-4 w-full mb-4">
-                          <div className="h-3 bg-gray-200 rounded w-12"></div>
-                          <div className="h-3 bg-gray-200 rounded w-20"></div>
+                        <div className="flex items-center gap-4">
+                          <div className="h-16 w-16 rounded-2xl bg-[var(--ui-surface-muted)]" />
+                          <div className="flex-1">
+                            <div className="h-4 w-3/4 rounded bg-[var(--ui-surface-muted)]" />
+                            <div className="mt-2 h-3 w-1/2 rounded bg-[var(--ui-surface-muted)]" />
+                          </div>
                         </div>
-                        <div className="w-full h-10 bg-gray-200 rounded-lg"></div>
+                        <div className="mt-8 h-20 rounded-2xl bg-[var(--ui-surface-muted)]" />
+                        <div className="mt-auto h-10 rounded-xl bg-[var(--ui-surface-muted)]" />
                       </div>
                     ))
                   : mentorsError ? (
@@ -960,82 +1021,56 @@ const HomeScreen = () => {
                       <p className="mt-2 text-sm text-[var(--ui-text-muted)]">Approved mentor profiles will appear here.</p>
                     </div>
                   ) : topMentors.map((mentor, idx) => (
-                      <div
+                      <button
+                        type="button"
                         key={mentor._id || idx}
-                        className="ui-card ui-card-interactive group flex w-full min-w-[260px] max-w-[300px] cursor-pointer flex-col items-center p-6 focus:outline-none focus:ring-2 focus:ring-[var(--ui-accent)]"
-                        role="button"
+                        className="ui-card ui-card-interactive group flex min-h-80 w-full min-w-[320px] max-w-[390px] cursor-pointer flex-col p-6 text-left focus:outline-none focus:ring-2 focus:ring-[var(--ui-accent)]"
                         style={{ outline: "none", scrollSnapAlign: "start" }}
                         onClick={() => handleMentorClick(mentor._id)}
                       >
-                        <div className="relative mb-4 flex h-28 w-28 items-center justify-center overflow-hidden rounded-2xl bg-[var(--ui-accent-soft)] text-2xl font-extrabold text-[var(--ui-accent)]">
-                          <span>{(mentor.firstName?.[0] || mentor.fullName?.[0] || "M").toUpperCase()}</span>
-                          {mentor.avatarUrl && (
-                            <img
-                              src={mentor.avatarUrl}
-                              alt={mentor.fullName || `${mentor.firstName || ""} ${mentor.lastName || ""}`.trim() || "Mentor"}
-                              className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-                              onError={(e) => {
-                                e.currentTarget.style.display = "none";
-                              }}
-                            />
-                          )}
-                        </div>
-                        <div className="flex flex-col items-center flex-1 w-full">
-                          <div className="mb-1 text-center text-lg font-bold text-[var(--ui-text)]">
-                            {mentor.fullName ||
-                              `${mentor.firstName || ""} ${
-                                mentor.lastName || ""
-                              }`.trim()}
+                        <div className="flex items-center gap-4">
+                          <div className="relative flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-[44%_56%_48%_52%] border-2 border-[var(--ui-highlight)] bg-[var(--ui-accent-soft)] text-xl font-extrabold text-[var(--ui-accent)] shadow-[3px_4px_0_var(--ui-accent-soft)]">
+                            <span>{(mentor.firstName?.[0] || mentor.fullName?.[0] || "M").toUpperCase()}</span>
+                            {mentor.avatarUrl && (
+                              <img
+                                src={mentor.avatarUrl}
+                                alt={mentor.fullName || `${mentor.firstName || ""} ${mentor.lastName || ""}`.trim() || "Mentor"}
+                                className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                                onError={(e) => {
+                                  e.currentTarget.style.display = "none";
+                                }}
+                              />
+                            )}
                           </div>
-                          <div className="mb-2 text-center text-sm text-[var(--ui-text-muted)]">
-                            {mentor.jobTitle || "Professional"}
-                          </div>
-                          <div className="mb-3 text-center text-xs text-[var(--ui-text-muted)]">
-                            {(() => {
-                              let category = mentor.category || "General";
-
-                              // If it's an array, take the first element
-                              if (Array.isArray(category)) {
-                                category = category[0] || "General";
-                              }
-
-                              // If it's a string with commas, take the first part
-                              if (
-                                typeof category === "string" &&
-                                category.includes(",")
-                              ) {
-                                category = category.split(",")[0].trim();
-                              }
-
-                              return (
-                                category.charAt(0).toUpperCase() +
-                                category.slice(1).toLowerCase()
-                              );
-                            })()}
-                          </div>
-                          <div className="flex items-center justify-between w-full mb-4">
-                            <div className="flex items-center gap-2 px-3 py-2 bg-yellow-50 rounded-full">
-                              <IconStarFilled aria-hidden="true" className="h-4 w-4 text-yellow-500" />
-                              <span className="text-sm font-bold text-yellow-700">
-                                {(mentor.averageRating ?? 0).toFixed(1)}
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-2 rounded-full bg-[var(--ui-accent-soft)] px-3 py-2">
-                              <IconUsers aria-hidden="true" className="h-4 w-4 text-[var(--ui-accent)]" stroke={1.8} />
-                              <span className="text-sm font-medium text-[var(--ui-accent)]">
-                                {mentor.totalMentees ?? 0}
-                              </span>
-                              <span className="text-xs text-[var(--ui-accent)]">
-                                students
-                              </span>
-                            </div>
-                          </div>
-                          <div className="mt-auto flex w-full items-center justify-center gap-2 rounded-xl bg-[var(--ui-accent-fill)] py-2.5 text-base font-semibold text-white transition hover:bg-[var(--ui-accent-fill-hover)]">
-                            View Profile
-                            <IconArrowRight aria-hidden="true" size={19} stroke={1.8} />
+                          <div className="min-w-0">
+                            <h3 className="truncate text-lg font-black text-[var(--ui-text)]">
+                              {mentor.fullName || `${mentor.firstName || ""} ${mentor.lastName || ""}`.trim()}
+                            </h3>
+                            <p className="mt-1 truncate text-sm text-[var(--ui-text-muted)]">{mentor.jobTitle || "Professional"}</p>
                           </div>
                         </div>
-                      </div>
+                        <div className="ui-sketch-note mt-7 min-h-24 p-4">
+                          <IconMessageCircle aria-hidden="true" className="text-[var(--ui-accent)]" size={19} stroke={1.8} />
+                          <p className="mt-2 line-clamp-3 whitespace-normal text-sm leading-6 text-[var(--ui-text)]">
+                            {mentor.featuredReview || mentor.bio || "Explore this mentor's experience, focus areas, and available sessions."}
+                          </p>
+                        </div>
+                        <div className="mt-auto flex w-full items-center justify-between pt-6">
+                          <div className="flex items-center gap-4 text-sm font-bold text-[var(--ui-text-muted)]">
+                            <span className="inline-flex items-center gap-1.5 text-[var(--ui-highlight-strong)]">
+                              <IconStarFilled aria-hidden="true" size={17} />
+                              {(mentor.averageRating ?? 0).toFixed(1)}
+                            </span>
+                            <span className="inline-flex items-center gap-1.5">
+                              <IconUsers aria-hidden="true" size={17} stroke={1.8} />
+                              {mentor.totalMentees ?? 0}
+                            </span>
+                          </div>
+                          <span className="inline-flex items-center gap-1 text-sm font-bold text-[var(--ui-accent)]">
+                            View profile <IconArrowRight aria-hidden="true" size={18} stroke={1.8} />
+                          </span>
+                        </div>
+                      </button>
                     ))}
               </div>
             </div>
@@ -1044,30 +1079,31 @@ const HomeScreen = () => {
       </section>
 
       <section data-reveal className="w-full bg-[var(--ui-surface)] px-4 py-20 sm:px-6 lg:px-8 lg:py-24">
-        <div className="mx-auto grid max-w-7xl overflow-hidden rounded-[2rem] bg-[var(--ui-accent-fill)] shadow-[var(--ui-shadow-lg)] lg:grid-cols-[0.8fr_1.2fr]">
+        <div className="ui-brand-hero mx-auto grid max-w-7xl overflow-hidden rounded-[2rem] border-2 border-blue-300/30 shadow-[var(--ui-shadow-lg)] lg:grid-cols-[0.8fr_1.2fr]">
           <img
+            data-scale-media
             src={BecomeMentor}
             alt="A mentor supporting a focused learning conversation"
             className="h-full min-h-72 w-full object-cover"
           />
           <div className="flex flex-col justify-center p-8 text-white sm:p-12 lg:p-16">
-            <span className="text-xs font-extrabold uppercase tracking-[0.16em] text-cyan-100">Share what you know</span>
+            <p className="text-sm font-bold text-yellow-300">Share what you know</p>
             <h2 className="mt-4 max-w-[13ch] text-3xl font-extrabold leading-tight tracking-[-0.045em] sm:text-5xl">Help someone make their next move.</h2>
-            <p className="mt-5 max-w-[48ch] text-base leading-7 text-cyan-50">Create a mentor profile with your current account and start guiding learners in your field.</p>
+            <p className="mt-5 max-w-[48ch] text-base leading-7 text-blue-100">Create a mentor profile with your current account and start guiding learners in your field.</p>
             <div className="mt-8 flex flex-wrap gap-3">
               <button
                 onClick={() => {
                   navigate("/auth/apply-as-men");
                   window.scrollTo(0, 0);
                 }}
-                className="inline-flex min-h-12 items-center gap-2 rounded-full !bg-white px-6 py-3 text-base font-bold !text-cyan-950 transition-transform hover:-translate-y-0.5"
+                className="ui-button-highlight inline-flex min-h-12 items-center gap-2 rounded-full px-6 py-3 text-base font-bold transition-all"
               >
                 Mentor with MentorMe
                 <IconArrowRight aria-hidden="true" size={19} stroke={1.8} />
               </button>
               <button
                 onClick={handleSeeAllCourses}
-                className="min-h-12 rounded-full bg-cyan-950/25 px-6 py-3 text-base font-bold text-white transition-colors hover:bg-cyan-950/40"
+                className="min-h-12 rounded-full border border-white/30 bg-white/10 px-6 py-3 text-base font-bold text-white transition-colors hover:bg-white hover:text-blue-800"
               >
                 Browse courses
               </button>
