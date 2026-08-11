@@ -7,10 +7,9 @@ import { useNavigate } from "react-router-dom";
 import { setUser } from "../redux/features/user.slice";
 import { useDispatch } from "react-redux";
 import { useEffect } from "react";
-import { MENTEE_PATH, MENTOR_PATH, PATH } from "../routes/path";
+import { getRoleHomePath } from "../routes/path";
 
 const Login = () => {
-  const [selected, setSelected] = useState<any>("mentee");
   const [formData, setFormData] = useState<any>({
     email: "",
     password: "",
@@ -33,17 +32,7 @@ const Login = () => {
           const userData = JSON.parse(user);
           
           if (token.split('.').length === 3) {
-            // Redirect based on user's actual role (not stored userType)
-            if (userData.role === "mentor") {
-              navigate(`${PATH.MENTOR}/${MENTOR_PATH.HOME}`, { replace: true });
-            } else if (userData.role === "mentee") {
-              navigate(`${PATH.MENTEE}${MENTEE_PATH.HOME}`, { replace: true });
-            } else if (userData.role === "admin") {
-              navigate(`${PATH.ADMIN}`, { replace: true });
-            } else {
-              // Default fallback for unknown roles
-              navigate(`${PATH.MENTEE}${MENTEE_PATH.HOME}`, { replace: true });
-            }
+            navigate(getRoleHomePath(userData.role), { replace: true });
 
             toast.info("You are already logged in!");
           } else {
@@ -140,29 +129,13 @@ const Login = () => {
         localStorage.setItem("isLoggedIn", "true"); // Set login status in localStorage for header
         
         // Dispatch user data to Redux store with isLoggedIn flag
-        dispatch(setUser({
-          ...userData,
-          isLoggedIn: true,
-          userType: selected // Store whether user logged in as mentee or mentor
-        }));
+        dispatch(setUser({ ...userData, isLoggedIn: true }));
       }
       if (response.data?.token) {
         localStorage.setItem("actkn", response.data.token);
       }
 
-      // Navigate based on user's actual role (not UI selection)
-      const userRole = response.data?.user?.role;
-      
-      if (userRole === "mentor") {
-        navigate(`${PATH.MENTOR}/${MENTOR_PATH.HOME}`);
-      } else if (userRole === "mentee") {
-        navigate(`${PATH.MENTEE}${MENTEE_PATH.HOME}`);
-      } else if (userRole === "admin") {
-        navigate(`${PATH.ADMIN}`);
-      } else {
-        // Default fallback for unknown roles
-        navigate(`${PATH.MENTEE}${MENTEE_PATH.HOME}`);
-      }
+      navigate(getRoleHomePath(response.data?.user?.role));
     } catch (error) {
       console.error("Login error:", error);
       console.error("Error response:", error.response);
@@ -202,41 +175,6 @@ const Login = () => {
         </div>
 
         <div title="Login form" className="flex w-full max-w-lg flex-col">
-          <div
-            title="I'm a Mentor or I'm a Mentee"
-            className="grid grid-cols-2 gap-4 mb-4 mx-auto relative w-full"
-          >
-            <button
-              type="button"
-              title="Mentee"
-              className={`w-full cursor-pointer pb-3 text-center text-base font-bold transition-colors ${
-                selected === "mentee" ? "text-[var(--ui-text)]" : "text-[var(--ui-text-muted)]"
-              }`}
-              onClick={() => setSelected("mentee")}
-            >
-              I'm a mentee
-            </button>
-            <button
-              type="button"
-              title="Mentor"
-              className={`w-full cursor-pointer pb-3 text-center text-base font-bold transition-colors ${
-                selected === "mentor" ? "text-[var(--ui-text)]" : "text-[var(--ui-text-muted)]"
-              }`}
-              onClick={() => setSelected("mentor")}
-            >
-              I'm a mentor
-            </button>
-
-            {/* Sliding underline */}
-            <div
-              className="absolute bottom-0 h-[2px] bg-[var(--ui-accent)] transition-all duration-300 ease-in-out"
-              style={{
-                width: "50%",
-                left: selected === "mentee" ? "0" : "50%",
-              }}
-            />
-          </div>
-
           <div className="flex flex-col items-start w-full">
             <label htmlFor="login-email" className="mb-2 block text-sm font-bold text-left">
               Email <span className="text-red-500">*</span>
