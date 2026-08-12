@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from "react";
-import { IconArrowRight, IconCheck, IconCloudUpload } from "@tabler/icons-react";
 import authApi from "../api/modules/auth.api";
 import { toast } from "react-toastify";
 import { useNavigate } from "react-router-dom";
@@ -348,7 +347,7 @@ const ApplyAsMentor = () => {
 
   const getStepContent = (stepId) => {
     if (completedSteps.includes(stepId)) {
-      return <IconCheck aria-hidden="true" size={18} stroke={2.2} />;
+      return "Done";
     }
 
     return stepId;
@@ -428,7 +427,6 @@ const ApplyAsMentor = () => {
                   htmlFor="photoUpload"
                   className="ui-button-highlight flex cursor-pointer items-center gap-2 px-4 py-2.5 font-black text-blue-950"
                 >
-                  <IconCloudUpload aria-hidden="true" size={20} stroke={1.8} />
                   <span className="font-medium">Upload a photo</span>
                 </label>
                 {errors.photo && (
@@ -661,7 +659,6 @@ const ApplyAsMentor = () => {
                 <span className="font-bold">
                   {currentStep >= 3 ? "Complete" : "Next Step"}
                 </span>
-                <IconArrowRight aria-hidden="true" size={19} stroke={1.8} />
               </button>
             </div>
           </div>
@@ -800,7 +797,6 @@ const ApplyAsMentor = () => {
                 }`}
               >
                 <span className="font-bold">Previous Step</span>
-                <IconArrowRight aria-hidden="true" className="rotate-180" size={19} stroke={1.8} />
               </button>
 
               <button
@@ -815,7 +811,6 @@ const ApplyAsMentor = () => {
                 <span className="font-bold">
                   {currentStep >= 3 ? "Complete" : "Next Step"}
                 </span>
-                <IconArrowRight aria-hidden="true" size={19} stroke={1.8} />
               </button>
             </div>
           </div>
@@ -913,7 +908,6 @@ const ApplyAsMentor = () => {
                 }`}
               >
                 <span className="font-bold">Previous Step</span>
-                <IconArrowRight aria-hidden="true" className="rotate-180" size={19} stroke={1.8} />
               </button>
 
               <button
@@ -921,7 +915,6 @@ const ApplyAsMentor = () => {
                 className="ui-button-highlight mb-3.5 flex items-center gap-2 px-6 py-3 text-left font-black text-blue-950 sm:ml-auto"
               >
                 <span className="font-bold">Submit Application</span>
-                <IconCheck aria-hidden="true" size={19} stroke={2} />
               </button>
             </div>
           </div>

@@ -2,7 +2,6 @@ import React, { useState, useEffect } from "react";
 import ImageForSignUp from "../assets/ImageForSignUp.jpg";
 import authApi from "../api/modules/auth.api";
 import { useNavigate } from "react-router-dom";
-import { IconArrowRight } from "@tabler/icons-react";
 import { toast } from "react-toastify";
 import { getRoleHomePath } from "../routes/path";
 
@@ -316,7 +315,7 @@ const SignUp = () => {
               type="button"
               onClick={onFinish}
               disabled={isLoading}
-              className={`flex min-h-12 items-center justify-center gap-2 rounded-xl border-0 px-6 py-3 text-left font-bold transition-colors ${
+              className={`flex min-h-12 items-center justify-center rounded-xl border-0 px-6 py-3 text-left font-bold transition-colors ${
                 isLoading
                   ? "bg-gray-400 text-gray-600 cursor-not-allowed"
                   : "cursor-pointer bg-[var(--ui-accent)] text-white hover:bg-[var(--ui-accent-strong)]"
@@ -325,7 +324,6 @@ const SignUp = () => {
               <span className="font-bold">
                 {isLoading ? "Đang tạo tài khoản..." : "Create Account"}
               </span>
-              {!isLoading && <IconArrowRight aria-hidden="true" size={19} stroke={1.8} />}
             </button>
 
             <button
@@ -334,10 +332,9 @@ const SignUp = () => {
                 localStorage.setItem("mentorMode", "true");
                 navigate("/auth/apply-as-men");
               }}
-              className="flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-xl border border-[var(--ui-border)] px-6 py-3 text-left font-bold text-[var(--ui-text)] transition-colors hover:bg-[var(--ui-surface-muted)] sm:ml-auto"
+              className="flex min-h-12 cursor-pointer items-center justify-center rounded-xl border border-[var(--ui-border)] px-6 py-3 text-left font-bold text-[var(--ui-text)] transition-colors hover:bg-[var(--ui-surface-muted)] sm:ml-auto"
             >
               <span>Apply as a mentor</span>
-              <IconArrowRight aria-hidden="true" size={19} stroke={1.8} />
             </button>
           </div>
         </div>

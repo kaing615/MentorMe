@@ -417,7 +417,7 @@ const OrderCompleteCourse = () => {
               // Fetch real mentor stats
               const fetchMentorStats = async (mentorId) => {
                 try {
-                  console.log("🔍 Fetching courses for mentor ID:", mentorId);
+                  console.log("Fetching courses for mentor ID:", mentorId);
 
                   // Try to get real mentor courses count - getCoursesByMentor returns array directly
                   const courses = await courseApi.getCoursesByMentor(mentorId);
@@ -556,7 +556,7 @@ const OrderCompleteCourse = () => {
     };
 
     fetchCourseDetails();
-  }, [courseId, purchasedCourseId]); // ⭐ Add purchasedCourseId to dependencies
+  }, [courseId, purchasedCourseId]);
 
   // Course scroll handlers
   const scrollCourseLeft = () => {
@@ -585,8 +585,8 @@ const OrderCompleteCourse = () => {
   const fetchCourseReviews = async (courseId) => {
     try {
       setReviewsLoading(true);
-      console.log("🔍 Fetching reviews for courseId:", courseId);
-      console.log("🔍 CourseId type:", typeof courseId);
+      console.log("Fetching reviews for courseId:", courseId);
+      console.log("CourseId type:", typeof courseId);
 
       const { response: reviewsResponse, err: reviewsError } =
         await courseApi.getCourseReviews({ courseId });
@@ -604,9 +604,9 @@ const OrderCompleteCourse = () => {
         console.log("📊 Reviews count:", courseReviews.length);
         // Debug: Check first review structure
         if (courseReviews.length > 0) {
-          console.log("🔍 First review structure:", courseReviews[0]);
-          console.log("🔍 First review user:", courseReviews[0].user);
-          console.log("🔍 First review author:", courseReviews[0].author);
+          console.log("First review structure:", courseReviews[0]);
+          console.log("First review user:", courseReviews[0].user);
+          console.log("First review author:", courseReviews[0].author);
         }
         setCourseReviews(courseReviews);
 
@@ -699,16 +699,7 @@ const OrderCompleteCourse = () => {
   }
 
   const renderStars = (rating) => {
-    return [...Array(5)].map((_, i) => (
-      <span
-        key={i}
-        className={`text-sm ${
-          i < Math.floor(rating) ? "text-yellow-400" : "text-gray-300"
-        }`}
-      >
-        ★
-      </span>
-    ));
+    return <span className="text-sm font-semibold">{Number(rating || 0).toFixed(1)} / 5</span>;
   };
 
   // Function to handle course access
@@ -878,7 +869,7 @@ const OrderCompleteCourse = () => {
                           courseData.lectures > 1 ? "s" : ""
                         }`
                       : "Multiple",
-                    icon: "📚",
+                    icon: "Course",
                   },
                   {
                     label: "Language",
@@ -1306,7 +1297,7 @@ const OrderCompleteCourse = () => {
                             ) ? (
                               <>
                                 <div className="w-full bg-green-100 text-green-700 py-2 px-3 rounded-md text-sm font-medium text-center">
-                                  ✓ Already Purchased
+                                  Already Purchased
                                 </div>
                                 <button
                                   onClick={(e) => {
@@ -1744,7 +1735,7 @@ const OrderCompleteCourse = () => {
                       star <= userRating ? "text-yellow-400" : "text-gray-300"
                     } hover:text-yellow-400 transition-colors`}
                   >
-                    ★
+                    {star}
                   </button>
                 ))}
               </div>

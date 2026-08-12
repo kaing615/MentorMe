@@ -12,10 +12,12 @@ import { MessagingModule } from "./messaging/messaging.module";
 import { ProfileModule } from "./mentoring/profile.module";
 import { SupportModule } from "./support/support.module";
 import { EngagementModule } from "./engagement/engagement.module";
+import { AdministrationModule } from "./administration/administration.module";
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true, validate: validateEnvironment }),
+    AdministrationModule,
     MongooseModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({

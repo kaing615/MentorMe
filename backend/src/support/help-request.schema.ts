@@ -48,6 +48,18 @@ export class HelpRequest {
   @Prop()
   respondedAt?: Date;
 
+  @Prop({ enum: ["pending", "sent", "failed"] })
+  emailDeliveryStatus?: "pending" | "sent" | "failed";
+
+  @Prop()
+  emailSentAt?: Date;
+
+  @Prop({ default: "" })
+  emailDeliveryError?: string;
+
+  @Prop({ trim: true, lowercase: true })
+  emailRecipient?: string;
+
   @Prop()
   userAgent?: string;
 

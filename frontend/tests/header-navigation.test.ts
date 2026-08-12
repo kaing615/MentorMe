@@ -43,4 +43,8 @@ test("mentee actions are hidden while a dual-role user is in mentor mode", () =>
     shouldShowMenteeHeaderActions({ role: "mentor" }, true),
     false,
   );
+  assert.equal(
+    shouldShowMenteeHeaderActions({ role: "admin", roles: ["admin", "mentee"] }, false),
+    false,
+  );
 });

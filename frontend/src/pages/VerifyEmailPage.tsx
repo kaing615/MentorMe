@@ -2,7 +2,6 @@ import React, { useEffect, useState } from "react";
 import { Card, Typography, Button, Spin } from "antd";
 import { useNavigate, useLocation } from "react-router-dom";
 import publicClient from "../api/clients/public.client";
-import { MailOutlined, CheckCircleTwoTone } from "@ant-design/icons";
 
 const { Title, Paragraph } = Typography;
 
@@ -46,13 +45,9 @@ const VerifyEmailPage = () => {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-200 via-orange-100 to-pink-100 p-4">
       <div className="w-full max-w-md">
         <Card className="rounded-2xl shadow-2xl border-0 text-center py-10 px-6">
-          <div className="flex flex-col items-center mb-6">
-            {isVerified ? (
-              <CheckCircleTwoTone twoToneColor="#22c55e" style={{ fontSize: 48 }} />
-            ) : (
-              <MailOutlined className="text-orange-500" style={{ fontSize: 48 }} />
-            )}
-          </div>
+          <p className="mb-6 text-sm font-bold uppercase tracking-[0.16em] text-gray-500">
+            {isVerified ? "Email verified" : "Check your inbox"}
+          </p>
           {isVerified ? (
             <>
               <Title level={3} className="text-green-500 mb-2">

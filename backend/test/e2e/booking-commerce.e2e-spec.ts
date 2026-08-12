@@ -208,4 +208,41 @@ describe("paid booking commerce", () => {
 
     expect((await earnings.findOne({ booking: id }))?.status).toBe("eligible");
   });
+
+  it("lets Admin cancel but not finish an active paid session", async () => {
+    const date = new Date();
+    date.setUTCDate(date.getUTCDate() + 30);
+    await (app.get<Model<Availability>>(getModelToken(Availability.name))).updateOne(
+      { mentor: mentorId },
+      { $push: { slots: { start: "11:00", end: "12:00", status: "open" } } },
+    );
+    const created = await request(app.getHttpServer())
+      .post(`/api/v1/booking/mentor/${mentorId}`)
+      .set("Authorization", `Bearer ${menteeToken}`)
+      .send({ date: date.toISOString().slice(0, 10), start: "11:00", end: "12:00" })
+      .expect(200);
+    const id = created.body.data.booking._id as string;
+    await request(app.getHttpServer())
+      .post(`/api/v1/booking/confirm/${id}`)
+      .set("Authorization", `Bearer ${mentorToken}`)
+      .expect(200);
+    await request(app.getHttpServer())
+      .post("/api/v1/payment/admin/manual-confirm")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({ orderNumber: created.body.data.order.orderNumber, transactionId: "ADMIN-CANCEL-PAID" })
+      .expect(200);
+
+    await request(app.getHttpServer())
+      .post(`/api/v1/booking/finish/${id}`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .expect(403);
+    const cancelled = await request(app.getHttpServer())
+      .post(`/api/v1/booking/admin/${id}/cancel`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({ reason: "Safety incident requires cancellation" })
+      .expect(200);
+    expect(cancelled.body.data.booking.status).toBe("cancelled");
+    expect(cancelled.body.data.booking.paymentStatus).toBe("refund_pending");
+    expect(cancelled.body.data.booking.refundAmount).toBe(400000);
+  });
 });

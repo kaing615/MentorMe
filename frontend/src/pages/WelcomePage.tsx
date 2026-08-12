@@ -1,6 +1,4 @@
 import {
-  IconArrowRight,
-  IconArrowUpRight,
   IconMoonStars,
   IconSun,
 } from "@tabler/icons-react";
@@ -59,11 +57,6 @@ const WelcomePage = () => {
           <p className="text-sm font-bold text-blue-100">Mentorship, drawn around your goals</p>
           <h1 className="mt-5 max-w-[17ch] text-4xl font-[780] leading-[0.98] tracking-[-0.055em] text-white sm:text-5xl lg:text-6xl">
             Your next chapter starts with the
-            <span
-              aria-hidden="true"
-              className="ui-inline-image"
-              style={{ backgroundImage: `url(${MentoringHero})` }}
-            />
             <span className="ui-marker">right guide.</span>
           </h1>
           <p className="mt-7 max-w-[50ch] text-base leading-7 text-blue-100 sm:text-lg">
@@ -73,18 +66,16 @@ const WelcomePage = () => {
             <button
               type="button"
               onClick={() => navigate("/auth/signup")}
-              className="ui-button-highlight inline-flex min-h-12 items-center gap-2 whitespace-nowrap rounded-full px-6 py-3 font-bold transition-all"
+              className="ui-button-highlight inline-flex min-h-12 items-center whitespace-nowrap rounded-full px-6 py-3 font-bold transition-all"
             >
               Find your mentor
-              <IconArrowRight aria-hidden="true" size={19} stroke={2} />
             </button>
             <button
               type="button"
               onClick={() => navigate("/auth/apply-as-men")}
-              className="inline-flex min-h-12 items-center gap-2 whitespace-nowrap rounded-full border border-white/35 bg-white/12 px-6 py-3 font-bold text-white backdrop-blur-md transition-all hover:-translate-y-0.5 hover:bg-white hover:text-blue-800"
+              className="inline-flex min-h-12 items-center whitespace-nowrap rounded-full border border-white/35 bg-white/12 px-6 py-3 font-bold text-white backdrop-blur-md transition-all hover:-translate-y-0.5 hover:bg-white hover:text-blue-800"
             >
               Become a mentor
-              <IconArrowUpRight aria-hidden="true" size={19} stroke={2} />
             </button>
           </div>
         </div>
@@ -96,12 +87,11 @@ const WelcomePage = () => {
             className="absolute inset-0 h-full w-full object-cover"
             fetchPriority="high"
           />
-          <div className="ui-sketch-note absolute bottom-5 left-5 right-5 z-10 flex items-end justify-between gap-4 p-4 text-blue-950 sm:bottom-7 sm:left-7 sm:right-auto sm:max-w-xs sm:p-5">
+          <div className="ui-sketch-note absolute bottom-5 left-5 right-5 z-10 p-4 text-blue-950 sm:bottom-7 sm:left-7 sm:right-auto sm:max-w-xs sm:p-5">
             <div>
               <p className="text-sm font-bold text-blue-700">Built for momentum</p>
               <p className="mt-2 text-lg font-bold leading-snug">Clear goals. Honest feedback. Better decisions.</p>
             </div>
-            <IconArrowUpRight aria-hidden="true" className="shrink-0" size={22} stroke={1.8} />
           </div>
         </div>
       </section>

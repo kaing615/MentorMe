@@ -186,12 +186,19 @@ describe("profiles", () => {
         experience: "Ten years building production services.",
         skills: ["TypeScript", "NestJS"],
         sessionPrice: 500000,
+        links: {
+          website: "https://profile-mentor.example.com",
+          linkedin: "https://linkedin.com/in/profile-mentor",
+        },
       })
       .expect(200);
 
     expect(response.body.data.profile.jobTitle).toBe("Staff Engineer");
     expect(response.body.data.profile.skills).toEqual(["TypeScript", "NestJS"]);
     expect(response.body.data.profile.sessionPrice).toBe(500000);
+    expect(response.body.data.profile.links.website).toBe(
+      "https://profile-mentor.example.com",
+    );
   });
 
   it("changes the current user's avatar", async () => {

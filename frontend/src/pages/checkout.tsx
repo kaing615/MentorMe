@@ -9,7 +9,6 @@ import vnpayLogo from "../assets/Icon VNPAY.png";
 import { resolvePaymentProvider } from "../utils/payment-flow";
 import { hasUserRole } from "../utils/user-role";
 import { formatVnd as formatCurrency } from "../utils/currency";
-import { IconBuildingBank, IconDeviceMobile } from "@tabler/icons-react";
 
 const Checkout = () => {
   const navigate = useNavigate();
@@ -631,7 +630,6 @@ const Checkout = () => {
                           {/* QR Code placeholder - replace with actual QR code */}
                           <div className="w-48 h-48 bg-white border-2 border-gray-300 rounded-lg flex items-center justify-center">
                             <div className="text-center">
-                              <IconDeviceMobile aria-hidden="true" className="mx-auto mb-2 text-[var(--ui-accent)]" size={36} stroke={1.5} />
                               <p className="text-sm text-gray-600">
                                 MoMo QR Code
                               </p>
@@ -687,7 +685,6 @@ const Checkout = () => {
                           {/* Bank QR Code placeholder - replace with actual QR code */}
                           <div className="w-48 h-48 bg-white border-2 border-gray-300 rounded-lg flex items-center justify-center">
                             <div className="text-center">
-                              <IconBuildingBank aria-hidden="true" className="mx-auto mb-2 text-[var(--ui-accent)]" size={36} stroke={1.5} />
                               <p className="text-sm text-gray-600">
                                 Bank QR Code
                               </p>

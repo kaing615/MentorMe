@@ -11,3 +11,7 @@ process.env.MOMO_SECRET_KEY ??= "test-momo-secret";
 process.env.MOMO_ACCESS_KEY ??= "test-momo-access";
 process.env.MOMO_PARTNER_CODE ??= "TEST_MOMO";
 process.env.MOMO_ENABLED ??= "true";
+process.env.SITE_ADMIN_EMAIL ??= "test-site-admin@example.com";
+process.env.SITE_ADMIN_PASSWORD ??= "TestPassword1!";
+process.env.SITE_ADMIN_FIRST_NAME ??= "Test";
+process.env.SITE_ADMIN_LAST_NAME ??= "Administrator";

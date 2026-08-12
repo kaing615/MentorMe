@@ -1,5 +1,6 @@
 import { Module } from "@nestjs/common";
 import { MongooseModule } from "@nestjs/mongoose";
+import { AdministrationModule } from "../administration/administration.module";
 import { IdentityModule } from "../identity/identity.module";
 import { EngagementModule } from "../engagement/engagement.module";
 import { InfrastructureModule } from "../infrastructure/infrastructure.module";
@@ -15,6 +16,7 @@ import { PurchasedCourseService } from "./purchased-course.service";
 
 @Module({
   imports: [
+    AdministrationModule,
     IdentityModule,
     EngagementModule,
     InfrastructureModule,

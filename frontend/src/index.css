@@ -252,19 +252,6 @@ button:disabled,
   padding-inline: 0.06em;
 }
 
-.ui-inline-image {
-  display: inline-block;
-  width: clamp(3.2rem, 7vw, 6.4rem);
-  height: 0.72em;
-  margin-inline: 0.12em;
-  border: 2px solid rgb(255 255 255 / 0.72);
-  border-radius: 999px 74% 999px 68%;
-  background-position: center;
-  background-size: cover;
-  box-shadow: 4px 5px 0 rgb(250 204 21 / 0.72);
-  vertical-align: 0.05em;
-}
-
 .ui-sketch-note {
   border: 2px dashed color-mix(in srgb, var(--ui-highlight) 72%, var(--ui-border));
   border-radius: 18px 24px 16px 22px;

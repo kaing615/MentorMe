@@ -2,6 +2,7 @@ import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
 import { HydratedDocument, Schema as MongooseSchema, Types } from "mongoose";
 
 export type UserDocument = HydratedDocument<User>;
+export type AdminLevel = "site_administrator" | "admin";
 
 @Schema({ timestamps: true, collection: "users" })
 export class User {
@@ -61,6 +62,24 @@ export class User {
 
   @Prop({ type: [String], enum: ["mentor", "mentee", "admin"], default: [] })
   roles!: Array<"mentor" | "mentee" | "admin">;
+
+  @Prop({ type: String, enum: ["site_administrator", "admin"] })
+  adminLevel?: AdminLevel;
+
+  @Prop({ default: false, index: true })
+  isSuspended!: boolean;
+
+  @Prop({ default: "" })
+  suspensionReason!: string;
+
+  @Prop()
+  suspendedAt?: Date;
+
+  @Prop({ type: MongooseSchema.Types.ObjectId, ref: "User" })
+  suspendedBy?: Types.ObjectId;
+
+  @Prop({ type: String, enum: ["mentor", "mentee"] })
+  roleBeforeAdmin?: "mentor" | "mentee";
 
   @Prop({ type: [MongooseSchema.Types.ObjectId], ref: "Course", default: [] })
   favoriteCourses!: Types.ObjectId[];

@@ -10,20 +10,15 @@ import { formatVnd, parseVndPriceRange } from "../utils/currency";
 import { toast } from "react-toastify";
 import { showLoading, hideLoading } from "../redux/features/loading.slice";
 import {
-  IconArrowRight,
   IconChevronDown,
   IconChevronLeft,
   IconChevronRight,
   IconFilter,
   IconSearch,
-  IconSearchOff,
-  IconStarFilled,
-  IconUsers,
 } from "@tabler/icons-react";
 
 // Fallback images
 import oipImg from "../assets/OIP.webp";
-import BoImg from "../assets/Bơ.jpg";
 
 const SearchPage = () => {
   const navigate = useNavigate();
@@ -1380,7 +1375,7 @@ const SearchPage = () => {
                                     : "text-gray-300"
                                 }`}
                               >
-                                ★
+                                {Number(course.rate || 0).toFixed(1)} / 5
                               </span>
                             ))}
                             <span className="text-sm text-gray-700 ml-2">
@@ -1459,7 +1454,7 @@ const SearchPage = () => {
                               {isCourseAlreadyPurchased(course.id) ? (
                                 <>
                                   <div className="w-full bg-green-100 text-green-700 py-2 px-3 rounded-md text-sm font-medium text-center">
-                                    ✓ Already Purchased
+                                    Already Purchased
                                   </div>
                                   <button
                                     className="w-full bg-blue-600 text-white py-2 px-3 rounded-md text-sm font-medium hover:bg-blue-700 transition"
@@ -1499,14 +1494,14 @@ const SearchPage = () => {
                         className="bg-white rounded-[18px] border border-gray-200 shadow-sm flex flex-col items-center p-6 min-w-[260px] max-w-[300px] w-full transition-all duration-200 hover:shadow-lg hover:-translate-y-1 cursor-pointer"
                       >
                         <img
-                          src={mentor.avatarUrl || BoImg}
+                          src={mentor.avatarUrl}
                           alt={
                             mentor.fullName ||
                             `${mentor.firstName} ${mentor.lastName}`
                           }
                           className="w-28 h-28 object-cover rounded-[14px] mb-4 group-hover:scale-105 transition-transform duration-200"
                           onError={(e) => {
-                            e.currentTarget.src = BoImg;
+                            e.currentTarget.src = oipImg;
                           }}
                         />
                         <div className="flex flex-col items-center flex-1 w-full">
@@ -1538,8 +1533,7 @@ const SearchPage = () => {
                             })()}
                           </div>
                           <div className="flex items-center justify-between w-full mb-4">
-                            <div className="flex items-center gap-2 px-3 py-2 bg-yellow-50 rounded-full">
-                              <IconStarFilled aria-hidden="true" className="h-4 w-4 text-yellow-500" />
+                            <div className="px-3 py-2 bg-yellow-50 rounded-full">
                               <span className="text-sm font-bold text-yellow-700">
                                 {(
                                   parseFloat(mentor.averageRating) || 0
@@ -1547,7 +1541,6 @@ const SearchPage = () => {
                               </span>
                             </div>
                             <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 rounded-full">
-                              <IconUsers aria-hidden="true" className="h-4 w-4 text-blue-600" stroke={1.8} />
                               <span className="text-sm font-medium text-blue-800">
                                 {mentor.totalMentees ?? 0}
                               </span>
@@ -1556,9 +1549,8 @@ const SearchPage = () => {
                               </span>
                             </div>
                           </div>
-                          <div className="w-full flex items-center justify-center gap-2 bg-[#2563eb] text-white font-semibold rounded-lg py-2 mt-auto text-base hover:bg-[#1749b1] transition">
+                          <div className="mt-auto w-full rounded-lg bg-[#2563eb] py-2 text-center text-base font-semibold text-white transition hover:bg-[#1749b1]">
                             View Profile
-                            <IconArrowRight aria-hidden="true" size={19} stroke={1.8} />
                           </div>
                         </div>
                       </div>
@@ -1566,8 +1558,7 @@ const SearchPage = () => {
               </div>
             ) : (
               <div className="text-center py-12">
-                <IconSearchOff aria-hidden="true" className="mx-auto h-12 w-12 text-gray-400" stroke={1.5} />
-                <h3 className="mt-2 text-sm font-medium text-gray-900">
+                <h3 className="text-sm font-medium text-gray-900">
                   No {activeTab} found
                 </h3>
                 <p className="mt-1 text-sm text-gray-500">

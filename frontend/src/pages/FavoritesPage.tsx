@@ -1,11 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  IconArrowUpRight,
-  IconBook2,
   IconHeartOff,
-  IconStarFilled,
-  IconUsers,
 } from "@tabler/icons-react";
 import { useNavigate } from "react-router-dom";
 import favoriteApi, { type FavoriteType } from "../api/modules/favorite.api";
@@ -95,8 +91,7 @@ const FavoritesPage = () => {
         )}
         {!favorites.isLoading && !favorites.isError && total === 0 && (
           <div className="ui-card mx-auto max-w-2xl px-6 py-16 text-center">
-            <IconHeartOff className="mx-auto text-[var(--ui-accent)]" size={40} stroke={1.5} />
-            <h2 className="mt-5 text-2xl font-extrabold text-[var(--ui-text)]">Nothing saved yet</h2>
+            <h2 className="text-2xl font-extrabold text-[var(--ui-text)]">Nothing saved yet</h2>
             <p className="mx-auto mt-3 max-w-md text-[var(--ui-text-muted)]">
               Explore real mentors and courses, then use the heart to keep the right options close.
             </p>
@@ -112,8 +107,7 @@ const FavoritesPage = () => {
 
         {(filter === "all" || filter === "mentor") && mentors.length > 0 && (
           <section className="mb-12">
-            <div className="mb-5 flex items-center gap-3">
-              <IconUsers className="text-[var(--ui-accent)]" size={24} />
+            <div className="mb-5">
               <h2 className="text-2xl font-extrabold tracking-tight text-[var(--ui-text)]">Saved mentors</h2>
             </div>
             <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
@@ -142,9 +136,9 @@ const FavoritesPage = () => {
                       <button
                         type="button"
                         onClick={() => navigate(`/mentor/${mentor._id}`)}
-                        className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-full bg-[var(--ui-accent-fill)] px-4 text-sm font-bold text-white hover:bg-[var(--ui-accent-fill-hover)]"
+                        className="min-h-11 flex-1 rounded-full bg-[var(--ui-accent-fill)] px-4 text-sm font-bold text-white hover:bg-[var(--ui-accent-fill-hover)]"
                       >
-                        View mentor <IconArrowUpRight size={18} />
+                        View mentor
                       </button>
                       <button
                         type="button"
@@ -165,8 +159,7 @@ const FavoritesPage = () => {
 
         {(filter === "all" || filter === "course") && courses.length > 0 && (
           <section>
-            <div className="mb-5 flex items-center gap-3">
-              <IconBook2 className="text-[var(--ui-accent)]" size={24} />
+            <div className="mb-5">
               <h2 className="text-2xl font-extrabold tracking-tight text-[var(--ui-text)]">Saved courses</h2>
             </div>
             <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
@@ -180,9 +173,7 @@ const FavoritesPage = () => {
                   >
                     {course.thumbnail ? (
                       <img src={course.thumbnail} alt="" loading="lazy" className="h-full w-full object-cover transition-transform duration-300 hover:scale-[1.03]" />
-                    ) : (
-                      <IconBook2 className="absolute bottom-5 right-5 text-[var(--ui-accent)]" size={48} stroke={1.2} />
-                    )}
+                    ) : <span className="absolute bottom-5 right-5 text-sm font-bold text-[var(--ui-accent)]">Course</span>}
                   </button>
                   <div className="p-5">
                     <div className="flex items-start justify-between gap-3">
@@ -193,9 +184,7 @@ const FavoritesPage = () => {
                         </p>
                       </div>
                       {typeof course.rate === "number" && (
-                        <span className="inline-flex items-center gap-1 text-sm font-bold text-[var(--ui-text)]">
-                          <IconStarFilled size={15} className="text-[var(--ui-warning)]" /> {course.rate.toFixed(1)}
-                        </span>
+                        <span className="text-sm font-bold text-[var(--ui-text)]">{course.rate.toFixed(1)} / 5</span>
                       )}
                     </div>
                     <div className="mt-5 flex items-center justify-between">

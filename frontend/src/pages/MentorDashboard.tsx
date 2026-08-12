@@ -1,23 +1,22 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import {
-  IconArrowUpRight,
-  IconBook2,
-  IconCalendarEvent,
-  IconCash,
-  IconChartDots3,
-  IconChevronRight,
-  IconClock,
-  IconMessageCircle,
-  IconSettings,
-  IconStar,
-  IconUsers,
-} from "@tabler/icons-react";
 import bookingApi from "../api/modules/booking.api";
 import courseApi from "../api/modules/course.api";
 import earningsApi from "../api/modules/earnings.api";
 import profileApi from "../api/modules/profile.api";
 import purchasedCourseApi from "../api/modules/purchasedCourse.api";
+import MentorProfilePanel from "../components/mentor/MentorProfilePanel";
+import MentorProfile from "./mentor-profile";
+
+type MentorSection =
+  | "overview"
+  | "response"
+  | "schedule"
+  | "mycourses"
+  | "mentees"
+  | "messages"
+  | "reviews"
+  | "earnings"
+  | "profile";
 
 const money = (value: number) =>
   new Intl.NumberFormat("vi-VN", {
@@ -27,7 +26,6 @@ const money = (value: number) =>
   }).format(value || 0);
 
 const MentorDashboard = () => {
-  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<any>({});
   const [bookings, setBookings] = useState<any[]>([]);
@@ -35,6 +33,10 @@ const MentorDashboard = () => {
   const [mentees, setMentees] = useState<any[]>([]);
   const [earnings, setEarnings] = useState<any>({ items: [], summary: {} });
   const [error, setError] = useState("");
+  const [activeSection, setActiveSection] = useState<MentorSection>(() => {
+    const saved = localStorage.getItem("mentorProfileTab") as MentorSection | null;
+    return saved && saved !== "overview" ? saved : "overview";
+  });
 
   useEffect(() => {
     const load = async () => {
@@ -80,20 +82,20 @@ const MentorDashboard = () => {
     [bookings],
   );
 
-  const openSection = (tab: string) => {
+  const openSection = (tab: MentorSection) => {
     localStorage.setItem("mentorProfileTab", tab);
-    navigate("/mentor/profile");
+    setActiveSection(tab);
   };
 
   const navigation = [
-    ["Bookings", "response", IconCalendarEvent],
-    ["Schedule", "schedule", IconClock],
-    ["Courses", "mycourses", IconBook2],
-    ["Mentees", "mentees", IconUsers],
-    ["Messages", "messages", IconMessageCircle],
-    ["Reviews", "reviews", IconStar],
-    ["Earnings", "earnings", IconCash],
-    ["Settings", "profile", IconSettings],
+    ["Bookings", "response"],
+    ["Schedule", "schedule"],
+    ["Courses", "mycourses"],
+    ["Mentees", "mentees"],
+    ["Messages", "messages"],
+    ["Reviews", "reviews"],
+    ["Earnings", "earnings"],
+    ["Settings", "profile"],
   ] as const;
 
   const paid = Number(earnings.summary?.paid || 0);
@@ -113,31 +115,66 @@ const MentorDashboard = () => {
       <div className="mx-auto grid max-w-[1500px] gap-6 lg:grid-cols-[240px_minmax(0,1fr)]">
         <aside className="ui-card h-fit overflow-hidden p-3 lg:sticky lg:top-24">
           <div className="mb-2 h-2 rounded-full bg-[var(--ui-highlight)]" />
-          <div className="px-3 pb-4 pt-3">
-            <p className="text-xs font-bold uppercase tracking-[0.18em] text-[var(--ui-accent)]">
-              Mentor workspace
-            </p>
-            <p className="mt-2 truncate text-lg font-bold text-[var(--ui-text)]">
-              {profile?.user?.firstName} {profile?.user?.lastName}
-            </p>
+          <div className="flex items-center gap-3 px-3 pb-4 pt-3">
+            {profile?.user?.avatarUrl ? (
+              <img
+                src={profile.user.avatarUrl}
+                alt={`${profile.user.firstName || ""} ${profile.user.lastName || ""}`.trim() || "Mentor"}
+                className="h-12 w-12 shrink-0 rounded-xl border-2 border-[var(--ui-border)] object-cover"
+              />
+            ) : (
+              <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-[var(--ui-accent-soft)] font-black text-[var(--ui-accent)]">
+                {(profile?.user?.firstName?.[0] || "M").toUpperCase()}
+              </div>
+            )}
+            <div className="min-w-0">
+              <p className="truncate font-bold text-[var(--ui-text)]">
+                {profile?.user?.firstName} {profile?.user?.lastName}
+              </p>
+              <p className="mt-0.5 text-xs font-semibold text-[var(--ui-accent)]">Mentor</p>
+            </div>
           </div>
-          <button className="flex w-full items-center gap-3 rounded-xl border-2 border-[var(--ui-highlight)] bg-[var(--ui-highlight-soft)] px-3 py-3 text-left font-bold text-[var(--ui-highlight-contrast)] shadow-[3px_3px_0_var(--ui-accent-soft)]">
-            <IconChartDots3 size={19} /> Overview
+          <button
+            onClick={() => {
+              localStorage.setItem("mentorProfileTab", "overview");
+              setActiveSection("overview");
+            }}
+            className={`w-full rounded-xl px-3 py-3 text-left font-bold transition ${
+              activeSection === "overview"
+                ? "border-2 border-[var(--ui-highlight)] bg-[var(--ui-highlight-soft)] text-[var(--ui-highlight-contrast)] shadow-[3px_3px_0_var(--ui-accent-soft)]"
+                : "text-[var(--ui-text-muted)] hover:bg-[var(--ui-surface-muted)]"
+            }`}
+          >
+            Overview
           </button>
           <div className="mt-2 grid grid-cols-2 gap-1 sm:grid-cols-4 lg:grid-cols-1">
-            {navigation.map(([label, tab, Icon]) => (
+            {navigation.map(([label, tab]) => (
               <button
                 key={tab}
                 onClick={() => openSection(tab)}
-                className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-[var(--ui-text-muted)] transition hover:bg-[var(--ui-surface-muted)] hover:text-[var(--ui-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ui-accent)]"
+                className={`rounded-xl px-3 py-2.5 text-left text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ui-accent)] ${
+                  tab === "profile" && activeSection === "profile"
+                    ? "bg-[var(--ui-accent-soft)] font-bold text-[var(--ui-accent)]"
+                    : "text-[var(--ui-text-muted)] hover:bg-[var(--ui-surface-muted)] hover:text-[var(--ui-text)]"
+                }`}
               >
-                <Icon size={18} /> {label}
+                {label}
               </button>
             ))}
           </div>
         </aside>
 
         <section className="min-w-0 space-y-6">
+          {activeSection === "profile" ? (
+            <MentorProfilePanel profile={profile} onUpdated={setProfile} />
+          ) : activeSection !== "overview" ? (
+            <MentorProfile
+              embedded
+              selectedTab={activeSection}
+              onTabChange={(tab) => setActiveSection(tab as MentorSection)}
+            />
+          ) : (
+            <>
           <header className="ui-brand-hero overflow-hidden rounded-[28px] border-2 border-blue-300/30 px-6 py-7 text-white shadow-[var(--ui-shadow-lg)] sm:px-8 sm:py-9">
             <div className="flex flex-col justify-between gap-6 md:flex-row md:items-end">
               <div>
@@ -151,9 +188,9 @@ const MentorDashboard = () => {
               </div>
               <button
                 onClick={() => openSection("schedule")}
-                className="ui-button-highlight inline-flex items-center justify-center gap-2 rounded-full px-5 py-3 text-sm font-bold transition-all"
+                className="ui-button-highlight inline-flex items-center justify-center rounded-full px-5 py-3 text-sm font-bold transition-all"
               >
-                Publish availability <IconArrowUpRight size={18} />
+                Publish availability
               </button>
             </div>
           </header>
@@ -207,9 +244,6 @@ const MentorDashboard = () => {
                     onClick={() => openSection("response")}
                     className="group flex w-full items-center gap-4 rounded-2xl border-2 border-[var(--ui-border)] p-4 text-left transition hover:-translate-y-0.5 hover:border-[var(--ui-accent)] hover:bg-[var(--ui-accent-soft)]"
                   >
-                    <div className="grid h-12 w-12 place-items-center rounded-[44%_56%_48%_52%] border-2 border-[var(--ui-highlight)] bg-[var(--ui-highlight-soft)] text-[var(--ui-accent)]">
-                      <IconCalendarEvent size={21} />
-                    </div>
                     <div className="min-w-0 flex-1">
                       <p className="truncate font-semibold text-[var(--ui-text)]">
                         {booking.mentee?.firstName} {booking.mentee?.lastName}
@@ -221,7 +255,6 @@ const MentorDashboard = () => {
                     <span className="rounded-full bg-[var(--ui-surface-muted)] px-3 py-1 text-xs font-bold uppercase text-[var(--ui-text-muted)]">
                       {booking.status}
                     </span>
-                    <IconChevronRight className="text-[var(--ui-text-muted)] transition group-hover:translate-x-0.5" size={18} />
                   </button>
                 ))}
               </div>
@@ -246,11 +279,13 @@ const MentorDashboard = () => {
                   </div>
                 </div>
               </div>
-              <button onClick={() => openSection("earnings")} className="mt-4 flex w-full items-center justify-between rounded-xl px-2 py-3 text-sm font-semibold text-[var(--ui-text)]">
-                Open earnings ledger <IconChevronRight size={18} />
+              <button onClick={() => openSection("earnings")} className="mt-4 w-full rounded-xl px-2 py-3 text-left text-sm font-semibold text-[var(--ui-text)]">
+                Open earnings ledger
               </button>
             </article>
           </div>
+            </>
+          )}
         </section>
       </div>
     </main>

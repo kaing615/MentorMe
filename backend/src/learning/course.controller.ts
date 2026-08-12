@@ -5,6 +5,7 @@ import {
   Get,
   HttpCode,
   Param,
+  Patch,
   Post,
   Put,
   Query,
@@ -22,6 +23,7 @@ import { AddCourseReviewDto } from "./dto/add-course-review.dto";
 import { AddMentorDto } from "./dto/add-mentor.dto";
 import { CourseQueryDto } from "./dto/course-query.dto";
 import { CreateCourseDto } from "./dto/create-course.dto";
+import { ModerateCourseDto } from "./dto/moderate-course.dto";
 import { UpdateCourseDto } from "./dto/update-course.dto";
 
 @Controller(["course", "courses"])
@@ -66,6 +68,34 @@ export class CourseController {
   @Get()
   list(@Query() query: CourseQueryDto) {
     return this.courses.list(query);
+  }
+
+  @Get("admin")
+  @UseGuards(JwtAuthGuard)
+  adminList(
+    @CurrentUser() user: UserDocument,
+    @Query() query: Record<string, string | undefined>,
+  ) {
+    return this.courses.adminList(user, query);
+  }
+
+  @Patch("admin/:courseId/suspend")
+  @UseGuards(JwtAuthGuard)
+  suspend(
+    @CurrentUser() user: UserDocument,
+    @Param("courseId") courseId: string,
+    @Body() dto: ModerateCourseDto,
+  ) {
+    return this.courses.suspend(user, courseId, dto.reason);
+  }
+
+  @Patch("admin/:courseId/restore")
+  @UseGuards(JwtAuthGuard)
+  restore(
+    @CurrentUser() user: UserDocument,
+    @Param("courseId") courseId: string,
+  ) {
+    return this.courses.restore(user, courseId);
   }
 
   @Get("my-courses")

@@ -5,14 +5,9 @@ import {
   IconArrowRight,
   IconBriefcase,
   IconCode,
-  IconMessageCircle,
   IconPalette,
   IconSearch,
   IconSpeakerphone,
-  IconStar,
-  IconStarFilled,
-  IconTrendingUp,
-  IconUsers,
 } from "@tabler/icons-react";
 import { useNavigate } from "react-router-dom";
 import gsap from "gsap";
@@ -484,11 +479,6 @@ const HomeScreen = () => {
             <p className="text-sm font-bold text-blue-100">Guidance that moves you forward</p>
             <h1 className="mt-5 max-w-[17ch] text-4xl font-[790] leading-[0.98] tracking-[-0.055em] text-white sm:text-5xl lg:text-6xl">
               Learn faster with the
-              <span
-                aria-hidden="true"
-                className="ui-inline-image"
-                style={{ backgroundImage: `url(${MentoringHero})` }}
-              />
               <span className="ui-marker">right mentor.</span>
             </h1>
             <p className="mt-6 max-w-[42ch] text-base leading-7 text-blue-100 sm:text-lg">
@@ -531,7 +521,6 @@ const HomeScreen = () => {
           {[0, 1].map((cycle) => (
             <div key={cycle} className="flex w-max min-w-screen shrink-0 items-center justify-around gap-3 px-3" aria-hidden={cycle === 1}>
               {categories.map((category) => {
-                const CategoryIcon = category.icon;
                 return (
                   <button
                     key={`${cycle}-${category.name}`}
@@ -545,9 +534,8 @@ const HomeScreen = () => {
                           : `/platform/search?category=${encodeURIComponent(category.name)}`,
                       );
                     }}
-                    className="inline-flex h-11 items-center gap-2 whitespace-nowrap rounded-full border-2 border-blue-200 bg-white px-5 text-sm font-bold text-blue-800 shadow-[3px_3px_0_var(--ui-highlight)] transition-transform hover:-translate-y-0.5"
+                    className="inline-flex h-11 items-center whitespace-nowrap rounded-full border-2 border-blue-200 bg-white px-5 text-sm font-bold text-blue-800 shadow-[3px_3px_0_var(--ui-highlight)] transition-transform hover:-translate-y-0.5"
                   >
-                    <CategoryIcon aria-hidden="true" size={18} stroke={1.8} />
                     {category.name}
                   </button>
                 );
@@ -570,10 +558,10 @@ const HomeScreen = () => {
           </div>
           <div className="space-y-6 lg:space-y-10 lg:pb-12">
           {[
-            { icon: IconSearch, title: "Discover your direction", copy: "Explore mentors and courses shaped around the outcome you want." },
-            { icon: IconMessageCircle, title: "Build the plan together", copy: "Choose a mentor, share the context, and agree on a focused format." },
-            { icon: IconTrendingUp, title: "Keep momentum visible", copy: "Apply the plan, ask better questions, and turn each session into action." },
-          ].map(({ icon: StepIcon, title, copy }, index) => (
+            { title: "Discover your direction", copy: "Explore mentors and courses shaped around the outcome you want." },
+            { title: "Build the plan together", copy: "Choose a mentor, share the context, and agree on a focused format." },
+            { title: "Keep momentum visible", copy: "Apply the plan, ask better questions, and turn each session into action." },
+          ].map(({ title, copy }, index) => (
             <article
               key={title}
               data-stack-card
@@ -586,9 +574,7 @@ const HomeScreen = () => {
                     : ""
               }`}
             >
-              <div className="flex h-14 w-14 items-center justify-center rounded-[44%_56%_48%_52%] border-2 border-[var(--ui-accent)] bg-[var(--ui-surface-raised)] text-[var(--ui-accent)] shadow-[3px_4px_0_var(--ui-highlight)]">
-                <StepIcon aria-hidden="true" size={27} stroke={1.8} />
-              </div>
+              <p className="text-sm font-black tabular-nums tracking-[0.18em] text-[var(--ui-accent)]">0{index + 1}</p>
               <h3 className="mt-12 max-w-[18ch] text-2xl font-black tracking-[-0.04em] text-[var(--ui-text)] sm:text-3xl">{title}</h3>
               <p className="mt-4 max-w-[44ch] text-base leading-7 text-[var(--ui-text-muted)]">{copy}</p>
             </article>
@@ -629,17 +615,15 @@ const HomeScreen = () => {
                 }}
                 className={`ui-card-interactive ${spanClass} ${toneClass} flex min-h-64 flex-col gap-4 rounded-[var(--ui-radius-lg)] border-2 px-6 py-7 text-left sm:p-8`}
               >
-                <div className={`flex h-12 w-12 items-center justify-center rounded-[44%_56%_48%_52%] border-2 ${index === 0 ? "border-yellow-300 bg-white/12 text-yellow-300" : "border-[var(--ui-accent)] bg-[var(--ui-accent-soft)] text-[var(--ui-accent)]"}`}>
-                  <CategoryIcon aria-hidden="true" size={25} stroke={1.7} />
-                </div>
+                <CategoryIcon aria-hidden="true" className="text-current" size={25} stroke={1.7} />
                 <span className={`text-xl font-extrabold ${index === 0 ? "text-white" : "text-[var(--ui-text)]"}`}>
                   {cat.name}
                 </span>
                 <span className={`max-w-[34ch] text-sm leading-6 ${index === 0 ? "text-blue-100" : "text-[var(--ui-text-muted)]"}`}>
                   {cat.description}
                 </span>
-                <span className={`mt-auto inline-flex items-center gap-1 text-sm font-bold ${index === 0 ? "text-yellow-300" : "text-[var(--ui-accent)]"}`}>
-                  View courses <IconArrowRight aria-hidden="true" size={17} stroke={1.8} />
+                <span className={`mt-auto text-sm font-bold ${index === 0 ? "text-yellow-300" : "text-[var(--ui-accent)]"}`}>
+                  View courses
                 </span>
               </button>
               );
@@ -759,8 +743,8 @@ const HomeScreen = () => {
                               maxWidth: "320px",
                             }}
                           >
-                            <div className="relative flex h-48 items-center justify-center overflow-hidden bg-[var(--ui-accent-soft)] text-[var(--ui-accent)]">
-                              <IconCode aria-hidden="true" size={36} stroke={1.5} />
+                            <div className="relative flex h-48 items-center justify-center overflow-hidden bg-[var(--ui-accent-soft)] text-sm font-bold text-[var(--ui-accent)]">
+                              Course preview
                               {thumbnail && (
                                 <img
                                   src={thumbnail}
@@ -810,19 +794,9 @@ const HomeScreen = () => {
                                     return mentorName;
                                   })()}
                                 </p>
-                                <div className="flex items-center gap-2 mb-2">
-                                  <div className="flex gap-0.5 text-yellow-500" aria-label={`${Number(rate || 0).toFixed(1)} out of 5 stars`}>
-                                    {[0, 1, 2, 3, 4].map((starIndex) =>
-                                      starIndex < Math.floor(rate || 0) ? (
-                                        <IconStarFilled key={starIndex} aria-hidden="true" size={15} />
-                                      ) : (
-                                        <IconStar key={starIndex} aria-hidden="true" size={15} stroke={1.8} />
-                                      ),
-                                    )}
-                                  </div>
-                                  <span className="text-sm text-[var(--ui-text-muted)]">
-                                    ({course.numberOfRatings || 0} Ratings)
-                                  </span>
+                                <div className="mb-2 flex items-center gap-2 text-sm text-[var(--ui-text-muted)]">
+                                  <span className="font-bold text-[var(--ui-text)]">{Number(rate || 0).toFixed(1)} / 5</span>
+                                  <span>({course.numberOfRatings || 0} ratings)</span>
                                 </div>
                                 <div className="mb-1 text-sm text-[var(--ui-text)]">
                                   {hours} Total Hours • {lectures} Lectures
@@ -894,7 +868,7 @@ const HomeScreen = () => {
                                   {isCourseAlreadyPurchased(courseId) ? (
                                     <>
                                       <div className="w-full bg-green-100 text-green-700 py-2 px-3 rounded-md text-sm font-medium text-center">
-                                        ✓ Already Purchased
+                                        Already Purchased
                                       </div>
                                       <button
                                         onClick={(e) =>
@@ -1049,25 +1023,18 @@ const HomeScreen = () => {
                             <p className="mt-1 truncate text-sm text-[var(--ui-text-muted)]">{mentor.jobTitle || "Professional"}</p>
                           </div>
                         </div>
-                        <div className="ui-sketch-note mt-7 min-h-24 p-4">
-                          <IconMessageCircle aria-hidden="true" className="text-[var(--ui-accent)]" size={19} stroke={1.8} />
-                          <p className="mt-2 line-clamp-3 whitespace-normal text-sm leading-6 text-[var(--ui-text)]">
+                            <div className="ui-sketch-note mt-7 min-h-24 p-4">
+                              <p className="line-clamp-3 whitespace-normal text-sm leading-6 text-[var(--ui-text)]">
                             {mentor.featuredReview || mentor.bio || "Explore this mentor's experience, focus areas, and available sessions."}
                           </p>
                         </div>
                         <div className="mt-auto flex w-full items-center justify-between pt-6">
                           <div className="flex items-center gap-4 text-sm font-bold text-[var(--ui-text-muted)]">
-                            <span className="inline-flex items-center gap-1.5 text-[var(--ui-highlight-strong)]">
-                              <IconStarFilled aria-hidden="true" size={17} />
-                              {(mentor.averageRating ?? 0).toFixed(1)}
-                            </span>
-                            <span className="inline-flex items-center gap-1.5">
-                              <IconUsers aria-hidden="true" size={17} stroke={1.8} />
-                              {mentor.totalMentees ?? 0}
-                            </span>
+                                <span className="text-[var(--ui-highlight-strong)]">{(mentor.averageRating ?? 0).toFixed(1)} / 5</span>
+                                <span>{mentor.totalMentees ?? 0} mentees</span>
                           </div>
-                          <span className="inline-flex items-center gap-1 text-sm font-bold text-[var(--ui-accent)]">
-                            View profile <IconArrowRight aria-hidden="true" size={18} stroke={1.8} />
+                              <span className="text-sm font-bold text-[var(--ui-accent)]">
+                                View profile
                           </span>
                         </div>
                       </button>
@@ -1096,10 +1063,9 @@ const HomeScreen = () => {
                   navigate("/auth/apply-as-men");
                   window.scrollTo(0, 0);
                 }}
-                className="ui-button-highlight inline-flex min-h-12 items-center gap-2 rounded-full px-6 py-3 text-base font-bold transition-all"
-              >
-                Mentor with MentorMe
-                <IconArrowRight aria-hidden="true" size={19} stroke={1.8} />
+                    className="ui-button-highlight inline-flex min-h-12 items-center rounded-full px-6 py-3 text-base font-bold transition-all"
+                  >
+                    Mentor with MentorMe
               </button>
               <button
                 onClick={handleSeeAllCourses}

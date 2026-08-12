@@ -15,6 +15,7 @@ import { JwtAuthGuard } from "../common/auth/jwt-auth.guard";
 import type { UserDocument } from "../identity/user.schema";
 import { CreateHelpRequestDto } from "./dto/create-help-request.dto";
 import { UpdateHelpRequestDto } from "./dto/update-help-request.dto";
+import { RespondHelpRequestDto } from "./dto/respond-help-request.dto";
 import { HelpRequestService } from "./help-request.service";
 
 @Controller("help/help-requests")
@@ -55,10 +56,9 @@ export class HelpRequestController {
   @UseGuards(JwtAuthGuard)
   list(
     @CurrentUser() user: UserDocument,
-    @Query("page") page?: string,
-    @Query("limit") limit?: string,
+    @Query() query: Record<string, string | undefined>,
   ) {
-    return this.helpRequests.list(user, page, limit);
+    return this.helpRequests.list(user, query);
   }
 
   @Get(":id")
@@ -75,5 +75,21 @@ export class HelpRequestController {
     @Body() dto: UpdateHelpRequestDto,
   ) {
     return this.helpRequests.update(user, id, dto);
+  }
+
+  @Post(":id/respond")
+  @UseGuards(JwtAuthGuard)
+  respond(
+    @CurrentUser() user: UserDocument,
+    @Param("id") id: string,
+    @Body() dto: RespondHelpRequestDto,
+  ) {
+    return this.helpRequests.respond(user, id, dto);
+  }
+
+  @Post(":id/retry-email")
+  @UseGuards(JwtAuthGuard)
+  retryEmail(@CurrentUser() user: UserDocument, @Param("id") id: string) {
+    return this.helpRequests.retryEmail(user, id);
   }
 }

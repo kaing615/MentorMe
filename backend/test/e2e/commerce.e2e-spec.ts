@@ -4,6 +4,7 @@ import { getConnectionToken, getModelToken } from "@nestjs/mongoose";
 import type { Connection, Model } from "mongoose";
 import { Types } from "mongoose";
 import request from "supertest";
+import { AuditLog } from "../../src/administration/audit-log.schema";
 import { Cart } from "../../src/commerce/cart.schema";
 import { MentorEarning } from "../../src/commerce/mentor-earning.schema";
 import { Discount } from "../../src/commerce/discount.schema";
@@ -22,6 +23,7 @@ describe("commerce", () => {
   let courses: Model<Course>;
   let purchases: Model<PurchasedCourse>;
   let earnings: Model<MentorEarning>;
+  let auditLogs: Model<AuditLog>;
   let courseId: string;
   let userToken: string;
   let mentorToken: string;
@@ -40,6 +42,7 @@ describe("commerce", () => {
       getModelToken(PurchasedCourse.name),
     );
     earnings = app.get<Model<MentorEarning>>(getModelToken(MentorEarning.name));
+    auditLogs = app.get<Model<AuditLog>>(getModelToken(AuditLog.name));
     const users = app.get<Model<User>>(getModelToken(User.name));
     courses = app.get<Model<Course>>(getModelToken(Course.name));
     const jwt = app.get(JwtService);
@@ -269,6 +272,8 @@ describe("commerce", () => {
       .send({ payoutReference: "BANK-TRANSFER-1" })
       .expect(200);
     expect((await earnings.findById(earning._id))?.status).toBe("paid");
+    expect(await auditLogs.findOne({ action: "payout.paid", targetId: String(earning._id) }).lean())
+      .toEqual(expect.objectContaining({ metadata: { payoutReference: "BANK-TRANSFER-1" } }));
     expect(await carts.countDocuments()).toBe(0);
     expect(
       await connection.collection("notifications").countDocuments({
@@ -300,6 +305,35 @@ describe("commerce", () => {
       .set("Authorization", `Bearer ${mentorToken}`)
       .send({ orderNumber: firstOrder })
       .expect(403);
+  });
+
+  it("rejects new cart and order use for suspended courses", async () => {
+    const suspended = await courses.create({
+      title: "Suspended commerce course",
+      description: "A separate course for marketplace purchase enforcement.",
+      price: 125000,
+      mentor: (await courses.findById(courseId))!.mentor,
+      category: "Development",
+      link: "https://example.com/suspended-commerce",
+      lectures: 1,
+    });
+    const suspendedId = String(suspended._id);
+    await request(app.getHttpServer())
+      .patch(`/api/v1/course/admin/${suspendedId}/suspend`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({ reason: "Suspended during marketplace policy review" })
+      .expect(200);
+
+    await request(app.getHttpServer())
+      .post("/api/v1/cart")
+      .set("Authorization", `Bearer ${userToken}`)
+      .send({ courseId: suspendedId })
+      .expect(400);
+    await request(app.getHttpServer())
+      .post("/api/v1/orders")
+      .set("Authorization", `Bearer ${userToken}`)
+      .send({ courses: [{ courseId: suspendedId }] })
+      .expect(400);
   });
 
   it("notifies the buyer when a payment callback fails", async () => {

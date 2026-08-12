@@ -11,6 +11,10 @@ const valid = {
   MOMO_PARTNER_CODE: "partner-code",
   MOMO_ACCESS_KEY: "access-key",
   MOMO_SECRET_KEY: "momo-secret",
+  SITE_ADMIN_EMAIL: "site-admin@example.com",
+  SITE_ADMIN_PASSWORD: "SafePassword1!",
+  SITE_ADMIN_FIRST_NAME: "Site",
+  SITE_ADMIN_LAST_NAME: "Administrator",
 };
 
 describe("payment environment", () => {
@@ -39,5 +43,23 @@ describe("payment environment", () => {
         MOMO_SECRET_KEY: "",
       }),
     ).not.toThrow();
+  });
+});
+
+describe("site administrator environment", () => {
+  it.each([
+    "SITE_ADMIN_EMAIL",
+    "SITE_ADMIN_PASSWORD",
+    "SITE_ADMIN_FIRST_NAME",
+    "SITE_ADMIN_LAST_NAME",
+  ])("rejects a missing or blank %s outside tests", (key) => {
+    expect(() =>
+      validateEnvironment({ ...valid, NODE_ENV: "development", [key]: "  " }),
+    ).toThrow(`${key} is required`);
+  });
+
+  it("allows test suites to provide bootstrap defaults later", () => {
+    const { SITE_ADMIN_EMAIL, SITE_ADMIN_PASSWORD, SITE_ADMIN_FIRST_NAME, SITE_ADMIN_LAST_NAME, ...withoutSiteAdmin } = valid;
+    expect(() => validateEnvironment({ ...withoutSiteAdmin, NODE_ENV: "test" })).not.toThrow();
   });
 });

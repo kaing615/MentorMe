@@ -1,5 +1,7 @@
 # MentorMe Production System Design
 
+> **Runtime update:** The approved NestJS migration design in `../superpowers/specs/2026-08-09-nestjs-backend-migration-design.md` supersedes this document's Express-specific runtime decisions. Scale, reliability, security, data, deployment, and operations goals remain active.
+
 **Status:** Approved design; implementation pending
 **Date:** 2026-08-08
 **Target:** Cost-conscious portfolio production

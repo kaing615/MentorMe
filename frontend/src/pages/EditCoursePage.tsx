@@ -482,7 +482,8 @@ const EditCoursePage = () => {
       dispatch(showLoading());
 
       setTimeout(() => {
-        navigate("/mentor/profile", { state: { tab: "mycourses" } });
+        localStorage.setItem("mentorProfileTab", "mycourses");
+        navigate("/mentor/dashboard");
         window.scrollTo({ top: 0, behavior: "smooth" });
       }, 800);
     } catch (error) {
@@ -515,9 +516,10 @@ const EditCoursePage = () => {
         <div className="flex items-center gap-4 mb-8">
           <button
             type="button"
-            onClick={() =>
-              navigate("/mentor/profile", { state: { tab: "mycourses" } })
-            }
+            onClick={() => {
+              localStorage.setItem("mentorProfileTab", "mycourses");
+              navigate("/mentor/dashboard");
+            }}
             className="flex items-center justify-center w-10 h-10 rounded-full bg-white shadow-sm border border-gray-200 hover:bg-gray-50 transition-colors group"
             title="Back to My Courses"
           >
@@ -947,9 +949,10 @@ const EditCoursePage = () => {
             <div className="flex justify-end gap-4 mt-8">
               <button
                 type="button"
-                onClick={() =>
-                  navigate("/mentor/profile", { state: { tab: "mycourses" } })
-                }
+                onClick={() => {
+                  localStorage.setItem("mentorProfileTab", "mycourses");
+                  navigate("/mentor/dashboard");
+                }}
                 className="px-8 py-3 bg-white text-gray-700 border border-gray-300 rounded-md hover:bg-gray-50 focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-colors"
               >
                 Cancel

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { IconBook2, IconSearch } from "@tabler/icons-react";
+import { IconSearch } from "@tabler/icons-react";
 import { searchMentors } from "../../api/modules/mentor.api";
 
 import courseApi from "../../api/modules/course.api";
@@ -361,7 +361,7 @@ const SearchDropdown = () => {
                               className="w-full h-full object-cover rounded"
                             />
                           ) : (
-                            <IconBook2 aria-hidden="true" size={18} stroke={1.8} />
+                            <span className="text-[10px] font-bold">Course</span>
                           )}
                         </div>
                         <span className="flex-1 truncate block">
@@ -390,7 +390,6 @@ const SearchDropdown = () => {
                 displayCourses.length === 0 &&
                 !loading && (
                   <div className="p-8 text-center text-[var(--ui-text-muted)]">
-                    <IconSearch aria-hidden="true" className="mx-auto mb-3 text-[var(--ui-accent)]" size={36} stroke={1.5} />
                     <p className="font-medium">No results found</p>
                     <p className="text-sm mt-1">
                       Try another keyword or see all mentors/courses below

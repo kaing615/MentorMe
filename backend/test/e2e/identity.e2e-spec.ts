@@ -3,6 +3,7 @@ import { getConnectionToken, getModelToken } from "@nestjs/mongoose";
 import bcrypt from "bcryptjs";
 import type { Connection, Model } from "mongoose";
 import request from "supertest";
+import { AuditLog } from "../../src/administration/audit-log.schema";
 import { EmailService } from "../../src/infrastructure/email/email.service";
 import { CloudinaryService } from "../../src/infrastructure/files/cloudinary.service";
 import { MentorApplication } from "../../src/identity/mentor-application.schema";
@@ -14,6 +15,7 @@ describe("identity", () => {
   let connection: Connection;
   let users: Model<User>;
   let mentorApplications: Model<MentorApplication>;
+  let auditLogs: Model<AuditLog>;
 
   beforeAll(async () => {
     app = await createApplication();
@@ -23,6 +25,7 @@ describe("identity", () => {
     mentorApplications = app.get<Model<MentorApplication>>(
       getModelToken(MentorApplication.name),
     );
+    auditLogs = app.get<Model<AuditLog>>(getModelToken(AuditLog.name));
     jest
       .spyOn(app.get(EmailService), "sendVerification")
       .mockResolvedValue(undefined);
@@ -302,5 +305,13 @@ describe("identity", () => {
     expect(response.body.data.application.status).toBe("approved");
     expect(response.body.data.user.role).toBe("mentor");
     expect(response.body.data.user.roles).toEqual(["mentee", "mentor"]);
+
+    expect(await auditLogs.findOne({ action: "mentor_application.approved" }).lean())
+      .toEqual(expect.objectContaining({
+        actor: expect.objectContaining({}),
+        action: "mentor_application.approved",
+        targetId: String(application._id),
+        targetType: "mentor_application",
+      }));
   });
 });

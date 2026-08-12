@@ -9,12 +9,12 @@ test("notification events resolve to the correct role-specific destination", () 
     tab: "messages",
   });
   assert.deepEqual(getNotificationTarget("booking_created", true, "/fallback"), {
-    path: "/mentor/profile",
+    path: "/mentor/dashboard",
     storageKey: "mentorProfileTab",
     tab: "response",
   });
   assert.deepEqual(getNotificationTarget("review_received", true, "/fallback"), {
-    path: "/mentor/profile",
+    path: "/mentor/dashboard",
     storageKey: "mentorProfileTab",
     tab: "reviews",
   });

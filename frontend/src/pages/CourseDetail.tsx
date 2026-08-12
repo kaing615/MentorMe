@@ -1,18 +1,12 @@
 import React, { useRef, useState, useEffect } from "react";
 import { useDispatch } from "react-redux";
 import { useParams, useNavigate } from "react-router-dom";
-import { IoStarOutline, IoStar } from "react-icons/io5";
-import { AiOutlineGlobal } from "react-icons/ai";
-import { FaHashtag, FaBullseye } from "react-icons/fa";
-import { GiLevelEndFlag } from "react-icons/gi";
 import CoursePic from "../assets/thumbnail.png";
 import facebooklogo from "../assets/facebook.png";
 import githublogo from "../assets/github.png";
 import googlelogo from "../assets/google.png";
 import twitterlogo from "../assets/twitter.png";
 import microsoftlogo from "../assets/microsoft.png";
-import { ImQuotesLeft } from "react-icons/im";
-import { VscCodeReview } from "react-icons/vsc";
 import { showLoading, hideLoading } from "../redux/features/loading.slice";
 import courseApi from "../api/modules/course.api";
 import cartApi from "../api/modules/cart.api";
@@ -521,41 +515,7 @@ const CourseDetail = () => {
   };
 
   // Stars render
-  const renderStars = (rating) => {
-    const stars = [];
-    const r = Number(rating) || 0;
-    const full = Math.floor(r);
-    const hasHalf = r % 1 !== 0;
-
-    for (let i = 0; i < full; i++) {
-      stars.push(
-        <IoStar key={`full-${i}`} className="text-yellow-500" size={20} />
-      );
-    }
-    if (hasHalf) {
-      stars.push(
-        <div key="half" className="relative">
-          <IoStarOutline className="text-yellow-500" size={20} />
-          <IoStar
-            className="text-yellow-500 absolute top-0 left-0"
-            size={20}
-            style={{ clipPath: "inset(0 50% 0 0)" }}
-          />
-        </div>
-      );
-    }
-    const empty = 5 - Math.ceil(r);
-    for (let i = 0; i < empty; i++) {
-      stars.push(
-        <IoStarOutline
-          key={`empty-${i}`}
-          className="text-yellow-500"
-          size={20}
-        />
-      );
-    }
-    return stars;
-  };
+  const renderStars = (rating) => <span className="font-semibold">{Number(rating || 0).toFixed(1)} / 5</span>;
 
   const basePrice = Number(courseData?.price) || 0;
   const discount = Number(courseData?.discount) || 0;
@@ -675,10 +635,6 @@ const CourseDetail = () => {
               title="hold language of course"
               className="flex flex-row mt-4 gap-3 items-start"
             >
-              <AiOutlineGlobal
-                className="text-gray-400 mt-1 flex-shrink-0"
-                size={25}
-              />
               <div className="flex flex-col flex-1 min-w-0">
                 <span className="text-gray-700 font-medium mb-2">
                   Languages:
@@ -772,10 +728,6 @@ const CourseDetail = () => {
               title="hold tags"
               className="flex flex-row mt-4 gap-3 items-start"
             >
-              <FaHashtag
-                className="text-gray-400 mt-1 flex-shrink-0"
-                size={25}
-              />
               <div className="flex flex-col flex-1 min-w-0">
                 <span className="text-gray-700 font-medium mb-2">Tags:</span>
                 <div className="flex flex-wrap gap-1">
@@ -867,10 +819,6 @@ const CourseDetail = () => {
               title="hold level"
               className="flex flex-row mt-4 gap-3 items-start"
             >
-              <GiLevelEndFlag
-                className="text-gray-400 mt-1 flex-shrink-0"
-                size={25}
-              />
               <div className="flex flex-col flex-1 min-w-0">
                 <span className="text-gray-700 font-medium mb-2">Level:</span>
                 <div className="flex flex-wrap gap-1">
@@ -888,10 +836,6 @@ const CourseDetail = () => {
               title="hold key objectives"
               className="flex flex-row mt-4 gap-3 items-start"
             >
-              <FaBullseye
-                className="text-gray-400 mt-1 flex-shrink-0"
-                size={25}
-              />
               <div className="flex flex-col flex-1 min-w-0">
                 <span className="text-gray-700 font-medium mb-2">
                   Key Learning Objectives:
@@ -1028,7 +972,7 @@ const CourseDetail = () => {
                 {isCourseAlreadyPurchased(courseData?._id) ? (
                   <div className="w-full flex flex-col gap-3">
                     <div className="w-full bg-green-100 text-green-700 py-3 px-4 rounded-md text-sm font-medium text-center">
-                      ✓ Already Purchased
+                      Already Purchased
                     </div>
                     <button
                       className="w-full bg-blue-600 text-white py-3 px-4 rounded-md text-sm font-medium hover:bg-blue-700 transition"
@@ -1247,9 +1191,6 @@ const CourseDetail = () => {
                       style={{ scrollSnapAlign: "start" }}
                       onClick={() => openReviewModal(review)}
                     >
-                      <div className="text-blue-700 text-4xl mb-2 transition-all duration-300 group-hover:text-blue-600 group-hover:scale-110 group-hover:rotate-12">
-                        <VscCodeReview />
-                      </div>
 
                       {/* Rating Stars */}
                       <div className="flex items-center gap-1 mb-2 group-hover:scale-105 transition-all duration-300">
@@ -1496,7 +1437,7 @@ const CourseDetail = () => {
                           ) ? (
                             <>
                               <div className="w-full bg-green-100 text-green-700 py-2 px-3 rounded-md text-sm font-medium text-center">
-                                ✓ Already Purchased
+                                Already Purchased
                               </div>
                               <button
                                 onClick={(e) => {
@@ -1567,7 +1508,6 @@ const CourseDetail = () => {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="text-blue-700 text-3xl">
-                    <VscCodeReview />
                   </div>
                   <h3 className="text-xl font-bold text-gray-900">
                     Course Review
@@ -1615,7 +1555,7 @@ const CourseDetail = () => {
                         animationDelay: `${star * 100}ms`,
                       }}
                     >
-                      ★
+                      {Number(selectedReview.rate || 0).toFixed(1)} / 5
                     </span>
                   ))}
                   <span className="text-lg text-gray-700 ml-3 font-semibold">

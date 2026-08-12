@@ -14,10 +14,8 @@ import {
   IconChevronRight,
   IconFilter,
   IconSearch,
-  IconSearchOff,
 } from "@tabler/icons-react";
 import OipImg from "../assets/OIP.webp";
-import BoImg from "../assets/Bơ.jpg";
 
 const AllCoursePage = () => {
   const navigate = useNavigate();
@@ -61,7 +59,7 @@ const AllCoursePage = () => {
   const [loading, setLoading] = useState<any>(true);
   const [error, setError] = useState<any>(null);
 
-  // ⭐ NEW: State để lưu purchased courses mapping
+  // State để lưu purchased courses mapping
   const [purchasedCoursesMap, setPurchasedCoursesMap] = useState<any>(new Map());
 
   // Filter states
@@ -91,12 +89,12 @@ const AllCoursePage = () => {
     );
   };
 
-  // ⭐ NEW: Helper function để lấy purchasedCourseId nếu course đã được mua
+  // Helper function để lấy purchasedCourseId nếu course đã được mua
   const getPurchasedCourseId = (courseId) => {
     return purchasedCoursesMap.get(courseId) || null;
   };
 
-  // ⭐ NEW: Smart navigation function cho purchased courses
+  // Smart navigation function cho purchased courses
   const handleSmartViewCourse = (course) => {
     const courseId = course._id || course.id;
     const purchasedCourseId = getPurchasedCourseId(courseId);
@@ -254,7 +252,7 @@ const AllCoursePage = () => {
             } Total Hours`,
             lectures: course.lectures || course.totalLectures || 0,
             image:
-              course.thumbnail || course.image || (index % 2 ? BoImg : OipImg),
+              course.thumbnail || course.image,
             description:
               course.description ||
               course.courseOverview ||
@@ -294,7 +292,7 @@ const AllCoursePage = () => {
   // Separate useEffect for checking purchase status when courses load
   useEffect(() => {
     const fetchPurchasedCourses = async () => {
-      // ⭐ Chỉ fetch purchased courses nếu user là mentee
+      // Chỉ fetch purchased courses nếu user là mentee
       if (!hasUserRole(user, "mentee")) {
         return;
       }
@@ -500,7 +498,7 @@ const AllCoursePage = () => {
           originalPrice: parseFloat(course.originalPrice || course.price || 0),
           duration: `${course.duration || course.totalHours || 0} Total Hours`,
           lectures: course.lectures || course.totalLectures || 0,
-          image: course.thumbnail || course.image || (index % 2 ? BoImg : OipImg),
+          image: course.thumbnail || course.image,
           description:
             course.description ||
             course.courseOverview ||
@@ -876,7 +874,7 @@ const AllCoursePage = () => {
                                 : "text-gray-300"
                             }`}
                           >
-                            ★
+                            {Number(course.rate || 0).toFixed(1)} / 5
                           </span>
                         ))}
                         <span className="text-sm text-gray-700 ml-2">
@@ -953,13 +951,13 @@ const AllCoursePage = () => {
                           {isCourseAlreadyPurchased(course.id) ? (
                             <>
                               <div className="w-full bg-green-100 text-green-700 py-2 px-3 rounded-md text-sm font-medium text-center">
-                                ✓ Already Purchased
+                                Already Purchased
                               </div>
                               <button
                                 className="w-full bg-blue-600 text-white py-2 px-3 rounded-md text-sm font-medium hover:bg-blue-700 transition"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  handleSmartViewCourse(course); // ⭐ Sử dụng smart navigation
+                                  handleSmartViewCourse(course);
                                 }}
                               >
                                 View Course
@@ -989,8 +987,7 @@ const AllCoursePage = () => {
               </div>
             ) : (
               <div className="text-center py-12">
-                <IconSearchOff aria-hidden="true" className="mx-auto h-12 w-12 text-gray-400" stroke={1.5} />
-                <h3 className="mt-2 text-sm font-medium text-gray-900">
+                <h3 className="text-sm font-medium text-gray-900">
                   No courses found
                 </h3>
                 <p className="mt-1 text-sm text-gray-500">

@@ -23,10 +23,10 @@ test("Mimo exposes real quick actions for the active user mode", () => {
       true,
     ).map(({ label, path, tab }) => ({ label, path, tab })),
     [
-      { label: "Manage bookings", path: "/mentor/profile", tab: "response" },
-      { label: "My courses", path: "/mentor/profile", tab: "mycourses" },
-      { label: "Messages", path: "/mentor/profile", tab: "messages" },
-      { label: "Profile", path: "/mentor/profile", tab: "profile" },
+      { label: "Manage bookings", path: "/mentor/dashboard", tab: "response" },
+      { label: "My courses", path: "/mentor/dashboard", tab: "mycourses" },
+      { label: "Messages", path: "/mentor/dashboard", tab: "messages" },
+      { label: "Profile", path: "/mentor/dashboard", tab: "profile" },
     ],
   );
 
