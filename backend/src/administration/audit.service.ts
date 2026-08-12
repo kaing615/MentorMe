@@ -1,7 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import type { ClientSession, FilterQuery, Model } from "mongoose";
-import { Types } from "mongoose";
 import type { UserDocument } from "../identity/user.schema";
 import { assertAdmin } from "./admin-access";
 import { AuditLog } from "./audit-log.schema";

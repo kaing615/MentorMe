@@ -59,7 +59,9 @@ describe("site administrator environment", () => {
   });
 
   it("allows test suites to provide bootstrap defaults later", () => {
-    const { SITE_ADMIN_EMAIL, SITE_ADMIN_PASSWORD, SITE_ADMIN_FIRST_NAME, SITE_ADMIN_LAST_NAME, ...withoutSiteAdmin } = valid;
+    const withoutSiteAdmin = Object.fromEntries(
+      Object.entries(valid).filter(([key]) => !key.startsWith("SITE_ADMIN_")),
+    );
     expect(() => validateEnvironment({ ...withoutSiteAdmin, NODE_ENV: "test" })).not.toThrow();
   });
 });

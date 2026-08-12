@@ -170,10 +170,12 @@ describe("support", () => {
       .get("/api/v1/help/help-requests")
       .set("Authorization", `Bearer ${adminToken}`)
       .expect(200);
-    const ticket = listed.body.data.items.find(
+    const tickets = listed.body.data.items as Array<{ _id: string; ticketNumber: string }>;
+    const ticket = tickets.find(
       (item: { ticketNumber: string }) =>
-        item.ticketNumber === created.body.data.data.ticketNumber,
+        item.ticketNumber === String(created.body.data.data.ticketNumber),
     );
+    if (!ticket) throw new Error("Expected help request");
     jest.spyOn(email, "sendHelpResponse").mockResolvedValueOnce(undefined);
 
     const response = await request(app.getHttpServer())
@@ -203,10 +205,12 @@ describe("support", () => {
       .get("/api/v1/help/help-requests")
       .set("Authorization", `Bearer ${adminToken}`)
       .expect(200);
-    const ticket = listed.body.data.items.find(
+    const tickets = listed.body.data.items as Array<{ _id: string; ticketNumber: string }>;
+    const ticket = tickets.find(
       (item: { ticketNumber: string }) =>
-        item.ticketNumber === created.body.data.data.ticketNumber,
+        item.ticketNumber === String(created.body.data.data.ticketNumber),
     );
+    if (!ticket) throw new Error("Expected help request");
     jest.spyOn(email, "sendHelpResponse")
       .mockRejectedValueOnce(new Error("SMTP unavailable"))
       .mockResolvedValueOnce(undefined);
@@ -232,7 +236,7 @@ describe("support", () => {
       .expect(201);
     expect(retried.body.data).toEqual(expect.objectContaining({
       adminResponse: "Your saved answer",
-      respondedAt: failed.body.data.respondedAt,
+      respondedAt: String(failed.body.data.respondedAt),
       emailDeliveryStatus: "sent",
       emailDeliveryError: "",
     }));

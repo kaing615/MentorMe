@@ -306,12 +306,12 @@ describe("identity", () => {
     expect(response.body.data.user.role).toBe("mentor");
     expect(response.body.data.user.roles).toEqual(["mentee", "mentor"]);
 
-    expect(await auditLogs.findOne({ action: "mentor_application.approved" }).lean())
-      .toEqual(expect.objectContaining({
-        actor: expect.objectContaining({}),
+    const auditLog = await auditLogs.findOne({ action: "mentor_application.approved" }).lean();
+    expect(auditLog).toEqual(expect.objectContaining({
         action: "mentor_application.approved",
         targetId: String(application._id),
         targetType: "mentor_application",
-      }));
+    }));
+    expect(auditLog?.actor).toBeDefined();
   });
 });

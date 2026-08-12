@@ -159,10 +159,8 @@ describe("administration", () => {
       .set("Authorization", `Bearer ${adminToken}`)
       .expect(200);
     expect(overview.body.data.metrics.totalUsers).toBe(3);
-    expect(overview.body.data).toEqual(expect.objectContaining({
-      needsAttention: expect.any(Object),
-      recentActivity: expect.any(Array),
-    }));
+    expect(overview.body.data.needsAttention).toBeDefined();
+    expect(Array.isArray(overview.body.data.recentActivity)).toBe(true);
 
     const audit = await request(app.getHttpServer())
       .get("/api/v1/admin/audit?action=user.suspended")

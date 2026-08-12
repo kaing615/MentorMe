@@ -229,7 +229,7 @@ describe("paid booking commerce", () => {
     await request(app.getHttpServer())
       .post("/api/v1/payment/admin/manual-confirm")
       .set("Authorization", `Bearer ${adminToken}`)
-      .send({ orderNumber: created.body.data.order.orderNumber, transactionId: "ADMIN-CANCEL-PAID" })
+      .send({ orderNumber: String(created.body.data.order.orderNumber), transactionId: "ADMIN-CANCEL-PAID" })
       .expect(200);
 
     await request(app.getHttpServer())
