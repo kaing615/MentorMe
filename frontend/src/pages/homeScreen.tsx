@@ -20,6 +20,7 @@ import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { useGSAP } from "@gsap/react";
 
 import BecomeMentor from "../assets/become-an-mentor.jpg";
+import MentoringHero from "../assets/mentoring-hero.jpg";
 import MentoringHeroCutout from "../assets/mentoring-hero-cutout.png";
 
 import { showLoading, hideLoading } from "../redux/features/loading.slice";
@@ -480,24 +481,29 @@ const HomeScreen = () => {
       <section className="ui-brand-hero relative mx-3 mt-3 overflow-hidden rounded-[2rem] border-2 border-blue-300/30 px-4 pb-[22rem] pt-12 shadow-[var(--ui-shadow-lg)] sm:mx-5 sm:px-6 sm:pb-[27rem] lg:min-h-[39rem] lg:px-8 lg:pb-20 lg:pt-16">
         <div className="mx-auto grid max-w-7xl grid-cols-1 items-center gap-12 lg:grid-cols-[0.86fr_1.14fr] lg:gap-16">
           <div data-hero-copy className="relative z-20 w-full max-w-3xl">
-            <p className="text-base font-bold text-blue-100">Guidance that moves you forward</p>
-            <h1 className="mt-5 max-w-[17ch] text-[2.5rem] font-[790] leading-[0.98] tracking-[-0.055em] text-white sm:text-[3.25rem] lg:text-[3.75rem]">
-              Learn faster with the{" "}
+            <p className="text-sm font-bold text-blue-100">Guidance that moves you forward</p>
+            <h1 className="mt-5 max-w-[17ch] text-4xl font-[790] leading-[0.98] tracking-[-0.055em] text-white sm:text-5xl lg:text-6xl">
+              Learn faster with the
+              <span
+                aria-hidden="true"
+                className="ui-inline-image"
+                style={{ backgroundImage: `url(${MentoringHero})` }}
+              />
               <span className="ui-marker">right mentor.</span>
             </h1>
-            <p className="mt-6 max-w-[42ch] text-lg leading-7 text-blue-100 sm:text-xl">
+            <p className="mt-6 max-w-[42ch] text-base leading-7 text-blue-100 sm:text-lg">
               Find focused guidance, practical courses, and a clearer path to your next goal.
             </p>
             <div className="mt-9 flex flex-wrap gap-3">
               <button
                 onClick={() => navigate("/all-mentors")}
-                className="ui-button-highlight min-h-12 whitespace-nowrap rounded-full px-6 py-3 text-base font-bold transition-all sm:text-lg"
+                className="ui-button-highlight min-h-12 whitespace-nowrap rounded-full px-6 py-3 font-bold transition-all"
               >
                 Find your mentor
               </button>
               <button
                 onClick={handleSeeAllCourses}
-                className="min-h-12 whitespace-nowrap rounded-full border border-white/35 bg-white/12 px-6 py-3 text-base font-bold text-white backdrop-blur-md transition-all hover:-translate-y-0.5 hover:bg-white hover:text-blue-800 sm:text-lg"
+                className="min-h-12 whitespace-nowrap rounded-full border border-white/35 bg-white/12 px-6 py-3 font-bold text-white backdrop-blur-md transition-all hover:-translate-y-0.5 hover:bg-white hover:text-blue-800"
               >
                 Explore courses
               </button>
@@ -509,7 +515,7 @@ const HomeScreen = () => {
             <img
               src={MentoringHeroCutout}
               alt="A learner and mentor reviewing a practical learning plan"
-              className="absolute -bottom-4 -right-[8%] z-10 w-[145%] max-w-none sm:-bottom-8 sm:-right-[4%] sm:w-full lg:-bottom-[3%] lg:-right-[3%] lg:h-[96%] lg:w-auto"
+              className="absolute -bottom-4 -right-[8%] z-10 w-[135%] max-w-none sm:-bottom-8 sm:-right-[4%] sm:w-[92%] lg:-bottom-[3%] lg:-right-[3%] lg:h-[88%] lg:w-auto"
               fetchPriority="high"
             />
             <div className="absolute bottom-6 left-4 z-20 max-w-xs rounded-2xl border border-white/25 bg-blue-950/70 p-4 text-white shadow-[var(--ui-shadow-sm)] backdrop-blur-md sm:left-10 lg:bottom-8 lg:left-8">
