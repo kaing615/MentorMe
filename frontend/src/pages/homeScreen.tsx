@@ -20,7 +20,6 @@ import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { useGSAP } from "@gsap/react";
 
 import BecomeMentor from "../assets/become-an-mentor.jpg";
-import MentoringHero from "../assets/mentoring-hero.jpg";
 import MentoringHeroCutout from "../assets/mentoring-hero-cutout.png";
 
 import { showLoading, hideLoading } from "../redux/features/loading.slice";
@@ -482,13 +481,8 @@ const HomeScreen = () => {
         <div className="mx-auto grid max-w-7xl grid-cols-1 items-center gap-12 lg:grid-cols-[0.86fr_1.14fr] lg:gap-16">
           <div data-hero-copy className="relative z-20 w-full max-w-3xl">
             <p className="text-base font-bold text-blue-100">Guidance that moves you forward</p>
-            <h1 className="mt-5 max-w-[17ch] text-[2.5rem] font-[790] leading-[0.98] tracking-[-0.055em] text-white sm:text-[3.25rem] lg:text-[4rem]">
-              Learn faster with the
-              <span
-                aria-hidden="true"
-                className="ui-inline-image"
-                style={{ backgroundImage: `url(${MentoringHero})` }}
-              />
+            <h1 className="mt-5 max-w-[17ch] text-[2.5rem] font-[790] leading-[0.98] tracking-[-0.055em] text-white sm:text-[3.25rem] lg:text-[3.75rem]">
+              Learn faster with the{" "}
               <span className="ui-marker">right mentor.</span>
             </h1>
             <p className="mt-6 max-w-[42ch] text-lg leading-7 text-blue-100 sm:text-xl">
