@@ -1,10 +1,10 @@
 import React, { useState } from "react";
 import ImageForLogin from "../assets/ImageForLogIn.jpg";
-import { IconArrowRight } from "@tabler/icons-react";
 import authApi from "../api/modules/auth.api";
 import { toast } from "react-toastify";
 import { useNavigate } from "react-router-dom";
 import { setUser } from "../redux/features/user.slice";
+import { initializeAuth } from "../redux/features/auth.slice";
 import { useDispatch } from "react-redux";
 import { useEffect } from "react";
 import { getRoleHomePath } from "../routes/path";
@@ -135,6 +135,7 @@ const Login = () => {
         localStorage.setItem("actkn", response.data.token);
       }
 
+      dispatch(initializeAuth());
       navigate(getRoleHomePath(response.data?.user?.role));
     } catch (error) {
       console.error("Login error:", error);
@@ -234,7 +235,7 @@ const Login = () => {
               type="button"
               onClick={handleSubmit}
               disabled={isLoading}
-              className={`mb-3.5 flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border-0 px-6 py-3 text-left font-bold transition-colors ${
+              className={`mb-3.5 flex min-h-12 w-full items-center justify-center rounded-xl border-0 px-6 py-3 text-left font-bold transition-colors ${
                 isLoading
                   ? "bg-gray-400 text-gray-600 cursor-not-allowed"
                   : "cursor-pointer bg-[var(--ui-accent)] text-white hover:bg-[var(--ui-accent-strong)]"
@@ -243,7 +244,6 @@ const Login = () => {
               <span className="font-bold">
                 {isLoading ? "Đang đăng nhập..." : "Sign In"}
               </span>
-              {!isLoading && <IconArrowRight aria-hidden="true" size={19} stroke={1.8} />}
             </button>
           </div>
         </div>

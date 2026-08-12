@@ -44,6 +44,9 @@ export class CartService {
   async add(user: UserDocument, courseId: string) {
     const course = await this.courses.findById(courseId);
     if (!course) throw new NotFoundException("Không tìm thấy khóa học.");
+    if (course.moderationStatus === "suspended") {
+      throw new BadRequestException("Khóa học hiện không thể mua.");
+    }
     if (course.mentees.some((id) => String(id) === String(user._id))) {
       throw new BadRequestException("Bạn đã mua khóa học này rồi.");
     }

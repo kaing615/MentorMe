@@ -30,6 +30,21 @@ export class EmailService {
     });
   }
 
+  async sendHelpResponse(input: {
+    to: string;
+    name: string;
+    ticketNumber: string;
+    subject: string;
+    response: string;
+  }): Promise<void> {
+    const escape = (value: string) => value.replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]!);
+    await this.send({
+      to: input.to,
+      subject: `[MentorMe ${escape(input.ticketNumber)}] ${escape(input.subject)}`,
+      html: `<p>Xin chào ${escape(input.name)},</p><p>${input.response}</p><p>Mã yêu cầu: ${escape(input.ticketNumber)}</p>`,
+    });
+  }
+
   private async send(input: {
     to: string;
     subject: string;

@@ -8,6 +8,8 @@ import {
 import { InjectConnection, InjectModel } from "@nestjs/mongoose";
 import type { Connection, FilterQuery, Model } from "mongoose";
 import { Types } from "mongoose";
+import { assertAdmin } from "../administration/admin-access";
+import { AuditService } from "../administration/audit.service";
 import type { UserDocument } from "../identity/user.schema";
 import { User } from "../identity/user.schema";
 import { CloudinaryService } from "../infrastructure/files/cloudinary.service";
@@ -43,10 +45,12 @@ export class CourseService {
     @InjectModel(User.name) private readonly users: Model<User>,
     private readonly reviews: ReviewService,
     private readonly files: CloudinaryService,
+    private readonly audit: AuditService,
   ) {}
 
   async list(query: CourseQueryDto) {
     const filter = this.filter(query);
+    filter.moderationStatus = { $ne: "suspended" };
     const skip = (query.page - 1) * query.limit;
     const [courses, total] = await Promise.all([
       this.courses
@@ -89,7 +93,7 @@ export class CourseService {
       const current = await this.courses.findById(courseId).select("category");
       if (current?.category) categories = [current.category];
     }
-    const filter: FilterQuery<Course> = {};
+    const filter: FilterQuery<Course> = { moderationStatus: { $ne: "suspended" } };
     if (courseId) filter._id = { $ne: courseId };
     if (categories.length) filter.category = { $in: categories };
     const courses = await this.courses
@@ -107,20 +111,69 @@ export class CourseService {
 
   async byMentor(mentorId: string, page = 1, limit = 10) {
     this.assertId(mentorId);
+    const filter = { mentor: mentorId, moderationStatus: { $ne: "suspended" } };
     const [courses, total] = await Promise.all([
       this.courses
-        .find({ mentor: mentorId })
+        .find(filter)
         .select(PUBLIC_COURSE_SELECT)
         .populate("mentor", "firstName lastName avatarUrl jobTitle")
         .limit(limit)
         .skip((page - 1) * limit)
         .sort({ createdAt: -1 }),
-      this.courses.countDocuments({ mentor: mentorId }),
+      this.courses.countDocuments(filter),
     ]);
     return {
       message: "Lấy khóa học theo mentor thành công.",
       data: { courses, totalPages: Math.ceil(total / limit), currentPage: page, total },
     };
+  }
+
+  async adminList(user: UserDocument, query: Record<string, string | undefined>) {
+    assertAdmin(user);
+    const page = Math.max(Number(query.page) || 1, 1);
+    const limit = Math.min(Math.max(Number(query.limit) || 20, 1), 100);
+    const filter: FilterQuery<Course> = {};
+    if (["published", "suspended"].includes(query.status ?? "")) {
+      filter.moderationStatus = query.status;
+    }
+    if (query.mentor) filter.mentor = query.mentor;
+    if (query.search) {
+      filter.$or = [
+        { title: { $regex: query.search, $options: "i" } },
+        { description: { $regex: query.search, $options: "i" } },
+      ];
+    }
+    const [items, total] = await Promise.all([
+      this.courses.find(filter).populate("mentor", "firstName lastName email avatarUrl").sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit),
+      this.courses.countDocuments(filter),
+    ]);
+    return { items, total, page, limit };
+  }
+
+  async suspend(user: UserDocument, id: string, reason: string) {
+    assertAdmin(user);
+    this.assertId(id);
+    const course = await this.courses.findByIdAndUpdate(
+      id,
+      { moderationStatus: "suspended", suspensionReason: reason, suspendedAt: new Date(), suspendedBy: user._id },
+      { new: true },
+    );
+    if (!course) throw new NotFoundException("Course not found.");
+    await this.audit.record({ actor: user, action: "course.suspended", targetType: "course", targetId: id, reason });
+    return course;
+  }
+
+  async restore(user: UserDocument, id: string) {
+    assertAdmin(user);
+    this.assertId(id);
+    const course = await this.courses.findByIdAndUpdate(
+      id,
+      { $set: { moderationStatus: "published", suspensionReason: "" }, $unset: { suspendedAt: 1, suspendedBy: 1 } },
+      { new: true },
+    );
+    if (!course) throw new NotFoundException("Course not found.");
+    await this.audit.record({ actor: user, action: "course.restored", targetType: "course", targetId: id });
+    return course;
   }
 
   async own(user: UserDocument, query: CourseQueryDto) {

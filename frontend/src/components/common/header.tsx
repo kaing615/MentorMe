@@ -121,6 +121,10 @@ const Header = () => {
   const isLoggedIn =
     (user?.isLoggedIn && localLoggedIn && localUser && localToken) ||
     (localLoggedIn && localUser && localToken && !user?.isLoggedIn);
+  const isMentorMode =
+    Boolean(isLoggedIn) && showCategories && hasUserRole(displayUser, "mentor");
+  const isAdminMode = Boolean(isLoggedIn) && displayUser?.role === "admin";
+  const showDiscoveryNavigation = !isMentorMode && !isAdminMode;
 
   useEffect(() => {
     const savedMentorMode = localStorage.getItem("mentorMode");
@@ -212,7 +216,9 @@ const Header = () => {
                 if (isLoggedIn) {
                   const userData = localUser ? JSON.parse(localUser) : user;
                   const userRole = userData?.role;
-                  if (
+                  if (userRole === "admin") {
+                    navigate("/admin");
+                  } else if (
                     userRole === "mentor" &&
                     !(hasUserRole(userData, "mentee") && !showCategories)
                   ) {
@@ -231,32 +237,37 @@ const Header = () => {
             >
               <BrandLogo />
             </button>
-            <button
-              onClick={handleMentorClick}
-              className="hidden h-11 items-center whitespace-nowrap rounded-full px-4 text-sm font-semibold text-[var(--ui-text-muted)] transition-colors hover:bg-[var(--ui-accent-soft)] hover:text-[var(--ui-accent)] lg:inline-flex"
-            >
-              {showCategories ? "Categories" : "Mentors"}
-            </button>
-            <div className="hidden min-w-0 flex-1 sm:block">
-              <div className="flex w-full max-w-2xl items-center gap-2">
-                <SearchDropdown />
-              </div>
-            </div>
-            <button
-              type="button"
-              aria-label="Open search"
-              className="inline-flex h-11 w-11 items-center justify-center rounded-full text-[var(--ui-text-muted)] transition-colors hover:bg-[var(--ui-surface-muted)] sm:hidden"
-              onClick={() => navigate("/platform/search")}
-            >
-              <IconSearch aria-hidden="true" size={21} stroke={1.8} />
-            </button>
-            <button
-              type="button"
-              onClick={() => navigate("/auth/apply-as-men")}
-              className="ui-button-highlight hidden h-11 shrink-0 items-center whitespace-nowrap rounded-full px-4 text-sm font-bold transition-all xl:flex"
-            >
-              Mentor with MentorMe
-            </button>
+            {!isMentorMode && (
+              <>{showDiscoveryNavigation && <>
+                <button
+                  onClick={handleMentorClick}
+                  className="hidden h-11 items-center whitespace-nowrap rounded-full px-4 text-sm font-semibold text-[var(--ui-text-muted)] transition-colors hover:bg-[var(--ui-accent-soft)] hover:text-[var(--ui-accent)] lg:inline-flex"
+                >
+                  Mentors
+                </button>
+                <div className="hidden min-w-0 flex-1 sm:block">
+                  <div className="flex w-full max-w-2xl items-center gap-2">
+                    <SearchDropdown />
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  aria-label="Open search"
+                  className="inline-flex h-11 w-11 items-center justify-center rounded-full text-[var(--ui-text-muted)] transition-colors hover:bg-[var(--ui-surface-muted)] sm:hidden"
+                  onClick={() => navigate("/platform/search")}
+                >
+                  <IconSearch aria-hidden="true" size={21} stroke={1.8} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => navigate("/auth/apply-as-men")}
+                  className="ui-button-highlight hidden h-11 shrink-0 items-center whitespace-nowrap rounded-full px-4 text-sm font-bold transition-all xl:flex"
+                >
+                  Mentor with MentorMe
+                </button>
+              </>}</>
+            )}
+            {(isMentorMode || isAdminMode) && <div className="flex-1" />}
             <div className="ml-auto flex shrink-0 items-center gap-2 md:gap-3">
               <button
                 type="button"
@@ -295,7 +306,7 @@ const Header = () => {
                 </>
               ) : (
                 <div className="flex items-center gap-2">
-                  {shouldShowMenteeHeaderActions(displayUser, showCategories) && (
+                  {!isAdminMode && shouldShowMenteeHeaderActions(displayUser, showCategories) && (
                     <>
                       <button
                         type="button"
@@ -339,7 +350,9 @@ const Header = () => {
                               ? JSON.parse(localUser)
                               : user;
                             const userRole = userData?.role;
-                            if (
+                            if (userRole === "admin") {
+                              navigate("/admin");
+                            } else if (
                               userRole === "mentor" &&
                               !(hasUserRole(userData, "mentee") && !showCategories)
                             ) {
@@ -351,7 +364,7 @@ const Header = () => {
                         >
                           Profile
                         </button>
-                        {shouldShowMenteeHeaderActions(displayUser, showCategories) && (
+                            {!isAdminMode && shouldShowMenteeHeaderActions(displayUser, showCategories) && (
                           <>
                             <button
                               className="w-full border-t border-[var(--ui-border)] px-4 py-3 text-left text-sm font-medium text-[var(--ui-text)] hover:bg-[var(--ui-surface-muted)] lg:hidden"

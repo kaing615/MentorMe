@@ -5,9 +5,7 @@ import { FaFacebook } from "react-icons/fa6";
 import { FaXTwitter } from "react-icons/fa6";
 import { FaLinkedin } from "react-icons/fa";
 import { FaGoogle } from "react-icons/fa";
-import { VscEditSession } from "react-icons/vsc";
 import { BsCalendarDate } from "react-icons/bs";
-import { IoStar, IoStarOutline } from "react-icons/io5";
 import profileApi from "../api/modules/profile.api";
 import purchasedCourseApi from "../api/modules/purchasedCourse.api";
 import bookingApi from "../api/modules/booking.api";
@@ -19,35 +17,7 @@ import courseApi from "../api/modules/course.api";
 import MentorMenteeChat from "../components/MentorMenteeChat";
 
 const renderStars = (rating) => {
-  const stars = [];
-  const r = Number(rating) || 0;
-  const full = Math.floor(r);
-  const hasHalf = r % 1 !== 0;
-
-  for (let i = 0; i < full; i++) {
-    stars.push(
-      <IoStar key={`full-${i}`} className="text-yellow-500" size={16} />
-    );
-  }
-  if (hasHalf) {
-    stars.push(
-      <div key="half" className="relative">
-        <IoStarOutline className="text-yellow-500" size={16} />
-        <IoStar
-          className="text-yellow-500 absolute top-0 left-0"
-          size={16}
-          style={{ clipPath: "inset(0 50% 0 0)" }}
-        />
-      </div>
-    );
-  }
-  const empty = 5 - Math.ceil(r);
-  for (let i = 0; i < empty; i++) {
-    stars.push(
-      <IoStarOutline key={`empty-${i}`} className="text-yellow-500" size={16} />
-    );
-  }
-  return stars;
+  return <span className="font-semibold">{Number(rating || 0).toFixed(1)} / 5</span>;
 };
 
 const MenteeProfile = () => {
@@ -573,6 +543,7 @@ const MenteeProfile = () => {
             jobTitle: mentor.jobTitle || mentor.profession || "Mentor",
             hasCoursePurchase: false,
             hasBooking: false,
+            hasFinishedBooking: false,
           };
 
           existing.hasCoursePurchase = true;
@@ -598,9 +569,11 @@ const MenteeProfile = () => {
             jobTitle: mentor.jobTitle || mentor.profession || "Consultant",
             hasCoursePurchase: false,
             hasBooking: false,
+            hasFinishedBooking: false,
           };
 
           existing.hasBooking = true;
+          existing.hasFinishedBooking ||= b.status === "finished";
           mentorMap.set(mentorId, existing);
         });
       }
@@ -643,6 +616,7 @@ const MenteeProfile = () => {
             studentCount: m.studentCount || 0,
             hasCoursePurchase: !!m.hasCoursePurchase,
             hasBooking: !!m.hasBooking,
+            canRate: !!m.hasCoursePurchase || !!m.hasFinishedBooking,
           };
         });
 
@@ -751,32 +725,7 @@ const MenteeProfile = () => {
       return;
     }
 
-    let bookingDateTime;
-    try {
-      if (reviewBooking.date && reviewBooking.start) {
-        const dateStr = new Date(reviewBooking.date)
-          .toISOString()
-          .split("T")[0];
-        bookingDateTime = new Date(`${dateStr}T${reviewBooking.start}:00`);
-        if (isNaN(bookingDateTime.getTime())) {
-          bookingDateTime = new Date(
-            `${reviewBooking.date} ${reviewBooking.start}`
-          );
-        }
-      } else {
-        bookingDateTime = new Date(reviewBooking.date);
-      }
-    } catch (error) {
-      bookingDateTime = new Date(reviewBooking.date);
-    }
-
-    const isPastConsultation = bookingDateTime < new Date();
-
-    const isEffectivelyFinished =
-      reviewBooking.status === "finished" ||
-      (reviewBooking.status === "active" && isPastConsultation);
-
-    if (!isEffectivelyFinished) {
+    if (reviewBooking.status !== "finished") {
       console.error(
         "REVIEW BLOCKED: Booking is not finished or past consultation time"
       );
@@ -869,7 +818,7 @@ const MenteeProfile = () => {
           (booking) =>
             (booking.mentor?._id === mentorId ||
               booking.mentor?.id === mentorId) &&
-            (booking.status === "active" || booking.status === "finished")
+            booking.status === "finished"
         );
         hasBookingPermission = bookingsWithMentor.length > 0;
       }
@@ -912,19 +861,6 @@ const MenteeProfile = () => {
       }
 
       const finalPermission = hasBookingPermission || hasCoursePermission;
-
-      if (!finalPermission) {
-        const mentorInList = allMentors.some(
-          (mentor) =>
-            mentor._id === mentorId ||
-            mentor.id === mentorId ||
-            mentor.userName === mentorId
-        );
-
-        if (mentorInList) {
-          return true;
-        }
-      }
 
       return finalPermission;
     } catch (error) {
@@ -972,6 +908,11 @@ const MenteeProfile = () => {
       const hasPermission = await checkMentorReviewPermission(
         selectedMentor._id
       );
+
+      if (!hasPermission) {
+        toast.warning("You can only review a mentor after completing a consultation or purchasing their course.");
+        return;
+      }
 
       const reviewData = {
         targetType: "Mentor",
@@ -1602,7 +1543,7 @@ const MenteeProfile = () => {
                   <div className="space-y-4">
                     <div>
                       <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-1">
-                        <FaGoogle className="w-5 h-5 text-[#4285F4]" />
+                        <FaGoogle className="h-5 w-5 text-current" />
                         Website
                       </label>
                       <input
@@ -1616,7 +1557,7 @@ const MenteeProfile = () => {
                     </div>
                     <div>
                       <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-1">
-                        <FaXTwitter className="w-5 h-5 text-[#1DA1F2]" />
+                        <FaXTwitter className="h-5 w-5 text-current" />
                         Twitter
                       </label>
                       <input
@@ -1630,7 +1571,7 @@ const MenteeProfile = () => {
                     </div>
                     <div>
                       <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-1">
-                        <FaLinkedin className="w-5 h-5 text-[#0077B5]" />
+                        <FaLinkedin className="h-5 w-5 text-current" />
                         LinkedIn
                       </label>
                       <input
@@ -1644,7 +1585,7 @@ const MenteeProfile = () => {
                     </div>
                     <div>
                       <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-1">
-                        <FaFacebook className="w-5 h-5 text-[#1877F3]" />
+                        <FaFacebook className="h-5 w-5 text-current" />
                         Facebook
                       </label>
                       <input
@@ -1799,17 +1740,7 @@ const MenteeProfile = () => {
                               </div>
 
                               <div className="flex items-center gap-2 mb-3">
-                                <div className="flex text-yellow-400 text-sm">
-                                  {[...Array(5)].map((_, i) => (
-                                    <span key={i}>
-                                      {i < Math.floor(course.rate || 0)
-                                        ? "★"
-                                        : i < (course.rate || 0)
-                                        ? "☆"
-                                        : "☆"}
-                                    </span>
-                                  ))}
-                                </div>
+                                <span className="text-sm font-semibold">{Number(course.rate || 0).toFixed(1)} / 5</span>
                                 <span className="text-sm text-gray-600">
                                   {(course.rate || 0).toFixed(1)} (
                                   {course.reviews || 0} reviews)
@@ -1821,7 +1752,7 @@ const MenteeProfile = () => {
                                   🕒 {course.duration || "N/A"}
                                 </span>
                                 <span className="flex items-center gap-1">
-                                  📚 {course.lectures || 0} lectures
+                                  {course.lectures || 0} lectures
                                 </span>
                               </div>
 
@@ -1854,7 +1785,7 @@ const MenteeProfile = () => {
                                   className="px-4 py-2 border border-orange-300 text-orange-600 rounded-lg hover:bg-orange-50 transition text-sm font-medium"
                                   title="Rate this course"
                                 >
-                                  ⭐ Rate
+                                  Rate
                                 </button>
                               </div>
 
@@ -1872,7 +1803,6 @@ const MenteeProfile = () => {
                       })
                     ) : (
                       <div className="col-span-full text-center py-12">
-                        <div className="text-6xl mb-4">📚</div>
                         <p className="text-gray-500 text-lg mb-2">
                           No courses found
                         </p>
@@ -1964,9 +1894,6 @@ const MenteeProfile = () => {
 
                   <div className="flex items-center justify-between mb-6">
                     <div className="flex items-center gap-4">
-                      <div className="bg-blue-100 p-3 rounded-xl">
-                        <VscEditSession className="w-6 h-6 text-blue-600" />
-                      </div>
                       <div>
                         <h2 className="text-2xl font-bold text-gray-900">
                           My Sessions
@@ -2360,53 +2287,7 @@ const MenteeProfile = () => {
 
                                     <div>
                                       {(() => {
-
-                                        let bookingDateTime;
-                                        try {
-
-                                          if (booking.date && booking.start) {
-
-                                            const dateStr = new Date(
-                                              booking.date
-                                            )
-                                              .toISOString()
-                                              .split("T")[0];
-                                            const timeStr = booking.start;
-                                            bookingDateTime = new Date(
-                                              `${dateStr}T${timeStr}:00`
-                                            );
-
-                                            if (
-                                              isNaN(bookingDateTime.getTime())
-                                            ) {
-                                              bookingDateTime = new Date(
-                                                `${booking.date} ${booking.start}`
-                                              );
-                                            }
-                                          } else {
-                                            bookingDateTime = new Date(
-                                              booking.date
-                                            );
-                                          }
-                                        } catch (error) {
-                                          console.error(
-                                            "Error parsing booking date/time:",
-                                            error
-                                          );
-                                          bookingDateTime = new Date(
-                                            booking.date
-                                          );
-                                        }
-
-                                        const isPastConsultation =
-                                          bookingDateTime < new Date();
-
-                                        const isFinished =
-                                          booking.status === "finished" ||
-                                          (booking.status === "active" &&
-                                            isPastConsultation);
-
-                                        const canReview = isFinished;
+                                        const canReview = booking.status === "finished";
 
                                         return (
                                           <>
@@ -2441,7 +2322,7 @@ const MenteeProfile = () => {
                                                   title="Rate this consultation session"
                                                 >
                                                   <span className="text-base">
-                                                    ⭐
+                                                    Rating
                                                   </span>
                                                   <span>Rate</span>
                                                 </button>
@@ -2717,36 +2598,38 @@ const MenteeProfile = () => {
                           <div className="flex gap-2 mb-4">
                             {mentor.hasCoursePurchase && (
                               <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full">
-                                📚 Purchased Course
+                                Purchased Course
                               </span>
                             )}
                             {mentor.hasBooking && (
                               <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
-                                📅 Booked Consultation
+                                Booked Consultation
                               </span>
                             )}
                           </div>
 
-                          <div className="grid grid-cols-2 gap-2 mb-2">
+                          <div className={`grid gap-2 mb-2 ${mentor.canRate ? "grid-cols-2" : "grid-cols-1"}`}>
                             <button
                               onClick={() => navigate(`/mentor/${mentor._id}`)}
                               className="bg-gray-900 text-white py-2 px-3 rounded-lg hover:bg-gray-800 transition text-sm font-medium"
                             >
                               View Profile
                             </button>
-                            <button
-                              onClick={() => openMentorRatingPopup(mentor)}
-                              className="bg-yellow-600 text-white py-2 px-3 rounded-lg hover:bg-yellow-700 transition text-sm font-medium"
-                            >
-                              ⭐ Rate Mentor
-                            </button>
+                            {mentor.canRate && (
+                              <button
+                                onClick={() => openMentorRatingPopup(mentor)}
+                                className="bg-yellow-600 text-white py-2 px-3 rounded-lg hover:bg-yellow-700 transition text-sm font-medium"
+                              >
+                                Rate Mentor
+                              </button>
+                            )}
                           </div>
                           <div className="grid grid-cols-1">
                             <button
                               onClick={() => handleOpenChatWithMentor(mentor)}
                               className="bg-blue-600 text-white py-2 px-3 rounded-lg hover:bg-blue-700 transition text-sm font-medium"
                             >
-                              💬 Send Message
+                              Send Message
                             </button>
                           </div>
                         </div>
@@ -3065,10 +2948,7 @@ const MenteeProfile = () => {
                                       )}
 
                                     <div className="flex items-center gap-2 mt-1">
-                                      <div className="flex text-yellow-400 text-sm">
-                                        {"★".repeat(review.rating)}
-                                        {"☆".repeat(5 - review.rating)}
-                                      </div>
+                                      <span className="text-sm font-semibold">{Number(review.rating || 0).toFixed(1)} / 5</span>
                                       <span className="text-xs text-gray-500">
                                         {review.date}
                                       </span>
@@ -3324,7 +3204,7 @@ const MenteeProfile = () => {
                         animationDelay: `${star * 100}ms`,
                       }}
                     >
-                      ★
+                      {star}
                     </button>
                   ))}
                   <div className="ml-4 text-sm animate-in fade-in duration-300 delay-500">
@@ -3345,11 +3225,11 @@ const MenteeProfile = () => {
                 </div>
                 {reviewRating > 0 && (
                   <div className="mt-2 text-xs text-gray-600 animate-in fade-in slide-in-from-bottom-2 duration-300 delay-600">
-                    {reviewRating === 1 && "😞 Poor"}
-                    {reviewRating === 2 && "😐 Fair"}
-                    {reviewRating === 3 && "🙂 Good"}
-                    {reviewRating === 4 && "😊 Very Good"}
-                    {reviewRating === 5 && "🤩 Excellent"}
+                    {reviewRating === 1 && "Poor"}
+                    {reviewRating === 2 && "Fair"}
+                    {reviewRating === 3 && "Good"}
+                    {reviewRating === 4 && "Very Good"}
+                    {reviewRating === 5 && "Excellent"}
                   </div>
                 )}
               </div>
@@ -3567,7 +3447,7 @@ const MenteeProfile = () => {
                         animationDelay: `${star * 100}ms`,
                       }}
                     >
-                      ★
+                      {star}
                     </button>
                   ))}
                   <div className="ml-4 text-sm animate-in fade-in duration-300 delay-500">
@@ -3588,11 +3468,11 @@ const MenteeProfile = () => {
                 </div>
                 {bookingReviewRating > 0 && (
                   <div className="mt-2 text-xs text-gray-600 animate-in fade-in slide-in-from-bottom-2 duration-300 delay-600">
-                    {bookingReviewRating === 1 && "😞 Poor"}
-                    {bookingReviewRating === 2 && "😐 Fair"}
-                    {bookingReviewRating === 3 && "🙂 Good"}
-                    {bookingReviewRating === 4 && "😊 Very Good"}
-                    {bookingReviewRating === 5 && "🤩 Excellent"}
+                    {bookingReviewRating === 1 && "Poor"}
+                    {bookingReviewRating === 2 && "Fair"}
+                    {bookingReviewRating === 3 && "Good"}
+                    {bookingReviewRating === 4 && "Very Good"}
+                    {bookingReviewRating === 5 && "Excellent"}
                   </div>
                 )}
               </div>
@@ -3775,11 +3655,7 @@ const MenteeProfile = () => {
                       className="text-3xl hover:scale-110 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:ring-offset-2 rounded"
                       disabled={isSubmittingMentorRating}
                     >
-                      {star <= (mentorRatingHover || mentorRating) ? (
-                        <IoStar className="text-yellow-400" />
-                      ) : (
-                        <IoStarOutline className="text-gray-300" />
-                      )}
+                      <span className={star <= (mentorRatingHover || mentorRating) ? "font-bold text-blue-700" : "text-gray-400"}>{star}</span>
                     </button>
                   ))}
                 </div>

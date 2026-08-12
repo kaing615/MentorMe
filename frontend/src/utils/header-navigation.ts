@@ -19,6 +19,7 @@ export const shouldShowMenteeHeaderActions = (
   user: HeaderUser | null,
   mentorMode: boolean,
 ) => {
+  if (user?.role === "admin") return false;
   const isMentee =
     user?.role === "mentee" || user?.roles?.includes("mentee") === true;
   const isMentor =

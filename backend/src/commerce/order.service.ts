@@ -43,6 +43,9 @@ export class OrderService {
       if (courses.length !== new Set(ids).size) {
         throw new BadRequestException("Khóa học không tồn tại!");
       }
+      if (courses.some(({ moderationStatus }) => moderationStatus === "suspended")) {
+        throw new BadRequestException("Một trong các khóa học hiện không thể mua.");
+      }
       if (
         courses.some((course) =>
           course.mentees.some((mentee) => String(mentee) === String(user._id)),

@@ -1,5 +1,7 @@
 # MentorMe Production Architecture Implementation Plan
 
+> **Superseded:** Do not execute this Express-specific plan. It will be replaced by the approved NestJS implementation plan after review of `../superpowers/specs/2026-08-09-nestjs-backend-migration-design.md`.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Turn MentorMe into a measured, secure, single-VPS production system with two API replicas, shared realtime state, durable asynchronous work, and health-gated CD.

@@ -4,8 +4,8 @@
  */
 
 import axios from "axios";
-import queryString from "query-string";
 import { resolveApiBaseUrl } from "./base-url";
+import { serializeQuery } from "./query-serializer";
 
 // Cấu hình base URL từ environment variables
 const baseURL = resolveApiBaseUrl(import.meta.env.VITE_API_URL);
@@ -13,7 +13,7 @@ const baseURL = resolveApiBaseUrl(import.meta.env.VITE_API_URL);
 // Tạo axios instance
 const apiClient = axios.create({
   baseURL,
-  paramsSerializer: { encode: (params) => queryString.stringify(params) },
+  paramsSerializer: { serialize: serializeQuery },
 });
 
 // Request interceptor - tự động thêm Authorization header

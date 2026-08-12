@@ -1,5 +1,5 @@
 import { PATH, AUTH_PATH, MENTEE_PATH, MENTOR_PATH, PLATFORM_PATH } from "./path";
-import { useRoutes } from "react-router-dom";
+import { Navigate, useRoutes } from "react-router-dom";
 
 import WelcomePage from "../pages/WelcomePage";
 import HomeScreen from "../pages/homeScreen";
@@ -14,7 +14,6 @@ import AllMentors from "../pages/AllMentors";
 import OrderCompleteCourse from "../pages/order-complete-course";
 import SearchPage from "../pages/SearchPage";
 
-import MentorProfile from "../pages/mentor-profile";
 import MentorPage from "../pages/mentor-page";
 import CreateCoursePage from "../pages/CreateCoursePage";
 import CourseDetail from "../pages/CourseDetail";
@@ -156,7 +155,7 @@ const useRouterElements = () => {
         },
         {
           path: MENTOR_PATH.PROFILE,
-          element: <MentorProfile />,
+          element: <Navigate to="/mentor/dashboard" replace />,
         },
         {
           path: MENTOR_PATH.HOMEPAGE,

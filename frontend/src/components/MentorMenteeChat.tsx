@@ -616,9 +616,8 @@ export default function MentorMenteeChat({ userRole = "mentor" }) {
 
               <div className="text-sm text-gray-500">
                 <p>
-                  💬 Chat with {userRole === "mentor" ? "mentees" : "mentors"}
+                  Chat with {userRole === "mentor" ? "mentees" : "mentors"}
                 </p>
-                <p className="mt-1">� WebSocket connection - no delay</p>
               </div>
             </div>
           </div>

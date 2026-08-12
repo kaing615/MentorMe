@@ -249,6 +249,7 @@ export class ProfileService {
     if (dto.languages !== undefined) profile.languages = dto.languages;
     if (dto.timezone !== undefined) profile.timezone = dto.timezone;
     if (dto.sessionPrice !== undefined) profile.sessionPrice = dto.sessionPrice;
+    if (dto.links) Object.assign(profile.links, dto.links);
     await profile.save();
 
     return {

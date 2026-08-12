@@ -4,7 +4,6 @@ import { useDispatch } from "react-redux";
 import { useForm } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
 import * as yup from "yup";
-import { MessageCircle, Bell, Calendar, User } from "lucide-react";
 import createCourseApi from "../api/modules/course.api";
 import { toast } from "react-toastify";
 import { showLoading, hideLoading } from "../redux/features/loading.slice";
@@ -399,7 +398,8 @@ const CreateCoursePage = () => {
 
       // Chuyển hướng về trang My Courses sau khi tạo thành công
       setTimeout(() => {
-        navigate("/mentor/profile", { state: { tab: "mycourses" } });
+        localStorage.setItem("mentorProfileTab", "mycourses");
+        navigate("/mentor/dashboard");
         setTimeout(() => {
           window.scrollTo({ top: 0, behavior: "smooth" });
         }, 100);
@@ -437,9 +437,10 @@ const CreateCoursePage = () => {
         <div className="flex items-center gap-4 mb-8">
           <button
             type="button"
-            onClick={() =>
-              navigate("/mentor/profile", { state: { tab: "mycourses" } })
-            }
+            onClick={() => {
+              localStorage.setItem("mentorProfileTab", "mycourses");
+              navigate("/mentor/dashboard");
+            }}
             className="flex items-center justify-center w-10 h-10 rounded-full bg-white shadow-sm border border-gray-200 hover:bg-gray-50 transition-colors group"
             title="Back to My Courses"
           >
@@ -492,32 +493,7 @@ const CreateCoursePage = () => {
                         {/* Anime character silhouette placeholder */}
                         <div className="absolute inset-0 bg-black/20"></div>
                         <div className="relative z-10 text-center">
-                          <div className="w-20 h-20 mx-auto mb-4 opacity-80">
-                            <svg
-                              viewBox="0 0 100 100"
-                              className="w-full h-full text-white/60"
-                            >
-                              <circle
-                                cx="50"
-                                cy="35"
-                                r="15"
-                                fill="currentColor"
-                              />
-                              <path
-                                d="M25 85 Q50 60 75 85"
-                                stroke="currentColor"
-                                strokeWidth="8"
-                                fill="none"
-                              />
-                              <path
-                                d="M35 50 Q50 45 65 50"
-                                stroke="currentColor"
-                                strokeWidth="6"
-                                fill="none"
-                              />
-                            </svg>
-                          </div>
-                          <p className="text-white text-sm opacity-75">
+                          <p className="text-sm font-semibold text-white/80">
                             Click or drag image here
                           </p>
                         </div>

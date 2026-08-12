@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { useLocation } from "react-router-dom";
 import useRouterElements from "./routes/elements";
 import { CartProvider } from "./contexts/CartContext";
 import LoadingPage from "./components/common/loadingPage";
@@ -9,6 +10,7 @@ import 'react-toastify/dist/ReactToastify.css';
 import MascotQuickHelp from "./components/common/MascotQuickHelp";
 
 function App() {
+  const isAdminRoute = useLocation().pathname.startsWith("/admin");
   const elements = useRouterElements();
   const isLoading = useSelector((state: any) => state.loading.isLoading);
   const dispatch = useDispatch();
@@ -29,7 +31,7 @@ function App() {
     <CartProvider>
       <LoadingPage loading={isLoading} />
       {elements}
-      <MascotQuickHelp />
+      {!isAdminRoute && <MascotQuickHelp />}
       <ToastContainer
         position="top-right"
         autoClose={3000}

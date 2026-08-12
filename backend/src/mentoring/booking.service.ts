@@ -23,6 +23,7 @@ import { Profile } from "./profile.schema";
 import { Order, type OrderDocument } from "../commerce/order.schema";
 import { MentorEarning } from "../commerce/mentor-earning.schema";
 import { assertOrderTransition } from "../commerce/order-state";
+import { AuditService } from "../administration/audit.service";
 
 type ActionResult = {
   message: string;
@@ -47,6 +48,7 @@ export class BookingService {
     @InjectModel(MentorEarning.name)
     private readonly earnings: Model<MentorEarning>,
     private readonly notifications: NotificationService,
+    private readonly audit: AuditService,
   ) {}
 
   async create(
@@ -534,6 +536,40 @@ export class BookingService {
     return items;
   }
 
+  async cancelByAdmin(user: UserDocument, id: string, reason: string): Promise<ActionResult> {
+    if (user.role !== "admin") throw new ForbiddenException("Admin only");
+    this.assertId(id);
+    return this.connection.transaction(async (session) => {
+      const booking = await this.bookings.findById(id).session(session);
+      if (!booking) throw new NotFoundException("Booking not found");
+      if (!["pending", "active"].includes(booking.status)) {
+        throw new BadRequestException("Only pending or active sessions can be cancelled");
+      }
+      await this.releaseSlot(booking, session);
+      if (booking.paymentStatus === "paid") {
+        booking.refundAmount = booking.price;
+        booking.paymentStatus = "refund_pending";
+        await this.earnings.updateOne(
+          { booking: booking._id },
+          { $set: { grossAmount: 0, platformFeeAmount: 0, netAmount: 0, status: "cancelled" } },
+          { session },
+        );
+      }
+      booking.status = "cancelled";
+      booking.declineReason = reason.trim();
+      await booking.save({ session });
+      await this.audit.record({
+        actor: user,
+        action: "session.cancelled_by_admin",
+        targetType: "booking",
+        targetId: String(booking._id),
+        reason,
+        metadata: { paymentStatus: booking.paymentStatus, refundAmount: booking.refundAmount },
+      }, session);
+      return { message: "Booking cancelled by Admin", booking };
+    });
+  }
+
   async processRefund(
     user: UserDocument,
     id: string,
@@ -556,6 +592,7 @@ export class BookingService {
       booking.refundReference = refundReference;
       await order.save({ session });
       await booking.save({ session });
+      await this.audit.record({ actor: user, action: "session.refund_recorded", targetType: "booking", targetId: id, metadata: { refundAmount: booking.refundAmount, refundReference } }, session);
       return { message: "Booking refund recorded", booking, order };
     });
   }
@@ -565,7 +602,7 @@ export class BookingService {
     return this.connection.transaction(async (session) => {
       const booking = await this.bookings.findById(id).session(session);
       if (!booking) throw new NotFoundException("Booking not found");
-      if (String(booking.mentor) !== String(user._id) && user.role !== "admin") {
+      if (String(booking.mentor) !== String(user._id)) {
         throw new ForbiddenException("Only the booking mentor can finish it");
       }
       assertBookingTransition(booking.status, "finished");

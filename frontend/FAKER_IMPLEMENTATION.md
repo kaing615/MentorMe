@@ -41,22 +41,22 @@
 
 ## Lợi ích của việc sử dụng Faker.js
 
-### ✅ **Dữ liệu đa dạng và thực tế**
+### **Dữ liệu đa dạng và thực tế**
 - Không còn hard-coded data
 - Mỗi lần refresh sẽ có data khác nhau
 - Names, emails, dates đều thực tế
 
-### ✅ **Dễ dàng scale**
+### **Dễ dàng scale**
 - Có thể tăng/giảm số lượng records bằng cách thay đổi parameters
 - generateCourses(50) → 50 courses
 - generateMentees(100, courses) → 100 mentees
 
-### ✅ **Relationships được maintain**
+### **Relationships được maintain**
 - Mentees enrolled vào courses thật
 - Reviews liên kết với courses và students thật
 - Conversations match với mentees
 
-### ✅ **API-ready structure**
+### **API-ready structure**
 - Tất cả fields đều có ID và timestamps
 - Structure giống như API response
 - Dễ dàng thay thế bằng API calls sau này

@@ -343,6 +343,76 @@ describe("learning", () => {
     expect(await courses.findById(unsold._id)).toBeNull();
   });
 
+  it("lets admins suspend and restore marketplace courses without revoking purchases", async () => {
+    const moderated = await courses.create({
+      title: "Moderated course",
+      description: "A course used to verify marketplace moderation behavior.",
+      price: 79,
+      mentor: mentorId,
+      category: "Development",
+      link: "https://example.com/moderated",
+      lectures: 4,
+    });
+    const moderatedId = String(moderated._id);
+    await app.get(EnrolmentService).grantCourseAccess({
+      menteeId,
+      courseId: moderatedId,
+      orderId: String(new Types.ObjectId()),
+      price: 79,
+    });
+    const purchased = await purchases.findOne({ mentee: menteeId, course: moderatedId });
+    if (!purchased) throw new Error("Expected purchased course entitlement");
+
+    await request(app.getHttpServer())
+      .patch(`/api/v1/course/admin/${moderatedId}/suspend`)
+      .set("Authorization", `Bearer ${menteeToken}`)
+      .send({ reason: "Violates marketplace publishing policy" })
+      .expect(403);
+    await request(app.getHttpServer())
+      .patch(`/api/v1/course/admin/${moderatedId}/suspend`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({ reason: "bad" })
+      .expect(400);
+    await request(app.getHttpServer())
+      .patch(`/api/v1/course/admin/${moderatedId}/suspend`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({ reason: "Violates marketplace publishing policy" })
+      .expect(200);
+
+    const [list, related, byMentor, adminList] = await Promise.all([
+      request(app.getHttpServer()).get("/api/v1/course?search=Moderated").expect(200),
+      request(app.getHttpServer()).get("/api/v1/course/related?category=Development&limit=50").expect(200),
+      request(app.getHttpServer()).get(`/api/v1/course/mentor/${mentorId}`).expect(200),
+      request(app.getHttpServer())
+        .get("/api/v1/course/admin?status=suspended&search=Moderated")
+        .set("Authorization", `Bearer ${adminToken}`)
+        .expect(200),
+    ]);
+    expect(list.body.data.courses).toHaveLength(0);
+    expect(related.body.data.courses).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ _id: moderatedId })]),
+    );
+    expect(byMentor.body.data.data.courses).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ _id: moderatedId })]),
+    );
+    expect(adminList.body.data.items).toEqual([
+      expect.objectContaining({ _id: moderatedId, moderationStatus: "suspended" }),
+    ]);
+    await request(app.getHttpServer())
+      .get(`/api/v1/purchased-courses/details/${String(purchased._id)}`)
+      .set("Authorization", `Bearer ${menteeToken}`)
+      .expect(200);
+
+    await request(app.getHttpServer())
+      .patch(`/api/v1/course/admin/${moderatedId}/restore`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .expect(200);
+    const restored = await request(app.getHttpServer())
+      .get("/api/v1/course?search=Moderated")
+      .expect(200);
+    expect(restored.body.data.courses).toHaveLength(1);
+  });
+
   it("keeps booking-only mentees after their session finishes", async () => {
     await connection.collection("bookings").insertOne({
       mentor: new Types.ObjectId(mentorId),

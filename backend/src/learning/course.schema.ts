@@ -65,6 +65,18 @@ export class Course {
   @Prop({ required: true })
   lectures!: number;
 
+  @Prop({ enum: ["published", "suspended"], default: "published", index: true })
+  moderationStatus!: "published" | "suspended";
+
+  @Prop({ default: "" })
+  suspensionReason!: string;
+
+  @Prop()
+  suspendedAt?: Date;
+
+  @Prop({ type: MongooseSchema.Types.ObjectId, ref: "User" })
+  suspendedBy?: Types.ObjectId;
+
   createdAt!: Date;
   updatedAt!: Date;
 }

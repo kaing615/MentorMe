@@ -9,9 +9,6 @@ import {
   IconChevronRight,
   IconFilter,
   IconSearch,
-  IconSearchOff,
-  IconStar,
-  IconStarFilled,
 } from "@tabler/icons-react";
 
 const AllMentors = () => {
@@ -199,15 +196,7 @@ const AllMentors = () => {
     );
   };
 
-  const renderStars = (rating) => {
-    return [...Array(5)].map((_, index) => (
-      index < Math.floor(rating) ? (
-        <IconStarFilled key={index} aria-hidden="true" className="h-4 w-4 text-yellow-400" />
-      ) : (
-        <IconStar key={index} aria-hidden="true" className="h-4 w-4 text-[var(--ui-border-strong)]" stroke={1.6} />
-      )
-    ));
-  };
+  const renderStars = (rating) => <span className="text-sm font-bold">{Number(rating || 0).toFixed(1)} / 5</span>;
 
   if (loading) {
     return (
@@ -490,8 +479,7 @@ const AllMentors = () => {
               </div>
             ) : (
               <div className="ui-card ui-card-blue py-12 text-center">
-                <IconSearchOff aria-hidden="true" className="mx-auto h-12 w-12 text-[var(--ui-accent)]" stroke={1.5} />
-                <h3 className="mt-2 text-sm font-medium text-[var(--ui-text)]">
+                <h3 className="text-sm font-medium text-[var(--ui-text)]">
                   No mentors found
                 </h3>
                 <p className="mt-1 text-sm text-[var(--ui-text-muted)]">

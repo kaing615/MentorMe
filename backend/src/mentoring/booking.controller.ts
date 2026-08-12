@@ -18,6 +18,7 @@ import { CreateBookingDto } from "./dto/create-booking.dto";
 import { UpdateBookingDto } from "./dto/update-booking.dto";
 import { ConfirmBookingDto } from "./dto/confirm-booking.dto";
 import { ProcessBookingRefundDto } from "./dto/process-booking-refund.dto";
+import { AdminCancelBookingDto } from "./dto/admin-cancel-booking.dto";
 
 @Controller("booking")
 @UseGuards(JwtAuthGuard)
@@ -115,5 +116,15 @@ export class BookingController {
     @Body() dto: ProcessBookingRefundDto,
   ) {
     return this.bookings.processRefund(user, id, dto.refundReference);
+  }
+
+  @Post("admin/:id/cancel")
+  @HttpCode(200)
+  adminCancel(
+    @CurrentUser() user: UserDocument,
+    @Param("id") id: string,
+    @Body() dto: AdminCancelBookingDto,
+  ) {
+    return this.bookings.cancelByAdmin(user, id, dto.reason);
   }
 }

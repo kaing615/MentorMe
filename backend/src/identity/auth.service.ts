@@ -11,6 +11,7 @@ import bcrypt from "bcryptjs";
 import crypto from "node:crypto";
 import type { Model } from "mongoose";
 import { Types } from "mongoose";
+import { AuditService } from "../administration/audit.service";
 import type { ForgotPasswordDto } from "./dto/forgot-password.dto";
 import type { ApplyMentorDto } from "./dto/apply-mentor.dto";
 import type { ResendEmailDto } from "./dto/resend-email.dto";
@@ -47,6 +48,7 @@ export class AuthService {
     private readonly jwt: JwtService,
     private readonly email: EmailService,
     private readonly files: CloudinaryService,
+    private readonly audit: AuditService,
   ) {}
 
   async signUp(dto: SignUpDto) {
@@ -100,7 +102,7 @@ export class AuthService {
     const dummyHash =
       "$2a$10$ull7LxLFMg9MvAgkKYlWBuQ3yA57nLCbSAT6BPhEqMacBVDOa2Jby";
     const valid = await bcrypt.compare(dto.password, user?.password ?? dummyHash);
-    if (!user?.isVerified || !valid) {
+    if (!user?.isVerified || user.isSuspended || !valid) {
       throw new UnauthorizedException("Email hoặc mật khẩu không đúng.");
     }
     return {
@@ -115,7 +117,7 @@ export class AuthService {
       const userId = payload.id ?? payload.sub ?? payload.data;
       if (!userId) throw new UnauthorizedException();
       const user = await this.users.findById(userId).select("-password -__v");
-      if (!user?.isVerified) throw new UnauthorizedException();
+      if (!user?.isVerified || user.isSuspended) throw new UnauthorizedException();
       return user;
     } catch {
       throw new UnauthorizedException();
@@ -321,6 +323,13 @@ export class AuthService {
       await applicant.save();
     }
     await application.save();
+    await this.audit.record({
+      actor: admin,
+      action: `mentor_application.${dto.status}`,
+      targetType: "mentor_application",
+      targetId: id,
+      ...(application.reviewReason && { reason: application.reviewReason }),
+    });
     return {
       application,
       user: this.sanitize(applicant.toObject()),

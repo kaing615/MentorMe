@@ -7,8 +7,17 @@ import {
   MaxLength,
   Min,
   MinLength,
+  ValidateNested,
 } from "class-validator";
 import { Type } from "class-transformer";
+
+class MentorProfileLinksDto {
+  @IsOptional() @IsString() website?: string;
+  @IsOptional() @IsString() twitter?: string;
+  @IsOptional() @IsString() linkedin?: string;
+  @IsOptional() @IsString() youtube?: string;
+  @IsOptional() @IsString() facebook?: string;
+}
 
 export class UpdateMentorProfileDto {
   @IsString() @MinLength(3) @MaxLength(30) userName!: string;
@@ -26,6 +35,10 @@ export class UpdateMentorProfileDto {
   @IsOptional() @IsString() introVideo?: string;
   @IsOptional() @IsArray() @IsString({ each: true }) languages?: string[];
   @IsOptional() @IsString() timezone?: string;
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => MentorProfileLinksDto)
+  links?: MentorProfileLinksDto;
   @IsOptional() @Type(() => Number) @IsInt() @Min(0) @Max(100_000_000)
   sessionPrice?: number;
 }

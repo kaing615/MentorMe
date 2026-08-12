@@ -12,42 +12,20 @@ import { hasUserRole } from "../utils/user-role";
 import { formatVnd } from "../utils/currency";
 import { toast } from "react-toastify";
 import { showLoading, hideLoading } from "../redux/features/loading.slice";
-import { IoStar, IoStarOutline } from "react-icons/io5";
 import { IconHeart } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import favoriteApi from "../api/modules/favorite.api";
+import {
+  FaFacebook,
+  FaGithub,
+  FaLinkedin,
+  FaXTwitter,
+  FaYoutube,
+} from "react-icons/fa6";
 
 // Stars render function
 const renderStars = (rating) => {
-  const stars = [];
-  const r = Number(rating) || 0;
-  const full = Math.floor(r);
-  const hasHalf = r % 1 !== 0;
-
-  for (let i = 0; i < full; i++) {
-    stars.push(
-      <IoStar key={`full-${i}`} className="text-yellow-500" size={16} />
-    );
-  }
-  if (hasHalf) {
-    stars.push(
-      <div key="half" className="relative">
-        <IoStarOutline className="text-yellow-500" size={16} />
-        <IoStar
-          className="text-yellow-500 absolute top-0 left-0"
-          size={16}
-          style={{ clipPath: "inset(0 50% 0 0)" }}
-        />
-      </div>
-    );
-  }
-  const empty = 5 - Math.ceil(r);
-  for (let i = 0; i < empty; i++) {
-    stars.push(
-      <IoStarOutline key={`empty-${i}`} className="text-yellow-500" size={16} />
-    );
-  }
-  return stars;
+  return <span className="font-semibold">{Number(rating || 0).toFixed(1)} / 5</span>;
 };
 
 // Helper function to get rating breakdown for progress bars
@@ -828,7 +806,7 @@ const MentorPage = () => {
                       href={
                         mentor?.profile?.links?.website || mentor?.user?.website
                       }
-                      className="w-full border border-gray-300 rounded py-2 text-center text-gray-700 font-medium hover:bg-gray-100 transition"
+                      className="inline-flex w-full items-center justify-center gap-2 rounded border border-gray-300 py-2 text-center font-medium text-gray-700 transition hover:bg-gray-100"
                       target="_blank"
                       rel="noopener noreferrer"
                     >
@@ -843,11 +821,12 @@ const MentorPage = () => {
                       href={
                         mentor?.profile?.links?.twitter || mentor?.user?.twitter
                       }
-                      className="w-full border border-gray-300 rounded py-2 text-center text-gray-700 font-medium hover:bg-gray-100 transition"
+                      className="inline-flex w-full items-center justify-center gap-2 rounded border border-gray-300 py-2 text-center font-medium text-gray-700 transition hover:bg-gray-100"
                       target="_blank"
                       rel="noopener noreferrer"
                     >
-                      Twitter
+                      <FaXTwitter aria-hidden="true" className="h-4 w-4" />
+                      X / Twitter
                     </a>
                   )}
                   {((mentor?.profile?.links?.linkedin &&
@@ -859,10 +838,11 @@ const MentorPage = () => {
                         mentor?.profile?.links?.linkedin ||
                         mentor?.user?.linkedinUrl
                       }
-                      className="w-full border border-gray-300 rounded py-2 text-center text-gray-700 font-medium hover:bg-gray-100 transition"
+                      className="inline-flex w-full items-center justify-center gap-2 rounded border border-gray-300 py-2 text-center font-medium text-gray-700 transition hover:bg-gray-100"
                       target="_blank"
                       rel="noopener noreferrer"
                     >
+                      <FaLinkedin aria-hidden="true" className="h-4 w-4" />
                       LinkedIn
                     </a>
                   )}
@@ -874,10 +854,11 @@ const MentorPage = () => {
                       href={
                         mentor?.profile?.links?.github || mentor?.user?.github
                       }
-                      className="w-full border border-gray-300 rounded py-2 text-center text-gray-700 font-medium hover:bg-gray-100 transition"
+                      className="inline-flex w-full items-center justify-center gap-2 rounded border border-gray-300 py-2 text-center font-medium text-gray-700 transition hover:bg-gray-100"
                       target="_blank"
                       rel="noopener noreferrer"
                     >
+                      <FaGithub aria-hidden="true" className="h-4 w-4" />
                       GitHub
                     </a>
                   )}
@@ -889,11 +870,12 @@ const MentorPage = () => {
                       href={
                         mentor?.profile?.links?.youtube || mentor?.user?.youtube
                       }
-                      className="w-full border border-gray-300 rounded py-2 text-center text-gray-700 font-medium hover:bg-gray-100 transition"
+                      className="inline-flex w-full items-center justify-center gap-2 rounded border border-gray-300 py-2 text-center font-medium text-gray-700 transition hover:bg-gray-100"
                       target="_blank"
                       rel="noopener noreferrer"
                     >
-                      Youtube
+                      <FaYoutube aria-hidden="true" className="h-4 w-4" />
+                      YouTube
                     </a>
                   )}
                   {((mentor?.profile?.links?.facebook &&
@@ -905,10 +887,11 @@ const MentorPage = () => {
                         mentor?.profile?.links?.facebook ||
                         mentor?.user?.facebook
                       }
-                      className="w-full border border-gray-300 rounded py-2 text-center text-gray-700 font-medium hover:bg-gray-100 transition"
+                      className="inline-flex w-full items-center justify-center gap-2 rounded border border-gray-300 py-2 text-center font-medium text-gray-700 transition hover:bg-gray-100"
                       target="_blank"
                       rel="noopener noreferrer"
                     >
+                      <FaFacebook aria-hidden="true" className="h-4 w-4" />
                       Facebook
                     </a>
                   )}
@@ -926,6 +909,15 @@ const MentorPage = () => {
                       Intro Video
                     </button>
                   ) : null}
+                  <div className="rounded-xl border border-[var(--ui-border)] bg-[var(--ui-surface-muted)] px-4 py-3">
+                    <p className="text-xs font-semibold text-[var(--ui-text-muted)]">Consultation fee</p>
+                    <div className="mt-1 flex items-baseline justify-between gap-3">
+                      <strong className="text-xl text-[var(--ui-text)]">
+                        {formatVnd(Number(mentor?.profile?.sessionPrice || 0))}
+                      </strong>
+                      <span className="text-sm text-[var(--ui-text-muted)]">/ session</span>
+                    </div>
+                  </div>
                   {/* Only show Book Now button for mentees */}
                   {isMenteeView && (
                     <>
@@ -1153,7 +1145,7 @@ const MentorPage = () => {
                             ) ? (
                               <>
                                 <div className="w-full bg-green-100 text-green-700 py-2 px-3 rounded-md text-sm font-medium text-center">
-                                  ✓ Already Purchased
+                                  Already Purchased
                                 </div>
                                 <button
                                   onClick={(e) =>
@@ -1270,10 +1262,7 @@ const MentorPage = () => {
                                   <span className="text-sm text-gray-600">
                                     {star}
                                   </span>
-                                  <IoStar
-                                    className="text-yellow-500"
-                                    size={12}
-                                  />
+                                  <span className="text-xs">/5</span>
                                 </div>
                                 <div className="flex-1 bg-gray-200 rounded-full h-2">
                                   <div
@@ -1504,13 +1493,13 @@ const MentorPage = () => {
                                         Consultation Details:
                                       </div>
                                       <div>
-                                        💬 Topic:{" "}
+                                        Topic:{" "}
                                         {rv.booking.topic ||
                                           "General consultation"}
                                       </div>
                                       {rv.booking.date && (
                                         <div>
-                                          📅 Date:{" "}
+                                          Date:{" "}
                                           {new Date(
                                             rv.booking.date
                                           ).toLocaleDateString()}
@@ -2060,7 +2049,7 @@ const MentorPage = () => {
                       <h5 className="font-medium mb-2">Booking Summary</h5>
                       <div className="space-y-1 text-sm text-gray-600">
                         <div>
-                          📅 Date:{" "}
+                          Date:{" "}
                           {new Date(selectedDate).toLocaleDateString("en-US", {
                             weekday: "long",
                             year: "numeric",
@@ -2076,6 +2065,9 @@ const MentorPage = () => {
                           👨‍🏫 Mentor:{" "}
                           {(mentor?.profile || mentor?.user)?.firstName}{" "}
                           {(mentor?.profile || mentor?.user)?.lastName}
+                        </div>
+                        <div>
+                          Fee: {formatVnd(Number(mentor?.profile?.sessionPrice || 0))}
                         </div>
                       </div>
                     </div>

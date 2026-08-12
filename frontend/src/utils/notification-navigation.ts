@@ -12,26 +12,26 @@ export const getNotificationTarget = (
 ): NotificationTarget => {
   if (type === "message_received") {
     return mentorMode
-      ? { path: "/mentor/profile", storageKey: "mentorProfileTab", tab: "messages" }
+      ? { path: "/mentor/dashboard", storageKey: "mentorProfileTab", tab: "messages" }
       : { path: "/profile", storageKey: "menteeProfileTab", tab: "messages" };
   }
   if (type === "booking_created") {
     return {
-      path: "/mentor/profile",
+      path: "/mentor/dashboard",
       storageKey: "mentorProfileTab",
       tab: "response",
     };
   }
   if (type === "review_received") {
     return {
-      path: "/mentor/profile",
+      path: "/mentor/dashboard",
       storageKey: "mentorProfileTab",
       tab: "reviews",
     };
   }
   if (type.startsWith("booking_")) {
     return mentorMode
-      ? { path: "/mentor/profile", storageKey: "mentorProfileTab", tab: "response" }
+      ? { path: "/mentor/dashboard", storageKey: "mentorProfileTab", tab: "response" }
       : { path: "/profile", storageKey: "menteeProfileTab", tab: "mybookings" };
   }
   if (type === "payment_failed") {

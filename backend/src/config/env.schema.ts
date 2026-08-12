@@ -11,6 +11,10 @@ export type Environment = {
   MOMO_ACCESS_KEY: string;
   MOMO_SECRET_KEY: string;
   MOMO_ENABLED: boolean;
+  SITE_ADMIN_EMAIL: string;
+  SITE_ADMIN_PASSWORD: string;
+  SITE_ADMIN_FIRST_NAME: string;
+  SITE_ADMIN_LAST_NAME: string;
 };
 
 const required = (source: Record<string, unknown>, key: string): string => {
@@ -46,6 +50,11 @@ export const validateEnvironment = (
   }
   const vnpayEnabled = enabled(source, "VNPAY_ENABLED");
   const momoEnabled = enabled(source, "MOMO_ENABLED");
+  const isTest = source.NODE_ENV === "test";
+  const siteAdmin = (key: string): string =>
+    isTest && (typeof source[key] !== "string" || source[key].trim() === "")
+      ? "test-site-administrator"
+      : required(source, key);
 
   return {
     ...source,
@@ -60,6 +69,10 @@ export const validateEnvironment = (
     MOMO_PARTNER_CODE: credential(source, "MOMO_PARTNER_CODE", momoEnabled),
     MOMO_ACCESS_KEY: credential(source, "MOMO_ACCESS_KEY", momoEnabled),
     MOMO_SECRET_KEY: credential(source, "MOMO_SECRET_KEY", momoEnabled),
+    SITE_ADMIN_EMAIL: siteAdmin("SITE_ADMIN_EMAIL"),
+    SITE_ADMIN_PASSWORD: siteAdmin("SITE_ADMIN_PASSWORD"),
+    SITE_ADMIN_FIRST_NAME: siteAdmin("SITE_ADMIN_FIRST_NAME"),
+    SITE_ADMIN_LAST_NAME: siteAdmin("SITE_ADMIN_LAST_NAME"),
     NODE_ENV:
       typeof source.NODE_ENV === "string" ? source.NODE_ENV : "development",
   };

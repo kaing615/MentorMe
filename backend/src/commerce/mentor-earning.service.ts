@@ -7,6 +7,7 @@ import {
 import { InjectModel } from "@nestjs/mongoose";
 import type { Model } from "mongoose";
 import { Types } from "mongoose";
+import { AuditService } from "../administration/audit.service";
 import { hasUserRole } from "../common/auth/user-role";
 import type { UserDocument } from "../identity/user.schema";
 import type { MarkEarningPaidDto } from "./dto/mark-earning-paid.dto";
@@ -17,6 +18,7 @@ export class MentorEarningService {
   constructor(
     @InjectModel(MentorEarning.name)
     private readonly earnings: Model<MentorEarning>,
+    private readonly audit: AuditService,
   ) {}
 
   async mine(user: UserDocument) {
@@ -58,6 +60,13 @@ export class MentorEarningService {
     earning.paidAt = new Date();
     earning.payoutReference = dto.payoutReference.trim();
     await earning.save();
+    await this.audit.record({
+      actor: user,
+      action: "payout.paid",
+      targetType: "mentor_earning",
+      targetId: id,
+      metadata: { payoutReference: earning.payoutReference },
+    });
     return { message: "Mentor payout recorded", earning };
   }
 

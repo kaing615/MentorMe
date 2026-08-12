@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { toast } from "react-toastify";
-import { FaUserCircle } from "react-icons/fa";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useDispatch } from "react-redux";
 import { showLoading, hideLoading } from "../redux/features/loading.slice";
@@ -15,44 +14,33 @@ import { FaXTwitter } from "react-icons/fa6";
 import { FaLinkedin } from "react-icons/fa";
 import { FaGoogle } from "react-icons/fa";
 import { AiFillYoutube } from "react-icons/ai";
-import { IoStar, IoStarOutline } from "react-icons/io5";
+import {
+  IconAlertTriangle,
+  IconCalendar,
+  IconLock,
+  IconPencil,
+  IconTrash,
+} from "@tabler/icons-react";
 import courseApi from "../api/modules/course.api";
 import MentorMenteeChat from "../components/MentorMenteeChat.jsx";
 import earningsApi from "../api/modules/earnings.api";
+import { buildMentorProfilePayload } from "../utils/mentor-profile-payload";
 
 const renderStars = (rating) => {
-  const stars = [];
-  const r = Number(rating) || 0;
-  const full = Math.floor(r);
-  const hasHalf = r % 1 !== 0;
-
-  for (let i = 0; i < full; i++) {
-    stars.push(
-      <IoStar key={`full-${i}`} className="text-yellow-500" size={20} />
-    );
-  }
-  if (hasHalf) {
-    stars.push(
-      <div key="half" className="relative">
-        <IoStarOutline className="text-yellow-500" size={20} />
-        <IoStar
-          className="text-yellow-500 absolute top-0 left-0"
-          size={20}
-          style={{ clipPath: "inset(0 50% 0 0)" }}
-        />
-      </div>
-    );
-  }
-  const empty = 5 - Math.ceil(r);
-  for (let i = 0; i < empty; i++) {
-    stars.push(
-      <IoStarOutline key={`empty-${i}`} className="text-yellow-500" size={20} />
-    );
-  }
-  return stars;
+  return <span className="font-semibold">{Number(rating || 0).toFixed(1)} / 5</span>;
 };
 
-const MentorProfile = () => {
+type MentorProfileProps = {
+  embedded?: boolean;
+  selectedTab?: string;
+  onTabChange?: (tab: string) => void;
+};
+
+const MentorProfile = ({
+  embedded = false,
+  selectedTab,
+  onTabChange,
+}: MentorProfileProps) => {
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -98,10 +86,7 @@ const MentorProfile = () => {
     setError(null);
     try {
 
-      const payload = { ...formData };
-      if (profileImage) {
-        payload.avatar = profileImage;
-      }
+      const payload = buildMentorProfilePayload(formData);
       const response = await profileApi.updateMentorProfile(payload);
       if (response && response.data) {
         setProfileImage(null);
@@ -159,9 +144,12 @@ const MentorProfile = () => {
   };
 
   const [activeTab, setActiveTab] = useState<any>(() => {
-
-    return localStorage.getItem("mentorProfileTab") || "profile";
+    return selectedTab || localStorage.getItem("mentorProfileTab") || "profile";
   });
+
+  useEffect(() => {
+    if (selectedTab) setActiveTab(selectedTab);
+  }, [selectedTab]);
 
   useEffect(() => {
     localStorage.setItem("mentorProfileTab", activeTab);
@@ -1180,7 +1168,7 @@ const MentorProfile = () => {
 
       setSelectedReviewBooking(fb);
       setIsBookingDetailPopupOpen(true);
-      console.debug("✅ Opened review-only (fallback) with", fb);
+      console.debug("Opened review-only (fallback) with", fb);
     };
 
     try {
@@ -1240,7 +1228,7 @@ const MentorProfile = () => {
       if (bookingDetail) {
         setSelectedReviewBooking(bookingDetail);
         setIsBookingDetailPopupOpen(true);
-        console.debug("✅ Popup set with REAL booking:", bookingDetail);
+        console.debug("Popup set with real booking:", bookingDetail);
         return;
       }
 
@@ -1524,20 +1512,22 @@ const MentorProfile = () => {
   const handleTabChange = (tab) => {
     setActiveTab(tab);
     localStorage.setItem("mentorProfileTab", tab);
+    onTabChange?.(tab);
     scrollToTop();
   };
 
   const handleMessageTabChange = () => {
     setActiveTab("messages");
     localStorage.setItem("mentorProfileTab", "messages");
+    onTabChange?.("messages");
   };
 
   return (
-    <div className="min-h-screen bg-[var(--ui-page)]">
+    <div className={embedded ? "bg-transparent" : "min-h-screen bg-[var(--ui-page)]"}>
 
-      <div className="mx-auto flex min-h-screen max-w-7xl flex-col gap-6 px-4 pt-6 sm:px-6 lg:flex-row lg:gap-8 lg:px-8 lg:pt-10">
+      <div className={embedded ? "min-w-0" : "mx-auto flex min-h-screen max-w-7xl flex-col gap-6 px-4 pt-6 sm:px-6 lg:flex-row lg:gap-8 lg:px-8 lg:pt-10"}>
 
-        <div
+        {!embedded && <div
           className="ui-card flex w-full flex-col items-center self-start p-6 lg:sticky lg:top-24 lg:w-[280px] lg:min-w-[280px] lg:p-8"
         >
           {formData?.avatarUrl || profileImage ? (
@@ -1553,7 +1543,7 @@ const MentorProfile = () => {
               className="w-24 h-24 rounded-full object-cover mb-4"
             />
           ) : (
-            <FaUserCircle className="w-24 h-24 text-gray-300 mb-4" />
+            <div className="mb-4 grid h-24 w-24 place-items-center rounded-full bg-gray-200 text-2xl font-bold text-gray-600">{(formData?.firstName?.[0] || "M").toUpperCase()}</div>
           )}
           <h2 className="font-semibold text-xl text-gray-900 mb-3">
             {formData?.firstName || formData?.lastName
@@ -1650,7 +1640,7 @@ const MentorProfile = () => {
               </li>
             </ul>
           </nav>
-        </div>
+        </div>}
 
         <div className="flex-1 min-w-0">
           {activeTab === "profile" && (
@@ -1905,7 +1895,7 @@ const MentorProfile = () => {
                 <div className="space-y-4">
                   <div>
                     <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-1">
-                      <FaGoogle className="w-5 h-5 text-blue-500" />
+                      <FaGoogle className="h-5 w-5 text-current" />
                       Website
                     </label>
                     <input
@@ -1919,7 +1909,7 @@ const MentorProfile = () => {
                   </div>
                   <div>
                     <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-1">
-                      <FaXTwitter className="w-5 h-5 text-black" />
+                      <FaXTwitter className="h-5 w-5 text-current" />
                       Twitter/X
                     </label>
                     <input
@@ -1933,7 +1923,7 @@ const MentorProfile = () => {
                   </div>
                   <div>
                     <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-1">
-                      <FaLinkedin className="w-5 h-5 text-blue-700" />
+                      <FaLinkedin className="h-5 w-5 text-current" />
                       LinkedIn
                     </label>
                     <input
@@ -1947,7 +1937,7 @@ const MentorProfile = () => {
                   </div>
                   <div>
                     <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-1">
-                      <AiFillYoutube className="w-5 h-5" />
+                      <AiFillYoutube className="h-5 w-5 text-current" />
                       Youtube
                     </label>
                     <input
@@ -1961,7 +1951,7 @@ const MentorProfile = () => {
                   </div>
                   <div>
                     <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-1">
-                      <FaFacebook className="w-5 h-5 text-blue-600" />
+                      <FaFacebook className="h-5 w-5 text-current" />
                       Facebook
                     </label>
                     <input
@@ -2537,7 +2527,7 @@ const MentorProfile = () => {
                                   />
                                 ) : (
                                   <div className="w-16 h-16 rounded-full bg-gray-300 flex items-center justify-center">
-                                    <FaUserCircle className="w-12 h-12 text-gray-500" />
+                                    <span className="text-lg font-bold text-gray-600">{(mentee.firstName?.[0] || "M").toUpperCase()}</span>
                                   </div>
                                 )}
                               </div>
@@ -2563,12 +2553,12 @@ const MentorProfile = () => {
                               <div className="flex flex-wrap gap-2">
                                 {hasCourse && (
                                   <span className="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
-                                    📚 Purchased Courses
+                                    Purchased Courses
                                   </span>
                                 )}
                                 {hasBooking && (
                                   <span className="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
-                                    📞 Booked Consultations
+                                    Booked Consultations
                                   </span>
                                 )}
                                 {!hasCourse && !hasBooking && (
@@ -2707,19 +2697,6 @@ const MentorProfile = () => {
                       onClick={() => setScheduleMode("builder")}
                       className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition font-medium text-sm flex items-center gap-2"
                     >
-                      <svg
-                        className="w-4 h-4"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M12 4v16m8-8H4"
-                        />
-                      </svg>
                       Create Schedule
                     </button>
                   </div>
@@ -2735,9 +2712,8 @@ const MentorProfile = () => {
                     <div className="space-y-4">
 
                       <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-6 shadow-lg">
-                        <h4 className="text-xl font-bold text-blue-900 mb-6 flex items-center gap-2">
-                          <span className="text-blue-600">📊</span> Availability
-                          Overview (Next 7 Days)
+                        <h4 className="mb-6 text-xl font-bold text-blue-900">
+                          Availability Overview (Next 7 Days)
                         </h4>
                         <div className="grid grid-cols-3 gap-6 mb-4">
                           <div className="text-center bg-white rounded-lg p-4 shadow-sm border">
@@ -2783,7 +2759,7 @@ const MentorProfile = () => {
                               <div>
                                 <h5 className="text-lg font-bold text-gray-900 mb-2 flex items-center gap-2">
                                   <span className="text-blue-600 text-sm">
-                                    📅
+                                    Date
                                   </span>
                                   {new Date(day.date).toLocaleDateString(
                                     "en-US",
@@ -2812,7 +2788,7 @@ const MentorProfile = () => {
                                 {day.hasAvailability ? (
                                   <>
                                     <span className="bg-green-100 text-green-800 text-sm px-3 py-1 rounded-full font-medium shadow-sm">
-                                      ✅ Available
+                                      Available
                                     </span>
                                     <div className="text-right">
                                       <div className="text-xs text-gray-500">
@@ -2830,7 +2806,7 @@ const MentorProfile = () => {
                                   </>
                                 ) : (
                                   <span className="bg-gray-100 text-gray-600 text-sm px-3 py-1 rounded-full font-medium">
-                                    ❌ No Slots
+                                    No Slots
                                   </span>
                                 )}
                               </div>
@@ -2938,7 +2914,7 @@ const MentorProfile = () => {
                         <div className="bg-gradient-to-r from-blue-50 to-indigo-50 -m-8 mb-6 p-8 border-b border-gray-100">
                           <div>
                             <h3 className="text-2xl font-bold text-gray-900 mb-4 flex items-center gap-2">
-                              <span className="text-blue-600">📅</span> My
+                              My
                               Schedules
                             </h3>
                             <div className="flex items-center gap-8 text-sm">
@@ -3072,9 +3048,11 @@ const MentorProfile = () => {
 
                                         <div className="mb-4 mt-8">
                                           <h5 className="text-lg font-bold text-gray-900 mb-2 flex items-center gap-1">
-                                            <span className="text-blue-600 text-sm">
-                                              📆
-                                            </span>
+                                            <IconCalendar
+                                              aria-hidden="true"
+                                              className="h-4 w-4 text-blue-600"
+                                              stroke={1.75}
+                                            />
                                             {new Date(
                                               schedule.date
                                             ).toLocaleDateString("en-US", {
@@ -3132,9 +3110,11 @@ const MentorProfile = () => {
                                               className="flex items-center gap-1 px-3 py-2 text-sm font-medium border border-blue-300 text-blue-600 rounded-lg hover:bg-blue-50 transition-all duration-200"
                                               title="Edit this schedule to add/modify time slots"
                                             >
-                                              <span className="text-xs">
-                                                ✏️
-                                              </span>{" "}
+                                              <IconPencil
+                                                aria-hidden="true"
+                                                className="h-4 w-4"
+                                                stroke={1.75}
+                                              />
                                               Edit
                                             </button>
                                             {canDeleteSchedule(schedule) && (
@@ -3147,9 +3127,11 @@ const MentorProfile = () => {
                                                 className="flex items-center gap-1 px-3 py-2 text-sm font-medium border border-red-300 text-red-600 rounded-lg hover:bg-red-50 transition-all duration-200"
                                                 title="Delete this schedule (only when no bookings)"
                                               >
-                                                <span className="text-xs">
-                                                  🗑️
-                                                </span>{" "}
+                                                <IconTrash
+                                                  aria-hidden="true"
+                                                  className="h-4 w-4"
+                                                  stroke={1.75}
+                                                />
                                                 Delete
                                               </button>
                                             )}
@@ -3161,9 +3143,11 @@ const MentorProfile = () => {
                                                   className="flex items-center gap-1 px-3 py-2 text-sm font-medium text-gray-400 border border-gray-200 rounded-lg cursor-not-allowed"
                                                   title="Cannot delete: This schedule has active bookings"
                                                 >
-                                                  <span className="text-xs">
-                                                    🔒
-                                                  </span>{" "}
+                                                  <IconLock
+                                                    aria-hidden="true"
+                                                    className="h-4 w-4"
+                                                    stroke={1.75}
+                                                  />
                                                   Has Bookings
                                                 </div>
                                               )}
@@ -3172,7 +3156,6 @@ const MentorProfile = () => {
 
                                         {!canEditSchedule(schedule) && (
                                           <div className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-500 bg-gray-50 rounded-lg mb-4">
-                                            <span className="text-xs">⏰</span>
                                             <span>
                                               Past schedule - Cannot be modified
                                             </span>
@@ -3229,7 +3212,7 @@ const MentorProfile = () => {
                                       <div className="relative border-2 border-dashed border-gray-200 rounded-xl p-6 bg-gray-50/30 min-h-[400px] flex items-center justify-center">
                                         <div className="text-gray-400 text-center">
                                           <div className="text-3xl mb-2">
-                                            📅
+                                            Date
                                           </div>
                                           <p className="text-sm">No schedule</p>
                                         </div>
@@ -3316,7 +3299,6 @@ const MentorProfile = () => {
                     ) : (
                       <div className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100">
                         <div className="text-center py-12">
-                          <div className="text-4xl mb-3 text-blue-600">📅</div>
                           <p className="text-gray-500 text-lg font-medium mb-2">
                             No schedules found
                           </p>
@@ -3483,9 +3465,8 @@ const MentorProfile = () => {
                   <div className="bg-gradient-to-r from-indigo-50 to-purple-50 -m-8 mb-6 p-8 border-b border-gray-100">
                     <div className="flex items-center justify-between">
                       <div>
-                        <h1 className="text-2xl font-bold text-gray-900 mb-2 flex items-center gap-2">
-                          <span className="text-indigo-600">📋</span> Booking
-                          Requests
+                        <h1 className="mb-2 text-2xl font-bold text-gray-900">
+                          Booking Requests
                         </h1>
                         <p className="text-gray-600">
                           Manage mentee booking requests for your available time
@@ -3585,24 +3566,7 @@ const MentorProfile = () => {
                           <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
                           Loading...
                         </>
-                      ) : (
-                        <>
-                          <svg
-                            className="w-4 h-4"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                            />
-                          </svg>
-                          Refresh
-                        </>
-                      )}
+                      ) : "Refresh"}
                     </button>
                   </div>
 
@@ -3619,9 +3583,6 @@ const MentorProfile = () => {
 
                       return filteredBookings.length === 0 ? (
                         <div className="text-center py-16">
-                          <div className="w-20 h-20 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                            <span className="text-3xl">📋</span>
-                          </div>
                           <h3 className="text-xl font-bold text-gray-900 mb-3">
                             {bookingFilter === "all"
                               ? "No booking requests yet"
@@ -3642,7 +3603,7 @@ const MentorProfile = () => {
                               className={`border-2 rounded-2xl p-6 transition-all duration-300 hover:shadow-xl ${
                                 booking.status === "pending"
                                   ? "border-orange-200 bg-gradient-to-br from-orange-50/50 to-yellow-50/30 hover:border-orange-300"
-                                  : booking.status === "accepted"
+                                  : booking.status === "active"
                                   ? "border-green-200 bg-gradient-to-br from-green-50/50 to-emerald-50/30 hover:border-green-300"
                                   : "border-red-200 bg-gradient-to-br from-red-50/50 to-pink-50/30 hover:border-red-300"
                               }`}
@@ -3659,12 +3620,12 @@ const MentorProfile = () => {
                                   }`}
                                 >
                                   {booking.status === "pending"
-                                    ? "⏳ PENDING"
+                                    ? "PENDING"
                                     : booking.status === "active"
-                                    ? "✅ ACCEPTED"
+                                    ? "ACCEPTED"
                                     : booking.status === "cancelled"
-                                    ? "❌ DECLINED"
-                                    : "❓ " + booking.status.toUpperCase()}
+                                    ? "DECLINED"
+                                    : booking.status.toUpperCase()}
                                 </span>
                                 <span className="text-xs text-gray-500">
                                   {new Date(
@@ -3712,13 +3673,8 @@ const MentorProfile = () => {
 
                                   <div className="grid grid-cols-2 gap-6 mb-4">
                                     <div className="bg-white rounded-lg p-4 border border-gray-100">
-                                      <div className="flex items-center gap-2 text-sm text-gray-600 mb-1">
-                                        <span className="text-blue-600">
-                                          📅
-                                        </span>
-                                        <span className="font-medium">
-                                          Date
-                                        </span>
+                                      <div className="mb-1 text-sm font-medium text-gray-600">
+                                        Date
                                       </div>
                                       <span className="font-semibold text-gray-900">
                                         {new Date(
@@ -3732,13 +3688,8 @@ const MentorProfile = () => {
                                       </span>
                                     </div>
                                     <div className="bg-white rounded-lg p-4 border border-gray-100">
-                                      <div className="flex items-center gap-2 text-sm text-gray-600 mb-1">
-                                        <span className="text-green-600">
-                                          ⏰
-                                        </span>
-                                        <span className="font-medium">
-                                          Time
-                                        </span>
+                                      <div className="mb-1 text-sm font-medium text-gray-600">
+                                        Time
                                       </div>
                                       <span className="font-semibold text-gray-900">
                                         {booking.time}
@@ -3750,7 +3701,7 @@ const MentorProfile = () => {
                                     <div className="bg-white rounded-lg p-4 border border-gray-100 mb-4">
                                       <div className="flex items-center gap-2 text-sm text-gray-600 mb-2">
                                         <span className="text-purple-600">
-                                          💬
+                                          Message
                                         </span>
                                         <span className="font-medium">
                                           Message from Mentee
@@ -4314,7 +4265,11 @@ const MentorProfile = () => {
             <div className="border-b border-gray-100 p-6 animate-in slide-in-from-top-4 duration-400 delay-100">
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center transform hover:scale-110 transition-all duration-300">
-                  <span className="text-red-600 text-xl animate-pulse">🗑️</span>
+                  <IconTrash
+                    aria-hidden="true"
+                    className="h-6 w-6 text-red-600"
+                    stroke={1.75}
+                  />
                 </div>
                 <div>
                   <h3 className="text-lg font-bold text-gray-900 transform transition-all duration-300">
@@ -4374,7 +4329,6 @@ const MentorProfile = () => {
             <div className="border-b border-gray-100 p-6 animate-in slide-in-from-top-4 duration-400 delay-100">
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center transform hover:scale-110 transition-all duration-300">
-                  <span className="text-red-600 text-xl animate-pulse">❌</span>
                 </div>
                 <div>
                   <h3 className="text-lg font-bold text-gray-900 transform transition-all duration-300">
@@ -4398,7 +4352,7 @@ const MentorProfile = () => {
                       {declineConfirmModal.bookingInfo?.menteeName}
                     </p>
                     <p className="text-sm text-gray-600">
-                      📅 {declineConfirmModal.bookingInfo?.date}
+                      {declineConfirmModal.bookingInfo?.date}
                     </p>
                     <p className="text-sm text-gray-600">
                       🕐 {declineConfirmModal.bookingInfo?.time}
@@ -4764,7 +4718,7 @@ const MentorProfile = () => {
                           return (
                             <div>
                               <p className="text-blue-600 mb-2">
-                                📚 Learn comprehensive{" "}
+                                Learn comprehensive{" "}
                                 {selectedReviewCourse.category} skills
                                 including:
                               </p>
@@ -5534,11 +5488,15 @@ function MentorAvailabilityBuilder({
                 ) && (
                   <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
                     <div className="flex items-center gap-2 text-red-700">
-                      <span className="text-lg">⚠️</span>
+                      <IconAlertTriangle
+                        aria-hidden="true"
+                        className="h-5 w-5 shrink-0"
+                        stroke={1.75}
+                      />
                       <div className="text-sm">
                         <p className="font-semibold">Protected Bookings</p>
                         <p>
-                          Red slots with 🔒 have active bookings and cannot be
+                          Red slots marked with a lock have active bookings and cannot be
                           removed. They will be preserved automatically.
                         </p>
                       </div>
@@ -5659,8 +5617,12 @@ function MentorAvailabilityBuilder({
                       >
                         {t}
                         {isBooked && (
-                          <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full flex items-center justify-center">
-                            <span className="text-white text-xs">🔒</span>
+                          <span className="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-600">
+                            <IconLock
+                              aria-hidden="true"
+                              className="h-2.5 w-2.5 text-white"
+                              stroke={2}
+                            />
                           </span>
                         )}
                       </button>
