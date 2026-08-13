@@ -1,9 +1,7 @@
 import React, { useEffect, useState } from "react";
-import { Card, Typography, Button, Spin } from "antd";
 import { useNavigate, useLocation } from "react-router-dom";
+import { IconCircleCheck, IconLoader2, IconMail } from "@tabler/icons-react";
 import publicClient from "../api/clients/public.client";
-
-const { Title, Paragraph } = Typography;
 
 const VerifyEmailPage = () => {
   const navigate = useNavigate();
@@ -12,8 +10,8 @@ const VerifyEmailPage = () => {
 
   const email = params.get("email");
   const verifyKey = params.get("verifyKey");
-  const [loading, setLoading] = useState<any>(!!(email && verifyKey));
-  const [isVerified, setIsVerified] = useState<any>(false);
+  const [loading, setLoading] = useState(!!(email && verifyKey));
+  const [isVerified, setIsVerified] = useState(false);
 
   useEffect(() => {
     const verifyEmail = async () => {
@@ -35,47 +33,50 @@ const VerifyEmailPage = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-200 via-orange-100 to-pink-100">
-        <Spin tip="Đang xác thực email..." size="large" />
-      </div>
+      <main className="flex min-h-[100dvh] items-center justify-center bg-[var(--ui-page)] p-4">
+        <div className="ui-card flex items-center gap-3 px-6 py-5 text-[var(--ui-text)]" role="status" aria-live="polite">
+          <IconLoader2 className="animate-spin text-[var(--ui-accent)]" aria-hidden="true" size={24} />
+          <span className="font-semibold">Đang xác thực email...</span>
+        </div>
+      </main>
     );
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-200 via-orange-100 to-pink-100 p-4">
-      <div className="w-full max-w-md">
-        <Card className="rounded-2xl shadow-2xl border-0 text-center py-10 px-6">
-          <p className="mb-6 text-sm font-bold uppercase tracking-[0.16em] text-gray-500">
+    <main className="flex min-h-[100dvh] items-center justify-center bg-[var(--ui-page)] p-4">
+      <section className="ui-card w-full max-w-md px-6 py-10 text-center sm:px-10" aria-live="polite">
+          <div className={`mx-auto mb-6 grid h-16 w-16 place-items-center rounded-full ${isVerified ? "bg-[var(--ui-success-soft)] text-[var(--ui-success)]" : "bg-[var(--ui-warning-soft)] text-[var(--ui-warning)]"}`}>
+            {isVerified ? <IconCircleCheck aria-hidden="true" size={34} stroke={1.8} /> : <IconMail aria-hidden="true" size={32} stroke={1.8} />}
+          </div>
+          <p className="mb-3 text-xs font-bold uppercase tracking-[0.16em] text-[var(--ui-text-subtle)]">
             {isVerified ? "Email verified" : "Check your inbox"}
           </p>
           {isVerified ? (
             <>
-              <Title level={3} className="text-green-500 mb-2">
+              <h1 className="mb-3 text-2xl font-bold tracking-[-0.03em] text-[var(--ui-text)]">
                 Xác thực Email thành công!
-              </Title>
-              <Paragraph className="text-gray-700">
+              </h1>
+              <p className="leading-7 text-[var(--ui-text-muted)]">
                 Email của bạn đã được xác thực.<br />
                 Bạn có thể đăng nhập ngay.
-              </Paragraph>
-              <Button
-                type="primary"
-                size="large"
-                block
-                className="rounded-lg bg-gradient-to-r from-green-400 to-green-500 border-0 mt-4 font-semibold"
+              </p>
+              <button
+                type="button"
+                className="mt-7 min-h-12 w-full rounded-xl bg-[var(--ui-accent-fill)] px-5 py-3 font-bold text-[var(--ui-accent-contrast)] transition-colors hover:bg-[var(--ui-accent-fill-hover)]"
                 onClick={() => navigate("/auth/signin")}
               >
                 Đăng nhập
-              </Button>
+              </button>
             </>
           ) : (
             <>
-              <Title level={3} className="text-orange-500 mb-2">
+              <h1 className="mb-3 text-2xl font-bold tracking-[-0.03em] text-[var(--ui-text)]">
                 Đã gửi email xác thực
-              </Title>
-              <Paragraph className="text-gray-700">
+              </h1>
+              <p className="break-words leading-7 text-[var(--ui-text-muted)]">
                 {email ? (
                   <>
-                    Chúng tôi đã gửi một email xác thực đến <b>{email}</b>.<br />
+                    Chúng tôi đã gửi một email xác thực đến <strong className="text-[var(--ui-text)]">{email}</strong>.<br />
                     Vui lòng kiểm tra hộp thư và làm theo hướng dẫn.
                   </>
                 ) : (
@@ -84,21 +85,18 @@ const VerifyEmailPage = () => {
                     Vui lòng kiểm tra hộp thư.
                   </>
                 )}
-              </Paragraph>
-              <Button
-                type="primary"
-                size="large"
-                block
-                className="rounded-lg bg-gradient-to-r from-orange-400 to-pink-400 border-0 mt-4 font-semibold"
+              </p>
+              <button
+                type="button"
+                className="mt-7 min-h-12 w-full rounded-xl bg-[var(--ui-accent-fill)] px-5 py-3 font-bold text-[var(--ui-accent-contrast)] transition-colors hover:bg-[var(--ui-accent-fill-hover)]"
                 onClick={() => navigate("/auth/signin")}
               >
                 Quay lại đăng nhập
-              </Button>
+              </button>
             </>
           )}
-        </Card>
-      </div>
-    </div>
+      </section>
+    </main>
   );
 };
 

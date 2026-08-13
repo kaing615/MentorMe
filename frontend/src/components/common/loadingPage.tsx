@@ -1,4 +1,5 @@
 import React from "react";
+import { createPortal } from "react-dom";
 import { ClipLoader } from "react-spinners";
 import BrandLogo from "./BrandLogo";
 
@@ -9,13 +10,13 @@ const LoadingPage = ({
 }) => {
   if (!loading) return null;
 
-  return (
+  const content = (
     <div
       role="status"
       aria-live="polite"
       aria-label={text}
       className={`${
-        fullscreen ? "fixed inset-0 z-50" : "relative"
+        fullscreen ? "!fixed inset-0 z-[100] h-[100dvh] w-screen" : "relative"
       } ui-brand-hero flex min-h-72 flex-col items-center justify-center px-6`}
     >
       <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
@@ -45,6 +46,8 @@ const LoadingPage = ({
       </div>
     </div>
   );
+
+  return fullscreen ? createPortal(content, document.body) : content;
 };
 
 export default LoadingPage;

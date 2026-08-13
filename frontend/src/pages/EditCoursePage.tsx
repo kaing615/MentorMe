@@ -224,9 +224,9 @@ const EditCoursePage = () => {
             pauseOnHover: true,
             draggable: true,
             style: {
-              backgroundColor: "#fee2e2",
-              color: "#dc2626",
-              border: "1px solid #fca5a5",
+              backgroundColor: "var(--ui-danger-soft)",
+              color: "var(--ui-danger)",
+              border: "1px solid var(--ui-danger)",
             },
           });
           return;
@@ -331,9 +331,9 @@ const EditCoursePage = () => {
           pauseOnHover: true,
           draggable: true,
           style: {
-            backgroundColor: "#fee2e2",
-            color: "#dc2626",
-            border: "1px solid #fca5a5",
+            backgroundColor: "var(--ui-danger-soft)",
+            color: "var(--ui-danger)",
+            border: "1px solid var(--ui-danger)",
           },
         });
       }
@@ -381,9 +381,9 @@ const EditCoursePage = () => {
           pauseOnHover: true,
           draggable: true,
           style: {
-            backgroundColor: "#fee2e2",
-            color: "#dc2626",
-            border: "1px solid #fca5a5",
+            backgroundColor: "var(--ui-danger-soft)",
+            color: "var(--ui-danger)",
+            border: "1px solid var(--ui-danger)",
           },
         });
         return;
@@ -402,9 +402,9 @@ const EditCoursePage = () => {
               pauseOnHover: true,
               draggable: true,
               style: {
-                backgroundColor: "#fee2e2",
-                color: "#dc2626",
-                border: "1px solid #fca5a5",
+                backgroundColor: "var(--ui-danger-soft)",
+                color: "var(--ui-danger)",
+                border: "1px solid var(--ui-danger)",
               },
             }
           );
@@ -469,9 +469,9 @@ const EditCoursePage = () => {
           pauseOnHover: true,
           draggable: true,
           style: {
-            backgroundColor: "#fee2e2",
-            color: "#dc2626",
-            border: "1px solid #fca5a5",
+            backgroundColor: "var(--ui-danger-soft)",
+            color: "var(--ui-danger)",
+            border: "1px solid var(--ui-danger)",
           },
         });
         return;
@@ -500,9 +500,9 @@ const EditCoursePage = () => {
         pauseOnHover: true,
         draggable: true,
         style: {
-          backgroundColor: "#fee2e2",
-          color: "#dc2626",
-          border: "1px solid #fca5a5",
+          backgroundColor: "var(--ui-danger-soft)",
+          color: "var(--ui-danger)",
+          border: "1px solid var(--ui-danger)",
         },
       });
     }

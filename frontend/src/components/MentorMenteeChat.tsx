@@ -397,7 +397,7 @@ export default function MentorMenteeChat({ userRole = "mentor" }) {
                 overflowX: "hidden",
                 /* Custom scrollbar như Messenger */
                 scrollbarWidth: "thin",
-                scrollbarColor: "#CBD5E0 #F7FAFC",
+                scrollbarColor: "var(--ui-scrollbar-thumb) var(--ui-scrollbar-track)",
               }}
             >
               {selectedMessages.length === 0 ? (

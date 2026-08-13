@@ -1,4 +1,5 @@
 import createPrivateClient from "../clients/private.client.js";
+import publicClient from "../clients/public.client.js";
 
 const privateClient = createPrivateClient();
 
@@ -7,14 +8,14 @@ export const getProfile = async () => {
 };
 
 export const getMentorById = async (mentorId) => {
-  return privateClient.get(`/profile/mentor/${mentorId}`);
+  return publicClient.get(`/profile/mentor/${mentorId}`);
 };
 
 export const getTopMentors = async (limit = 6) => {
-  return privateClient.get("/profile/top-mentors", { params: { limit } });
+  return publicClient.get("/profile/top-mentors", { params: { limit } });
 };
 export const searchMentors = async (params = {}) => {
-  return privateClient.get("/profile/mentors", { params });
+  return publicClient.get("/profile/mentors", { params });
 };
 export const updateMentorProfile = async (data) => {
 
@@ -125,7 +126,7 @@ export const changeAvatar = async (avatarFile) => {
 };
 
 export const getMentorCourses = async (mentorId) => {
-  return privateClient.get(`/course/mentor/${mentorId}`);
+  return publicClient.get(`/course/mentor/${mentorId}`);
 };
 
 const profileApi: any = {

@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import profileApi from "../api/modules/profile.api";
-import { hasUserRole } from "../utils/user-role";
 import { mapMentorListResponse } from "../utils/mentor-list";
 import {
   IconChevronDown,
@@ -13,34 +12,6 @@ import {
 
 const AllMentors = () => {
   const navigate = useNavigate();
-
-  useEffect(() => {
-    const token =
-      localStorage.getItem("actkn") || localStorage.getItem("token");
-    const userStr = localStorage.getItem("user");
-    let user = null;
-    if (!token) {
-      navigate("/auth/signin");
-      return;
-    }
-
-    try {
-      user = userStr ? JSON.parse(userStr) : null;
-    } catch (e) {
-      user = null;
-    }
-    if (!user || !user.role) {
-      navigate("/auth/signin");
-      return;
-    }
-
-    if (hasUserRole(user, "mentor") || hasUserRole(user, "mentee")) {
-      return;
-    }
-
-    navigate("/auth/signin");
-    return;
-  }, [navigate]);
 
   const [mentors, setMentors] = useState<any[]>([]);
   const [loading, setLoading] = useState<any>(true);

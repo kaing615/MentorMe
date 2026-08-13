@@ -2,12 +2,13 @@ import React, { useState } from "react";
 import ImageForLogin from "../assets/ImageForLogIn.jpg";
 import authApi from "../api/modules/auth.api";
 import { toast } from "react-toastify";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { setUser } from "../redux/features/user.slice";
 import { initializeAuth } from "../redux/features/auth.slice";
 import { useDispatch } from "react-redux";
 import { useEffect } from "react";
 import { getRoleHomePath } from "../routes/path";
+import { getPostLoginPath } from "../utils/auth-return";
 
 const Login = () => {
   const [formData, setFormData] = useState<any>({
@@ -18,6 +19,7 @@ const Login = () => {
   const [touched, setTouched] = useState<any>({});
   const [isLoading, setIsLoading] = useState<any>(false);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const dispatch = useDispatch();
 
   // Check if user is already logged in
@@ -32,7 +34,7 @@ const Login = () => {
           const userData = JSON.parse(user);
           
           if (token.split('.').length === 3) {
-            navigate(getRoleHomePath(userData.role), { replace: true });
+            navigate(getPostLoginPath(searchParams.get("returnTo"), getRoleHomePath(userData.role)), { replace: true });
 
             toast.info("You are already logged in!");
           } else {
@@ -51,7 +53,7 @@ const Login = () => {
     };
     
     checkAuthStatus();
-  }, [navigate]);
+  }, [navigate, searchParams]);
 
   // Validation functions
   const validateEmail = (email) => {
@@ -136,7 +138,7 @@ const Login = () => {
       }
 
       dispatch(initializeAuth());
-      navigate(getRoleHomePath(response.data?.user?.role));
+      navigate(getPostLoginPath(searchParams.get("returnTo"), getRoleHomePath(response.data?.user?.role)));
     } catch (error) {
       console.error("Login error:", error);
       console.error("Error response:", error.response);

@@ -28,3 +28,23 @@ test("legacy mentor profile route redirects to the dashboard", () => {
   const routes = readFileSync("src/routes/elements.tsx", "utf8");
   assert.match(routes, /path: MENTOR_PATH\.PROFILE,[\s\S]*Navigate to="\/mentor\/dashboard"/);
 });
+
+test("mentor overview stays readable in dark mode", () => {
+  const dashboard = readFileSync("src/pages/MentorDashboard.tsx", "utf8");
+  assert.match(
+    dashboard,
+    /activeSection === "overview"[\s\S]*text-\[var\(--ui-warning\)\]/,
+  );
+});
+
+test("global loading overlay is mounted only once", () => {
+  const app = readFileSync("src/App.tsx", "utf8");
+  const layout = readFileSync("src/components/layout/AllPagesLayout.tsx", "utf8");
+  const loadingPage = readFileSync("src/components/common/loadingPage.tsx", "utf8");
+
+  assert.match(app, /<LoadingPage/);
+  assert.doesNotMatch(layout, /<LoadingPage/);
+  assert.doesNotMatch(layout, /state\.loading/);
+  assert.match(loadingPage, /createPortal/);
+  assert.match(loadingPage, /!fixed inset-0 z-\[100\] h-\[100dvh\] w-screen/);
+});

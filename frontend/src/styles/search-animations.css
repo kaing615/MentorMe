@@ -112,7 +112,7 @@
 
 /* Loading Effects */
 .loading-skeleton {
-  background: linear-gradient(90deg, #f3f4f6 25%, #e5e7eb 50%, #f3f4f6 75%);
+  background: linear-gradient(90deg, var(--ui-surface-muted) 25%, var(--ui-border) 50%, var(--ui-surface-muted) 75%);
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
 }
@@ -123,24 +123,24 @@
 }
 
 .custom-scrollbar::-webkit-scrollbar-track {
-  background: #f1f5f9;
+  background: var(--ui-scrollbar-track);
   border-radius: 3px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
+  background: var(--ui-scrollbar-thumb);
   border-radius: 3px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+  background: var(--ui-scrollbar-thumb-hover);
 }
 
 /* Focus Effects */
 .focus-ring:focus {
   outline: none;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ui-accent) 14%, transparent);
+  border-color: var(--ui-accent);
 }
 
 /* Badge Effects */
