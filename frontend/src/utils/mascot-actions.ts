@@ -17,6 +17,17 @@ export type MascotAction = {
 const hasRole = (user: MascotUser, role: UserRole) =>
   user?.role === role || user?.roles?.includes(role) === true;
 
+export const shouldShowMascot = (
+  pathname: string,
+  user: MascotUser,
+  isLoggedIn: boolean,
+  mentorMode: boolean,
+) =>
+  pathname !== "/" &&
+  isLoggedIn &&
+  hasRole(user, "mentee") &&
+  !(mentorMode && hasRole(user, "mentor"));
+
 export const getMascotActions = (
   user: MascotUser,
   mentorMode: boolean,

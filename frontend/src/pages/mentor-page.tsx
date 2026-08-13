@@ -15,6 +15,7 @@ import { showLoading, hideLoading } from "../redux/features/loading.slice";
 import { IconHeart } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import favoriteApi from "../api/modules/favorite.api";
+import { getLoginPath } from "../utils/auth-return";
 import {
   FaFacebook,
   FaGithub,
@@ -63,40 +64,6 @@ const MentorPage = () => {
   const user = useSelector((state: any) => state.user);
   const { id } = useParams(); // Lấy ID mentor từ URL
   const location = useLocation(); // Lấy state từ navigation
-  // --- AUTH CHECK (mentor hoặc mentee đều được xem) ---
-  useEffect(() => {
-    const token =
-      localStorage.getItem("actkn") || localStorage.getItem("token");
-    const userStr =
-      localStorage.getItem("user") || localStorage.getItem("user");
-    let user = null;
-    if (!token) {
-      navigate("/auth/signin");
-      return;
-    }
-    // Check user object
-    try {
-      user = userStr ? JSON.parse(userStr) : null;
-    } catch (e) {
-      user = null;
-    }
-    if (!user || !user.role) {
-      navigate("/auth/signin");
-      return;
-    }
-    // Check role
-    if (user.role === "mentor") {
-      return;
-    }
-    if (hasUserRole(user, "mentee")) {
-      return;
-    }
-    // if (user.role === "admin") {
-    //   navigate("/admin/profile");
-    //   return;
-    // }
-  }, [navigate]);
-
   // State declarations
   const [mentor, setMentor] = useState<any>(null);
   const [courses, setCourses] = useState<any[]>([]);
@@ -187,7 +154,7 @@ const MentorPage = () => {
 
     if (!user) {
       toast.error("Please login to add courses to cart");
-      navigate("/auth/signin");
+      navigate(getLoginPath(location.pathname));
       return;
     }
 
@@ -228,7 +195,7 @@ const MentorPage = () => {
 
     if (!user) {
       toast.error("Please login to purchase courses");
-      navigate("/auth/signin");
+      navigate(getLoginPath(location.pathname));
       return;
     }
 
@@ -376,12 +343,8 @@ const MentorPage = () => {
 
         if (Array.isArray(coursesRes)) {
           setCourses(coursesRes);
-          // Fetch mentor reviews and calculate statistics - pass courses data
-          await fetchMentorReviews(id);
-        } else {
-          // Fetch mentor reviews without courses data
-          await fetchMentorReviews(id);
         }
+        if (viewer) await fetchMentorReviews(id);
       } catch (err) {
         setError("Không thể tải dữ liệu mentor hoặc khóa học");
 
@@ -635,6 +598,10 @@ const MentorPage = () => {
   };
 
   const openBookingModal = () => {
+    if (!viewer) {
+      navigate(getLoginPath(location.pathname));
+      return;
+    }
     setShowBookingModal(true);
     setBookingStep(1);
     setSelectedDate(null);
@@ -918,10 +885,9 @@ const MentorPage = () => {
                       <span className="text-sm text-[var(--ui-text-muted)]">/ session</span>
                     </div>
                   </div>
-                  {/* Only show Book Now button for mentees */}
-                  {isMenteeView && (
+                  {(isMenteeView || !viewer) && (
                     <>
-                      <button
+                      {isMenteeView && <button
                         type="button"
                         aria-pressed={isFavorite}
                         disabled={!mentorTargetId || favoriteMutation.isPending}
@@ -938,7 +904,7 @@ const MentorPage = () => {
                           fill={isFavorite ? "currentColor" : "none"}
                         />
                         {isFavorite ? "Saved mentor" : "Save mentor"}
-                      </button>
+                      </button>}
                       <button
                         className="min-h-11 w-full rounded bg-[var(--ui-accent-fill)] py-2 font-semibold text-white transition-colors hover:bg-[var(--ui-accent-fill-hover)]"
                         onClick={openBookingModal}
@@ -953,15 +919,15 @@ const MentorPage = () => {
           )}
 
           {/* More Courses Section - Figma style, horizontal carousel, closer match */}
-          <section className="w-full py-14 " style={{ background: "#f9fbfd" }}>
+          <section className="w-full bg-[var(--ui-surface)] py-14">
             <div className="max-w-7xl mx-auto w-full px-2 md:px-4">
               <div className="flex justify-between items-center mb-8 px-2">
-                <h3 className="text-[24px] font-bold text-[#222]">
+                <h3 className="text-[24px] font-bold text-[var(--ui-text)]">
                   More Courses by{" "}
                   {mentor?.profile?.firstName ||
                     mentor?.user?.firstName ||
                     "Mentor"}
-                  <span className="text-[#F8FAFC]">{mentor?.name}</span>
+                  <span className="text-[var(--ui-text-subtle)]">{mentor?.name}</span>
                 </h3>
                 <div className="flex gap-3">
                   <button
@@ -1138,7 +1104,7 @@ const MentorPage = () => {
                         </div>
 
                         {/* Add to Cart and Buy Now buttons for mentees */}
-                        {hasUserRole(user, "mentee") && (
+                        {(hasUserRole(user, "mentee") || !user) && (
                           <div className="flex flex-col gap-2 mt-3">
                             {isCourseAlreadyPurchased(
                               course._id || course.id
@@ -1555,7 +1521,7 @@ const MentorPage = () => {
 
       {/* Booking Modal */}
       {showBookingModal && (
-        <div className="fixed inset-0 backdrop-blur-sm bg-white/20 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--ui-overlay)] p-4 backdrop-blur-sm">
           <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
             <div className="grid grid-cols-1 lg:grid-cols-[1.2fr_1fr] h-full">
               {/* Left Side - Calendar/Time Selection */}

@@ -19,38 +19,13 @@ import {
 
 // Fallback images
 import oipImg from "../assets/OIP.webp";
+import { getLoginPath } from "../utils/auth-return";
 
 const SearchPage = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const dispatch = useDispatch();
   const user = useSelector((state: any) => state.user);
-
-  // --- AUTH CHECK (mentor và mentee đều được xem) ---
-  useEffect(() => {
-    const token =
-      localStorage.getItem("actkn") || localStorage.getItem("token");
-    const userStr = localStorage.getItem("user");
-    let user = null;
-    if (!token) {
-      navigate("/auth/signin");
-      return;
-    }
-    try {
-      user = userStr ? JSON.parse(userStr) : null;
-    } catch (e) {
-      user = null;
-    }
-    if (!user || !user.role) {
-      navigate("/auth/signin");
-      return;
-    }
-    if (hasUserRole(user, "mentor") || hasUserRole(user, "mentee")) {
-      return;
-    }
-    navigate("/auth/signin");
-    return;
-  }, [navigate]);
 
   // Tab state - khôi phục tab cuối cùng từ localStorage
   const [activeTab, setActiveTab] = useState<any>(() => {
@@ -229,7 +204,7 @@ const SearchPage = () => {
 
     if (!user) {
       toast.error("Please login to add courses to cart");
-      navigate("/auth/signin");
+      navigate(getLoginPath(window.location.pathname));
       return;
     }
 
@@ -268,7 +243,7 @@ const SearchPage = () => {
 
     if (!user) {
       toast.error("Please login to purchase courses");
-      navigate("/auth/signin");
+      navigate(getLoginPath(window.location.pathname));
       return;
     }
 
@@ -564,33 +539,8 @@ const SearchPage = () => {
         });
       }
 
-      // Enrich với real stats cho tất cả mentor
-      const enriched = await Promise.all(
-        filteredRaw.map(async (mentor) => {
-          try {
-            const stats = await computeMentorStats(mentor._id || mentor.id);
-            return {
-              ...mentor,
-              ...stats,
-            };
-          } catch (error) {
-            console.error(
-              `Error computing stats for mentor ${mentor._id}:`,
-              error
-            );
-            // Return mentor without stats if computation fails
-            return {
-              ...mentor,
-              averageRating: 0,
-              totalReviews: 0,
-              totalMentees: 0,
-            };
-          }
-        })
-      );
-
-      setMentors(enriched);
-      setFilteredMentors(enriched);
+      setMentors(filteredRaw);
+      setFilteredMentors(filteredRaw);
       setMentorsLoading(false);
     } catch (error) {
       console.error("Error fetching mentors:", error);
@@ -1449,7 +1399,7 @@ const SearchPage = () => {
                             )}
                           </div>
 
-                          {hasUserRole(user, "mentee") && (
+                          {(hasUserRole(user, "mentee") || !user) && (
                             <div className="flex flex-col gap-2 mt-3 mb-3 px-4">
                               {isCourseAlreadyPurchased(course.id) ? (
                                 <>
@@ -1505,16 +1455,16 @@ const SearchPage = () => {
                           }}
                         />
                         <div className="flex flex-col items-center flex-1 w-full">
-                          <div className="font-bold text-lg text-[#1A2233] mb-1 text-center">
+                          <div className="mb-1 text-center text-lg font-bold text-[var(--ui-text)]">
                             {mentor.fullName ||
                               `${mentor.firstName || ""} ${
                                 mentor.lastName || ""
                               }`.trim()}
                           </div>
-                          <div className="text-sm text-[#6B7280] mb-2 text-center">
+                          <div className="mb-2 text-center text-sm text-[var(--ui-text-muted)]">
                             {mentor.jobTitle || "Professional"}
                           </div>
-                          <div className="text-xs text-[#6B7280] mb-3 text-center">
+                          <div className="mb-3 text-center text-xs text-[var(--ui-text-muted)]">
                             {(() => {
                               let category = mentor.category || "General";
                               if (Array.isArray(category)) {

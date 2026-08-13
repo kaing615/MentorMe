@@ -203,7 +203,7 @@ const Header = () => {
 
   return (
     <>
-      <header className="sticky top-0 z-40 w-full px-2 pt-2 sm:px-4">
+      <header className="sticky top-0 z-[70] w-full bg-[var(--ui-page)] px-2 pt-2 sm:px-4">
         <div className="mx-auto max-w-screen-2xl rounded-2xl border-2 border-[var(--ui-border)] bg-[color-mix(in_srgb,var(--ui-surface)_90%,transparent)] px-3 shadow-[var(--ui-shadow-sm)] backdrop-blur-xl sm:px-5 lg:px-7">
           <div className="flex h-[4.25rem] flex-nowrap items-center gap-2 md:gap-4 lg:gap-6">
             <button
@@ -231,7 +231,7 @@ const Header = () => {
                     navigate("/home");
                   }
                 } else {
-                  navigateToAuth("/auth/signin");
+                  navigate("/home");
                 }
               }}
             >

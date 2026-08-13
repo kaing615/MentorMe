@@ -16,42 +16,12 @@ import {
   IconSearch,
 } from "@tabler/icons-react";
 import OipImg from "../assets/OIP.webp";
+import { getLoginPath } from "../utils/auth-return";
 
 const AllCoursePage = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const user = useSelector((state: any) => state.user);
-
-  // --- AUTH CHECK (mentor và mentee đều được xem) ---
-  useEffect(() => {
-    const token =
-      localStorage.getItem("actkn") || localStorage.getItem("token");
-    const userStr =
-      localStorage.getItem("user") || localStorage.getItem("user");
-    console.log("Token:", token);
-    let user = null;
-    if (!token) {
-      navigate("/auth/signin");
-      return;
-    }
-    // Check user object
-    try {
-      user = userStr ? JSON.parse(userStr) : null;
-    } catch (e) {
-      user = null;
-    }
-    if (!user || !user.role) {
-      navigate("/auth/signin");
-      return;
-    }
-    // Check role - chỉ mentor và mentee được phép vào
-    if (hasUserRole(user, "mentor") || hasUserRole(user, "mentee")) {
-      return;
-    }
-    // Nếu không phải mentor hoặc mentee, redirect về signin
-    navigate("/auth/signin");
-    return;
-  }, [navigate]);
 
   // State management
   const [courses, setCourses] = useState<any[]>([]);
@@ -127,7 +97,7 @@ const AllCoursePage = () => {
 
     if (!user) {
       toast.error("Please login to add courses to cart");
-      navigate("/auth/signin");
+      navigate(getLoginPath(window.location.pathname));
       return;
     }
 
@@ -168,7 +138,7 @@ const AllCoursePage = () => {
 
     if (!user) {
       toast.error("Please login to purchase courses");
-      navigate("/auth/signin");
+      navigate(getLoginPath(window.location.pathname));
       return;
     }
 
@@ -946,7 +916,7 @@ const AllCoursePage = () => {
                       </div>
 
                       {/* Add to Cart and Buy Now buttons for mentees */}
-                      {hasUserRole(user, "mentee") && (
+                      {(hasUserRole(user, "mentee") || !user) && (
                         <div className="flex flex-col gap-2 mt-3 mb-3 px-4">
                           {isCourseAlreadyPurchased(course.id) ? (
                             <>

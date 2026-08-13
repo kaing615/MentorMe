@@ -1,6 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { getMascotActions } from "../src/utils/mascot-actions.ts";
+import { getMascotActions, shouldShowMascot } from "../src/utils/mascot-actions.ts";
+
+test("Mimo only appears for a signed-in mentee outside the welcome page", () => {
+  assert.equal(shouldShowMascot("/home", null, false, false), false);
+  assert.equal(shouldShowMascot("/", { role: "mentee" }, true, false), false);
+  assert.equal(shouldShowMascot("/home", { role: "mentee" }, true, false), true);
+  assert.equal(shouldShowMascot("/mentor/dashboard", { role: "mentor" }, true, true), false);
+});
 
 test("Mimo exposes real quick actions for the active user mode", () => {
   assert.deepEqual(

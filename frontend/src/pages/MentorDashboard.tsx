@@ -141,7 +141,7 @@ const MentorDashboard = () => {
             }}
             className={`w-full rounded-xl px-3 py-3 text-left font-bold transition ${
               activeSection === "overview"
-                ? "border-2 border-[var(--ui-highlight)] bg-[var(--ui-highlight-soft)] text-[var(--ui-highlight-contrast)] shadow-[3px_3px_0_var(--ui-accent-soft)]"
+                ? "border-2 border-[var(--ui-highlight)] bg-[var(--ui-highlight-soft)] text-[var(--ui-warning)] shadow-[3px_3px_0_var(--ui-accent-soft)]"
                 : "text-[var(--ui-text-muted)] hover:bg-[var(--ui-surface-muted)]"
             }`}
           >

@@ -1698,7 +1698,7 @@ const OrderCompleteCourse = () => {
 
       {/* Rating Popup */}
       {showRatingPopup && (
-        <div className="fixed inset-0 bg-gradient-to-br from-blue-50/80 via-white/70 to-purple-50/80 backdrop-blur-sm flex items-center justify-center z-50">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--ui-overlay)] backdrop-blur-sm">
           <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4 shadow-2xl border">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-xl font-bold">Rate this Course</h3>

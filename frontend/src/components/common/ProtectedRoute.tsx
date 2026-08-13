@@ -36,10 +36,10 @@ const ProtectedRoute = ({ children, requiredRole }: { children: React.ReactNode;
   // Show loading while checking auth status
   if (status === "loading") {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Checking authentication...</p>
+      <div className="flex min-h-[100dvh] items-center justify-center bg-[var(--ui-page)] px-4">
+        <div className="text-center" role="status" aria-live="polite">
+          <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-2 border-[var(--ui-border)] border-t-[var(--ui-accent-fill)]" aria-hidden="true" />
+          <p className="font-medium text-[var(--ui-text-muted)]">Checking authentication...</p>
         </div>
       </div>
     );

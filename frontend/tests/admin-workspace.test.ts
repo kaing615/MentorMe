@@ -9,11 +9,15 @@ test("admin workspace keeps all operations inside one persisted dashboard", () =
   const sidebar = source("components/admin/AdminSidebar.tsx");
   assert.match(dashboard, /adminDashboardSection/);
   assert.match(dashboard, /<AdminSidebar/);
+  assert.match(dashboard, /admin-panel-heading/);
+  assert.match(dashboard, /aria-labelledby="admin-panel-heading"/);
   for (const label of ["Overview", "Mentor applications", "Users", "Sessions", "Courses", "Help requests", "Refunds", "Payouts", "Audit log", "Settings"]) {
     assert.match(sidebar, new RegExp(label));
   }
   assert.match(sidebar, /Site administrator/);
   assert.doesNotMatch(sidebar, /Icon[A-Z]/);
+  assert.match(sidebar, /aria-current/);
+  assert.match(sidebar, /admin-section-mobile/);
 });
 
 test("admin operation panels expose only approved mutations", () => {
@@ -26,6 +30,12 @@ test("admin operation panels expose only approved mutations", () => {
   assert.match(panels, /currentPassword/);
   assert.match(panels, /catch \(error: any\)/);
   assert.match(panels, /error\?\.response\?\.data\?\.data\?\.message/);
+  assert.match(panels, /role="status"/);
+  assert.match(panels, /Retry/);
+  assert.match(panels, /<table/);
+  assert.match(panels, /variant="danger"/);
+  assert.match(panels, /bg-\[var\(--ui-accent-fill\)\]/);
+  assert.match(panels, /"success"/);
 });
 
 test("administrator header uses the minimal navigation mode", () => {
@@ -35,9 +45,7 @@ test("administrator header uses the minimal navigation mode", () => {
   assert.match(header, /!isAdminMode && shouldShowMenteeHeaderActions/);
 });
 
-test("admin workspace hides the global mascot and footer", () => {
-  const app = source("App.tsx");
+test("admin workspace hides the global footer", () => {
   const layout = source("components/layout/AllPagesLayout.tsx");
-  assert.match(app, /!isAdminRoute && <MascotQuickHelp \/>/);
   assert.match(layout, /!isAdminRoute && <Footer \/>/);
 });

@@ -57,11 +57,7 @@ const useRouterElements = () => {
     },
     {
       path: PATH.MENTEE,
-      element: (
-        <ProtectedRoute requiredRole="mentee">
-          <AllPagesLayout />
-        </ProtectedRoute>
-      ),
+      element: <AllPagesLayout />,
       children: [
         {
           path: MENTEE_PATH.HOME,
@@ -69,27 +65,27 @@ const useRouterElements = () => {
         },
         {
           path: MENTEE_PATH.PROFILE,
-          element: <MenteeProfile />,
+          element: <ProtectedRoute requiredRole="mentee"><MenteeProfile /></ProtectedRoute>,
         },
         {
           path: MENTEE_PATH.SHOPPINGCART,
-          element: <ShoppingCart />,
+          element: <ProtectedRoute requiredRole="mentee"><ShoppingCart /></ProtectedRoute>,
         },
         {
           path: MENTEE_PATH.ORDERCOMPLETECOURSE,
-          element: <OrderCompleteCourse />,
+          element: <ProtectedRoute requiredRole="mentee"><OrderCompleteCourse /></ProtectedRoute>,
         },
         {
           path: `${MENTEE_PATH.ORDERCOMPLETECOURSE}/:id`,
-          element: <OrderCompleteCourse />,
+          element: <ProtectedRoute requiredRole="mentee"><OrderCompleteCourse /></ProtectedRoute>,
         },
         {
           path: MENTEE_PATH.CHECKOUT,
-          element: <Checkout />,
+          element: <ProtectedRoute requiredRole="mentee"><Checkout /></ProtectedRoute>,
         },
         {
           path: MENTEE_PATH.ORDERDETAIL,
-          element: <OrderComplete />,
+          element: <ProtectedRoute requiredRole="mentee"><OrderComplete /></ProtectedRoute>,
         },
         {
           path: `${MENTEE_PATH.COURSEDETAIL}/:id`,
@@ -109,18 +105,14 @@ const useRouterElements = () => {
         },
         {
           path: MENTEE_PATH.FAVORITES,
-          element: <FavoritesPage />,
+          element: <ProtectedRoute requiredRole="mentee"><FavoritesPage /></ProtectedRoute>,
         },
       ],
     },
 
     {
       path: PATH.PLATFORM,
-      element: (
-        <ProtectedRoute>
-          <AllPagesLayout />
-        </ProtectedRoute>
-      ),
+      element: <AllPagesLayout />,
       children: [
         {
           path: PLATFORM_PATH.HOMESCREEN,

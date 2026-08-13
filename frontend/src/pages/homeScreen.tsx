@@ -27,6 +27,7 @@ import reviewApi from "../api/modules/review.api.js";
 import { hasUserRole } from "../utils/user-role";
 import { formatVnd } from "../utils/currency";
 import { toast } from "react-toastify";
+import { getLoginPath } from "../utils/auth-return";
 
 const categories = [
   { icon: IconCode, name: "Programming", description: "Build practical technical skills" },
@@ -57,32 +58,6 @@ const HomeScreen = () => {
   const navigate = useNavigate();
   const user = useSelector((state: any) => state.user);
   const pageRef = useRef<any>(null);
-
-  useEffect(() => {
-    const token =
-      localStorage.getItem("actkn") || localStorage.getItem("token");
-    const userStr =
-      localStorage.getItem("user") || localStorage.getItem("user");
-    let user = null;
-    if (!token) {
-      navigate("/auth/signin");
-      return;
-    }
-    try {
-      user = userStr ? JSON.parse(userStr) : null;
-    } catch (e) {
-      user = null;
-    }
-    if (!user || !user.role) {
-      navigate("/auth/signin");
-      return;
-    }
-    if (hasUserRole(user, "mentor") || hasUserRole(user, "mentee")) {
-      return;
-    }
-    navigate("/auth/signin");
-    return;
-  }, [navigate]);
 
   const [topCourses, setTopCourses] = useState<any[]>([]);
   const [coursesLoading, setCoursesLoading] = useState<any>(false);
@@ -254,7 +229,7 @@ const HomeScreen = () => {
 
     if (!user) {
       toast.error("Please login to add courses to cart");
-      navigate("/auth/signin");
+      navigate(getLoginPath(window.location.pathname));
       return;
     }
 
@@ -293,7 +268,7 @@ const HomeScreen = () => {
 
     if (!user) {
       toast.error("Please login to purchase courses");
-      navigate("/auth/signin");
+      navigate(getLoginPath(window.location.pathname));
       return;
     }
 
@@ -408,21 +383,7 @@ const HomeScreen = () => {
         const raw = Array.isArray(response?.data?.mentors)
           ? response.data.mentors
           : [];
-        const enriched = await Promise.all(
-          raw.map(async (m) => {
-            const mentorId = m?._id || m?.id || m?.user?._id || m?.user?.id;
-            if (!mentorId)
-              return {
-                ...m,
-                averageRating: 0,
-                totalReviews: 0,
-                totalMentees: 0,
-              };
-            const stats = await computeMentorStats(mentorId);
-            return { ...m, ...stats };
-          })
-        );
-        setTopMentors(enriched);
+        setTopMentors(raw);
       } catch (error) {
         console.error("Error fetching top mentors:", error);
         setTopMentors([]);
@@ -863,7 +824,7 @@ const HomeScreen = () => {
                                 {formatVnd(Number(price) || 0)}
                               </p>
 
-                              {hasUserRole(user, "mentee") && (
+                              {(hasUserRole(user, "mentee") || !user) && (
                                 <div className="flex flex-col gap-2 mt-2 mb-4">
                                   {isCourseAlreadyPurchased(courseId) ? (
                                     <>

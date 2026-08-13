@@ -17,36 +17,13 @@ import { formatVnd } from "../utils/currency";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { IconHeart } from "@tabler/icons-react";
 import favoriteApi from "../api/modules/favorite.api";
+import { getLoginPath } from "../utils/auth-return";
 
 const CourseDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const queryClient = useQueryClient();
-
-  // Check authentication and role
-  useEffect(() => {
-    const token =
-      localStorage.getItem("token") || localStorage.getItem("actkn");
-    if (!token) {
-      toast.error("Please log in to view course details");
-      navigate(PATH.LOGIN);
-      return;
-    }
-    const userStr = localStorage.getItem("user");
-    let user = null;
-    try {
-      user = userStr ? JSON.parse(userStr) : null;
-    } catch (e) {
-      user = null;
-    }
-    // Chỉ cho phép mentee, mentor, admin
-    if (!user || !["mentee", "mentor"].includes(user.role)) {
-      toast.error("You do not have access to this page.");
-      navigate(PATH.LOGIN);
-      return;
-    }
-  }, [navigate]);
 
   // States
   const [courseData, setCourseData] = useState<any>(null);
@@ -249,6 +226,10 @@ const CourseDetail = () => {
     if (e) {
       e.stopPropagation();
     }
+    if (!currentUser) {
+      navigate(getLoginPath(location.pathname));
+      return;
+    }
 
     // Use provided course or default to main course data
     const targetCourse = course || courseData;
@@ -363,6 +344,10 @@ const CourseDetail = () => {
   const handleBuyNow = async (e, course = null) => {
     if (e) {
       e.stopPropagation();
+    }
+    if (!currentUser) {
+      navigate(getLoginPath(location.pathname));
+      return;
     }
 
     // Use provided course or default to main course data
@@ -949,9 +934,9 @@ const CourseDetail = () => {
             </div>
 
             {/* Add to Cart and Buy Now buttons for mentees */}
-            {isMenteeView && (
+            {(isMenteeView || !currentUser) && (
               <div className="flex flex-col gap-3 mb-4">
-                <button
+                {isMenteeView && <button
                   type="button"
                   aria-pressed={isFavorite}
                   disabled={!courseData?._id || favoriteMutation.isPending}
@@ -968,7 +953,7 @@ const CourseDetail = () => {
                     fill={isFavorite ? "currentColor" : "none"}
                   />
                   {isFavorite ? "Saved to favorites" : "Save course"}
-                </button>
+                </button>}
                 {isCourseAlreadyPurchased(courseData?._id) ? (
                   <div className="w-full flex flex-col gap-3">
                     <div className="w-full bg-green-100 text-green-700 py-3 px-4 rounded-md text-sm font-medium text-center">
@@ -1084,10 +1069,7 @@ const CourseDetail = () => {
       </div>
 
       {/* Testimonials Section */}
-      <section
-        className="w-full py-14 bg-white mt-16 pl-4"
-        style={{ background: "#f8f9fb" }}
-      >
+      <section className="mt-16 w-full bg-[var(--ui-surface)] py-14 pl-4">
         <div className="w-full flex flex-col gap-6">
           <div className="flex flex-col md:flex-row md:items-end md:justify-between mb-4 px-10">
             <div className="flex flex-col gap-1">
@@ -1430,7 +1412,7 @@ const CourseDetail = () => {
                       </div>
 
                       {/* Add to Cart and Buy Now buttons for mentees */}
-                      {hasUserRole(currentUser, "mentee") && (
+                      {(hasUserRole(currentUser, "mentee") || !currentUser) && (
                         <div className="flex flex-col gap-2 mt-auto w-full">
                           {isCourseAlreadyPurchased(
                             course._id || course.courseId
